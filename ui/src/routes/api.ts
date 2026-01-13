@@ -1340,8 +1340,8 @@ api.get('/partials/streams', (c) => {
           ${isRunning ? 'Running...' : 'Build'}
         </button>`;
 
-      // Merge button - show for completed streams or streams with worktrees
-      if (worktreeInitialized || isCompleted) {
+      // Merge button - only show when worktree exists (nothing to merge without worktree)
+      if (worktreeInitialized) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
         actionButtonsHtml += `
           <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="Merge to main branch">
