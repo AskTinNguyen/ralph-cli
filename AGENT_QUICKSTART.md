@@ -69,28 +69,24 @@ When stuck after 3+ attempts:
 
 ## Continuation Harness
 
-```
-┌─────────────────────────────────────────────┐
-│  READ (start of iteration):                 │
-│  1. guardrails.md → constraints             │
-│  2. plan.md → goal + criteria               │
-│  3. progress.md → what's done               │
-│  4. errors.log → recent failures            │
-│                                             │
-│  WORK:                                      │
-│  5. Do work toward next criterion           │
-│  6. Run test_command                        │
-│                                             │
-│  WRITE (end of iteration):                  │
-│  7. Update progress.md (summarize if > 5)   │
-│  8. Update errors.log (if new unique error) │
-│                                             │
-│  CHECK:                                     │
-│  9. All criteria met? → COMPLETE            │
-│  10. Stuck 3+ times? → NEEDS_HUMAN          │
-│  11. Otherwise → next iteration             │
-└─────────────────────────────────────────────┘
-```
+**READ (start of iteration):**
+1. guardrails.md → constraints
+2. plan.md → goal + criteria
+3. progress.md → what's done
+4. errors.log → recent failures
+
+**WORK:**
+5. Do work toward next criterion
+6. Run test_command
+
+**WRITE (end of iteration):**
+7. Update progress.md (summarize if > 5)
+8. Update errors.log (if new unique error)
+
+**CHECK:**
+9. All criteria met? → COMPLETE
+10. Stuck 3+ times? → NEEDS_HUMAN
+11. Otherwise → next iteration
 
 ## Update Skills
 

@@ -265,29 +265,28 @@ Output:
 
 ### Agent Loop (Context-Aware)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  START OF EVERY ITERATION:                              │
-│  1. Read guardrails.md    → Know constraints            │
-│  2. Read plan.md          → Know the goal               │
-│  3. Read progress.md      → Know what's done            │
-│  4. Read errors.log       → Know what failed (last 3)   │
-│                                                         │
-│  AFTER EVERY ITERATION:                                 │
-│  5. Run test_command      → Verify work                 │
-│  6. Update progress.md    → Summarize if > 5 iterations │
-│  7. Update errors.log     → Only if new unique error    │
-│                                                         │
-│  CONTEXT MANAGEMENT:                                    │
-│  - progress.md > 5 iterations? Summarize older ones     │
-│  - errors.log has duplicate? Don't append               │
-│  - errors.log > 3 entries? Remove oldest                │
-│                                                         │
-│  THEN:                                                  │
-│  8. Check completion      → All criteria met?           │
-│  9. Output signal         → COMPLETE or continue        │
-└─────────────────────────────────────────────────────────┘
-```
+**READ (start of iteration):**
+1. guardrails.md → Know constraints
+2. plan.md → Know the goal
+3. progress.md → Know what's done
+4. errors.log → Know what failed (last 3)
+
+**WORK:**
+5. Do work toward next criterion
+6. Run test_command → Verify work
+
+**WRITE (end of iteration):**
+7. Update progress.md → Summarize if > 5 iterations
+8. Update errors.log → Only if new unique error
+
+**CONTEXT MANAGEMENT:**
+- progress.md > 5 iterations? Summarize older ones
+- errors.log has duplicate? Don't append
+- errors.log > 3 entries? Remove oldest
+
+**CHECK:**
+9. All criteria met? → COMPLETE
+10. Otherwise → next iteration
 
 ## Philosophy
 
