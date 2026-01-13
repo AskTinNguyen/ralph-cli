@@ -49,6 +49,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
+  ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Stream commands:"))}
@@ -612,6 +613,160 @@ async function main() {
       success(`Report saved to ${pc.cyan(outputPath)}`);
     }
 
+    process.exit(0);
+  }
+
+  if (cmd === "improve") {
+    const improveModule = require("../lib/improve");
+    const runsDir = path.join(cwd, ".ralph", "runs");
+    const errorsLog = path.join(cwd, ".ralph", "errors.log");
+    const candidatesDir = path.join(cwd, ".ralph", "candidates");
+    const pendingPath = path.join(candidatesDir, "guardrails-pending.md");
+    const guardrailsPath = path.join(cwd, ".ralph", "guardrails.md");
+
+    const generateFlag = args.includes("--generate");
+    const applyFlag = args.includes("--apply");
+
+    // If --generate flag, regenerate candidates
+    if (generateFlag) {
+      info("Analyzing runs for failure patterns...");
+
+      if (!exists(runsDir)) {
+        warn("No runs directory found. Run some iterations first.");
+        process.exit(0);
+      }
+
+      const candidates = improveModule.analyzeAndGenerate(runsDir, errorsLog, {
+        minOccurrences: 1,
+      });
+
+      if (candidates.length === 0) {
+        success("No significant failure patterns detected.");
+        process.exit(0);
+      }
+
+      improveModule.saveCandidates(candidates, pendingPath);
+      success(`Generated ${pc.bold(candidates.length)} guardrail candidates.`);
+      info(`Candidates saved to ${pc.cyan(pendingPath)}`);
+      console.log("");
+      console.log("Run " + pc.cyan("ralph improve") + " to review and apply them.");
+      process.exit(0);
+    }
+
+    // Check for existing candidates
+    let candidates = improveModule.loadCandidates(pendingPath);
+
+    if (candidates.length === 0 && !applyFlag) {
+      // Auto-generate candidates if none exist
+      info("No pending candidates. Analyzing runs for failure patterns...");
+
+      if (!exists(runsDir)) {
+        warn("No runs directory found. Run some iterations first.");
+        process.exit(0);
+      }
+
+      candidates = improveModule.analyzeAndGenerate(runsDir, errorsLog, {
+        minOccurrences: 1,
+      });
+
+      if (candidates.length === 0) {
+        success("No significant failure patterns detected.");
+        process.exit(0);
+      }
+
+      improveModule.saveCandidates(candidates, pendingPath);
+      info(`Generated ${pc.bold(candidates.length)} guardrail candidates.`);
+    }
+
+    if (candidates.length === 0) {
+      success("No pending guardrail candidates to review.");
+      process.exit(0);
+    }
+
+    // Interactive review
+    const { intro, outro, select, confirm, isCancel } = await import("@clack/prompts");
+    intro("Ralph Guardrail Review");
+
+    console.log("");
+    console.log(pc.bold(`Found ${candidates.length} guardrail candidate(s) to review.`));
+    console.log("");
+
+    const accepted = [];
+    const rejected = [];
+
+    for (const candidate of candidates) {
+      console.log(pc.dim("─".repeat(60)));
+      console.log(pc.bold(pc.cyan(`Candidate: ${candidate.title}`)));
+      console.log("");
+      console.log(`  ${pc.yellow("Trigger:")}     ${candidate.trigger}`);
+      console.log(`  ${pc.yellow("Instruction:")} ${candidate.instruction}`);
+      console.log(`  ${pc.yellow("Context:")}     ${candidate.context}`);
+      console.log("");
+      console.log(pc.dim(`  Occurrences: ${candidate.occurrences}`));
+      console.log(pc.dim(`  Affected runs: ${candidate.affectedRuns.slice(0, 3).join(", ")}${candidate.affectedRuns.length > 3 ? "..." : ""}`));
+      console.log("");
+
+      const action = await select({
+        message: "Apply this guardrail?",
+        options: [
+          { value: "accept", label: "Yes, add to guardrails.md" },
+          { value: "skip", label: "Skip for now" },
+          { value: "reject", label: "Reject (remove from candidates)" },
+        ],
+      });
+
+      if (isCancel(action)) {
+        outro("Cancelled. Progress saved.");
+        // Save remaining candidates
+        const remaining = candidates.filter(
+          (c) => !accepted.find((a) => a.id === c.id) && !rejected.find((r) => r.id === c.id)
+        );
+        improveModule.saveCandidates(remaining, pendingPath);
+        process.exit(0);
+      }
+
+      if (action === "accept") {
+        accepted.push(candidate);
+        success(`  ✓ Accepted: ${candidate.title}`);
+      } else if (action === "reject") {
+        rejected.push(candidate);
+        dim(`  ✗ Rejected: ${candidate.title}`);
+      } else {
+        dim(`  ○ Skipped: ${candidate.title}`);
+      }
+    }
+
+    // Apply accepted guardrails
+    if (accepted.length > 0) {
+      console.log("");
+      info(`Applying ${accepted.length} guardrail(s) to ${pc.cyan(guardrailsPath)}...`);
+
+      // Ensure guardrails file exists
+      if (!exists(guardrailsPath)) {
+        fs.mkdirSync(path.dirname(guardrailsPath), { recursive: true });
+        fs.writeFileSync(guardrailsPath, `# Guardrails (Signs)\n\n> Lessons learned from failures. Read before acting.\n\n## Learned Signs\n\n`);
+      }
+
+      const acceptedAt = new Date().toISOString();
+      let guardrailsContent = fs.readFileSync(guardrailsPath, "utf-8");
+
+      for (const candidate of accepted) {
+        const entry = improveModule.formatGuardrailEntry(candidate, acceptedAt);
+        guardrailsContent += "\n" + entry;
+      }
+
+      fs.writeFileSync(guardrailsPath, guardrailsContent);
+      success(`Added ${accepted.length} guardrail(s) to ${pc.cyan("guardrails.md")}`);
+    }
+
+    // Update pending candidates (remove accepted and rejected)
+    const remaining = candidates.filter(
+      (c) => !accepted.find((a) => a.id === c.id) && !rejected.find((r) => r.id === c.id)
+    );
+    improveModule.saveCandidates(remaining, pendingPath);
+
+    console.log("");
+    outro(`Done. ${accepted.length} applied, ${rejected.length} rejected, ${remaining.length} pending.`);
     process.exit(0);
   }
 

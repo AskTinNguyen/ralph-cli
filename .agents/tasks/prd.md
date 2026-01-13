@@ -1,261 +1,145 @@
-# PRD: Markdown to PDF CLI Tool
+# Product Requirements Document: Ralph Self-Improvement System
 
-## Introduction
+## Overview
 
-A command-line tool for converting Markdown files to PDF, designed primarily for generating developer documentation. The tool supports batch processing of multiple files or entire directories, with the ability to merge documents into a single PDF. It provides professional output with customizable styling via CSS, page layout controls including headers, footers, and table of contents, and comprehensive Markdown support including GFM extensions, syntax highlighting, and math/diagram rendering.
+Build a self-evaluation and cross-loop learning system that allows Ralph loops to analyze their own performance, automatically improve from failures, and search/retrieve knowledge from other Ralph loops across projects.
 
-## Goals
-
-- Convert Markdown files to high-quality PDF documents suitable for developer documentation
-- Support batch processing: multiple files merged into one PDF, or directory-wide conversion
-- Provide customizable styling through CSS
-- Generate professional page layouts with headers, footers, and auto-generated table of contents
-- Support extended Markdown syntax including GFM, syntax-highlighted code blocks, LaTeX math, and diagrams (Mermaid/PlantUML)
+**Why this matters:** Currently, Ralph loops learn within a single project through guardrails and progress logs. This system enables:
+1. **Quantitative self-assessment** - Measure what's working and what's not
+2. **Automated improvement** - Generate better guardrails and prompts from patterns
+3. **Cross-project learning** - Share knowledge across all Ralph-powered projects
 
 ## User Stories
 
-### [x] US-001: Single File Conversion
-**Description:** As a developer, I want to convert a single Markdown file to PDF so that I can share documentation in a portable format.
+### [x] US-001: Run Evaluation and Scoring
+**As a** developer using Ralph
+**I want** automated evaluation of each run's quality
+**So that** I can identify patterns in successful vs failed iterations
 
-**Acceptance Criteria:**
-- [x] CLI command: `md2pdf input.md` produces `input.pdf` in same directory
-- [x] CLI command: `md2pdf input.md -o output.pdf` produces PDF at specified path
-- [x] Example: `md2pdf README.md` -> `README.pdf` created
-- [x] Negative case: non-existent file -> clear error message with exit code 1
-- [x] Negative case: non-markdown file -> warning message, attempt conversion anyway
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [x] Create `ralph eval` command that analyzes completed runs
+- [x] Score runs on: success rate, commit quality, verification pass rate, time efficiency
+- [x] Generate evaluation report in `.ralph/evaluations/eval-{run-id}.md`
+- [x] Display summary metrics: avg duration, success rate, common failure patterns
+- [x] Support evaluating single run (`ralph eval {run-id}`) or all runs (`ralph eval --all`)
 
-### [x] US-002: Multiple File Merge
-**Description:** As a developer, I want to merge multiple Markdown files into a single PDF so that I can create cohesive documentation from modular source files.
+### [ ] US-002: Automated Guardrail Generation
+**As a** Ralph loop
+**I want** automatic extraction of learnings from failures
+**So that** guardrails are generated without manual intervention
 
-**Acceptance Criteria:**
-- [x] CLI command: `md2pdf file1.md file2.md file3.md -o combined.pdf`
-- [x] Files merged in order specified on command line
-- [x] Page break inserted between each source file
-- [x] Example: `md2pdf intro.md api.md examples.md -o docs.pdf` -> single PDF with 3 sections
-- [x] Negative case: mix of valid and invalid files -> error listing invalid files, no partial output
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Analyze error patterns in run logs to identify repeating failures
+- [ ] Auto-generate guardrail candidates with trigger, instruction, context
+- [ ] Add `ralph improve` command to review and apply guardrail candidates
+- [ ] Store candidates in `.ralph/candidates/guardrails-pending.md`
+- [ ] Track which failures led to which guardrails (provenance)
 
-### [x] US-003: Directory Batch Processing
-**Description:** As a developer, I want to convert all Markdown files in a directory to PDFs so that I can process documentation in bulk.
+### [ ] US-003: Cross-Loop Knowledge Registry
+**As a** developer with multiple Ralph-powered projects
+**I want** a central registry of all Ralph loop knowledge
+**So that** learnings can be shared across projects
 
-**Acceptance Criteria:**
-- [x] CLI command: `md2pdf ./docs/` converts all `.md` files in directory
-- [x] Each file produces a corresponding PDF in same directory (or specified output directory)
-- [x] Option `--recursive` or `-r` to include subdirectories
-- [x] Option `--output-dir` or `-d` to specify output directory
-- [x] Example: `md2pdf ./docs/ -d ./pdfs/` -> all PDFs in `./pdfs/`
-- [x] Negative case: empty directory -> warning message, exit code 0
-- [x] Negative case: no read permission -> error with specific file paths
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Create `~/.ralph/registry/` for cross-project knowledge
+- [ ] Implement `ralph registry add` to register current project
+- [ ] Store project metadata: path, name, last updated, stats
+- [ ] Index guardrails, progress entries, and evaluations
+- [ ] Support tagging projects for categorization (e.g., "typescript", "cli", "api")
 
-### [x] US-004: Directory Merge Mode
-**Description:** As a developer, I want to merge all Markdown files in a directory into a single PDF so that I can create a unified document from a documentation folder.
+### [ ] US-004: Cross-Loop Search and Retrieval
+**As a** developer starting a new project
+**I want** to search learnings from all my Ralph projects
+**So that** I can apply relevant knowledge immediately
 
-**Acceptance Criteria:**
-- [x] CLI command: `md2pdf ./docs/ --merge -o documentation.pdf`
-- [x] Files sorted alphabetically by default, or by numeric prefix (e.g., `01-intro.md`, `02-setup.md`)
-- [x] Option `--sort` with values: `alpha`, `numeric`, `natural`
-- [x] Example: `md2pdf ./docs/ --merge --sort natural -o book.pdf`
-- [x] Negative case: directory with no .md files -> error message
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Add `ralph search <query>` command for full-text search
+- [ ] Search across: guardrails, progress logs, evaluations, run summaries
+- [ ] Return ranked results with source project and relevance score
+- [ ] Support filters: `--project`, `--type`, `--tags`, `--since`
+- [ ] Display results with context snippets and links to full entries
 
-### [x] US-005: Custom CSS Styling
-**Description:** As a developer, I want to apply custom CSS to my PDF output so that I can match my organization's documentation style.
+### [ ] US-005: Automatic Knowledge Import
+**As a** new Ralph project
+**I want** to automatically import relevant guardrails from similar projects
+**So that** I start with accumulated wisdom
 
-**Acceptance Criteria:**
-- [x] CLI option: `--css style.css` to apply custom stylesheet
-- [x] Multiple CSS files supported: `--css base.css --css theme.css`
-- [x] Built-in default stylesheet applied when no CSS specified
-- [x] CSS supports print-specific properties (@page, page-break-*, etc.)
-- [x] Example: `md2pdf doc.md --css corporate.css` -> PDF with custom styling
-- [x] Negative case: invalid CSS file path -> error with path shown
-- [x] Negative case: malformed CSS -> warning, continue with valid rules
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Add `ralph init --import-from <project>` flag
+- [ ] Suggest relevant projects based on detected tech stack
+- [ ] Show guardrail preview before import with accept/reject UI
+- [ ] Track imported guardrails separately (mark as "imported from X")
+- [ ] Support `ralph import guardrails` as standalone command
 
-### [x] US-006: Page Layout - Headers and Footers
-**Description:** As a developer, I want to add headers and footers to my PDF pages so that documents include page numbers, titles, and dates.
+### [ ] US-006: Performance Metrics Dashboard
+**As a** developer
+**I want** aggregate metrics across all runs and projects
+**So that** I can track Ralph's effectiveness over time
 
-**Acceptance Criteria:**
-- [x] CLI options: `--header "Document Title"` and `--footer "Page {page} of {pages}"`
-- [x] Placeholder variables: `{page}`, `{pages}`, `{date}`, `{title}`, `{filename}`
-- [x] Option `--header-template` and `--footer-template` for HTML templates
-- [x] First page can optionally exclude header/footer with `--no-first-page-header`
-- [x] Example: `md2pdf doc.md --footer "Page {page}"` -> page numbers in footer
-- [x] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Add `ralph stats` command for current project metrics
+- [ ] Add `ralph stats --global` for cross-project metrics
+- [ ] Track: total runs, success rate trend, avg duration trend, guardrails created
+- [ ] Show improvement over time (e.g., "success rate improved 15% after guardrail X")
+- [ ] Output in terminal table format and optional JSON for tooling
 
-### [ ] US-007: Table of Contents Generation
-**Description:** As a developer, I want an auto-generated table of contents so that readers can navigate long documents.
+### [ ] US-007: Prompt Template Optimization
+**As a** Ralph loop
+**I want** prompt templates improved based on successful patterns
+**So that** future iterations are more effective
 
-**Acceptance Criteria:**
-- [ ] CLI option: `--toc` to generate table of contents
-- [ ] TOC generated from Markdown headings (h1-h6)
-- [ ] Option `--toc-depth N` to limit heading depth (default: 3)
-- [ ] Option `--toc-title "Contents"` to customize TOC heading
-- [ ] TOC includes clickable links to sections (PDF bookmarks)
-- [ ] TOC placed at beginning of document, after title page if present
-- [ ] Example: `md2pdf doc.md --toc --toc-depth 2` -> TOC with h1 and h2 only
-- [ ] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Analyze correlation between prompt variations and success rates
+- [ ] Track which prompt sections are consistently followed/ignored
+- [ ] Generate prompt improvement suggestions in `.ralph/candidates/prompt-suggestions.md`
+- [ ] Add `ralph optimize prompts` to apply suggestions
+- [ ] Version prompt templates and track effectiveness per version
 
-### [ ] US-008: Standard Markdown Rendering
-**Description:** As a developer, I want standard Markdown syntax rendered correctly so that basic documentation looks professional.
+### [ ] US-008: Failure Pattern Detection
+**As a** Ralph loop
+**I want** automatic detection of recurring failure patterns
+**So that** systemic issues are identified and addressed
 
-**Acceptance Criteria:**
-- [ ] Headings (h1-h6) with appropriate sizing hierarchy
-- [ ] Paragraphs with proper spacing
-- [ ] Bold, italic, strikethrough formatting
-- [ ] Ordered and unordered lists, including nested lists
-- [ ] Links rendered as clickable URLs in PDF
-- [ ] Images embedded in PDF (local and remote URLs)
-- [ ] Blockquotes with visual styling
-- [ ] Horizontal rules
-- [ ] Inline code with monospace font
-- [ ] Typecheck/lint passes
-
-### [ ] US-009: GitHub Flavored Markdown (GFM) Support
-**Description:** As a developer, I want GFM extensions supported so that my GitHub README files render correctly.
-
-**Acceptance Criteria:**
-- [ ] Tables with proper cell alignment
-- [ ] Task lists (checkboxes) rendered visually
-- [ ] Autolinks for URLs and emails
-- [ ] Strikethrough with `~~text~~`
-- [ ] Example: GFM table with alignment -> properly aligned PDF table
-- [ ] Typecheck/lint passes
-
-### [ ] US-010: Syntax Highlighted Code Blocks
-**Description:** As a developer, I want code blocks with syntax highlighting so that code examples are readable and professional.
-
-**Acceptance Criteria:**
-- [ ] Fenced code blocks with language identifier: ```javascript
-- [ ] Syntax highlighting for common languages (js, ts, python, go, rust, java, c, cpp, bash, json, yaml, html, css, sql, etc.)
-- [ ] Option `--highlight-theme` to choose color scheme (e.g., github, monokai, dracula)
-- [ ] Line numbers optional: `--line-numbers`
-- [ ] Preserve code block indentation and spacing
-- [ ] Example: ```python block -> highlighted Python code with chosen theme
-- [ ] Negative case: unknown language -> render as plain monospace, no error
-- [ ] Typecheck/lint passes
-
-### [ ] US-011: Math Rendering (LaTeX)
-**Description:** As a developer, I want LaTeX math expressions rendered so that technical documentation includes proper equations.
-
-**Acceptance Criteria:**
-- [ ] Inline math with `$...$` or `\(...\)`
-- [ ] Block math with `$$...$$` or `\[...\]`
-- [ ] Common LaTeX math syntax supported (fractions, summations, integrals, matrices, Greek letters)
-- [ ] Example: `$E = mc^2$` -> properly rendered equation
-- [ ] Negative case: invalid LaTeX -> render raw text with warning
-- [ ] Typecheck/lint passes
-
-### [ ] US-012: Diagram Rendering (Mermaid)
-**Description:** As a developer, I want Mermaid diagrams rendered so that I can include flowcharts and sequence diagrams in documentation.
-
-**Acceptance Criteria:**
-- [ ] Mermaid code blocks (```mermaid) rendered as images
-- [ ] Support for: flowchart, sequence, class, state, ER, gantt, pie charts
-- [ ] Diagrams scale appropriately for page width
-- [ ] Example: ```mermaid flowchart -> rendered flowchart image
-- [ ] Negative case: invalid Mermaid syntax -> error message in output, red box placeholder
-- [ ] Typecheck/lint passes
-
-### [ ] US-013: Page Size and Margins
-**Description:** As a developer, I want to control page size and margins so that output matches print requirements.
-
-**Acceptance Criteria:**
-- [ ] Option `--page-size` with values: letter, a4, legal, or custom WxH
-- [ ] Option `--margin` with value in inches or mm (e.g., `--margin 1in` or `--margin 25mm`)
-- [ ] Individual margin options: `--margin-top`, `--margin-bottom`, `--margin-left`, `--margin-right`
-- [ ] Option `--landscape` for landscape orientation
-- [ ] Default: A4, 1-inch margins, portrait
-- [ ] Example: `md2pdf doc.md --page-size letter --margin 0.75in`
-- [ ] Typecheck/lint passes
-
-### [ ] US-014: Configuration File Support
-**Description:** As a developer, I want to use a configuration file so that I don't have to repeat CLI options for every conversion.
-
-**Acceptance Criteria:**
-- [ ] Reads `.md2pdfrc` or `md2pdf.config.json` from current directory
-- [ ] Supports YAML or JSON format
-- [ ] CLI options override config file values
-- [ ] Option `--config path/to/config` to specify custom config location
-- [ ] Example config: `{ "css": "style.css", "toc": true, "pageSize": "letter" }`
-- [ ] Negative case: invalid config format -> error with parse details
-- [ ] Typecheck/lint passes
-
-### [ ] US-015: Watch Mode
-**Description:** As a developer, I want a watch mode so that PDFs regenerate automatically when I save changes.
-
-**Acceptance Criteria:**
-- [ ] CLI option: `--watch` or `-w`
-- [ ] Watches source Markdown files for changes
-- [ ] Regenerates PDF on file save
-- [ ] Outputs timestamp and filename on each regeneration
-- [ ] Graceful exit on Ctrl+C
-- [ ] Example: `md2pdf doc.md -w` -> regenerates `doc.pdf` on each save
-- [ ] Typecheck/lint passes
+#### Acceptance Criteria
+- [ ] Parse run logs for common error signatures
+- [ ] Cluster similar failures across runs
+- [ ] Identify root causes (e.g., "missing dependency", "type error", "test failure")
+- [ ] Suggest remediation actions for each pattern
+- [ ] Add `ralph diagnose` command to show current failure patterns
 
 ## Routing Policy
-
 - Commit URLs are invalid.
 - Unknown GitHub subpaths canonicalize to repo root.
 
-## Functional Requirements
+## Technical Notes
 
-- FR-1: The CLI must accept one or more Markdown file paths as input arguments
-- FR-2: The CLI must accept a directory path and process all `.md` files within
-- FR-3: The CLI must support `-o` or `--output` flag to specify output path
-- FR-4: The CLI must support `--merge` flag to combine multiple inputs into one PDF
-- FR-5: The CLI must support `--css` flag (repeatable) for custom stylesheets
-- FR-6: The CLI must support `--toc` flag to generate table of contents
-- FR-7: The CLI must support `--header` and `--footer` flags with placeholder variables
-- FR-8: The CLI must support `--page-size`, `--margin`, and `--landscape` flags
-- FR-9: The CLI must render GFM tables, task lists, and autolinks
-- FR-10: The CLI must apply syntax highlighting to fenced code blocks
-- FR-11: The CLI must render LaTeX math expressions (inline and block)
-- FR-12: The CLI must render Mermaid diagram code blocks as images
-- FR-13: The CLI must read configuration from `.md2pdfrc` or `md2pdf.config.json`
-- FR-14: The CLI must support `--watch` mode for automatic regeneration
-- FR-15: The CLI must exit with code 0 on success, non-zero on error
-- FR-16: The CLI must display `--help` with usage information and all options
-- FR-17: The CLI must display `--version` with current version number
+### File Structure
+```
+~/.ralph/                          # Global registry
+├── registry.json                  # Registered projects
+├── index/                         # Search index
+│   ├── guardrails.idx
+│   ├── progress.idx
+│   └── evaluations.idx
+└── cache/                         # Search cache
 
-## Non-Goals
+.ralph/                            # Per-project (existing + new)
+├── evaluations/                   # New: run evaluations
+│   └── eval-{run-id}.md
+├── candidates/                    # New: improvement candidates
+│   ├── guardrails-pending.md
+│   └── prompt-suggestions.md
+└── metrics/                       # New: aggregated metrics
+    └── stats.json
+```
 
-- No GUI or web interface (CLI only)
-- No real-time collaborative editing
-- No PDF editing or manipulation (merge, split, encrypt) of existing PDFs
-- No HTML output format (PDF only)
-- No EPUB or other ebook format output
-- No cloud storage integration (local files only)
-- No custom fonts beyond system fonts and web-safe fonts
-- No PlantUML support (Mermaid only for diagrams)
-- No interactive PDF elements (forms, JavaScript)
+### Implementation Approach
+1. Evaluation scoring uses heuristics on: exit codes, git diff size, verification commands
+2. Full-text search via SQLite FTS5 or simple grep-based indexing
+3. Pattern detection via log parsing and clustering (bag of words + edit distance)
+4. Cross-project sync is pull-based (no daemon, runs on command)
 
-## Technical Considerations
-
-- Consider using Puppeteer/Playwright for PDF generation (headless Chrome)
-- Alternative: use a library like markdown-pdf, md-to-pdf, or pandoc wrapper
-- Mermaid rendering may require puppeteer or mermaid-cli
-- Math rendering: consider KaTeX (faster) vs MathJax (more complete)
-- Syntax highlighting: highlight.js or Prism
-- Should work cross-platform: macOS, Linux, Windows
-- Distribute via npm for easy installation: `npm install -g md2pdf`
-- Consider bundling with pkg or similar for standalone binary distribution
-
-## Success Metrics
-
-- Single file conversion completes in under 2 seconds for typical README
-- Batch processing handles 100+ files without memory issues
-- Generated PDFs are under 5MB for typical documentation
-- All GFM features render correctly compared to GitHub preview
-- Code blocks are syntax highlighted with correct language detection
-- Math and diagrams render without errors for valid input
-
-## Open Questions
-
-- Should we support PlantUML in addition to Mermaid?
-- Should there be a default theme option (light/dark) for code highlighting?
-- Should we support DOCX output in addition to PDF?
-- Should there be an option to embed fonts for consistent cross-platform rendering?
-- Should we support front matter (YAML) for per-document configuration?
-- What should the CLI name be? (`md2pdf`, `mdpdf`, `markdown-pdf`?)
+### Integration Points
+- `loop.sh`: Call evaluation after each run completion
+- `stream.sh`: Aggregate metrics across parallel streams
+- New commands: `eval`, `improve`, `registry`, `search`, `stats`, `diagnose`, `optimize`
