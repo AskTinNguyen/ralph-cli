@@ -10,34 +10,67 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 | **Generate PRD** | `ralph prd` |
 | **Create plan from PRD** | `ralph plan` |
 | **Run build iterations** | `ralph build 5` |
-| **Single iteration** | `ralph build 1` |
 | **Dry run (no commit)** | `ralph build 1 --no-commit` |
 
-## Workflow
+## Multi-Stream (Parallel Execution)
+
+| Use Case | Command |
+|----------|---------|
+| **Create stream** | `ralph stream new` |
+| **List streams** | `ralph stream list` |
+| **Show status** | `ralph stream status` |
+| **Init worktree** | `ralph stream init 1` |
+| **Build in stream** | `ralph stream build 1 5` |
+| **Run parallel** | `ralph stream build 1 & ralph stream build 2 &` |
+| **Merge stream** | `ralph stream merge 1` |
+
+## Single PRD Workflow
 
 1. **PRD** → Define requirements: `ralph prd`
 2. **Plan** → Break into stories: `ralph plan`
 3. **Build** → Execute stories: `ralph build N`
 
+## Multi-Stream Workflow
+
+1. **Create streams**: `ralph stream new` (creates prd-1, prd-2, ...)
+2. **Edit PRDs**: `.ralph/prd-N/prd.md`
+3. **Init worktrees** (optional): `ralph stream init N`
+4. **Run in parallel**: `ralph stream build 1 & ralph stream build 2 &`
+5. **Merge completed**: `ralph stream merge N`
+
 ## File Structure
 
+**Single PRD mode:**
 ```
 project/
 ├── .agents/
-│   ├── ralph/                    # Loop templates (optional customization)
+│   ├── ralph/                    # Loop templates
 │   │   ├── loop.sh               # Main execution loop
-│   │   ├── PROMPT_build.md       # Build prompt template
-│   │   ├── PROMPT_plan.md        # Plan prompt template
+│   │   ├── stream.sh             # Multi-stream commands
 │   │   └── config.sh             # Agent configuration
 │   └── tasks/
 │       └── prd.md                # PRD document
 └── .ralph/
     ├── IMPLEMENTATION_PLAN.md    # Task plan (stories)
     ├── progress.md               # Append-only progress log
-    ├── guardrails.md             # Lessons learned ("Signs")
-    ├── activity.log              # Activity + timing
-    ├── errors.log                # Failures
-    └── runs/                     # Raw run logs
+    └── guardrails.md             # Lessons learned
+```
+
+**Multi-stream mode:**
+```
+.ralph/
+├── prd-1/                        # Stream 1
+│   ├── prd.md                    # PRD for this stream
+│   ├── plan.md                   # Implementation plan
+│   ├── progress.md               # Progress log
+│   └── runs/                     # Run logs
+├── prd-2/                        # Stream 2
+│   └── ...
+├── guardrails.md                 # Shared guardrails
+├── locks/                        # Stream locks (prevent concurrent runs)
+└── worktrees/                    # Git worktrees for parallel execution
+    ├── prd-1/                    # Isolated working directory
+    └── prd-2/
 ```
 
 ## PRD Format

@@ -38,7 +38,17 @@ Commands:
   log "<message>"                     Append to .ralph/activity.log
   build [n] [--no-commit]             Run build loop (default)
   plan [n]                            Run planning loop
+  stream <subcmd>                     Multi-stream parallel execution
   help                                Show this message
+
+Stream commands:
+  stream new                          Create new stream (prd-1, prd-2, ...)
+  stream list                         List all streams
+  stream status                       Show detailed status
+  stream init <N>                     Initialize worktree for parallel execution
+  stream build <N> [n]                Run n build iterations in stream
+  stream merge <N>                    Merge completed stream to main
+  stream cleanup <N>                  Remove stream worktree
 
 Options:
   --prd <path>                        Override PRD path
@@ -411,6 +421,20 @@ async function main() {
     }
     const prdArgs = ["prd", "--prompt", requestFile];
     const result = spawnSync(loopPath, prdArgs, {
+      stdio: "inherit",
+      env,
+    });
+    process.exit(result.status ?? 1);
+  }
+
+  if (cmd === "stream") {
+    const streamPath = path.join(templateDir, "stream.sh");
+    if (!exists(streamPath)) {
+      console.error("stream.sh not found. Make sure Ralph is up to date.");
+      process.exit(1);
+    }
+    const streamArgs = args.slice(1);
+    const result = spawnSync(streamPath, streamArgs, {
       stdio: "inherit",
       env,
     });
