@@ -1,43 +1,49 @@
 # Ralph CLI
 
-## TL;DR
+Autonomous coding loop for Claude Code.
 
-Ralph = Claude follows a checklist until done. Skills do the work, CLI just orchestrates.
+## Quick Reference
 
-## Commands
+| Use Case | Command |
+|----------|---------|
+| **Install to repo** | `ralph install` |
+| **Interactive task creation** | `claude` then `/ralph-new` or `/ralph-plan` |
+| **Interactive execution** | `claude` then `/ralph-go 1` |
+| **Headless task creation** | `ralph new "task description"` |
+| **Headless execution** | `ralph go 1` |
+| **List tasks** | `ralph list` |
 
-| Action | Command |
-|--------|---------|
-| Install skills | `ralph install` |
-| Update skills | `ralph update` |
-| Create task | `ralph new "description"` |
-| List tasks | `ralph list` |
-| Run task (headless) | `ralph go 1` |
-| Run task (interactive) | `claude` then `/ralph-go 1` |
+## File Structure
 
-## File Locations
-
-| Path | Purpose |
-|------|---------|
-| `.claude/skills/ralph-go/SKILL.md` | Execution loop |
-| `.claude/skills/ralph-new/SKILL.md` | Task creation |
-| `.claude/skills/ralph-plan/SKILL.md` | Interactive planning |
-| `.ralph/guardrails.md` | Safety constraints (shared) |
-| `.ralph/ralph-N/plan.md` | Task definition |
-| `.ralph/ralph-N/progress.md` | Iteration history |
-| `.ralph/ralph-N/errors.log` | Test failures |
+```
+project/
+├── .claude/
+│   └── skills/
+│       ├── ralph-go/SKILL.md     # Main execution loop
+│       ├── ralph-new/SKILL.md    # Task creation
+│       └── ralph-plan/SKILL.md   # Interactive planning
+└── .ralph/
+    ├── guardrails.md             # SHARED constraints for ALL tasks
+    └── ralph-1/                  # Task 1
+        ├── plan.md               # Task definition with frontmatter
+        ├── progress.md           # Iteration history (append-only)
+        └── errors.log            # Verification failures
+```
 
 ## plan.md Format
 
-```yaml
+```markdown
 ---
-task: Short task name
+task: Add user authentication
 test_command: bun run verify
-completion_promise: "What done looks like"
+completion_promise: "User authentication works and all tests pass"
 max_iterations: 15
 ---
 
-# Task: ...
+# Task: Add user authentication
+
+## Context
+What needs to be done and why.
 
 ## Success Criteria
 - [ ] Criterion 1
@@ -49,24 +55,35 @@ max_iterations: 15
 
 | Signal | Meaning |
 |--------|---------|
-| `<promise>COMPLETE: {text}</promise>` | Task finished |
-| `<promise>NEEDS_HUMAN: {reason}</promise>` | Blocked, needs help |
+| `<promise>COMPLETE: {completion_promise}</promise>` | Task finished successfully |
+| `<promise>NEEDS_HUMAN: {reason}</promise>` | Blocked, needs intervention |
 
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | SUCCESS |
-| 1 | ERROR |
-| 2 | NEEDS_HUMAN |
+| 0 | `COMPLETE` - Task finished |
+| 1 | Error or failure |
+| 2 | `NEEDS_HUMAN` - Blocked |
+
+## Package Structure
+
+```
+ralph-cli/
+├── src/ralph.ts      # CLI (~200 lines)
+├── skills/           # Bundled Claude Code skills
+│   ├── ralph-go/
+│   ├── ralph-new/
+│   └── ralph-plan/
+├── package.json
+└── README.md
+```
 
 ## How It Works
 
-1. `ralph install` → copies skills to `.claude/skills/`
-2. `/ralph-new` → creates `.ralph/ralph-N/plan.md`
-3. `/ralph-go N` → reads plan, does work, runs tests, updates progress
-4. Loop until `COMPLETE` or `NEEDS_HUMAN`
+1. **Install**: `ralph install` copies skills to `.claude/skills/` and creates `.ralph/guardrails.md`
+2. **Create**: Use `/ralph-new` or `/ralph-plan` in Claude Code to define a task
+3. **Execute**: `/ralph-go <id>` runs the loop - Claude reads the task, does work, verifies, repeats
+4. **Complete**: Claude outputs `<promise>COMPLETE</promise>` when done or `NEEDS_HUMAN` if stuck
 
-## For Humans
-
-See [FOR_HUMAN_BEGINNERS_GUIDE.md](./FOR_HUMAN_BEGINNERS_GUIDE.md) for conceptual explanation.
+The "loop" is Claude following skill instructions, not code managing iterations.
