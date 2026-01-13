@@ -311,23 +311,29 @@ cmd_go() {
         echo ""
 
         # Fresh Claude invocation - no accumulated context
-        local output
-        output=$(claude -p "/ralph-go $task_id" --output-format text 2>&1) || true
+        # Use temp file to capture output while streaming to terminal
+        local tmpfile
+        tmpfile=$(mktemp)
 
-        echo "$output"
+        # Run claude and tee output to both terminal and temp file
+        claude -p "/ralph-go $task_id" --output-format text 2>&1 | tee "$tmpfile" || true
 
-        # Check completion signals
-        if echo "$output" | grep -q '<promise>COMPLETE'; then
+        # Check completion signals from captured output
+        if grep -q '<promise>COMPLETE' "$tmpfile"; then
+            rm -f "$tmpfile"
             echo ""
             log_ok "Task completed successfully"
             exit 0
         fi
 
-        if echo "$output" | grep -q 'NEEDS_HUMAN'; then
+        if grep -q 'NEEDS_HUMAN' "$tmpfile"; then
+            rm -f "$tmpfile"
             echo ""
             log_warn "Task needs human intervention"
             exit 2
         fi
+
+        rm -f "$tmpfile"
 
         # Loop continues: new brain, same task, updated filesystem
     done
