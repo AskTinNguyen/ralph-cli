@@ -50,7 +50,14 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
+  ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("help")}                                Show this message
+
+${pc.bold(pc.cyan("Registry commands:"))}
+  ${pc.green("registry add")} ${pc.dim("[--tags t1,t2]")}          Register current project
+  ${pc.green("registry list")} ${pc.dim("[--tags t1,t2]")}         List registered projects
+  ${pc.green("registry remove")}                      Remove current project from registry
+  ${pc.green("registry update")}                      Update project metadata and stats
 
 ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
@@ -768,6 +775,189 @@ async function main() {
     console.log("");
     outro(`Done. ${accepted.length} applied, ${rejected.length} rejected, ${remaining.length} pending.`);
     process.exit(0);
+  }
+
+  if (cmd === "registry") {
+    const registryModule = require("../lib/registry");
+    const subCmd = args[1];
+
+    // Parse --tags flag
+    let tags = [];
+    for (let i = 0; i < rawArgs.length; i++) {
+      if (rawArgs[i].startsWith("--tags=")) {
+        tags = rawArgs[i].split("=").slice(1).join("=").split(",").map((t) => t.trim().toLowerCase());
+      } else if (rawArgs[i] === "--tags" && rawArgs[i + 1]) {
+        tags = rawArgs[i + 1].split(",").map((t) => t.trim().toLowerCase());
+      }
+    }
+
+    if (!subCmd || subCmd === "help") {
+      console.log(`${pc.bold("ralph registry")} ${pc.dim("<command>")}
+
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("add")} ${pc.dim("[--tags t1,t2]")}     Register current project in global registry
+  ${pc.green("list")} ${pc.dim("[--tags t1,t2]")}    List all registered projects
+  ${pc.green("remove")}                 Remove current project from registry
+  ${pc.green("update")}                 Update project metadata and stats
+
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--tags")} ${pc.dim("t1,t2,...")}        Tags for categorization (e.g., typescript, cli, api)
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph registry add --tags typescript,cli")}
+  ${pc.dim("ralph registry list --tags typescript")}
+`);
+      process.exit(0);
+    }
+
+    // Ensure registry exists
+    registryModule.ensureGlobalRegistry();
+
+    if (subCmd === "add") {
+      // Check if .ralph directory exists
+      const ralphDir = path.join(cwd, ".ralph");
+      if (!exists(ralphDir)) {
+        warn(`No .ralph directory found at ${pc.cyan(cwd)}`);
+        info("Run some Ralph loops first to generate data.");
+      }
+
+      // Check if already registered
+      const existing = registryModule.findProjectByPath(cwd);
+      if (existing) {
+        info(`Project already registered: ${pc.bold(existing.name)}`);
+        info("Updating metadata and stats...");
+      }
+
+      // Add or update project
+      const project = registryModule.addProject(cwd, { tags });
+
+      // Index the project
+      const indexed = registryModule.indexProject(cwd);
+
+      console.log("");
+      console.log(pc.bold("Project Registered"));
+      console.log(pc.dim("─".repeat(50)));
+      console.log(`Name:         ${pc.bold(project.name)}`);
+      console.log(`Path:         ${pc.dim(project.path)}`);
+      console.log(`ID:           ${pc.dim(project.id)}`);
+      console.log(`Tags:         ${project.tags.length > 0 ? pc.cyan(project.tags.join(", ")) : pc.dim("none")}`);
+      console.log(pc.dim("─".repeat(50)));
+
+      if (indexed) {
+        console.log(pc.bold("Stats"));
+        console.log(`  Guardrails:  ${indexed.stats.guardrailCount}`);
+        console.log(`  Progress:    ${indexed.stats.progressCount}`);
+        console.log(`  Runs:        ${indexed.stats.runCount}`);
+        console.log(`  Success:     ${indexed.stats.successRate !== null ? indexed.stats.successRate + "%" : "N/A"}`);
+        console.log("");
+      }
+
+      success(`Registered in ${pc.cyan("~/.ralph/registry.json")}`);
+      process.exit(0);
+    }
+
+    if (subCmd === "list") {
+      const projects = registryModule.listProjects({ tags });
+
+      if (projects.length === 0) {
+        if (tags.length > 0) {
+          warn(`No projects found with tags: ${tags.join(", ")}`);
+        } else {
+          warn("No projects registered yet.");
+          info(`Use ${pc.cyan("ralph registry add")} to register the current project.`);
+        }
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold(`Registered Projects (${projects.length})`));
+      console.log(pc.dim("─".repeat(80)));
+
+      // Table header
+      console.log(
+        pc.dim(
+          `${"NAME".padEnd(20)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(8)} ${"GUARDRAILS".padStart(11)} ${"TAGS".padEnd(20)}`
+        )
+      );
+      console.log(pc.dim("─".repeat(80)));
+
+      for (const project of projects) {
+        const name = project.name.length > 18 ? project.name.slice(0, 17) + "…" : project.name;
+        const runs = String(project.stats.runCount || 0).padStart(6);
+        const successRate = project.stats.successRate !== null ? `${project.stats.successRate}%`.padStart(8) : "N/A".padStart(8);
+        const guardrails = String(project.stats.guardrailCount || 0).padStart(11);
+        const tagsStr = project.tags.slice(0, 3).join(", ");
+        const tagsDisplay = tagsStr.length > 18 ? tagsStr.slice(0, 17) + "…" : tagsStr;
+
+        console.log(
+          `${name.padEnd(20)} ${runs} ${project.stats.successRate !== null ? pc.green(successRate) : pc.dim(successRate)} ${guardrails} ${pc.cyan(tagsDisplay)}`
+        );
+      }
+
+      console.log(pc.dim("─".repeat(80)));
+      console.log("");
+
+      if (tags.length > 0) {
+        dim(`Filtered by tags: ${tags.join(", ")}`);
+      }
+      process.exit(0);
+    }
+
+    if (subCmd === "remove") {
+      const existing = registryModule.findProjectByPath(cwd);
+      if (!existing) {
+        warn("Current project is not registered.");
+        process.exit(0);
+      }
+
+      const removed = registryModule.removeProject(cwd);
+      if (removed) {
+        success(`Removed ${pc.bold(existing.name)} from registry.`);
+      } else {
+        error("Failed to remove project from registry.");
+        process.exit(1);
+      }
+      process.exit(0);
+    }
+
+    if (subCmd === "update") {
+      const existing = registryModule.findProjectByPath(cwd);
+      if (!existing) {
+        warn("Current project is not registered.");
+        info(`Use ${pc.cyan("ralph registry add")} to register it first.`);
+        process.exit(0);
+      }
+
+      info(`Updating ${pc.bold(existing.name)}...`);
+
+      // Update tags if provided
+      if (tags.length > 0) {
+        registryModule.updateProject(cwd, { tags });
+      }
+
+      // Re-index the project
+      const updated = registryModule.indexProject(cwd);
+
+      if (updated) {
+        console.log("");
+        console.log(pc.bold("Updated Stats"));
+        console.log(pc.dim("─".repeat(40)));
+        console.log(`  Guardrails:  ${updated.stats.guardrailCount}`);
+        console.log(`  Progress:    ${updated.stats.progressCount}`);
+        console.log(`  Runs:        ${updated.stats.runCount}`);
+        console.log(`  Success:     ${updated.stats.successRate !== null ? updated.stats.successRate + "%" : "N/A"}`);
+        if (tags.length > 0) {
+          console.log(`  Tags:        ${pc.cyan(updated.tags.join(", "))}`);
+        }
+        console.log("");
+        success("Project metadata updated.");
+      }
+      process.exit(0);
+    }
+
+    error(`Unknown registry command: ${pc.bold(subCmd)}`);
+    info(`Run ${pc.cyan("ralph registry help")} for usage.`);
+    process.exit(1);
   }
 
   const result = spawnSync(loopPath, loopArgs, {

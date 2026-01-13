@@ -22,13 +22,13 @@ LOCKS_DIR="$RALPH_DIR/locks"
 # ============================================================================
 
 if [ -t 1 ]; then
-  C_GREEN='\033[32m'
-  C_RED='\033[31m'
-  C_YELLOW='\033[33m'
-  C_CYAN='\033[36m'
-  C_DIM='\033[2m'
-  C_BOLD='\033[1m'
-  C_RESET='\033[0m'
+  C_GREEN=$'\033[32m'
+  C_RED=$'\033[31m'
+  C_YELLOW=$'\033[33m'
+  C_CYAN=$'\033[36m'
+  C_DIM=$'\033[2m'
+  C_BOLD=$'\033[1m'
+  C_RESET=$'\033[0m'
 else
   C_GREEN=''
   C_RED=''
@@ -96,7 +96,7 @@ next_steps_header() {
 # Indented bullet point
 bullet() {
   local text="$1"
-  printf "  ${C_DIM}•${C_RESET} %s\n" "$text"
+  printf "  ${C_DIM}•${C_RESET} %b\n" "$text"
 }
 
 # Numbered step (for next steps)
