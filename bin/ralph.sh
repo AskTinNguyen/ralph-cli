@@ -566,13 +566,24 @@ cmd_go() {
         tmpfile=$(mktemp)
 
         # Run claude with permissions for autonomous execution
-        # --dangerously-skip-permissions allows file writes without prompts
-        # --verbose shows tool usage progress during execution
+        # --output-format stream-json streams events in real-time
+        # We parse the JSON to show progress while capturing full output
         claude -p "/ralph-go $task_id" \
-            --verbose \
-            --output-format text \
+            --output-format stream-json \
             --dangerously-skip-permissions \
-            2>&1 | tee "$tmpfile" || true
+            2>&1 | tee "$tmpfile" | while IFS= read -r line; do
+                # Parse stream-json events and display relevant content
+                case "$line" in
+                    *'"type":"assistant"'*)
+                        # Extract and display assistant message content
+                        echo "$line" | sed 's/.*"content":\[{"type":"text","text":"//;s/"}].*//' | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g' 2>/dev/null || true
+                        ;;
+                    *'"type":"result"'*)
+                        # Show final result
+                        echo "$line" | sed 's/.*"result":"//;s/"}.*//' | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g' 2>/dev/null || true
+                        ;;
+                esac
+            done || true
 
         # Check completion signals from captured output
         if grep -q '<promise>COMPLETE' "$tmpfile"; then
