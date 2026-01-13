@@ -47,6 +47,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("build")} ${pc.dim("[n] [--no-commit]")}             Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
+  ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Stream commands:"))}
@@ -447,6 +448,154 @@ async function main() {
       env,
     });
     process.exit(result.status ?? 1);
+  }
+
+  if (cmd === "eval") {
+    const evalModule = require("../lib/eval");
+    const runsDir = path.join(cwd, ".ralph", "runs");
+    const evalDir = path.join(cwd, ".ralph", "evaluations");
+
+    // Check for --all flag
+    const evalAll = args.includes("--all");
+    const runIdArg = args.slice(1).find((a) => !a.startsWith("--"));
+
+    if (!evalAll && !runIdArg) {
+      error(`Usage: ${pc.cyan("ralph eval <run-id>")} or ${pc.cyan("ralph eval --all")}`);
+      process.exit(1);
+    }
+
+    if (!exists(runsDir)) {
+      error(`No runs found at ${pc.cyan(runsDir)}`);
+      process.exit(1);
+    }
+
+    if (evalAll) {
+      // Evaluate all runs
+      info("Evaluating all runs...");
+      const summaries = evalModule.listRunSummaries(runsDir);
+      if (summaries.length === 0) {
+        warn("No run summaries found.");
+        process.exit(0);
+      }
+
+      const scores = [];
+      for (const summaryPath of summaries) {
+        const score = evalModule.scoreRun(summaryPath);
+        if (score) {
+          scores.push(score);
+
+          // Generate individual report
+          const report = evalModule.generateRunReport(score);
+          const outputPath = path.join(evalDir, `eval-${score.runId}.md`);
+          evalModule.saveReport(report, outputPath);
+        }
+      }
+
+      // Generate and display summary
+      const aggregate = evalModule.aggregateScores(scores);
+      if (aggregate) {
+        console.log("");
+        console.log(pc.bold("Evaluation Summary"));
+        console.log(pc.dim("─".repeat(50)));
+        console.log(`Total Runs:      ${pc.bold(aggregate.totalRuns)}`);
+        console.log(`Successful:      ${pc.green(aggregate.successCount)} (${aggregate.successRate}%)`);
+        console.log(`Failed:          ${pc.red(aggregate.errorCount)}`);
+        console.log(`Average Score:   ${pc.bold(aggregate.avgOverall)}/100 (${aggregate.grade})`);
+        console.log(`Avg Duration:    ${evalModule.formatDuration(aggregate.avgDuration)}`);
+        console.log(pc.dim("─".repeat(50)));
+        console.log("");
+
+        // Score breakdown
+        console.log(pc.bold("Score Breakdown"));
+        console.log(`  Success:       ${evalModule.scoreBar(aggregate.avgSuccess)}`);
+        console.log(`  Verification:  ${evalModule.scoreBar(aggregate.avgVerification)}`);
+        console.log(`  Commit:        ${evalModule.scoreBar(aggregate.avgCommit)}`);
+        console.log(`  Efficiency:    ${evalModule.scoreBar(aggregate.avgEfficiency)}`);
+        console.log("");
+
+        // Common failure patterns
+        if (aggregate.failurePatterns && aggregate.failurePatterns.length > 0) {
+          console.log(pc.bold("Common Failure Patterns"));
+          for (const { pattern, count } of aggregate.failurePatterns) {
+            const readable = pattern.replace(/_/g, " ").replace(/errors (\d+)/, "$1 errors");
+            console.log(`  - ${readable}: ${pc.yellow(count)}`);
+          }
+          console.log("");
+        }
+
+        // Save summary report
+        const summaryReport = evalModule.generateSummaryReport(scores, aggregate);
+        const summaryPath = path.join(evalDir, "summary.md");
+        evalModule.saveReport(summaryReport, summaryPath);
+        success(`Summary report saved to ${pc.cyan(summaryPath)}`);
+      }
+    } else {
+      // Evaluate single run
+      // Find matching run files
+      const summaries = evalModule.listRunSummaries(runsDir);
+      const matchingSummaries = summaries.filter((s) => s.includes(runIdArg));
+
+      if (matchingSummaries.length === 0) {
+        error(`No runs found matching "${pc.bold(runIdArg)}"`);
+        process.exit(1);
+      }
+
+      if (matchingSummaries.length > 1) {
+        warn(`Multiple runs match "${runIdArg}":`);
+        for (const s of matchingSummaries) {
+          console.log(`  - ${path.basename(s)}`);
+        }
+        info("Please provide a more specific run ID.");
+        process.exit(1);
+      }
+
+      const summaryPath = matchingSummaries[0];
+      const score = evalModule.scoreRun(summaryPath);
+
+      if (!score) {
+        error(`Failed to evaluate run at ${pc.cyan(summaryPath)}`);
+        process.exit(1);
+      }
+
+      // Display results
+      const grade = evalModule.gradeScore(score.overall);
+      const gradeColor = grade === "A" ? pc.green : grade === "B" ? pc.blue : grade === "C" ? pc.yellow : grade === "D" ? pc.magenta : pc.red;
+
+      console.log("");
+      console.log(pc.bold(`Evaluation: ${score.runId}`));
+      console.log(pc.dim("─".repeat(50)));
+      console.log(`Grade:           ${gradeColor(pc.bold(grade))} (${score.overall}/100)`);
+      console.log(`Status:          ${score.status === "success" ? pc.green(score.status) : pc.red(score.status)}`);
+      console.log(`Mode:            ${score.mode || "N/A"}`);
+      console.log(`Story:           ${score.story || "N/A"}`);
+      console.log(`Duration:        ${evalModule.formatDuration(score.duration)}`);
+      console.log(pc.dim("─".repeat(50)));
+      console.log("");
+
+      console.log(pc.bold("Scores"));
+      console.log(`  Success:       ${evalModule.scoreBar(score.successScore)}`);
+      console.log(`  Verification:  ${evalModule.scoreBar(score.verificationScore)}`);
+      console.log(`  Commit:        ${evalModule.scoreBar(score.commitScore)}`);
+      console.log(`  Efficiency:    ${evalModule.scoreBar(score.efficiencyScore)}`);
+      console.log("");
+
+      console.log(pc.bold("Details"));
+      console.log(`  Commits:       ${score.details.commitCount}`);
+      console.log(`  Files changed: ${score.details.changedFilesCount}`);
+      console.log(`  Clean tree:    ${score.details.hasUncommittedChanges ? pc.yellow("No") : pc.green("Yes")}`);
+      console.log(`  Tests passed:  ${score.details.verificationsPassed}`);
+      console.log(`  Tests failed:  ${score.details.verificationsFailed}`);
+      console.log(`  Errors:        ${score.details.errorCount}`);
+      console.log("");
+
+      // Generate and save report
+      const report = evalModule.generateRunReport(score);
+      const outputPath = path.join(evalDir, `eval-${score.runId}.md`);
+      evalModule.saveReport(report, outputPath);
+      success(`Report saved to ${pc.cyan(outputPath)}`);
+    }
+
+    process.exit(0);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
