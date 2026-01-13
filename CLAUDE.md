@@ -17,6 +17,7 @@ while :; do cat prompt.md | agent ; done
 | **Install to repo** | `ralph.sh install` |
 | **Create task** | `ralph.sh new "task description"` |
 | **🔁 Run FULL LOOP** | `ralph.sh go 1` ← **Use this for autonomous execution** |
+| **⚡ Run PARALLEL** | `ralph.sh parallel 1` ← **Decompose and run sub-tasks concurrently** |
 | **List tasks** | `ralph.sh list` |
 
 ## ⚠️ Two Execution Modes
@@ -34,15 +35,20 @@ while :; do cat prompt.md | agent ; done
 project/
 ├── .claude/
 │   └── skills/
-│       ├── ralph-go/SKILL.md     # Single iteration executor
-│       ├── ralph-new/SKILL.md    # Task creation
-│       └── ralph-plan/SKILL.md   # Interactive planning
+│       ├── ralph-go/SKILL.md       # Single iteration executor
+│       ├── ralph-new/SKILL.md      # Task creation
+│       ├── ralph-plan/SKILL.md     # Interactive planning
+│       └── ralph-parallel/SKILL.md # Parallel decomposition
 └── .ralph/
-    ├── guardrails.md             # SHARED constraints for ALL tasks
-    └── ralph-1/                  # Task 1
-        ├── plan.md               # Task definition (read-only)
-        ├── progress.md           # What's done (append-only) ← MEMORY
-        └── errors.log            # What failed (append-only) ← MEMORY
+    ├── guardrails.md               # SHARED constraints for ALL tasks
+    ├── ralph-1/                    # Task 1 (parent)
+    │   ├── plan.md
+    │   ├── progress.md
+    │   ├── errors.log
+    │   └── parallel-status.md      # Parallel execution status (if parallel)
+    ├── ralph-1-a/                  # Sub-task A (if parallelized)
+    ├── ralph-1-b/                  # Sub-task B
+    └── ralph-1-c/                  # Sub-task C
 ```
 
 ## How It Works
@@ -61,6 +67,23 @@ project/
 5. Exit (COMPLETE, NEEDS_HUMAN, or just exit)
 
 Claude has no memory of previous iterations. Each invocation starts fresh. The filesystem IS the memory.
+
+## Parallel Execution
+
+**When to use:** Multiple independent problems (3+ test files failing, separate subsystems broken).
+
+```bash
+ralph.sh parallel 1       # Analyze, create sub-tasks, launch in parallel
+ralph.sh parallel 1 -n    # Dry run (analyze only)
+```
+
+**How it works:**
+1. Analyze task for independent domains
+2. Create sub-tasks (`ralph-1-a`, `ralph-1-b`, etc.)
+3. Launch each sub-task in parallel via `ralph.sh go`
+4. Monitor completion and aggregate results
+
+**Sub-task naming:** `ralph-{parent}-{letter}` (e.g., `ralph-1-a`, `ralph-1-b`)
 
 ## plan.md Format
 
@@ -114,8 +137,9 @@ ralph-cli/
 ├── bin/ralph.sh      # CLI (pure bash, zero dependencies)
 ├── skills/           # Bundled Claude Code skills
 │   ├── ralph-go/     # Single iteration executor
-│   ├── ralph-new/
-│   └── ralph-plan/
+│   ├── ralph-new/    # Task creation
+│   ├── ralph-plan/   # Interactive planning
+│   └── ralph-parallel/ # Parallel decomposition
 ├── templates/        # Task templates
 ├── decisions/        # Architecture Decision Records
 └── README.md

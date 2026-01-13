@@ -48,14 +48,34 @@ log_ok()    { echo -e "${GREEN}✓ $*${NC}"; }
 log_warn()  { echo -e "${YELLOW}⚠ $*${NC}"; }
 log_error() { echo -e "${RED}✗ $*${NC}" >&2; }
 
-# Normalize task ID: "1" -> "ralph-1", "ralph-1" -> "ralph-1"
+# Normalize task ID: "1" -> "ralph-1", "1-a" -> "ralph-1-a", "ralph-1" -> "ralph-1"
 normalize_id() {
     local id="$1"
     if [[ "$id" =~ ^[0-9]+$ ]]; then
         echo "ralph-$id"
+    elif [[ "$id" =~ ^[0-9]+-[a-z]$ ]]; then
+        echo "ralph-$id"
     else
         echo "$id"
     fi
+}
+
+# Check if task ID is a sub-task (e.g., ralph-1-a)
+is_subtask() {
+    local id="$1"
+    [[ "$id" =~ ^ralph-[0-9]+-[a-z]$ ]]
+}
+
+# Get parent task ID from sub-task ID (e.g., ralph-1-a -> ralph-1)
+get_parent_id() {
+    local id="$1"
+    echo "${id%-[a-z]}"
+}
+
+# Get sub-task letter (e.g., ralph-1-a -> a)
+get_subtask_letter() {
+    local id="$1"
+    echo "${id##*-}"
 }
 
 # Get the next available task ID
@@ -146,7 +166,7 @@ cmd_install() {
     mkdir -p "$CLAUDE_SKILLS_DIR"
 
     # Copy each skill
-    for skill in ralph-go ralph-new ralph-plan; do
+    for skill in ralph-go ralph-new ralph-plan ralph-parallel; do
         if [[ -d "$SKILLS_SOURCE/$skill" ]]; then
             cp -r "$SKILLS_SOURCE/$skill" "$CLAUDE_SKILLS_DIR/"
             log_ok "Installed $skill"
@@ -192,7 +212,7 @@ cmd_update() {
 
     # Check if already installed
     local has_existing=false
-    for skill in ralph-go ralph-new ralph-plan; do
+    for skill in ralph-go ralph-new ralph-plan ralph-parallel; do
         if [[ -d "$CLAUDE_SKILLS_DIR/$skill" ]]; then
             has_existing=true
             break
@@ -206,7 +226,7 @@ cmd_update() {
     fi
 
     # Update each skill
-    for skill in ralph-go ralph-new ralph-plan; do
+    for skill in ralph-go ralph-new ralph-plan ralph-parallel; do
         if [[ -d "$SKILLS_SOURCE/$skill" ]]; then
             rm -rf "${CLAUDE_SKILLS_DIR:?}/$skill"
             cp -r "$SKILLS_SOURCE/$skill" "$CLAUDE_SKILLS_DIR/"
@@ -559,6 +579,179 @@ cmd_log() {
     esac
 }
 
+cmd_parallel() {
+    local task_id_arg="$1"
+    local dry_run="${2:-}"
+
+    if [[ -z "$task_id_arg" ]]; then
+        log_error "Usage: ralph parallel <task-id> [-n]"
+        log_error "  -n  Dry run (analyze only, don't create sub-tasks)"
+        exit 1
+    fi
+
+    local task_id
+    task_id=$(normalize_id "$task_id_arg")
+    local task_dir="$RALPH_DIR/$task_id"
+
+    if [[ ! -d "$task_dir" ]]; then
+        log_error "Task not found: $task_id"
+        cmd_list
+        exit 1
+    fi
+
+    # Check if already has sub-tasks
+    local existing_subtasks=()
+    for subtask_dir in "$RALPH_DIR"/${task_id}-[a-z]; do
+        if [[ -d "$subtask_dir" ]]; then
+            existing_subtasks+=("${subtask_dir##*/}")
+        fi
+    done
+
+    if [[ ${#existing_subtasks[@]} -gt 0 ]]; then
+        log_info "Found existing sub-tasks for $task_id:"
+        for subtask in "${existing_subtasks[@]}"; do
+            echo "  - $subtask"
+        done
+        echo ""
+
+        if [[ "$dry_run" == "-n" ]]; then
+            echo "Dry run: Would launch these sub-tasks in parallel"
+            exit 0
+        fi
+
+        # Launch existing sub-tasks
+        log_info "Launching sub-tasks in parallel..."
+        local pids=()
+        local subtask_ids=()
+
+        for subtask in "${existing_subtasks[@]}"; do
+            local subtask_num="${subtask#ralph-}"
+            echo "  Starting $subtask..."
+            "$0" go "$subtask_num" &
+            pids+=($!)
+            subtask_ids+=("$subtask")
+        done
+
+        # Create parallel-status.md
+        local status_file="$task_dir/parallel-status.md"
+        {
+            echo "# Parallel Execution Status"
+            echo ""
+            echo "Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Domains: ${#pids[@]}"
+            echo ""
+            echo "| Sub-task | PID | Status |"
+            echo "|----------|-----|--------|"
+            for i in "${!subtask_ids[@]}"; do
+                echo "| ${subtask_ids[$i]} | ${pids[$i]} | RUNNING |"
+            done
+        } > "$status_file"
+
+        echo ""
+        log_info "Waiting for sub-tasks to complete..."
+        echo "Status file: $status_file"
+        echo ""
+
+        # Wait for all and collect results
+        local results=()
+        for i in "${!pids[@]}"; do
+            local pid="${pids[$i]}"
+            local subtask="${subtask_ids[$i]}"
+            wait "$pid" 2>/dev/null || true
+            local exit_code=$?
+            results+=("$subtask:$exit_code")
+
+            if [[ $exit_code -eq 0 ]]; then
+                log_ok "$subtask: COMPLETE"
+            elif [[ $exit_code -eq 2 ]]; then
+                log_warn "$subtask: NEEDS_HUMAN"
+            else
+                log_error "$subtask: FAILED (exit $exit_code)"
+            fi
+        done
+
+        # Update status file with results
+        {
+            echo "# Parallel Execution Status"
+            echo ""
+            echo "Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Completed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Domains: ${#results[@]}"
+            echo ""
+            echo "| Sub-task | Status | Exit Code |"
+            echo "|----------|--------|-----------|"
+            local complete_count=0
+            local needs_human_count=0
+            local failed_count=0
+            for result in "${results[@]}"; do
+                local subtask="${result%:*}"
+                local code="${result#*:}"
+                local status="FAILED"
+                if [[ $code -eq 0 ]]; then
+                    status="COMPLETE"
+                    ((complete_count++))
+                elif [[ $code -eq 2 ]]; then
+                    status="NEEDS_HUMAN"
+                    ((needs_human_count++))
+                else
+                    ((failed_count++))
+                fi
+                echo "| $subtask | $status | $code |"
+            done
+            echo ""
+            echo "## Summary"
+            echo "- Complete: $complete_count"
+            echo "- Needs human: $needs_human_count"
+            echo "- Failed: $failed_count"
+        } > "$status_file"
+
+        echo ""
+        log_info "Parallel execution finished"
+        echo "Results saved to: $status_file"
+        exit 0
+    fi
+
+    # No existing sub-tasks - need to analyze and create them
+    log_info "Analyzing $task_id for parallel decomposition..."
+    echo ""
+
+    if [[ "$dry_run" == "-n" ]]; then
+        echo "Dry run: Would invoke /ralph-parallel $task_id to analyze"
+        echo ""
+        echo "Run without -n to:"
+        echo "  1. Analyze task for independent domains"
+        echo "  2. Create sub-tasks if suitable"
+        echo "  3. Launch them in parallel"
+        exit 0
+    fi
+
+    # Invoke the skill to analyze and create sub-tasks
+    echo "Invoking /ralph-parallel $task_id..."
+    echo ""
+    claude -p "/ralph-parallel $task_id" --dangerously-skip-permissions
+
+    # Check if sub-tasks were created
+    local new_subtasks=()
+    for subtask_dir in "$RALPH_DIR"/${task_id}-[a-z]; do
+        if [[ -d "$subtask_dir" ]]; then
+            new_subtasks+=("${subtask_dir##*/}")
+        fi
+    done
+
+    if [[ ${#new_subtasks[@]} -eq 0 ]]; then
+        log_warn "No sub-tasks were created"
+        echo "The task may not be suitable for parallelization."
+        echo "Run sequentially instead: ralph.sh go ${task_id#ralph-}"
+        exit 1
+    fi
+
+    echo ""
+    log_ok "Sub-tasks created: ${new_subtasks[*]}"
+    echo ""
+    echo "To launch them in parallel, run:"
+    echo "  ralph.sh parallel ${task_id#ralph-}"
+}
+
 cmd_go() {
     local task_id_arg="$1"
 
@@ -647,8 +840,13 @@ Usage:
   ralph.sh list             List all tasks
   ralph.sh status           Show status of all tasks and running loops
   ralph.sh go <id>          Run task (headless, loops until COMPLETE)
+  ralph.sh parallel <id>    Decompose task and run sub-tasks in parallel
   ralph.sh update           Update skills in current project
   ralph.sh upgrade          Pull latest CLI + update skills
+
+Parallel execution:
+  ralph.sh parallel <id>       Analyze, create sub-tasks, and launch in parallel
+  ralph.sh parallel <id> -n    Dry run (analyze only)
 
 Logs:
   ralph.sh log <id>            Show all logs for a task
@@ -700,6 +898,9 @@ main() {
             ;;
         go)
             cmd_go "${1:-}"
+            ;;
+        parallel)
+            cmd_parallel "${1:-}" "${2:-}"
             ;;
         -h|--help|help|"")
             cmd_help
