@@ -6,6 +6,7 @@
   <title>Ralph CLI - Token Dashboard</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/htmx.min.js"></script>
+  <script src="/js/chart.min.js"></script>
 </head>
 <body>
   <!-- Error Toast Container -->
@@ -46,6 +47,48 @@
            hx-swap="innerHTML"
            hx-indicator="#summary-indicator">
         <div class="loading"><span class="loading-spinner"></span> Loading token summary...</div>
+      </div>
+    </section>
+
+    <!-- Token Timeline Chart Section -->
+    <section id="token-chart-section">
+      <div class="token-chart-header">
+        <h2>Token Usage Timeline</h2>
+        <div class="token-chart-controls">
+          <div class="control-group">
+            <label for="chart-period">Period:</label>
+            <select id="chart-period" onchange="updateChart()">
+              <option value="7d" selected>Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="chart-stream">Stream:</label>
+            <select id="chart-stream" onchange="updateChart()">
+              <option value="" selected>All Streams (Aggregate)</option>
+              <!-- Stream options populated dynamically -->
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="token-chart-container">
+        <canvas id="token-timeline-chart"></canvas>
+      </div>
+      <div class="token-chart-legend">
+        <div class="legend-item">
+          <span class="legend-color" style="background: #3b82f6;"></span>
+          <span>Input Tokens</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color" style="background: #10b981;"></span>
+          <span>Output Tokens</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color legend-dashed" style="background: #f59e0b;"></span>
+          <span>Cost (USD)</span>
+        </div>
       </div>
     </section>
 
@@ -318,6 +361,258 @@
         dismissErrorToast();
       }
     }, 10000);
+
+    // ============================================
+    // Token Timeline Chart
+    // ============================================
+
+    var tokenChart = null;
+    var chartData = { dataPoints: [] };
+
+    // Initialize the chart
+    function initTokenChart() {
+      var ctx = document.getElementById('token-timeline-chart');
+      if (!ctx) return;
+
+      // Detect dark mode
+      var isDarkMode = document.body.classList.contains('dark-mode') ||
+                       window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+      var gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      var textColor = isDarkMode ? '#e5e7eb' : '#374151';
+
+      tokenChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Input Tokens',
+              data: [],
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.3,
+              yAxisID: 'y',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+            {
+              label: 'Output Tokens',
+              data: [],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.3,
+              yAxisID: 'y',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+            {
+              label: 'Cost (USD)',
+              data: [],
+              borderColor: '#f59e0b',
+              backgroundColor: 'transparent',
+              borderDash: [5, 5],
+              fill: false,
+              tension: 0.3,
+              yAxisID: 'y1',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              display: false, // We use our custom legend
+            },
+            tooltip: {
+              backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+              titleColor: textColor,
+              bodyColor: textColor,
+              borderColor: gridColor,
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  var label = context.dataset.label || '';
+                  var value = context.parsed.y;
+                  if (label === 'Cost (USD)') {
+                    return label + ': $' + value.toFixed(4);
+                  }
+                  return label + ': ' + value.toLocaleString();
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              grid: {
+                color: gridColor,
+              },
+              ticks: {
+                color: textColor,
+                maxTicksLimit: 10,
+              }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: 'Tokens',
+                color: textColor,
+              },
+              grid: {
+                color: gridColor,
+              },
+              ticks: {
+                color: textColor,
+                callback: function(value) {
+                  if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+                  if (value >= 1000) return (value / 1000).toFixed(1) + 'K';
+                  return value;
+                }
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: 'Cost (USD)',
+                color: textColor,
+              },
+              grid: {
+                drawOnChartArea: false,
+              },
+              ticks: {
+                color: '#f59e0b',
+                callback: function(value) {
+                  return '$' + value.toFixed(2);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Fetch chart data and update
+    function updateChart() {
+      var period = document.getElementById('chart-period').value;
+      var streamId = document.getElementById('chart-stream').value;
+
+      var url = '/api/tokens/trends?period=' + encodeURIComponent(period);
+      if (streamId) {
+        url += '&streamId=' + encodeURIComponent(streamId);
+      }
+
+      fetch(url)
+        .then(function(response) {
+          if (!response.ok) throw new Error('Failed to fetch chart data');
+          return response.json();
+        })
+        .then(function(data) {
+          chartData = data;
+          renderChart();
+        })
+        .catch(function(error) {
+          console.error('Error fetching chart data:', error);
+        });
+    }
+
+    // Render chart with current data
+    function renderChart() {
+      if (!tokenChart) return;
+
+      var dataPoints = chartData.dataPoints || [];
+
+      // Format dates for display
+      var labels = dataPoints.map(function(dp) {
+        var date = new Date(dp.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+
+      var inputTokens = dataPoints.map(function(dp) { return dp.inputTokens; });
+      var outputTokens = dataPoints.map(function(dp) { return dp.outputTokens; });
+      var costs = dataPoints.map(function(dp) { return dp.totalCost; });
+
+      tokenChart.data.labels = labels;
+      tokenChart.data.datasets[0].data = inputTokens;
+      tokenChart.data.datasets[1].data = outputTokens;
+      tokenChart.data.datasets[2].data = costs;
+
+      tokenChart.update('active');
+    }
+
+    // Populate stream dropdown
+    function populateStreamDropdown() {
+      fetch('/api/tokens/summary')
+        .then(function(response) {
+          if (!response.ok) throw new Error('Failed to fetch streams');
+          return response.json();
+        })
+        .then(function(data) {
+          var select = document.getElementById('chart-stream');
+          var streams = data.byStream || [];
+
+          // Clear existing options except the first one
+          while (select.options.length > 1) {
+            select.remove(1);
+          }
+
+          // Add stream options
+          streams.forEach(function(stream) {
+            var option = document.createElement('option');
+            option.value = stream.streamId;
+            option.textContent = 'PRD-' + stream.streamId + ': ' + stream.streamName;
+            select.appendChild(option);
+          });
+        })
+        .catch(function(error) {
+          console.error('Error fetching streams:', error);
+        });
+    }
+
+    // Handle visibility changes for chart section
+    function updateChartSectionVisibility(visible) {
+      var chartSection = document.getElementById('token-chart-section');
+      if (chartSection) {
+        chartSection.style.display = visible ? 'block' : 'none';
+      }
+    }
+
+    // Update showTokenStreamDetail to hide chart section
+    var originalShowTokenStreamDetail = showTokenStreamDetail;
+    showTokenStreamDetail = function(streamId, streamName) {
+      updateChartSectionVisibility(false);
+      originalShowTokenStreamDetail(streamId, streamName);
+    };
+
+    // Update hideTokenStories to show chart section
+    var originalHideTokenStories = hideTokenStories;
+    hideTokenStories = function() {
+      updateChartSectionVisibility(true);
+      originalHideTokenStories();
+    };
+
+    // Initialize chart on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initTokenChart();
+      populateStreamDropdown();
+      updateChart();
+    });
   </script>
 </body>
 </html>

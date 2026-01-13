@@ -284,4 +284,5 @@ export interface TokenTrendDataPoint {
 export interface TokenTrend {
   period: '7d' | '30d' | '90d' | 'all';
   dataPoints: TokenTrendDataPoint[];
+  streamId?: string;
 }

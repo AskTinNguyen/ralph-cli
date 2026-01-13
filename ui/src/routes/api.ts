@@ -2450,12 +2450,14 @@ api.get('/tokens/runs', (c) => {
  * Returns time-series token data for charts.
  * Query params:
  *   - period: Time period ('7d', '30d', '90d', 'all'). Default: '7d'
+ *   - streamId: Optional stream ID to filter by (if not provided, returns aggregate)
  *
  * Returns data points grouped by day with:
  *   - date, inputTokens, outputTokens, totalCost, runCount
  */
 api.get('/tokens/trends', (c) => {
   const periodParam = c.req.query('period') || '7d';
+  const streamId = c.req.query('streamId');
 
   // Validate period
   const validPeriods = ['7d', '30d', '90d', 'all'] as const;
@@ -2463,7 +2465,7 @@ api.get('/tokens/trends', (c) => {
     ? (periodParam as '7d' | '30d' | '90d' | 'all')
     : '7d';
 
-  const trends = getTokenTrends(period);
+  const trends = getTokenTrends(period, streamId);
 
   return c.json(trends);
 });

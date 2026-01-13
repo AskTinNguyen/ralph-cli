@@ -413,12 +413,17 @@ export function getRunTokens(options: {
 
 /**
  * Get time-series token data for charts
+ * @param period - Time period to fetch ('7d', '30d', '90d', 'all')
+ * @param streamId - Optional stream ID to filter by (if not provided, returns aggregate)
  */
-export function getTokenTrends(period: '7d' | '30d' | '90d' | 'all' = '7d'): TokenTrend {
+export function getTokenTrends(
+  period: '7d' | '30d' | '90d' | 'all' = '7d',
+  streamId?: string
+): TokenTrend {
   const ralphRoot = getRalphRoot();
 
   if (!ralphRoot) {
-    return { period, dataPoints: [] };
+    return { period, dataPoints: [], streamId };
   }
 
   // Calculate date range
@@ -441,11 +446,25 @@ export function getTokenTrends(period: '7d' | '30d' | '90d' | 'all' = '7d'): Tok
       break;
   }
 
-  // Collect all runs from all streams
-  const streams = getStreams();
+  // Determine which streams to process
+  let streamsToProcess: Array<{ id: string; path: string }>;
+
+  if (streamId) {
+    // Only process the specified stream
+    const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+    if (fs.existsSync(streamPath)) {
+      streamsToProcess = [{ id: streamId, path: streamPath }];
+    } else {
+      return { period, dataPoints: [], streamId };
+    }
+  } else {
+    // Process all streams
+    streamsToProcess = getStreams();
+  }
+
   const runsByDate = new Map<string, TokenTrendDataPoint>();
 
-  for (const stream of streams) {
+  for (const stream of streamsToProcess) {
     const cache = loadTokenCache(stream.path);
 
     if (!cache?.runs) {
@@ -485,5 +504,5 @@ export function getTokenTrends(period: '7d' | '30d' | '90d' | 'all' = '7d'): Tok
   const dataPoints = Array.from(runsByDate.values())
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  return { period, dataPoints };
+  return { period, dataPoints, streamId };
 }
