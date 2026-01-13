@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import * as fs from "fs";
 import * as path from "path";
-import { convertMarkdownToPdf } from "./converter";
+import { convertMarkdownToPdf, HeaderFooterOptions } from "./converter";
 import { renderMarkdown } from "./markdown";
 import { isDirectory, discoverMarkdownFiles, SortStrategy } from "./files";
 import { loadCSSFiles } from "./css-loader";
@@ -18,6 +18,11 @@ interface CliOptions {
   merge?: boolean;
   sort?: SortStrategy;
   css?: string[];
+  header?: string;
+  footer?: string;
+  headerTemplate?: string;
+  footerTemplate?: string;
+  noFirstPageHeader?: boolean;
 }
 
 program
@@ -34,6 +39,11 @@ program
     const prev = previous || [];
     return [...prev, value];
   }, [] as string[])
+  .option("--header <text>", "Header text with placeholders: {page}, {pages}, {date}, {title}, {filename}")
+  .option("--footer <text>", "Footer text with placeholders: {page}, {pages}, {date}, {title}, {filename}")
+  .option("--header-template <html>", "Custom HTML template for header")
+  .option("--footer-template <html>", "Custom HTML template for footer")
+  .option("--no-first-page-header", "Exclude header/footer from the first page")
   .action(async (inputs: string[], options: CliOptions) => {
     try {
       // Load custom CSS if provided
@@ -81,7 +91,18 @@ async function handleDirectoryMerge(
 
   // Convert to HTML and then to PDF
   const html = renderMarkdown(markdownContents, { customCSS });
-  await convertMarkdownToPdf(html, options.output);
+
+  // Build header/footer options
+  const headerFooterOptions: HeaderFooterOptions = {
+    header: options.header,
+    footer: options.footer,
+    headerTemplate: options.headerTemplate,
+    footerTemplate: options.footerTemplate,
+    noFirstPageHeader: options.noFirstPageHeader,
+    filename: path.basename(options.output, ".pdf"),
+  };
+
+  await convertMarkdownToPdf(html, options.output, headerFooterOptions);
 
   console.log(`\nMerged PDF created: ${options.output}`);
 }
@@ -152,7 +173,18 @@ async function handleDirectoryInput(dirPath: string, options: CliOptions, custom
       // Read and convert file
       const markdownContent = fs.readFileSync(inputFile, "utf-8");
       const html = renderMarkdown(markdownContent, { customCSS });
-      await convertMarkdownToPdf(html, outputPath);
+
+      // Build header/footer options
+      const headerFooterOptions: HeaderFooterOptions = {
+        header: options.header,
+        footer: options.footer,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
+        noFirstPageHeader: options.noFirstPageHeader,
+        filename: path.basename(inputFile, path.extname(inputFile)),
+      };
+
+      await convertMarkdownToPdf(html, outputPath, headerFooterOptions);
 
       console.log(`  ✓ ${inputFile} → ${outputPath}`);
       successCount++;
@@ -215,8 +247,18 @@ async function handleFileInputs(inputs: string[], options: CliOptions, customCSS
     { customCSS }
   );
 
+  // Build header/footer options
+  const headerFooterOptions: HeaderFooterOptions = {
+    header: options.header,
+    footer: options.footer,
+    headerTemplate: options.headerTemplate,
+    footerTemplate: options.footerTemplate,
+    noFirstPageHeader: options.noFirstPageHeader,
+    filename: path.basename(inputs[0], path.extname(inputs[0])),
+  };
+
   // Convert to PDF
-  await convertMarkdownToPdf(html, outputPath);
+  await convertMarkdownToPdf(html, outputPath, headerFooterOptions);
 
   console.log(`PDF created: ${outputPath}`);
 }

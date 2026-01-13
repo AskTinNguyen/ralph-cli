@@ -73,16 +73,16 @@ A command-line tool for converting Markdown files to PDF, designed primarily for
 - [x] Negative case: malformed CSS -> warning, continue with valid rules
 - [x] Typecheck/lint passes
 
-### [ ] US-006: Page Layout - Headers and Footers
+### [x] US-006: Page Layout - Headers and Footers
 **Description:** As a developer, I want to add headers and footers to my PDF pages so that documents include page numbers, titles, and dates.
 
 **Acceptance Criteria:**
-- [ ] CLI options: `--header "Document Title"` and `--footer "Page {page} of {pages}"`
-- [ ] Placeholder variables: `{page}`, `{pages}`, `{date}`, `{title}`, `{filename}`
-- [ ] Option `--header-template` and `--footer-template` for HTML templates
-- [ ] First page can optionally exclude header/footer with `--no-first-page-header`
-- [ ] Example: `md2pdf doc.md --footer "Page {page}"` -> page numbers in footer
-- [ ] Typecheck/lint passes
+- [x] CLI options: `--header "Document Title"` and `--footer "Page {page} of {pages}"`
+- [x] Placeholder variables: `{page}`, `{pages}`, `{date}`, `{title}`, `{filename}`
+- [x] Option `--header-template` and `--footer-template` for HTML templates
+- [x] First page can optionally exclude header/footer with `--no-first-page-header`
+- [x] Example: `md2pdf doc.md --footer "Page {page}"` -> page numbers in footer
+- [x] Typecheck/lint passes
 
 ### [ ] US-007: Table of Contents Generation
 **Description:** As a developer, I want an auto-generated table of contents so that readers can navigate long documents.
