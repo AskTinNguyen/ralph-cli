@@ -59,9 +59,13 @@ If task description provided, use it. Otherwise ask using AskUserQuestion:
 
 **Question 2: Verification**
 
-Detect the project type by checking for build files (package.json, Cargo.toml, CMakeLists.txt, go.mod, etc.) and suggest appropriate test commands. For web UI projects, include visual verification options using Playwright MCP tools for screenshots.
+Before suggesting test commands:
+1. Check for user-added testing skills in `.claude/skills/` (e.g., `unreal-testing/`, `unity-testing/`)
+2. Detect project type from build files (package.json, Cargo.toml, CMakeLists.txt, etc.)
 
-Let Claude Code determine the right options based on what it finds in the project.
+For web UI projects, include visual verification options using Playwright MCP tools.
+
+If custom testing skills exist, incorporate their guidance into the verification proposal.
 
 ### 4. Create plan.md
 
