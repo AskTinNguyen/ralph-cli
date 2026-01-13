@@ -35,11 +35,21 @@ The planning phase asks questions to define:
 
 | File | Purpose | Agent Action |
 |------|---------|--------------|
+| `guardrails.md` | Safety constraints | Read FIRST, NEVER violate |
 | `plan.md` | Task definition + success criteria | Read to know what to do |
-| `progress.md` | Iteration history | Append after each iteration |
-| `activity.log` | Detailed activity log | Append to track work done |
-| `errors.log` | Test failures | Append when tests fail |
-| `guardrails.md` | Safety constraints | Read and NEVER violate |
+| `progress.md` | Iteration history | Smart append (see below) |
+| `errors.log` | Test failures | Rolling window, max 3 unique |
+
+## Context Management (Prevent Bloat)
+
+**progress.md** - Smart append:
+- Keep last 5 iterations in detail
+- Summarize older iterations into "## Summary (Iterations 1-N)"
+
+**errors.log** - Rolling window:
+- Keep only last 3 unique errors
+- Skip duplicates (don't append same error twice)
+- Remove oldest when adding new
 
 ## Definition of Complete
 
@@ -59,16 +69,27 @@ When stuck after 3+ attempts:
 
 ## Continuation Harness
 
-Ralph continues work by reading state files:
-
 ```
-1. Read plan.md → understand task
-2. Read progress.md → see what's done
-3. Read errors.log → avoid repeating failures
-4. Read guardrails.md → know constraints
-5. Do work → run test_command
-6. Append to progress.md/errors.log
-7. Loop until COMPLETE or NEEDS_HUMAN
+┌─────────────────────────────────────────────┐
+│  READ (start of iteration):                 │
+│  1. guardrails.md → constraints             │
+│  2. plan.md → goal + criteria               │
+│  3. progress.md → what's done               │
+│  4. errors.log → recent failures            │
+│                                             │
+│  WORK:                                      │
+│  5. Do work toward next criterion           │
+│  6. Run test_command                        │
+│                                             │
+│  WRITE (end of iteration):                  │
+│  7. Update progress.md (summarize if > 5)   │
+│  8. Update errors.log (if new unique error) │
+│                                             │
+│  CHECK:                                     │
+│  9. All criteria met? → COMPLETE            │
+│  10. Stuck 3+ times? → NEEDS_HUMAN          │
+│  11. Otherwise → next iteration             │
+└─────────────────────────────────────────────┘
 ```
 
 ## Update Skills

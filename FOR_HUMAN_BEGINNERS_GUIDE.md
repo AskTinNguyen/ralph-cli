@@ -64,7 +64,6 @@ Everything lives in simple files you can read:
 | `guardrails.md` | Safety rules Claude must NEVER violate |
 | `plan.md` | The task definition ("what to build") |
 | `progress.md` | History of what happened each round |
-| `activity.log` | Detailed log of actions taken |
 | `errors.log` | What went wrong (if anything) |
 
 No database. No server. You can open these in Notepad and see exactly what's happening. **Transparency over magic.**
@@ -401,7 +400,6 @@ your-project/
     ├── ralph-1/           # Task 1
     │   ├── plan.md        # Task definition
     │   ├── progress.md    # Iteration history
-    │   ├── activity.log   # Detailed action log
     │   └── errors.log     # Test failures
     └── ralph-2/           # Task 2
         └── ...

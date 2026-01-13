@@ -124,9 +124,8 @@ your-repo/
     ├── guardrails.md              # Safety constraints (shared, READ FIRST)
     └── ralph-1/                   # Task 1
         ├── plan.md                # Task definition
-        ├── progress.md            # Iteration history (append-only)
-        ├── activity.log           # Detailed action log (append-only)
-        └── errors.log             # Test failures (append-only)
+        ├── progress.md            # Iteration history (smart append)
+        └── errors.log             # Test failures (rolling, max 3)
 ```
 
 ## Task Definition
@@ -174,7 +173,18 @@ Ralph outputs these markers to control the loop:
 
 ## State Files (Critical for Agents)
 
-Ralph uses state files as the memory and harness for continuation. **Agents MUST read these files at the start of each iteration and write to them after each action.**
+Ralph uses state files as the memory and harness for continuation. **Agents MUST read these files at the start of each iteration and manage them to avoid context bloat.**
+
+### Context Management Strategy
+
+To prevent unbounded log growth that wastes context:
+
+| File | Strategy | Max Size |
+|------|----------|----------|
+| `guardrails.md` | Read-only, never modify | N/A |
+| `progress.md` | Keep last 5 iterations, summarize older | ~50 lines |
+| `errors.log` | Keep last 3 unique errors only | ~30 lines |
+| `activity.log` | Optional, for debugging only | Remove if not needed |
 
 ### guardrails.md (Read Before Every Action)
 
@@ -196,15 +206,24 @@ Ralph uses state files as the memory and harness for continuation. **Agents MUST
 - (Add your project's constraints)
 ```
 
-### progress.md (Append After Every Iteration)
+### progress.md (Smart Append)
 
-**Purpose**: Iteration history that enables continuation. Future iterations read this to understand what's been tried.
+**Purpose**: Iteration history that enables continuation.
 
-**When to write**: After EVERY iteration, whether pass or fail.
+**Management rules**:
+1. After iteration 5, summarize iterations 1-N into a "Summary" section
+2. Keep only last 5 iterations in detail
+3. This prevents unbounded growth while preserving context
 
 **Template**:
 ```markdown
-## Iteration N - YYYY-MM-DD HH:MM:SS
+## Summary (Iterations 1-5)
+- Set up project structure
+- Added authentication module
+- Fixed 2 test failures
+- Integrated with database
+
+## Iteration 6 - YYYY-MM-DD HH:MM:SS
 - **Attempted**: What you tried to do
 - **Result**: PASSED | FAILED
 - **Files changed**: List of files modified
@@ -212,15 +231,18 @@ Ralph uses state files as the memory and harness for continuation. **Agents MUST
 - **Next**: What to try next (if not complete)
 ```
 
-### errors.log (Append On Failure)
+### errors.log (Deduplicated, Rolling)
 
-**Purpose**: Record of test failures. Prevents repeating the same mistakes.
+**Purpose**: Record of recent, unique test failures. Prevents repeating the same mistakes.
 
-**When to write**: When `test_command` fails.
+**Management rules**:
+1. Before appending, check if same error already exists → skip if duplicate
+2. Keep only last 3 unique errors
+3. Remove oldest when adding new (rolling window)
 
 **Template**:
 ```markdown
-## Iteration N - YYYY-MM-DD HH:MM:SS
+## Error 1 (Iteration 8)
 Command: bun test
 Exit code: 1
 Output:
@@ -228,32 +250,20 @@ Output:
     ✕ should render correctly
       Expected: true
       Received: false
+
+## Error 2 (Iteration 10)
+...
 ```
 
-### activity.log (Append Detailed Actions)
+### activity.log (Optional)
 
-**Purpose**: Detailed log of all actions taken. Useful for debugging and auditing.
+**Purpose**: Detailed log for debugging. **Not required for normal operation.**
 
-**When to write**: After significant actions (file edits, commands run, decisions made).
+**When to use**: Only when debugging issues or when human requests detailed audit trail.
 
-**Template**:
-```markdown
-## Iteration N - YYYY-MM-DD HH:MM:SS
+**Recommendation**: Skip this file in normal loops to save context. Use only if stuck.
 
-### Actions Taken
-1. Read plan.md - identified next criterion: "Add login button"
-2. Searched codebase for existing button components
-3. Created src/components/LoginButton.tsx
-4. Added tests in src/components/LoginButton.test.ts
-5. Ran test_command: bun test
-6. Result: PASSED
-
-### Decisions Made
-- Used existing Button component as base
-- Placed in components/ directory following project convention
-```
-
-### Agent Loop Reminder
+### Agent Loop (Context-Aware)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -261,17 +271,21 @@ Output:
 │  1. Read guardrails.md    → Know constraints            │
 │  2. Read plan.md          → Know the goal               │
 │  3. Read progress.md      → Know what's done            │
-│  4. Read errors.log       → Know what failed            │
+│  4. Read errors.log       → Know what failed (last 3)   │
 │                                                         │
 │  AFTER EVERY ITERATION:                                 │
 │  5. Run test_command      → Verify work                 │
-│  6. Append to progress.md → Record what happened        │
-│  7. Append to errors.log  → If tests failed             │
-│  8. Append to activity.log→ Detailed actions            │
+│  6. Update progress.md    → Summarize if > 5 iterations │
+│  7. Update errors.log     → Only if new unique error    │
+│                                                         │
+│  CONTEXT MANAGEMENT:                                    │
+│  - progress.md > 5 iterations? Summarize older ones     │
+│  - errors.log has duplicate? Don't append               │
+│  - errors.log > 3 entries? Remove oldest                │
 │                                                         │
 │  THEN:                                                  │
-│  9. Check completion      → All criteria met?           │
-│  10. Output signal        → COMPLETE or continue        │
+│  8. Check completion      → All criteria met?           │
+│  9. Output signal         → COMPLETE or continue        │
 └─────────────────────────────────────────────────────────┘
 ```
 
