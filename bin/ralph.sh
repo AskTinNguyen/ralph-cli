@@ -365,6 +365,161 @@ cmd_list() {
     fi
 }
 
+cmd_status() {
+    echo ""
+    log_info "Ralph Status"
+    echo ""
+
+    # Check for running ralph processes
+    local running_pids
+    running_pids=$(pgrep -f "ralph.sh go" 2>/dev/null | grep -v $$ || true)
+
+    if [[ -n "$running_pids" ]]; then
+        echo "🔄 Active loops:"
+        for pid in $running_pids; do
+            local cmd
+            cmd=$(ps -p "$pid" -o args= 2>/dev/null || true)
+            if [[ -n "$cmd" ]]; then
+                echo "   PID $pid: $cmd"
+            fi
+        done
+        echo ""
+    else
+        echo "No active ralph loops running."
+        echo ""
+    fi
+
+    if [[ ! -d "$RALPH_DIR" ]]; then
+        echo "No .ralph/ directory found."
+        return
+    fi
+
+    echo "Tasks:"
+    echo "$(printf '─%.0s' {1..50})"
+
+    for dir in $(ls -d "$RALPH_DIR"/ralph-* 2>/dev/null | sort -t- -k2 -n); do
+        if [[ -d "$dir" ]]; then
+            local task_id="${dir##*/}"
+            local task_name="$task_id"
+            local status_icon="⏸"
+            local status_text="pending"
+            local iterations=0
+            local last_activity=""
+
+            # Extract task name from frontmatter
+            if [[ -f "$dir/plan.md" ]]; then
+                local name
+                name=$(grep -m1 '^task:' "$dir/plan.md" 2>/dev/null | sed 's/^task:[[:space:]]*//' || true)
+                [[ -n "$name" ]] && task_name="$name"
+            fi
+
+            # Count iterations and check status from progress.md
+            if [[ -f "$dir/progress.md" ]]; then
+                iterations=$(grep -c '## Iteration' "$dir/progress.md" 2>/dev/null) || iterations=0
+
+                # Check for completion
+                if grep -q 'COMPLETE' "$dir/progress.md" 2>/dev/null; then
+                    status_icon="✅"
+                    status_text="complete"
+                elif grep -q 'NEEDS_HUMAN' "$dir/progress.md" 2>/dev/null; then
+                    status_icon="⚠️"
+                    status_text="needs human"
+                elif [[ $iterations -gt 0 ]]; then
+                    status_icon="🔄"
+                    status_text="in progress"
+                fi
+
+                # Get last activity time
+                last_activity=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$dir/progress.md" 2>/dev/null || \
+                               stat -c "%y" "$dir/progress.md" 2>/dev/null | cut -d. -f1 || true)
+            fi
+
+            # Check for errors
+            local error_count=0
+            if [[ -f "$dir/errors.log" ]] && [[ -s "$dir/errors.log" ]]; then
+                error_count=$(wc -l < "$dir/errors.log" | tr -d ' ')
+            fi
+
+            echo ""
+            echo "$status_icon $task_id: $task_name"
+            echo "   Status: $status_text | Iterations: $iterations | Errors: $error_count"
+            [[ -n "$last_activity" ]] && echo "   Last activity: $last_activity"
+        fi
+    done
+
+    echo ""
+}
+
+cmd_log() {
+    local task_id_arg="$1"
+    local log_type="${2:-all}"  # all, progress, errors, activity
+
+    if [[ -z "$task_id_arg" ]]; then
+        log_error "Usage: ralph log <task-id> [progress|errors|all]"
+        exit 1
+    fi
+
+    local task_id
+    task_id=$(normalize_id "$task_id_arg")
+    local task_dir="$RALPH_DIR/$task_id"
+
+    if [[ ! -d "$task_dir" ]]; then
+        log_error "Task not found: $task_id"
+        cmd_list
+        exit 1
+    fi
+
+    echo ""
+    log_info "Logs for $task_id"
+    echo ""
+
+    case "$log_type" in
+        progress)
+            if [[ -f "$task_dir/progress.md" ]]; then
+                cat "$task_dir/progress.md"
+            else
+                echo "No progress.md found"
+            fi
+            ;;
+        errors)
+            if [[ -f "$task_dir/errors.log" ]] && [[ -s "$task_dir/errors.log" ]]; then
+                echo "=== Errors ==="
+                cat "$task_dir/errors.log"
+            else
+                echo "No errors logged"
+            fi
+            ;;
+        all|*)
+            # Show progress
+            if [[ -f "$task_dir/progress.md" ]]; then
+                echo "$(printf '=%.0s' {1..50})"
+                echo "PROGRESS"
+                echo "$(printf '=%.0s' {1..50})"
+                cat "$task_dir/progress.md"
+                echo ""
+            fi
+
+            # Show errors if any
+            if [[ -f "$task_dir/errors.log" ]] && [[ -s "$task_dir/errors.log" ]]; then
+                echo "$(printf '=%.0s' {1..50})"
+                echo "ERRORS"
+                echo "$(printf '=%.0s' {1..50})"
+                cat "$task_dir/errors.log"
+                echo ""
+            fi
+
+            # Show plan summary
+            if [[ -f "$task_dir/plan.md" ]]; then
+                echo "$(printf '=%.0s' {1..50})"
+                echo "PLAN"
+                echo "$(printf '=%.0s' {1..50})"
+                head -30 "$task_dir/plan.md"
+                echo ""
+            fi
+            ;;
+    esac
+}
+
 cmd_go() {
     local task_id_arg="$1"
 
@@ -449,12 +604,15 @@ cmd_help() {
 Ralph - Autonomous Coding Loop
 
 Usage:
-  ralph.sh install       Install skills to current repo
-  ralph.sh new "task"    Create a new task
-  ralph.sh list          List all tasks
-  ralph.sh go <id>       Run task (headless, loops until COMPLETE)
-  ralph.sh update        Update skills in current project
-  ralph.sh upgrade       Pull latest CLI + update skills
+  ralph.sh install          Install skills to current repo
+  ralph.sh new "task"       Create a new task
+  ralph.sh list             List all tasks
+  ralph.sh status           Show status of all tasks and running loops
+  ralph.sh log <id>         Show logs for a task
+  ralph.sh log <id> errors  Show only errors for a task
+  ralph.sh go <id>          Run task (headless, loops until COMPLETE)
+  ralph.sh update           Update skills in current project
+  ralph.sh upgrade          Pull latest CLI + update skills
 
 For interactive use (one iteration at a time):
   claude
@@ -490,6 +648,12 @@ main() {
             ;;
         list)
             cmd_list
+            ;;
+        status)
+            cmd_status
+            ;;
+        log)
+            cmd_log "${1:-}" "${2:-}"
             ;;
         go)
             cmd_go "${1:-}"

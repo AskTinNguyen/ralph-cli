@@ -58,6 +58,8 @@ ralph.sh go 1
 | `ralph.sh install` | Install skills to current repo |
 | `ralph.sh new "task"` | Create a new task |
 | `ralph.sh list` | List all tasks |
+| `ralph.sh status` | Show all tasks status and running loops |
+| `ralph.sh log <id>` | Show logs for a task |
 | `ralph.sh go <id>` | Run task (loops until COMPLETE) |
 | `ralph.sh update` | Update skills in current project |
 | `ralph.sh upgrade` | Pull latest CLI + update skills |
