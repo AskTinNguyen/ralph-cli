@@ -16,6 +16,9 @@ import type {
   RunTokenData,
   TokenTrend,
   TokenTrendDataPoint,
+  ModelEfficiency,
+  ModelComparison,
+  ModelRecommendations,
 } from '../types.js';
 
 /**
@@ -745,4 +748,400 @@ export function getBudgetStatus(): BudgetStatus {
   }
 
   return status;
+}
+
+/**
+ * Calculate efficiency metrics for runs grouped by model
+ * This is a TypeScript implementation matching the logic in lib/tokens/calculator.js
+ */
+export function calculateModelEfficiency(
+  runs: Array<{
+    model?: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    storyId?: string | null;
+  }>
+): Record<string, ModelEfficiency> {
+  if (!runs || runs.length === 0) {
+    return {};
+  }
+
+  // Group runs by model
+  const byModel: Record<string, {
+    model: string;
+    totalRuns: number;
+    successfulRuns: number;
+    totalTokens: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCost: number;
+    storyIds: Set<string>;
+  }> = {};
+
+  for (const run of runs) {
+    const model = run.model || 'unknown';
+
+    if (!byModel[model]) {
+      byModel[model] = {
+        model,
+        totalRuns: 0,
+        successfulRuns: 0,
+        totalTokens: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCost: 0,
+        storyIds: new Set(),
+      };
+    }
+
+    const m = byModel[model];
+    m.totalRuns++;
+    m.totalTokens += (run.inputTokens || 0) + (run.outputTokens || 0);
+    m.totalInputTokens += run.inputTokens || 0;
+    m.totalOutputTokens += run.outputTokens || 0;
+    m.totalCost += run.cost || 0;
+
+    // Consider a run successful if it has a storyId and positive cost
+    if (run.storyId && run.cost > 0) {
+      m.successfulRuns++;
+      m.storyIds.add(run.storyId);
+    }
+  }
+
+  // Calculate efficiency metrics
+  const result: Record<string, ModelEfficiency> = {};
+
+  for (const model of Object.keys(byModel)) {
+    const m = byModel[model];
+    const storiesCount = m.storyIds.size;
+
+    result[model] = {
+      model,
+      totalRuns: m.totalRuns,
+      successfulRuns: m.successfulRuns,
+      totalTokens: m.totalTokens,
+      totalInputTokens: m.totalInputTokens,
+      totalOutputTokens: m.totalOutputTokens,
+      totalCost: roundCost(m.totalCost),
+      storiesCompleted: storiesCount,
+
+      // Efficiency metrics
+      tokensPerRun: m.totalRuns > 0 ? Math.round(m.totalTokens / m.totalRuns) : 0,
+      tokensPerSuccessfulRun: m.successfulRuns > 0 ? Math.round(m.totalTokens / m.successfulRuns) : 0,
+      costPerRun: m.totalRuns > 0 ? roundCost(m.totalCost / m.totalRuns) : 0,
+      costPerSuccessfulRun: m.successfulRuns > 0 ? roundCost(m.totalCost / m.successfulRuns) : 0,
+      costPerStory: storiesCount > 0 ? roundCost(m.totalCost / storiesCount) : 0,
+      successRate: m.totalRuns > 0 ? Math.round((m.successfulRuns / m.totalRuns) * 100) : 0,
+
+      // Efficiency score (lower is better)
+      efficiencyScore: storiesCount > 0 && m.successfulRuns > 0
+        ? Math.round(
+            (m.totalTokens / storiesCount) * 0.4 +
+            (m.totalCost / storiesCount) * 1000 * 0.4 +
+            ((100 - (m.successfulRuns / m.totalRuns) * 100)) * 100 * 0.2
+          )
+        : null,
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Compare efficiency between two models
+ */
+export function compareModels(
+  modelAMetrics: ModelEfficiency | undefined,
+  modelBMetrics: ModelEfficiency | undefined
+): ModelComparison {
+  if (!modelAMetrics || !modelBMetrics) {
+    return {
+      valid: false,
+      reason: 'Both models must have efficiency data for comparison',
+    };
+  }
+
+  const comparison: ModelComparison = {
+    valid: true,
+    modelA: modelAMetrics.model,
+    modelB: modelBMetrics.model,
+    metrics: {},
+    recommendations: [],
+  };
+
+  // Compare key metrics
+  const metrics = [
+    { key: 'tokensPerRun', label: 'Tokens per Run', lowerBetter: true },
+    { key: 'costPerRun', label: 'Cost per Run', lowerBetter: true },
+    { key: 'costPerStory', label: 'Cost per Story', lowerBetter: true },
+    { key: 'successRate', label: 'Success Rate', lowerBetter: false },
+    { key: 'efficiencyScore', label: 'Efficiency Score', lowerBetter: true },
+  ] as const;
+
+  for (const { key, label, lowerBetter } of metrics) {
+    const aValue = modelAMetrics[key];
+    const bValue = modelBMetrics[key];
+
+    if (aValue == null || bValue == null) continue;
+
+    let winner: string | null = null;
+    let difference = 0;
+    let percentDiff = 0;
+
+    if (aValue !== bValue) {
+      if (lowerBetter) {
+        winner = aValue < bValue ? modelAMetrics.model : modelBMetrics.model;
+      } else {
+        winner = aValue > bValue ? modelAMetrics.model : modelBMetrics.model;
+      }
+
+      const baseValue = Math.max(aValue, bValue);
+      difference = Math.abs(aValue - bValue);
+      percentDiff = baseValue > 0 ? Math.round((difference / baseValue) * 100) : 0;
+    }
+
+    comparison.metrics![key] = {
+      label,
+      modelA: aValue,
+      modelB: bValue,
+      winner,
+      difference,
+      percentDiff,
+    };
+  }
+
+  // Generate recommendations
+  const effA = modelAMetrics.efficiencyScore;
+  const effB = modelBMetrics.efficiencyScore;
+  const successA = modelAMetrics.successRate;
+  const successB = modelBMetrics.successRate;
+  const costA = modelAMetrics.costPerStory;
+  const costB = modelBMetrics.costPerStory;
+
+  if (effA != null && effB != null) {
+    if (effA < effB * 0.8) {
+      comparison.recommendations!.push({
+        type: 'overall',
+        message: `${modelAMetrics.model} is significantly more efficient overall (${Math.round((1 - effA / effB) * 100)}% better efficiency score)`,
+        recommendedModel: modelAMetrics.model,
+      });
+    } else if (effB < effA * 0.8) {
+      comparison.recommendations!.push({
+        type: 'overall',
+        message: `${modelBMetrics.model} is significantly more efficient overall (${Math.round((1 - effB / effA) * 100)}% better efficiency score)`,
+        recommendedModel: modelBMetrics.model,
+      });
+    }
+  }
+
+  if (costA > 0 && costB > 0) {
+    if (costA < costB * 0.7) {
+      comparison.recommendations!.push({
+        type: 'cost',
+        message: `For cost-sensitive tasks, ${modelAMetrics.model} is ${Math.round((1 - costA / costB) * 100)}% cheaper per story`,
+        recommendedModel: modelAMetrics.model,
+      });
+    } else if (costB < costA * 0.7) {
+      comparison.recommendations!.push({
+        type: 'cost',
+        message: `For cost-sensitive tasks, ${modelBMetrics.model} is ${Math.round((1 - costB / costA) * 100)}% cheaper per story`,
+        recommendedModel: modelBMetrics.model,
+      });
+    }
+  }
+
+  if (successA > 0 && successB > 0) {
+    if (successA > successB + 15) {
+      comparison.recommendations!.push({
+        type: 'reliability',
+        message: `For reliability-critical tasks, ${modelAMetrics.model} has ${successA - successB}% higher success rate`,
+        recommendedModel: modelAMetrics.model,
+      });
+    } else if (successB > successA + 15) {
+      comparison.recommendations!.push({
+        type: 'reliability',
+        message: `For reliability-critical tasks, ${modelBMetrics.model} has ${successB - successA}% higher success rate`,
+        recommendedModel: modelBMetrics.model,
+      });
+    }
+  }
+
+  if (comparison.recommendations!.length === 0) {
+    comparison.recommendations!.push({
+      type: 'neutral',
+      message: 'Both models show similar efficiency. Choose based on specific requirements.',
+      recommendedModel: null,
+    });
+  }
+
+  return comparison;
+}
+
+/**
+ * Generate model recommendations for different task types
+ */
+export function getModelRecommendations(efficiencyByModel: Record<string, ModelEfficiency>): ModelRecommendations {
+  const models = Object.keys(efficiencyByModel);
+
+  if (models.length === 0) {
+    return { hasData: false, recommendations: [] };
+  }
+
+  const recommendations: ModelRecommendations['recommendations'] = [];
+
+  // Find best model for each criterion
+  let bestCostModel: string | undefined;
+  let bestCost = Infinity;
+  let bestSuccessModel: string | undefined;
+  let bestSuccess = -1;
+  let bestEfficiencyModel: string | undefined;
+  let bestEfficiency = Infinity;
+
+  for (const model of models) {
+    const metrics = efficiencyByModel[model];
+
+    // Skip models with insufficient data
+    if (metrics.totalRuns < 2) continue;
+
+    if (metrics.costPerStory > 0 && metrics.costPerStory < bestCost) {
+      bestCost = metrics.costPerStory;
+      bestCostModel = model;
+    }
+
+    if (metrics.successRate > bestSuccess) {
+      bestSuccess = metrics.successRate;
+      bestSuccessModel = model;
+    }
+
+    if (metrics.efficiencyScore != null && metrics.efficiencyScore < bestEfficiency) {
+      bestEfficiency = metrics.efficiencyScore;
+      bestEfficiencyModel = model;
+    }
+  }
+
+  // Generate recommendations
+  if (bestEfficiencyModel) {
+    recommendations.push({
+      taskType: 'general',
+      description: 'Best overall efficiency for typical development tasks',
+      recommendedModel: bestEfficiencyModel,
+      reason: `${bestEfficiencyModel} has the best balance of cost, token usage, and success rate`,
+      confidence: bestEfficiency < 50000 ? 'high' : 'medium',
+    });
+  }
+
+  if (bestCostModel && bestCostModel !== bestEfficiencyModel) {
+    recommendations.push({
+      taskType: 'cost-sensitive',
+      description: 'Budget-conscious development with cost as primary concern',
+      recommendedModel: bestCostModel,
+      reason: `${bestCostModel} achieves the lowest cost per completed story ($${bestCost.toFixed(4)})`,
+      confidence: bestCost < 1 ? 'high' : 'medium',
+    });
+  }
+
+  if (bestSuccessModel && bestSuccessModel !== bestEfficiencyModel) {
+    recommendations.push({
+      taskType: 'reliability-critical',
+      description: 'Tasks where completion success is critical',
+      recommendedModel: bestSuccessModel,
+      reason: `${bestSuccessModel} has the highest success rate (${bestSuccess}%)`,
+      confidence: bestSuccess > 80 ? 'high' : 'medium',
+    });
+  }
+
+  // Add specific task type recommendations
+  const hasOpus = efficiencyByModel.opus != null;
+  const hasSonnet = efficiencyByModel.sonnet != null;
+  const hasHaiku = efficiencyByModel.haiku != null;
+
+  if (hasOpus && efficiencyByModel.opus.totalRuns >= 2) {
+    recommendations.push({
+      taskType: 'complex-tasks',
+      description: 'Complex multi-file refactoring or architecture changes',
+      recommendedModel: 'opus',
+      reason: 'Opus excels at complex reasoning and large codebase understanding',
+      confidence: 'high',
+    });
+  }
+
+  if (hasSonnet && efficiencyByModel.sonnet.totalRuns >= 2) {
+    recommendations.push({
+      taskType: 'standard-development',
+      description: 'Standard feature implementation and bug fixes',
+      recommendedModel: 'sonnet',
+      reason: 'Sonnet provides a good balance of capability and cost for most tasks',
+      confidence: 'high',
+    });
+  }
+
+  if (hasHaiku && efficiencyByModel.haiku.totalRuns >= 2) {
+    recommendations.push({
+      taskType: 'simple-tasks',
+      description: 'Simple fixes, documentation updates, or straightforward changes',
+      recommendedModel: 'haiku',
+      reason: 'Haiku offers the best cost efficiency for simpler tasks',
+      confidence: 'high',
+    });
+  }
+
+  return {
+    hasData: recommendations.length > 0,
+    recommendations,
+    bestOverall: bestEfficiencyModel,
+    bestCost: bestCostModel,
+    bestSuccess: bestSuccessModel,
+  };
+}
+
+/**
+ * Get all runs from all streams for efficiency analysis
+ */
+export function getAllRunsForEfficiency(): Array<{
+  runId: string;
+  streamId: string;
+  storyId?: string | null;
+  model?: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+  timestamp: string;
+}> {
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return [];
+  }
+
+  const streams = getStreams();
+  const allRuns: Array<{
+    runId: string;
+    streamId: string;
+    storyId?: string | null;
+    model?: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    timestamp: string;
+  }> = [];
+
+  for (const stream of streams) {
+    const cache = loadTokenCache(stream.path);
+    if (cache?.runs) {
+      for (const run of cache.runs) {
+        allRuns.push({
+          runId: run.runId,
+          streamId: stream.id,
+          storyId: run.storyId,
+          model: run.model,
+          inputTokens: run.inputTokens,
+          outputTokens: run.outputTokens,
+          cost: run.cost,
+          timestamp: run.timestamp,
+        });
+      }
+    }
+  }
+
+  return allRuns;
 }

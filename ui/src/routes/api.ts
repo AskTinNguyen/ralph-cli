@@ -10,7 +10,7 @@ import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, Bui
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
-import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus } from '../services/token-reader.js';
+import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -2389,6 +2389,12 @@ api.post('/files/*/open', async (c) => {
  */
 api.get('/tokens/summary', (c) => {
   const summary = getTokenSummary();
+
+  // Calculate efficiency metrics for all runs
+  const allRuns = getAllRunsForEfficiency();
+  const efficiency = calculateModelEfficiency(allRuns);
+  const recommendations = getModelRecommendations(efficiency);
+
   return c.json({
     summary: {
       totalInputTokens: summary.totalInputTokens,
@@ -2399,6 +2405,8 @@ api.get('/tokens/summary', (c) => {
     },
     byStream: summary.byStream,
     byModel: summary.byModel,
+    efficiency,
+    recommendations,
   });
 });
 
@@ -2516,6 +2524,91 @@ api.get('/tokens/trends', (c) => {
   const trends = getTokenTrends(period, streamId);
 
   return c.json(trends);
+});
+
+/**
+ * GET /api/tokens/efficiency
+ *
+ * Returns efficiency metrics for all models.
+ */
+api.get('/tokens/efficiency', (c) => {
+  const allRuns = getAllRunsForEfficiency();
+  const efficiency = calculateModelEfficiency(allRuns);
+  const recommendations = getModelRecommendations(efficiency);
+
+  return c.json({
+    efficiency,
+    recommendations,
+  });
+});
+
+/**
+ * GET /api/tokens/compare
+ *
+ * Compare efficiency between two models.
+ * Query params:
+ *   - modelA: First model name (e.g., 'sonnet', 'opus', 'haiku')
+ *   - modelB: Second model name
+ *   - streamA: Optional stream ID for model A (for A/B stream comparison)
+ *   - streamB: Optional stream ID for model B (for A/B stream comparison)
+ */
+api.get('/tokens/compare', (c) => {
+  const modelA = c.req.query('modelA');
+  const modelB = c.req.query('modelB');
+  const streamA = c.req.query('streamA');
+  const streamB = c.req.query('streamB');
+
+  if (!modelA || !modelB) {
+    return c.json({
+      error: 'Both modelA and modelB query parameters are required',
+    }, 400);
+  }
+
+  // Get runs - optionally filtered by stream for A/B comparison
+  let runsA: ReturnType<typeof getAllRunsForEfficiency>;
+  let runsB: ReturnType<typeof getAllRunsForEfficiency>;
+
+  const allRuns = getAllRunsForEfficiency();
+
+  if (streamA && streamB) {
+    // A/B comparison between two streams (potentially using different models)
+    runsA = allRuns.filter(r => r.streamId === streamA);
+    runsB = allRuns.filter(r => r.streamId === streamB);
+  } else {
+    // Compare models across all streams
+    runsA = allRuns.filter(r => (r.model || 'unknown').toLowerCase() === modelA.toLowerCase());
+    runsB = allRuns.filter(r => (r.model || 'unknown').toLowerCase() === modelB.toLowerCase());
+  }
+
+  // Calculate efficiency for each set
+  const efficiencyA = calculateModelEfficiency(runsA);
+  const efficiencyB = calculateModelEfficiency(runsB);
+
+  // Get metrics for the specified models
+  const metricsA = streamA
+    ? Object.values(efficiencyA)[0]
+    : efficiencyA[modelA.toLowerCase()];
+  const metricsB = streamB
+    ? Object.values(efficiencyB)[0]
+    : efficiencyB[modelB.toLowerCase()];
+
+  const comparison = compareModels(metricsA, metricsB);
+
+  return c.json({
+    comparison,
+    modelA: {
+      name: modelA,
+      streamId: streamA,
+      metrics: metricsA || null,
+      runCount: runsA.length,
+    },
+    modelB: {
+      name: modelB,
+      streamId: streamB,
+      metrics: metricsB || null,
+      runCount: runsB.length,
+    },
+  });
 });
 
 /**
@@ -2794,10 +2887,16 @@ api.get('/partials/token-streams', (c) => {
 /**
  * GET /api/partials/token-models
  *
- * Returns HTML fragment for the token usage by model breakdown.
+ * Returns HTML fragment for the token usage by model breakdown with efficiency metrics.
+ * Shows model comparison, efficiency scores, and recommendations.
  */
 api.get('/partials/token-models', (c) => {
   const summary = getTokenSummary();
+
+  // Calculate efficiency metrics
+  const allRuns = getAllRunsForEfficiency();
+  const efficiency = calculateModelEfficiency(allRuns);
+  const recommendations = getModelRecommendations(efficiency);
 
   const modelEntries = Object.entries(summary.byModel);
 
@@ -2833,7 +2932,7 @@ api.get('/partials/token-models', (c) => {
     return tokens.toString();
   };
 
-  // Find max cost for progress bar scaling
+  // Find max cost and best efficiency for scaling
   const maxCost = Math.max(...modelEntries.map(([, metrics]) => metrics.totalCost), 0.01);
 
   const modelCards = modelEntries.map(([model, metrics]) => {
@@ -2842,10 +2941,35 @@ api.get('/partials/token-models', (c) => {
     const displayName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
     const totalTokens = metrics.inputTokens + metrics.outputTokens;
 
+    // Get efficiency data for this model
+    const efficiencyData = efficiency[modelName.toLowerCase()];
+    const successRate = efficiencyData?.successRate ?? 0;
+    const costPerStory = efficiencyData?.costPerStory ?? 0;
+    const tokensPerRun = efficiencyData?.tokensPerRun ?? 0;
+    const efficiencyScore = efficiencyData?.efficiencyScore;
+
+    // Determine if this is the recommended model
+    const isBestOverall = recommendations.bestOverall === modelName.toLowerCase();
+    const isBestCost = recommendations.bestCost === modelName.toLowerCase();
+    const isBestSuccess = recommendations.bestSuccess === modelName.toLowerCase();
+
+    // Build badge HTML
+    let badges = '';
+    if (isBestOverall) {
+      badges += '<span class="model-badge model-badge-best" title="Best overall efficiency">&#9733; Best</span>';
+    }
+    if (isBestCost && !isBestOverall) {
+      badges += '<span class="model-badge model-badge-cost" title="Most cost-effective">$ Cost</span>';
+    }
+    if (isBestSuccess && !isBestOverall) {
+      badges += '<span class="model-badge model-badge-reliable" title="Highest success rate">&#10003; Reliable</span>';
+    }
+
     return `
-<div class="token-model-card">
+<div class="token-model-card${isBestOverall ? ' token-model-card-recommended' : ''}">
   <div class="token-model-header">
     <span class="token-model-name">${escapeHtml(displayName)}</span>
+    <span class="token-model-badges">${badges}</span>
     <span class="token-model-runs">${metrics.runCount || 0} runs</span>
   </div>
   <div class="token-model-stats">
@@ -2858,6 +2982,26 @@ api.get('/partials/token-models', (c) => {
       <span class="token-model-stat-value">${formatCurrency(metrics.totalCost)}</span>
     </div>
   </div>
+  <div class="token-model-efficiency">
+    <div class="token-model-metric">
+      <span class="metric-label">Success Rate</span>
+      <span class="metric-value ${successRate >= 80 ? 'metric-good' : successRate >= 50 ? 'metric-ok' : 'metric-low'}">${successRate}%</span>
+    </div>
+    <div class="token-model-metric">
+      <span class="metric-label">Cost/Story</span>
+      <span class="metric-value">${formatCurrency(costPerStory)}</span>
+    </div>
+    <div class="token-model-metric">
+      <span class="metric-label">Tokens/Run</span>
+      <span class="metric-value">${formatTokens(tokensPerRun)}</span>
+    </div>
+    ${efficiencyScore != null ? `
+    <div class="token-model-metric">
+      <span class="metric-label" title="Lower is better - combines cost, tokens, and success rate">Efficiency</span>
+      <span class="metric-value metric-score">${(efficiencyScore / 1000).toFixed(1)}K</span>
+    </div>
+    ` : ''}
+  </div>
   <div class="token-model-bar">
     <div class="token-model-bar-fill" style="width: ${costPercentage}%"></div>
   </div>
@@ -2869,7 +3013,71 @@ api.get('/partials/token-models', (c) => {
 `;
   }).join('');
 
-  return c.html(`<div class="token-models-grid">${modelCards}</div>`);
+  // Build recommendations section
+  let recommendationsHtml = '';
+  if (recommendations.hasData && recommendations.recommendations.length > 0) {
+    const recItems = recommendations.recommendations.map(rec => {
+      const confidenceClass = rec.confidence === 'high' ? 'confidence-high' : rec.confidence === 'medium' ? 'confidence-medium' : 'confidence-low';
+      return `
+      <div class="recommendation-item">
+        <div class="recommendation-header">
+          <span class="recommendation-task-type">${escapeHtml(rec.taskType.replace(/-/g, ' '))}</span>
+          <span class="recommendation-confidence ${confidenceClass}">${rec.confidence}</span>
+        </div>
+        <div class="recommendation-model">Use <strong>${escapeHtml(rec.recommendedModel)}</strong></div>
+        <div class="recommendation-reason">${escapeHtml(rec.reason)}</div>
+      </div>
+      `;
+    }).join('');
+
+    recommendationsHtml = `
+    <div class="model-recommendations">
+      <h4>Recommendations by Task Type</h4>
+      <div class="recommendations-grid">
+        ${recItems}
+      </div>
+    </div>
+    `;
+  }
+
+  // Build A/B comparison section if multiple models exist
+  let comparisonHtml = '';
+  if (modelEntries.length >= 2) {
+    const modelOptions = modelEntries.map(([model]) => {
+      const displayName = model.charAt(0).toUpperCase() + model.slice(1);
+      return `<option value="${escapeHtml(model)}">${escapeHtml(displayName)}</option>`;
+    }).join('');
+
+    comparisonHtml = `
+    <div class="model-comparison-section">
+      <h4>A/B Model Comparison</h4>
+      <div class="comparison-controls">
+        <div class="comparison-select">
+          <label for="compare-model-a">Model A:</label>
+          <select id="compare-model-a" onchange="updateModelComparison()">
+            ${modelOptions}
+          </select>
+        </div>
+        <span class="comparison-vs">vs</span>
+        <div class="comparison-select">
+          <label for="compare-model-b">Model B:</label>
+          <select id="compare-model-b" onchange="updateModelComparison()">
+            ${modelOptions}
+          </select>
+        </div>
+      </div>
+      <div id="model-comparison-result" class="comparison-result">
+        <p class="comparison-hint">Select different models to compare their efficiency metrics.</p>
+      </div>
+    </div>
+    `;
+  }
+
+  return c.html(`
+<div class="token-models-grid">${modelCards}</div>
+${recommendationsHtml}
+${comparisonHtml}
+`);
 });
 
 /**

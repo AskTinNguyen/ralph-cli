@@ -286,3 +286,69 @@ export interface TokenTrend {
   dataPoints: TokenTrendDataPoint[];
   streamId?: string;
 }
+
+/**
+ * Model efficiency metrics
+ */
+export interface ModelEfficiency {
+  model: string;
+  totalRuns: number;
+  successfulRuns: number;
+  totalTokens: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+  storiesCompleted: number;
+  tokensPerRun: number;
+  tokensPerSuccessfulRun: number;
+  costPerRun: number;
+  costPerSuccessfulRun: number;
+  costPerStory: number;
+  successRate: number;
+  efficiencyScore: number | null;
+}
+
+/**
+ * Model comparison result
+ */
+export interface ModelComparison {
+  valid: boolean;
+  reason?: string;
+  modelA?: string;
+  modelB?: string;
+  metrics?: Record<string, {
+    label: string;
+    modelA: number;
+    modelB: number;
+    winner: string | null;
+    difference: number;
+    percentDiff: number;
+  }>;
+  recommendations?: Array<{
+    type: string;
+    message: string;
+    recommendedModel: string | null;
+  }>;
+}
+
+/**
+ * Model recommendation for task type
+ */
+export interface ModelRecommendation {
+  taskType: string;
+  description: string;
+  recommendedModel: string;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Model recommendations result
+ */
+export interface ModelRecommendations {
+  hasData: boolean;
+  recommendations: ModelRecommendation[];
+  bestOverall?: string;
+  bestCost?: string;
+  bestSuccess?: string;
+}

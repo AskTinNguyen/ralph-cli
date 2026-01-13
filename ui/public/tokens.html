@@ -625,6 +625,122 @@
       populateStreamDropdown();
       updateChart();
     });
+
+    // ============================================
+    // Model Comparison (A/B Comparison)
+    // ============================================
+
+    // Update model comparison when selections change
+    function updateModelComparison() {
+      var selectA = document.getElementById('compare-model-a');
+      var selectB = document.getElementById('compare-model-b');
+      var resultContainer = document.getElementById('model-comparison-result');
+
+      if (!selectA || !selectB || !resultContainer) return;
+
+      var modelA = selectA.value;
+      var modelB = selectB.value;
+
+      if (modelA === modelB) {
+        resultContainer.innerHTML = '<p class="comparison-hint">Select different models to compare their efficiency metrics.</p>';
+        return;
+      }
+
+      resultContainer.innerHTML = '<div class="comparison-loading"><span class="loading-spinner"></span> Comparing models...</div>';
+
+      var url = '/api/tokens/compare?modelA=' + encodeURIComponent(modelA) + '&modelB=' + encodeURIComponent(modelB);
+
+      fetch(url)
+        .then(function(response) {
+          if (!response.ok) throw new Error('Failed to compare models');
+          return response.json();
+        })
+        .then(function(data) {
+          renderModelComparison(data, resultContainer);
+        })
+        .catch(function(error) {
+          console.error('Error comparing models:', error);
+          resultContainer.innerHTML = '<p class="comparison-hint">Error comparing models. Please try again.</p>';
+        });
+    }
+
+    // Render the model comparison results
+    function renderModelComparison(data, container) {
+      if (!data.comparison || !data.comparison.valid) {
+        container.innerHTML = '<p class="comparison-hint">' + (data.comparison?.reason || 'Unable to compare models. Ensure both models have run data.') + '</p>';
+        return;
+      }
+
+      var comparison = data.comparison;
+      var metricsHtml = '';
+
+      // Format currency helper
+      function formatCurrency(cost) {
+        if (cost >= 1) return '$' + cost.toFixed(2);
+        if (cost >= 0.01) return '$' + cost.toFixed(3);
+        if (cost > 0) return '$' + cost.toFixed(4);
+        return '$0.00';
+      }
+
+      // Format number helper
+      function formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+      }
+
+      // Build metrics comparison
+      if (comparison.metrics) {
+        var metricItems = Object.keys(comparison.metrics).map(function(key) {
+          var metric = comparison.metrics[key];
+          var valueA = key.includes('cost') ? formatCurrency(metric.modelA) : (key.includes('Rate') ? metric.modelA + '%' : formatNumber(metric.modelA));
+          var valueB = key.includes('cost') ? formatCurrency(metric.modelB) : (key.includes('Rate') ? metric.modelB + '%' : formatNumber(metric.modelB));
+          var winnerA = metric.winner === comparison.modelA;
+          var winnerB = metric.winner === comparison.modelB;
+
+          return '<div class="comparison-metric">' +
+            '<div class="comparison-metric-label">' + metric.label + '</div>' +
+            '<div class="comparison-metric-values">' +
+              '<span class="comparison-metric-value' + (winnerA ? ' winner' : '') + '">' + valueA + '</span>' +
+              '<span class="comparison-metric-diff">' + (metric.percentDiff > 0 ? metric.percentDiff + '% diff' : '-') + '</span>' +
+              '<span class="comparison-metric-value' + (winnerB ? ' winner' : '') + '">' + valueB + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        metricsHtml = '<div class="comparison-metrics">' + metricItems + '</div>';
+      }
+
+      // Build recommendations
+      var recsHtml = '';
+      if (comparison.recommendations && comparison.recommendations.length > 0) {
+        var recItems = comparison.recommendations.map(function(rec) {
+          var icon = rec.type === 'overall' ? '&#9733;' : (rec.type === 'cost' ? '&#36;' : (rec.type === 'reliability' ? '&#10003;' : '&#8226;'));
+          return '<div class="comparison-recommendation">' +
+            '<span class="comparison-recommendation-icon">' + icon + '</span>' +
+            '<span class="comparison-recommendation-text">' + rec.message + '</span>' +
+          '</div>';
+        }).join('');
+
+        recsHtml = '<div class="comparison-recommendations">' +
+          '<strong>Recommendations:</strong>' +
+          recItems +
+        '</div>';
+      }
+
+      container.innerHTML = metricsHtml + recsHtml;
+    }
+
+    // Re-initialize comparison controls after HTMX loads model section
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+      if (event.detail.target.id === 'token-models-container') {
+        // Set different default selections for comparison
+        var selectB = document.getElementById('compare-model-b');
+        if (selectB && selectB.options.length > 1) {
+          selectB.selectedIndex = 1;
+        }
+      }
+    });
   </script>
 </body>
 </html>
