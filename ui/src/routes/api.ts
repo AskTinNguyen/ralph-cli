@@ -6,10 +6,12 @@
  */
 
 import { Hono } from 'hono';
-import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel } from '../types.js';
+import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, BuildOptions } from '../types.js';
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
+import { processManager } from '../services/process-manager.js';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -452,6 +454,315 @@ api.get('/logs/runs', (c) => {
 });
 
 /**
+ * Build Control API Endpoints
+ *
+ * REST API endpoints for starting, stopping, and monitoring Ralph builds.
+ */
+
+/**
+ * Valid agent types for builds
+ */
+const VALID_AGENTS = ['claude', 'codex', 'droid'] as const;
+
+/**
+ * POST /api/build/start
+ *
+ * Start a new build process.
+ * Request body: { iterations: number, stream?: string, agent?: string, noCommit?: boolean }
+ *
+ * Returns:
+ *   - 200 with { success: true, status: BuildStatus } on success
+ *   - 400 for invalid parameters
+ *   - 409 Conflict if build already running
+ */
+api.post('/build/start', async (c) => {
+  let body: {
+    iterations?: number;
+    stream?: string;
+    agent?: string;
+    noCommit?: boolean;
+  };
+
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Invalid JSON body',
+      },
+      400
+    );
+  }
+
+  // Validate iterations
+  const iterations = body.iterations;
+  if (iterations === undefined || iterations === null) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Missing required parameter: iterations',
+      },
+      400
+    );
+  }
+
+  if (typeof iterations !== 'number' || !Number.isInteger(iterations)) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Parameter iterations must be an integer',
+      },
+      400
+    );
+  }
+
+  if (iterations < 1 || iterations > 100) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Parameter iterations must be between 1 and 100',
+      },
+      400
+    );
+  }
+
+  // Validate agent if provided
+  if (body.agent !== undefined && body.agent !== null) {
+    if (!VALID_AGENTS.includes(body.agent as (typeof VALID_AGENTS)[number])) {
+      return c.json(
+        {
+          error: 'bad_request',
+          message: `Invalid agent: ${body.agent}. Must be one of: ${VALID_AGENTS.join(', ')}`,
+        },
+        400
+      );
+    }
+  }
+
+  // Check if build is already running
+  if (processManager.isRunning()) {
+    const currentStatus = processManager.getBuildStatus();
+    return c.json(
+      {
+        error: 'conflict',
+        message: 'A build is already running. Stop it first before starting a new one.',
+        status: {
+          state: currentStatus.state,
+          pid: currentStatus.pid,
+          startedAt: currentStatus.startedAt?.toISOString(),
+          command: currentStatus.command,
+          options: currentStatus.options,
+        },
+      },
+      409
+    );
+  }
+
+  // Build options
+  const options: Partial<BuildOptions> = {};
+  if (body.stream) {
+    options.stream = body.stream;
+  }
+  if (body.agent) {
+    options.agent = body.agent as BuildOptions['agent'];
+  }
+  if (body.noCommit !== undefined) {
+    options.noCommit = body.noCommit;
+  }
+
+  // Start the build
+  const status = processManager.startBuild(iterations, options);
+
+  // Check if there was an error starting
+  if (status.state === 'error') {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: status.error || 'Failed to start build',
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    status: {
+      state: status.state,
+      pid: status.pid,
+      startedAt: status.startedAt?.toISOString(),
+      command: status.command,
+      options: status.options,
+    },
+  });
+});
+
+/**
+ * POST /api/build/stop
+ *
+ * Stop the currently running build process.
+ *
+ * Returns:
+ *   - 200 with { success: true } on success
+ *   - 404 if no build is running
+ */
+api.post('/build/stop', (c) => {
+  // Check if a build is running
+  if (!processManager.isRunning()) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: 'No build is currently running',
+      },
+      404
+    );
+  }
+
+  const status = processManager.stopBuild();
+
+  // Check for errors
+  if (status.error && status.state === 'error') {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: status.error,
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: 'Build stop signal sent',
+  });
+});
+
+/**
+ * GET /api/build/status
+ *
+ * Get the current build status.
+ *
+ * Returns:
+ *   - 200 with current build state
+ */
+api.get('/build/status', (c) => {
+  const status = processManager.getBuildStatus();
+
+  return c.json({
+    state: status.state,
+    pid: status.pid,
+    startedAt: status.startedAt?.toISOString(),
+    command: status.command,
+    options: status.options,
+    error: status.error,
+  });
+});
+
+/**
+ * POST /api/plan/start
+ *
+ * Start a new plan process (ralph plan command).
+ * Request body: { stream?: string } - optional stream to plan for
+ *
+ * Note: This is a simplified implementation that runs ralph plan.
+ * For a full implementation, the process manager would need to be
+ * extended to handle plan processes separately from build processes.
+ *
+ * Returns:
+ *   - 200 with { success: true, status: BuildStatus } on success
+ *   - 409 Conflict if a process is already running
+ */
+api.post('/plan/start', async (c) => {
+  // Check if build is already running (plan and build share the process manager)
+  if (processManager.isRunning()) {
+    const currentStatus = processManager.getBuildStatus();
+    return c.json(
+      {
+        error: 'conflict',
+        message: 'A process is already running. Stop it first before starting a new one.',
+        status: {
+          state: currentStatus.state,
+          pid: currentStatus.pid,
+          startedAt: currentStatus.startedAt?.toISOString(),
+          command: currentStatus.command,
+        },
+      },
+      409
+    );
+  }
+
+  // For plan, we spawn the process directly since it's not a build
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: 'Cannot start plan: .ralph directory not found. Run "ralph install" first.',
+      },
+      500
+    );
+  }
+
+  // Get optional stream parameter
+  let body: { stream?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    // Empty body is ok for plan
+  }
+
+  const projectRoot = path.dirname(ralphRoot);
+
+  // Spawn the ralph plan process
+  const args = ['plan'];
+  if (body.stream) {
+    args.push(`--prd=${body.stream}`);
+  }
+
+  try {
+    const childProcess = spawn('ralph', args, {
+      cwd: projectRoot,
+      env: { ...process.env },
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
+    });
+
+    if (!childProcess.pid) {
+      return c.json(
+        {
+          error: 'internal_error',
+          message: 'Failed to start plan process: no PID assigned',
+        },
+        500
+      );
+    }
+
+    const command = `ralph ${args.join(' ')}`;
+    console.log(`[API] Started plan: ${command} (PID: ${childProcess.pid})`);
+
+    return c.json({
+      success: true,
+      status: {
+        state: 'running',
+        pid: childProcess.pid,
+        startedAt: new Date().toISOString(),
+        command,
+      },
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json(
+      {
+        error: 'internal_error',
+        message: `Failed to start plan: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
  * HTML Partial Endpoints for HTMX
  *
  * These endpoints return HTML fragments for HTMX to swap into the page.
@@ -461,10 +772,24 @@ api.get('/logs/runs', (c) => {
  * GET /api/partials/progress
  *
  * Returns HTML fragment for the progress bar section.
+ * Query params:
+ *   - streamId: Optional stream ID to show progress for specific stream
  */
 api.get('/partials/progress', (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
+  const requestedStreamId = c.req.query('streamId');
+
+  // Handle missing .ralph directory
+  if (!rootPath) {
+    return c.html(`
+<div class="empty-state empty-state-setup">
+  <div class="empty-icon">&#128194;</div>
+  <h3>No .ralph directory found</h3>
+  <p>Run <code>ralph init</code> or <code>ralph prd</code> to get started.</p>
+</div>
+`);
+  }
 
   let totalStories = 0;
   let completedStories = 0;
@@ -473,11 +798,30 @@ api.get('/partials/progress', (c) => {
 
   if (mode === 'multi') {
     const streams = getStreams();
-    for (const stream of streams) {
-      totalStories += stream.totalStories;
-      completedStories += stream.completedStories;
+
+    // If a specific stream is requested, use that; otherwise aggregate all streams
+    if (requestedStreamId) {
+      const stream = streams.find(s => s.id === requestedStreamId);
+      if (stream) {
+        totalStories = stream.totalStories;
+        completedStories = stream.completedStories;
+        const details = getStreamDetails(requestedStreamId);
+        if (details) {
+          const counts = countStoriesByStatus(details.stories);
+          inProgressStories = counts.inProgress;
+          pendingStories = counts.pending;
+        } else {
+          pendingStories = totalStories - completedStories;
+        }
+      }
+    } else {
+      // Aggregate all streams
+      for (const stream of streams) {
+        totalStories += stream.totalStories;
+        completedStories += stream.completedStories;
+      }
+      pendingStories = totalStories - completedStories;
     }
-    pendingStories = totalStories - completedStories;
   } else if (mode === 'single' && rootPath) {
     const prdPath = path.join(rootPath, 'prd.md');
     if (fs.existsSync(prdPath)) {
@@ -496,6 +840,16 @@ api.get('/partials/progress', (c) => {
   }
 
   const percentage = totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0;
+
+  // Handle case when there are no stories yet
+  if (totalStories === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No stories found</h3>
+  <p>Create a PRD with user stories using <code>ralph prd</code> to track progress.</p>
+</div>
+`);
+  }
 
   const html = `
 <div class="progress-wrapper">
@@ -530,25 +884,36 @@ api.get('/partials/progress', (c) => {
  * GET /api/partials/stories
  *
  * Returns HTML fragment for the story cards grid.
+ * Query params:
+ *   - streamId: Optional stream ID to show stories for specific stream
  */
 api.get('/partials/stories', (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
+  const requestedStreamId = c.req.query('streamId');
 
   let stories: Story[] = [];
 
   if (!rootPath) {
     return c.html(`
-<div class="empty-state">
+<div class="empty-state empty-state-setup">
+  <div class="empty-icon">&#128221;</div>
   <h3>No .ralph directory found</h3>
-  <p>Run <code>ralph prd</code> to create a PRD and get started.</p>
+  <p>Run <code>ralph init</code> or <code>ralph prd</code> to create a PRD and get started.</p>
 </div>
 `);
   }
 
   if (mode === 'multi') {
     const streams = getStreams();
-    if (streams.length > 0) {
+
+    // If a specific stream is requested, use that; otherwise use most recent stream
+    if (requestedStreamId) {
+      const details = getStreamDetails(requestedStreamId);
+      if (details) {
+        stories = details.stories;
+      }
+    } else if (streams.length > 0) {
       const activeStream = streams[streams.length - 1];
       const details = getStreamDetails(activeStream.id);
       if (details) {
@@ -570,8 +935,9 @@ api.get('/partials/stories', (c) => {
   if (stories.length === 0) {
     return c.html(`
 <div class="empty-state">
+  <div class="empty-icon">&#128203;</div>
   <h3>No stories found</h3>
-  <p>Create a PRD with user stories to see them here.</p>
+  <p>Add user stories to your PRD file or create a new PRD with <code>ralph prd</code>.</p>
 </div>
 `);
   }
@@ -687,8 +1053,9 @@ api.get('/partials/activity-logs', (c) => {
   if (entries.length === 0) {
     return c.html(`
 <div class="empty-state">
+  <div class="empty-icon">&#128196;</div>
   <h3>No activity logs found</h3>
-  <p>Activity will appear here when Ralph starts running.</p>
+  <p>Activity will appear here when you run <code>ralph build</code>.</p>
 </div>
 `);
   }
@@ -755,8 +1122,9 @@ api.get('/partials/run-list', (c) => {
   if (runs.length === 0) {
     return c.html(`
 <div class="empty-state">
-  <h3>No runs found</h3>
-  <p>Runs will appear here when you execute <code>ralph build</code>.</p>
+  <div class="empty-icon">&#128640;</div>
+  <h3>No runs recorded yet</h3>
+  <p>Build runs will appear here when you execute <code>ralph build</code>.</p>
 </div>
 `);
   }
@@ -884,9 +1252,10 @@ api.get('/partials/streams-summary', (c) => {
 
   if (totalStreams === 0) {
     return c.html(`
-<div class="empty-state">
-  <h3>No streams found</h3>
-  <p>Create a PRD with <code>ralph prd</code> to get started.</p>
+<div class="empty-state empty-state-setup">
+  <div class="empty-icon">&#128295;</div>
+  <h3>No streams yet</h3>
+  <p>Create your first PRD with <code>ralph prd</code> or click the 'New Stream' button.</p>
 </div>
 `);
   }
@@ -922,15 +1291,25 @@ api.get('/partials/streams-summary', (c) => {
  */
 api.get('/partials/streams', (c) => {
   const streams = getStreams();
+  const ralphRoot = getRalphRoot();
 
   if (streams.length === 0) {
     return c.html(`
 <div class="empty-state">
+  <div class="empty-icon">&#128203;</div>
   <h3>No streams found</h3>
-  <p>Create a PRD with <code>ralph prd</code> to get started.</p>
+  <p>Create a PRD with <code>ralph prd</code> or use the 'New Stream' button to get started.</p>
 </div>
 `);
   }
+
+  // Check which streams have worktrees initialized
+  const worktreesPath = ralphRoot ? path.join(ralphRoot, 'worktrees') : null;
+  const hasWorktree = (streamId: string): boolean => {
+    if (!worktreesPath) return false;
+    const worktreePath = path.join(worktreesPath, `PRD-${streamId}`);
+    return fs.existsSync(worktreePath);
+  };
 
   const streamCards = streams
     .map((stream) => {
@@ -940,6 +1319,44 @@ api.get('/partials/streams', (c) => {
           : 0;
 
       const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+      const worktreeInitialized = hasWorktree(stream.id);
+      const isCompleted = stream.status === 'completed';
+      const isRunning = stream.status === 'running';
+
+      // Build action buttons based on stream state
+      let actionButtonsHtml = '';
+
+      // Init button - show if worktree not initialized
+      if (!worktreeInitialized) {
+        actionButtonsHtml += `
+          <button class="btn btn-secondary btn-sm" onclick="initStream('${stream.id}', event)" title="Initialize git worktree">
+            Init
+          </button>`;
+      }
+
+      // Build button - always show (opens inline form)
+      actionButtonsHtml += `
+        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="Start build iterations" ${isRunning ? 'disabled' : ''}>
+          ${isRunning ? 'Running...' : 'Build'}
+        </button>`;
+
+      // Merge button - show for completed streams or streams with worktrees
+      if (worktreeInitialized || isCompleted) {
+        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        actionButtonsHtml += `
+          <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="Merge to main branch">
+            Merge
+          </button>`;
+      }
+
+      // Build form (hidden by default)
+      const buildFormHtml = `
+        <div id="build-form-${stream.id}" class="build-form" style="display: none;" onclick="event.stopPropagation()">
+          <label for="iterations-${stream.id}">Iterations:</label>
+          <input type="number" id="iterations-${stream.id}" name="iterations" value="1" min="1" max="100" />
+          <button class="btn btn-primary btn-sm" onclick="startStreamBuild('${stream.id}', event)">Start</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleBuildForm('${stream.id}', event)">Cancel</button>
+        </div>`;
 
       return `
 <div class="stream-card" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
@@ -959,8 +1376,13 @@ api.get('/partials/streams', (c) => {
       <span class="stream-file-badge ${stream.hasPrd ? 'present' : 'missing'}">PRD</span>
       <span class="stream-file-badge ${stream.hasPlan ? 'present' : 'missing'}">Plan</span>
       <span class="stream-file-badge ${stream.hasProgress ? 'present' : 'missing'}">Progress</span>
+      ${worktreeInitialized ? '<span class="stream-file-badge present">Worktree</span>' : ''}
     </div>
   </div>
+  <div class="stream-card-actions">
+    ${actionButtonsHtml}
+  </div>
+  ${buildFormHtml}
 </div>
 `;
     })
@@ -1123,6 +1545,79 @@ function switchStreamTab(btn, tabName) {
 });
 
 /**
+ * GET /api/partials/build-status
+ *
+ * Returns HTML fragment for the build status display in the Command Center.
+ */
+api.get('/partials/build-status', (c) => {
+  const status = processManager.getBuildStatus();
+
+  let statusClass = 'idle';
+  let statusText = 'Idle';
+  let detailsHtml = '';
+
+  switch (status.state) {
+    case 'running':
+      statusClass = 'running';
+      statusText = 'Running...';
+      if (status.command) {
+        detailsHtml = `
+          <div class="build-status-info">
+            <div class="build-status-command">${escapeHtml(status.command)}</div>
+            ${status.startedAt ? `<div class="build-status-details">Started: ${status.startedAt.toLocaleTimeString()}</div>` : ''}
+          </div>
+        `;
+      }
+      break;
+    case 'completed':
+      statusClass = 'completed';
+      statusText = 'Completed';
+      break;
+    case 'error':
+      statusClass = 'error';
+      statusText = 'Error';
+      if (status.error) {
+        detailsHtml = `<div class="build-status-details">${escapeHtml(status.error)}</div>`;
+      }
+      break;
+    default:
+      statusClass = 'idle';
+      statusText = 'Idle';
+  }
+
+  const html = `
+<div class="build-status ${statusClass}">
+  <span class="build-status-dot"></span>
+  <span class="build-status-text">${statusText}</span>
+</div>
+${detailsHtml}
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/stream-options
+ *
+ * Returns HTML options for the stream selector dropdown.
+ */
+api.get('/partials/stream-options', (c) => {
+  const streams = getStreams();
+
+  let optionsHtml = '<option value="">Default (latest)</option>';
+
+  for (const stream of streams) {
+    const completionPercentage =
+      stream.totalStories > 0
+        ? Math.round((stream.completedStories / stream.totalStories) * 100)
+        : 0;
+    optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+  }
+
+  return c.html(optionsHtml);
+});
+
+/**
  * Helper function to escape HTML characters
  */
 function escapeHtml(text: string): string {
@@ -1135,5 +1630,593 @@ function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
 }
+
+/**
+ * Validate that a file path is within the .ralph directory.
+ * Returns the resolved absolute path if valid, or null if the path is invalid/outside .ralph.
+ *
+ * Security measures:
+ * - Normalizes paths to prevent directory traversal
+ * - Rejects paths containing '..'
+ * - Ensures resolved path starts with ralphRoot
+ */
+function validateFilePath(relativePath: string): string | null {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return null;
+  }
+
+  // Reject paths with directory traversal attempts
+  if (relativePath.includes('..')) {
+    return null;
+  }
+
+  // Decode URL-encoded path
+  const decodedPath = decodeURIComponent(relativePath);
+
+  // Reject paths that still have traversal after decoding
+  if (decodedPath.includes('..')) {
+    return null;
+  }
+
+  // Resolve the full path
+  const resolvedPath = path.resolve(ralphRoot, decodedPath);
+
+  // Ensure the resolved path is within the ralph root directory
+  if (!resolvedPath.startsWith(ralphRoot + path.sep) && resolvedPath !== ralphRoot) {
+    return null;
+  }
+
+  return resolvedPath;
+}
+
+/**
+ * File API Endpoints
+ *
+ * REST API endpoints for reading and writing files within the .ralph directory.
+ * Security: All file access is restricted to the .ralph directory only.
+ */
+
+/**
+ * GET /api/files/:path
+ *
+ * Read file content from the .ralph directory.
+ * The :path parameter should be a relative path within .ralph.
+ *
+ * Examples:
+ *   GET /api/files/PRD-3/prd.md -> Returns content of .ralph/PRD-3/prd.md
+ *   GET /api/files/PRD-3/runs/file.log -> Returns content of .ralph/PRD-3/runs/file.log
+ *
+ * Returns:
+ *   - 200 with file content (text/plain) on success
+ *   - 403 if path is outside .ralph directory
+ *   - 404 if file not found
+ */
+api.get('/files/*', (c) => {
+  // Extract the path from the wildcard match
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, '');
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'File path is required',
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: 'forbidden',
+        message: 'Access denied: path is outside .ralph directory',
+      },
+      403
+    );
+  }
+
+  // Check if file exists
+  if (!fs.existsSync(validatedPath)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `File not found: ${requestedPath}`,
+      },
+      404
+    );
+  }
+
+  // Check if it's a file (not a directory)
+  const stats = fs.statSync(validatedPath);
+  if (stats.isDirectory()) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Cannot read a directory',
+      },
+      400
+    );
+  }
+
+  try {
+    const content = fs.readFileSync(validatedPath, 'utf-8');
+    return c.text(content);
+  } catch (err) {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: 'Failed to read file',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * PUT /api/files/:path
+ *
+ * Update file content in the .ralph directory.
+ * The :path parameter should be a relative path within .ralph.
+ *
+ * Request body: Plain text content to write to the file.
+ *
+ * Examples:
+ *   PUT /api/files/PRD-3/prd.md -> Updates .ralph/PRD-3/prd.md
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 400 if path is invalid
+ *   - 403 if path is outside .ralph directory
+ */
+api.put('/files/*', async (c) => {
+  // Extract the path from the wildcard match
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, '');
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'File path is required',
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: 'forbidden',
+        message: 'Access denied: path is outside .ralph directory',
+      },
+      403
+    );
+  }
+
+  // Get the request body as text
+  const content = await c.req.text();
+
+  // Ensure parent directory exists
+  const parentDir = path.dirname(validatedPath);
+  if (!fs.existsSync(parentDir)) {
+    try {
+      fs.mkdirSync(parentDir, { recursive: true });
+    } catch (err) {
+      return c.json(
+        {
+          error: 'internal_error',
+          message: 'Failed to create parent directory',
+        },
+        500
+      );
+    }
+  }
+
+  try {
+    fs.writeFileSync(validatedPath, content, 'utf-8');
+    return c.json({
+      success: true,
+      message: 'File updated successfully',
+      path: requestedPath,
+    });
+  } catch (err) {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: 'Failed to write file',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Stream Control API Endpoints
+ *
+ * REST API endpoints for managing streams (PRD folders).
+ * Supports creating, initializing, merging, and building streams.
+ */
+
+/**
+ * Helper function to execute a ralph command and return the result
+ */
+function executeRalphCommand(
+  args: string[],
+  cwd: string
+): Promise<{ success: boolean; stdout: string; stderr: string; code: number | null }> {
+  return new Promise((resolve) => {
+    const childProcess = spawn('ralph', args, {
+      cwd,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    if (childProcess.stdout) {
+      childProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+    }
+
+    if (childProcess.stderr) {
+      childProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+    }
+
+    childProcess.on('error', (error: Error) => {
+      resolve({
+        success: false,
+        stdout: '',
+        stderr: error.message,
+        code: null,
+      });
+    });
+
+    childProcess.on('exit', (code) => {
+      resolve({
+        success: code === 0,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+        code,
+      });
+    });
+  });
+}
+
+/**
+ * PRD template for new streams
+ */
+const PRD_TEMPLATE = `# Product Requirements Document
+
+## Overview
+[Describe what we're building and why]
+
+## User Stories
+
+### [ ] US-001: [Story title]
+**As a** [user type]
+**I want** [feature]
+**So that** [benefit]
+
+#### Acceptance Criteria
+- [ ] Criterion 1
+`;
+
+/**
+ * POST /api/stream/new
+ *
+ * Create a new PRD-N stream folder.
+ * Determines next available N by scanning existing PRD-* folders.
+ * Creates .ralph/PRD-N/ directory with empty prd.md template.
+ *
+ * Returns:
+ *   - 200 with { success: true, id: N, path: string }
+ *   - 500 on error
+ */
+api.post('/stream/new', (c) => {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: '.ralph directory not found. Run "ralph install" first.',
+      },
+      404
+    );
+  }
+
+  try {
+    // Scan existing PRD-* folders to determine next available N
+    const entries = fs.readdirSync(ralphRoot, { withFileTypes: true });
+    let maxId = 0;
+
+    for (const entry of entries) {
+      const match = entry.name.match(/^PRD-(\d+)$/i);
+      if (entry.isDirectory() && match) {
+        const id = parseInt(match[1], 10);
+        if (id > maxId) {
+          maxId = id;
+        }
+      }
+    }
+
+    const nextId = maxId + 1;
+    const streamPath = path.join(ralphRoot, `PRD-${nextId}`);
+    const prdPath = path.join(streamPath, 'prd.md');
+
+    // Create the directory
+    fs.mkdirSync(streamPath, { recursive: true });
+
+    // Create the prd.md file with template
+    fs.writeFileSync(prdPath, PRD_TEMPLATE, 'utf-8');
+
+    return c.json({
+      success: true,
+      id: nextId,
+      path: streamPath,
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return c.json(
+      {
+        error: 'internal_error',
+        message: `Failed to create stream: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/stream/:id/init
+ *
+ * Initialize git worktree for the stream.
+ * Executes: `ralph stream init N` via child_process.spawn
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 404 if stream doesn't exist
+ *   - 500 on error
+ */
+api.post('/stream/:id/init', async (c) => {
+  const id = c.req.param('id');
+
+  // Validate stream exists
+  const stream = getStreamDetails(id);
+  if (!stream) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: '.ralph directory not found',
+      },
+      404
+    );
+  }
+
+  // Project root is the parent of .ralph
+  const projectRoot = path.dirname(ralphRoot);
+
+  const result = await executeRalphCommand(['stream', 'init', id], projectRoot);
+
+  if (result.success) {
+    return c.json({
+      success: true,
+      message: `Stream PRD-${id} worktree initialized`,
+      output: result.stdout,
+    });
+  } else {
+    return c.json(
+      {
+        error: result.code === null ? 'spawn_error' : 'command_failed',
+        message:
+          result.code === null
+            ? `Failed to spawn ralph command: ${result.stderr}`
+            : `ralph stream init ${id} failed with exit code ${result.code}`,
+        stderr: result.stderr,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/stream/:id/merge
+ *
+ * Merge stream back to main branch.
+ * Executes: `ralph stream merge N` via child_process.spawn
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 404 if stream doesn't exist
+ *   - 500 on error
+ */
+api.post('/stream/:id/merge', async (c) => {
+  const id = c.req.param('id');
+
+  // Validate stream exists
+  const stream = getStreamDetails(id);
+  if (!stream) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: '.ralph directory not found',
+      },
+      404
+    );
+  }
+
+  // Project root is the parent of .ralph
+  const projectRoot = path.dirname(ralphRoot);
+
+  const result = await executeRalphCommand(['stream', 'merge', id], projectRoot);
+
+  if (result.success) {
+    return c.json({
+      success: true,
+      message: `Stream PRD-${id} merged to main`,
+      output: result.stdout,
+    });
+  } else {
+    return c.json(
+      {
+        error: result.code === null ? 'spawn_error' : 'command_failed',
+        message:
+          result.code === null
+            ? `Failed to spawn ralph command: ${result.stderr}`
+            : `ralph stream merge ${id} failed with exit code ${result.code}`,
+        stderr: result.stderr,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/stream/:id/build
+ *
+ * Start build in specific stream context.
+ * Request body: { iterations: number, agent?: string, noCommit?: boolean }
+ * Uses processManager.startBuild() with stream option set.
+ *
+ * Returns:
+ *   - 200 with build status
+ *   - 404 if stream doesn't exist
+ *   - 409 if already running
+ */
+api.post('/stream/:id/build', async (c) => {
+  const id = c.req.param('id');
+
+  // Validate stream exists
+  const stream = getStreamDetails(id);
+  if (!stream) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  // Parse request body
+  let body: { iterations?: number; agent?: string; noCommit?: boolean } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Invalid JSON body',
+      },
+      400
+    );
+  }
+
+  // Validate iterations
+  const iterations = body.iterations;
+  if (!iterations || typeof iterations !== 'number' || iterations < 1) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'iterations must be a positive number',
+      },
+      400
+    );
+  }
+
+  // Validate agent if provided
+  const validAgents = ['claude', 'codex', 'droid'];
+  if (body.agent && !validAgents.includes(body.agent)) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: `agent must be one of: ${validAgents.join(', ')}`,
+      },
+      400
+    );
+  }
+
+  // Build options with stream set
+  const options: Partial<BuildOptions> = {
+    stream: id,
+    agent: body.agent as BuildOptions['agent'],
+    noCommit: body.noCommit,
+  };
+
+  // Start the build using process manager
+  const status = processManager.startBuild(iterations, options);
+
+  // Check if build was started successfully or if already running
+  if (status.error && status.state === 'running') {
+    return c.json(
+      {
+        error: 'conflict',
+        message: 'A build is already running',
+        status: {
+          state: status.state,
+          pid: status.pid,
+          startedAt: status.startedAt?.toISOString(),
+          command: status.command,
+        },
+      },
+      409
+    );
+  }
+
+  if (status.state === 'error') {
+    return c.json(
+      {
+        error: 'start_failed',
+        message: status.error || 'Failed to start build',
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: `Build started for stream PRD-${id}`,
+    status: {
+      state: status.state,
+      pid: status.pid,
+      startedAt: status.startedAt?.toISOString(),
+      command: status.command,
+      options: status.options,
+    },
+  });
+});
 
 export { api };

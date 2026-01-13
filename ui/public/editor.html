@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph CLI - Editor</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/marked.min.js"></script>
+</head>
+<body>
+  <!-- Error Toast Container -->
+  <div id="error-toast" class="error-toast hidden">
+    <div class="error-toast-header">
+      <span class="error-toast-title">Error</span>
+      <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
+    </div>
+    <div class="error-toast-message" id="error-toast-message"></div>
+    <div class="error-toast-actions">
+      <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
+        <span class="retry-icon">&#8635;</span> Retry
+      </button>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-content">
+      <h1>Ralph CLI</h1>
+      <span class="subtitle">Autonomous Coding Loop</span>
+    </div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/streams.html">Streams</a>
+      <a href="/logs.html">Logs</a>
+      <a href="/editor.html" class="active">Editor</a>
+    </nav>
+  </header>
+
+  <main class="editor-main">
+    <!-- Breadcrumbs -->
+    <nav id="editor-breadcrumbs" class="breadcrumbs" style="display: none;">
+      <a href="/editor.html">Editor</a>
+      <span class="breadcrumb-separator">&rsaquo;</span>
+      <span id="breadcrumb-stream"></span>
+      <span class="breadcrumb-separator">&rsaquo;</span>
+      <span id="breadcrumb-file"></span>
+    </nav>
+
+    <!-- Editor Controls Section -->
+    <section id="editor-controls">
+      <div class="editor-toolbar">
+        <div class="editor-selectors">
+          <select id="stream-selector">
+            <option value="">Select a stream...</option>
+          </select>
+          <button id="refresh-streams-btn"
+                  class="btn btn-secondary btn-sm"
+                  onclick="loadStreams(true)"
+                  title="Refresh stream list"
+                  style="margin-left: 8px;">
+            &#8635;
+          </button>
+          <select id="file-selector"
+                  name="file"
+                  disabled>
+            <option value="">Select a file...</option>
+          </select>
+        </div>
+        <div class="editor-status">
+          <span id="save-status" class="save-status"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Editor Section -->
+    <section id="editor-section">
+      <div class="editor-container">
+        <!-- Editor Pane -->
+        <div class="editor-pane">
+          <div class="pane-header">
+            <span class="pane-title">Editor</span>
+          </div>
+          <textarea id="editor-textarea"
+                    class="editor-textarea"
+                    placeholder="Select a stream and file to start editing..."
+                    disabled
+                    hx-put=""
+                    hx-trigger="keyup changed delay:1000ms"
+                    hx-swap="none"></textarea>
+        </div>
+
+        <!-- Preview Pane -->
+        <div class="preview-pane">
+          <div class="pane-header">
+            <span class="pane-title">Preview</span>
+          </div>
+          <div id="preview-content" class="preview-content">
+            <div class="empty-state">
+              <p>Markdown preview will appear here</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Ralph CLI Web UI &mdash; <span id="status-indicator" hx-get="/api/partials/status-indicator" hx-trigger="load, every 5s" hx-swap="innerHTML">checking...</span></p>
+  </footer>
+
+  <script>
+    // State management
+    let currentStreamId = '';
+    let currentFile = '';
+    let saveTimeout = null;
+    let lastSavedContent = '';
+
+    // Initialize marked options
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({
+        breaks: true,
+        gfm: true
+      });
+    }
+
+    // Load streams on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStreams();
+      // Refresh stream names periodically to catch title changes
+      setInterval(() => loadStreams(true), 10000); // Every 10 seconds
+    });
+
+    // Load available streams into the selector
+    // preserveSelection: if true, keeps the currently selected stream ID
+    async function loadStreams(preserveSelection = false) {
+      const refreshBtn = document.getElementById('refresh-streams-btn');
+
+      try {
+        // Show loading state on refresh button
+        if (refreshBtn && preserveSelection) {
+          refreshBtn.classList.add('loading');
+          refreshBtn.disabled = true;
+        }
+
+        const response = await fetch('/api/streams');
+        const data = await response.json();
+
+        const selector = document.getElementById('stream-selector');
+        const currentSelection = preserveSelection ? selector.value : '';
+
+        // Only update if we have valid data
+        if (!data.streams) {
+          console.warn('No streams data received');
+          return;
+        }
+
+        selector.innerHTML = '<option value="">Select a stream...</option>';
+
+        if (data.streams.length > 0) {
+          data.streams.forEach(stream => {
+            const option = document.createElement('option');
+            option.value = stream.id;
+            option.textContent = `PRD-${stream.id}: ${stream.name}`;
+            selector.appendChild(option);
+          });
+
+          // Restore previous selection if it still exists
+          if (currentSelection && data.streams.some(s => s.id === currentSelection)) {
+            selector.value = currentSelection;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load streams:', error);
+        showErrorToast('Failed to load stream list. Please refresh the page.', '/api/streams');
+      } finally {
+        // Remove loading state
+        if (refreshBtn && preserveSelection) {
+          setTimeout(() => {
+            refreshBtn.classList.remove('loading');
+            refreshBtn.disabled = false;
+          }, 300);
+        }
+      }
+    }
+
+    // Update breadcrumbs display
+    function updateBreadcrumbs() {
+      const breadcrumbs = document.getElementById('editor-breadcrumbs');
+      const streamEl = document.getElementById('breadcrumb-stream');
+      const fileEl = document.getElementById('breadcrumb-file');
+      const streamSelector = document.getElementById('stream-selector');
+
+      if (currentStreamId && currentFile) {
+        const streamOption = streamSelector.options[streamSelector.selectedIndex];
+        const streamName = streamOption ? streamOption.textContent : `PRD-${currentStreamId}`;
+        streamEl.textContent = streamName;
+        fileEl.textContent = currentFile;
+        breadcrumbs.style.display = 'flex';
+      } else {
+        breadcrumbs.style.display = 'none';
+      }
+    }
+
+    // Handle stream selection change
+    document.getElementById('stream-selector').addEventListener('change', async (e) => {
+      currentStreamId = e.target.value;
+      currentFile = '';
+      updateBreadcrumbs();
+      const fileSelector = document.getElementById('file-selector');
+      const textarea = document.getElementById('editor-textarea');
+      const preview = document.getElementById('preview-content');
+
+      if (!currentStreamId) {
+        fileSelector.innerHTML = '<option value="">Select a file...</option>';
+        fileSelector.disabled = true;
+        textarea.value = '';
+        textarea.disabled = true;
+        textarea.removeAttribute('hx-put');
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        return;
+      }
+
+      // Load files for selected stream
+      try {
+        const response = await fetch(`/api/streams/${currentStreamId}`);
+        const data = await response.json();
+
+        fileSelector.innerHTML = '<option value="">Select a file...</option>';
+
+        // Add available files based on what exists
+        const files = [];
+        if (data.hasPrd) files.push({ value: 'prd.md', label: 'prd.md (Product Requirements)' });
+        if (data.hasPlan) files.push({ value: 'plan.md', label: 'plan.md (Implementation Plan)' });
+        if (data.hasProgress) files.push({ value: 'progress.md', label: 'progress.md (Progress Log)' });
+
+        files.forEach(file => {
+          const option = document.createElement('option');
+          option.value = file.value;
+          option.textContent = file.label;
+          fileSelector.appendChild(option);
+        });
+
+        fileSelector.disabled = files.length === 0;
+
+        if (files.length === 0) {
+          fileSelector.innerHTML = '<option value="">No files available</option>';
+        } else {
+          // Auto-select the first file (PRD) if available
+          if (files.length > 0) {
+            fileSelector.value = files[0].value;
+            // Trigger the file selector change event to load the content
+            fileSelector.dispatchEvent(new Event('change'));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load stream details:', error);
+        fileSelector.innerHTML = '<option value="">Error loading files</option>';
+        fileSelector.disabled = true;
+      }
+    });
+
+    // Handle file selection change
+    document.getElementById('file-selector').addEventListener('change', async (e) => {
+      currentFile = e.target.value;
+      updateBreadcrumbs();
+      const textarea = document.getElementById('editor-textarea');
+      const preview = document.getElementById('preview-content');
+
+      if (!currentFile || !currentStreamId) {
+        textarea.value = '';
+        textarea.disabled = true;
+        textarea.removeAttribute('hx-put');
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        return;
+      }
+
+      // Load file content
+      try {
+        const filePath = `PRD-${currentStreamId}/${currentFile}`;
+        const response = await fetch(`/api/files/${encodeURIComponent(filePath)}`);
+
+        if (!response.ok) {
+          throw new Error(`Failed to load file: ${response.status}`);
+        }
+
+        const content = await response.text();
+        textarea.value = content;
+        textarea.disabled = false;
+        lastSavedContent = content;
+
+        // Set up HTMX PUT endpoint
+        const putUrl = `/api/files/${encodeURIComponent(filePath)}`;
+        textarea.setAttribute('hx-put', putUrl);
+        htmx.process(textarea);
+
+        // Update preview
+        updatePreview(content);
+
+        // Clear any previous save status
+        updateSaveStatus('');
+      } catch (error) {
+        console.error('Failed to load file:', error);
+        textarea.value = '';
+        textarea.disabled = true;
+        preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
+        updateSaveStatus('Error', 'error');
+      }
+    });
+
+    // Update markdown preview with debounce
+    let previewTimeout = null;
+    document.getElementById('editor-textarea').addEventListener('input', (e) => {
+      const content = e.target.value;
+
+      // Debounce preview update
+      if (previewTimeout) {
+        clearTimeout(previewTimeout);
+      }
+      previewTimeout = setTimeout(() => {
+        updatePreview(content);
+      }, 150);
+
+      // Show "Saving..." status after a short delay
+      if (content !== lastSavedContent) {
+        updateSaveStatus('Unsaved changes', 'pending');
+      }
+    });
+
+    // Update preview content
+    function updatePreview(content) {
+      const preview = document.getElementById('preview-content');
+
+      if (!content || content.trim() === '') {
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        return;
+      }
+
+      try {
+        if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+          preview.innerHTML = marked.parse(content);
+        } else {
+          // Fallback: show raw content with basic formatting
+          preview.innerHTML = '<pre>' + escapeHtml(content) + '</pre>';
+        }
+      } catch (error) {
+        console.error('Markdown parsing error:', error);
+        preview.innerHTML = '<pre>' + escapeHtml(content) + '</pre>';
+      }
+    }
+
+    // Update save status indicator
+    function updateSaveStatus(message, status = '') {
+      const statusEl = document.getElementById('save-status');
+      statusEl.textContent = message;
+      statusEl.className = 'save-status';
+      if (status) {
+        statusEl.classList.add(status);
+      }
+    }
+
+    // Escape HTML for safe display
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Listen for HTMX events to update save status
+    document.body.addEventListener('htmx:beforeRequest', (e) => {
+      if (e.target.id === 'editor-textarea') {
+        updateSaveStatus('Saving...', 'saving');
+      }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', (e) => {
+      if (e.target.id === 'editor-textarea') {
+        if (e.detail.successful) {
+          lastSavedContent = e.target.value;
+          updateSaveStatus('Saved', 'saved');
+
+          // Clear the "Saved" message after 3 seconds
+          setTimeout(() => {
+            const statusEl = document.getElementById('save-status');
+            if (statusEl.textContent === 'Saved') {
+              updateSaveStatus('');
+            }
+          }, 3000);
+        } else {
+          updateSaveStatus('Error saving', 'error');
+        }
+      }
+    });
+
+    // Handle keyboard shortcuts
+    document.getElementById('editor-textarea').addEventListener('keydown', (e) => {
+      // Cmd/Ctrl + S to save immediately
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        const textarea = e.target;
+        if (textarea.value !== lastSavedContent && textarea.getAttribute('hx-put')) {
+          htmx.trigger(textarea, 'keyup');
+        }
+      }
+
+      // Tab key to insert spaces
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = e.target.selectionStart;
+        const end = e.target.selectionEnd;
+        const value = e.target.value;
+        e.target.value = value.substring(0, start) + '  ' + value.substring(end);
+        e.target.selectionStart = e.target.selectionEnd = start + 2;
+
+        // Trigger input event to update preview
+        e.target.dispatchEvent(new Event('input'));
+      }
+    });
+
+    // ============================================
+    // Error Toast Handling
+    // ============================================
+
+    var lastFailedRequest = null;
+
+    function showErrorToast(message, endpoint) {
+      console.error('[Error]', message, endpoint ? '(Endpoint: ' + endpoint + ')' : '');
+      var toast = document.getElementById('error-toast');
+      var messageEl = document.getElementById('error-toast-message');
+      var retryBtn = document.getElementById('error-toast-retry');
+
+      messageEl.textContent = message;
+
+      if (lastFailedRequest) {
+        retryBtn.style.display = 'inline-flex';
+      } else {
+        retryBtn.style.display = 'none';
+      }
+
+      toast.classList.remove('hidden', 'dismissing');
+    }
+
+    function dismissErrorToast() {
+      var toast = document.getElementById('error-toast');
+      toast.classList.add('dismissing');
+      setTimeout(function() {
+        toast.classList.add('hidden');
+        toast.classList.remove('dismissing');
+      }, 300);
+    }
+
+    function retryLastRequest() {
+      if (lastFailedRequest) {
+        var retryBtn = document.getElementById('error-toast-retry');
+        retryBtn.classList.add('loading');
+        retryBtn.disabled = true;
+
+        // For editor, just reload the current file
+        if (currentFile && currentStreamId) {
+          const fileSelector = document.getElementById('file-selector');
+          fileSelector.dispatchEvent(new Event('change'));
+        }
+
+        setTimeout(function() {
+          retryBtn.classList.remove('loading');
+          retryBtn.disabled = false;
+          lastFailedRequest = null;
+          dismissErrorToast();
+        }, 1000);
+      }
+    }
+
+    // HTMX error handlers
+    document.body.addEventListener('htmx:responseError', function(event) {
+      var xhr = event.detail.xhr;
+      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
+
+      var message = 'Request failed';
+      if (xhr && xhr.status) {
+        if (xhr.status === 0) {
+          message = 'Unable to connect to server. Check if the server is running.';
+        } else if (xhr.status === 404) {
+          message = 'Resource not found: ' + path;
+        } else if (xhr.status === 500) {
+          message = 'Server error occurred. Please try again.';
+          try {
+            var response = JSON.parse(xhr.responseText);
+            if (response.message) {
+              message = response.message;
+            }
+          } catch (e) {}
+        } else {
+          message = 'Request failed with status ' + xhr.status;
+        }
+      }
+
+      lastFailedRequest = { element: event.target };
+      showErrorToast(message, path);
+    });
+
+    document.body.addEventListener('htmx:sendError', function(event) {
+      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
+      console.error('[HTMX Send Error] Failed to send request:', path, event.detail);
+      lastFailedRequest = { element: event.target };
+      showErrorToast('Network error: Unable to send request. Check your connection.', path);
+    });
+
+    document.body.addEventListener('htmx:timeout', function(event) {
+      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
+      console.error('[HTMX Timeout] Request timed out:', path);
+      lastFailedRequest = { element: event.target };
+      showErrorToast('Request timed out. The server may be busy.', path);
+    });
+
+    // Auto-dismiss error toast after 10 seconds
+    setInterval(function() {
+      var toast = document.getElementById('error-toast');
+      if (!toast.classList.contains('hidden') && !lastFailedRequest) {
+        dismissErrorToast();
+      }
+    }, 10000);
+  </script>
+</body>
+</html>

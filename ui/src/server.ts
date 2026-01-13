@@ -5,6 +5,7 @@ import { logger } from 'hono/logger';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { api } from './routes/api.js';
+import { sse } from './routes/sse.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,9 @@ app.use('*', logger());
 
 // Mount API routes
 app.route('/api', api);
+
+// Mount SSE routes
+app.route('/api', sse);
 
 // Serve static files from public directory
 app.use(
