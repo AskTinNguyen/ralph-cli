@@ -520,6 +520,25 @@ cmd_log() {
     esac
 }
 
+# Process stream-json output for real-time display
+process_stream() {
+    while IFS= read -r line; do
+        # Skip non-JSON lines
+        [[ "$line" != "{"* ]] && continue
+
+        # Extract and print text from content_block_delta events
+        if [[ "$line" == *'"content_block_delta"'* ]]; then
+            if command -v jq &>/dev/null; then
+                printf '%s' "$(echo "$line" | jq -j '.delta.text // empty' 2>/dev/null)"
+            else
+                # Fallback sed parsing
+                printf '%s' "$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null)" || true
+            fi
+        fi
+    done
+    echo ""  # Final newline
+}
+
 cmd_go() {
     local task_id_arg="$1"
 
@@ -571,14 +590,7 @@ cmd_go() {
             --output-format stream-json \
             --include-partial-messages \
             --dangerously-skip-permissions \
-            2>&1 | tee "$tmpfile" | while IFS= read -r line; do
-                # Show content from assistant messages
-                if [[ "$line" == *'"type":"content_block_delta"'* ]]; then
-                    printf '%s' "$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null)" || true
-                elif [[ "$line" == *'"type":"result"'* ]]; then
-                    echo ""  # newline after streaming
-                fi
-            done || true
+            2>&1 | tee "$tmpfile" | process_stream
 
         # Check completion signals from captured output
         if grep -q '<promise>COMPLETE' "$tmpfile"; then
