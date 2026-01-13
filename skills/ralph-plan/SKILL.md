@@ -68,102 +68,56 @@ If ID provided, check if task exists:
 ```
 
 **Question 3: Verification**
-```json
-{
-  "questions": [{
-    "question": "How should completion be verified?",
-    "header": "Test",
-    "options": [
-      {"label": "bun run verify (Recommended)", "description": "Full typecheck + lint + tests"},
-      {"label": "bun test", "description": "Just run tests"},
-      {"label": "bun run build", "description": "Verify it compiles"}
-    ],
-    "multiSelect": false
-  }]
-}
-```
+
+Detect the project type by checking for build files (package.json, Cargo.toml, CMakeLists.txt, go.mod, etc.) and suggest appropriate test commands based on what's found.
+
+For frontend/web UI tasks, include visual verification options using Playwright MCP tools to capture screenshots for human review.
+
+Let Claude Code determine the right options based on the detected project type and scope.
 
 ### 3. Explore Codebase (If Needed)
 
-Based on answers, explore relevant code:
-```bash
-# Example for frontend feature
-Glob: src/components/**/*.tsx
-Grep: pattern relevant to task
-Read: key files
-```
+Based on answers, explore relevant code to inform the plan.
 
 ### 4. Create Task Files
 
-**Create directory:**
-```bash
-mkdir -p .ralph/ralph-N
-```
-
-**Create guardrails.md (if first task):**
-```markdown
-# Guardrails
-
-## Safety Constraints (NEVER do these)
-- Never push directly to main/master
-- Never delete production data
-- Never commit secrets/credentials
-- Never skip tests
-
-## Process Guidelines
-- Study code before changing it
-- Run tests before claiming done
-- Keep changes focused
-```
+**Create directory and guardrails.md (if first task).**
 
 **Create plan.md:**
 ```markdown
 ---
 task: <short descriptive name>
-test_command: <from question 3>
+test_command: <appropriate for project type>
 completion_promise: "<specific success statement>"
 max_iterations: 15
+visual_verification: false  # Set true for frontend tasks
 ---
 
 # Task: <task name>
 
 ## Context
-<what needs to be done and why, based on codebase exploration>
+<what needs to be done and why>
 
 ## Success Criteria
 - [ ] <specific, verifiable criterion 1>
 - [ ] <specific, verifiable criterion 2>
-- [ ] <specific, verifiable criterion 3>
 - [ ] All tests pass
 
 ## Relevant Files
 <files discovered during exploration>
-
-## Notes
-<any important context from the conversation>
 ```
 
-**Create empty state files:**
+For frontend tasks with visual verification, set `visual_verification: true` and create the screenshots directory:
 ```bash
-echo "# Progress\n" > .ralph/ralph-N/progress.md
-touch .ralph/ralph-N/errors.log
+mkdir -p .ralph/ralph-N/screenshots
 ```
 
 ### 5. Confirm and Guide
 
 ```
 Created task: ralph-N
-
 Plan saved to: .ralph/ralph-N/plan.md
-
-To start autonomous execution:
-  /ralph-go N
-
-To preview the plan:
-  Read .ralph/ralph-N/plan.md
-
-To edit before starting:
-  Edit .ralph/ralph-N/plan.md
+To start: /ralph-go N
 ```
 
 ## Important Rules

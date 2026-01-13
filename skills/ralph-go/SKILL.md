@@ -38,9 +38,10 @@ Read these files:
 Extract from plan.md frontmatter:
 ```yaml
 task: "Short task name"
-test_command: "bun test"  # or "bun run verify"
+test_command: "<project-appropriate test command>"
 completion_promise: "What signals done"
 max_iterations: 15
+visual_verification: false  # If true, capture screenshots for verification
 ```
 
 ### 3. Execute Loop
@@ -58,19 +59,17 @@ For each iteration (track count, stop at max_iterations):
 - Follow guardrails.md constraints
 
 **Step C: Verify**
-Run the test_command:
-```bash
-# Example
-bun test
-# or
-bun run verify
-```
+
+Run the test_command from plan.md frontmatter.
+
+**If visual_verification is true**, also capture screenshots:
+- `browser_navigate` to the app URL
+- `browser_take_screenshot` with filename `.ralph/${TASK_ID}/screenshots/iteration-N-<name>.png`
 
 **Step D: Record Result**
 
 If tests PASS:
 ```bash
-# Commit changes
 git add -A
 git commit -m "ralph(${TASK_ID}): <what you did>"
 ```
@@ -83,8 +82,7 @@ Files: <files changed>
 Result: PASSED
 ```
 
-If tests FAIL:
-Append to `.ralph/${TASK_ID}/errors.log`:
+If tests FAIL, append to `.ralph/${TASK_ID}/errors.log`:
 ```
 [Iteration N - <timestamp>]
 <error output, truncated to last 50 lines>
@@ -181,3 +179,11 @@ Starting iteration 3...
 - **Follow guardrails** - They exist for safety
 - **Be specific in progress.md** - Future iterations read this
 - **Stop when stuck** - NEEDS_HUMAN is better than thrashing
+
+## Visual Verification
+
+When `visual_verification: true`, use Playwright MCP tools to capture UI state:
+- `browser_navigate` to the app URL
+- `browser_take_screenshot` with filename: `.ralph/${TASK_ID}/screenshots/<descriptive-name>.png`
+
+Screenshots must be saved in the task's folder (e.g., `.ralph/ralph-1/screenshots/`) for human review.

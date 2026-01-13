@@ -58,20 +58,10 @@ If task description provided, use it. Otherwise ask using AskUserQuestion:
 ```
 
 **Question 2: Verification**
-```json
-{
-  "questions": [{
-    "question": "How should completion be verified?",
-    "header": "Test",
-    "options": [
-      {"label": "bun test", "description": "Run unit tests"},
-      {"label": "bun run verify", "description": "Typecheck + lint + tests"},
-      {"label": "bun run build", "description": "Just verify it builds"}
-    ],
-    "multiSelect": false
-  }]
-}
-```
+
+Detect the project type by checking for build files (package.json, Cargo.toml, CMakeLists.txt, go.mod, etc.) and suggest appropriate test commands. For web UI projects, include visual verification options using Playwright MCP tools for screenshots.
+
+Let Claude Code determine the right options based on what it finds in the project.
 
 ### 4. Create plan.md
 
@@ -80,9 +70,10 @@ Write to `.ralph/ralph-N/plan.md`:
 ```markdown
 ---
 task: <short name>
-test_command: <from question 2>
+test_command: <appropriate command for detected project type>
 completion_promise: "All tests pass and <task> is complete"
 max_iterations: 15
+visual_verification: false  # Set to true for web UI tasks
 ---
 
 # Task: <task name>
@@ -94,6 +85,11 @@ max_iterations: 15
 - [ ] <criterion 1>
 - [ ] <criterion 2>
 - [ ] All tests pass
+```
+
+For web UI tasks with visual verification, set `visual_verification: true` and create the screenshots directory:
+```bash
+mkdir -p .ralph/ralph-N/screenshots
 ```
 
 ### 5. Create Empty State Files
