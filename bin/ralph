@@ -56,6 +56,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
   ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
   ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
+  ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -85,6 +86,11 @@ ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--since")} ${pc.dim("<date|Nd|Nw|Nm>")}             Filter by date (e.g., 7d, 2w, 1m)
   ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max results (default 20)
   ${pc.yellow("--rebuild")}                           Rebuild search index before searching
+
+${pc.bold(pc.cyan("Diagnose options:"))}
+  ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
+  ${pc.yellow("--json")}                             Output results as JSON
+  ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max errors to analyze (default 500)
 
 ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
@@ -1942,6 +1948,152 @@ ${pc.bold(pc.cyan("Examples:"))}
     error(`Unknown optimize type: ${pc.bold(subCmd)}`);
     info(`Run ${pc.cyan("ralph optimize help")} for usage.`);
     process.exit(1);
+  }
+
+  if (cmd === "diagnose") {
+    const diagnoseModule = require("../lib/diagnose");
+
+    // Parse diagnose-specific flags
+    let runIdFilter = null;
+    let jsonFlag = false;
+    let limitValue = 500;
+
+    for (let i = 1; i < args.length; i++) {
+      const arg = args[i];
+      if (arg.startsWith("--run=")) {
+        runIdFilter = arg.split("=").slice(1).join("=");
+      } else if (arg === "--run" && args[i + 1]) {
+        runIdFilter = args[++i];
+      } else if (arg === "--json") {
+        jsonFlag = true;
+      } else if (arg.startsWith("--limit=")) {
+        limitValue = parseInt(arg.split("=")[1], 10) || 500;
+      } else if (arg === "--limit" && args[i + 1]) {
+        limitValue = parseInt(args[++i], 10) || 500;
+      }
+    }
+
+    // Run diagnosis
+    const results = diagnoseModule.diagnose(cwd, {
+      runId: runIdFilter,
+      limit: limitValue,
+    });
+
+    if (!results.success) {
+      error(results.error);
+      process.exit(1);
+    }
+
+    // JSON output
+    if (jsonFlag) {
+      console.log(JSON.stringify(results, null, 2));
+      process.exit(0);
+    }
+
+    // Console output
+    console.log("");
+    console.log(pc.bold("Failure Pattern Diagnosis"));
+    console.log(pc.dim("=".repeat(70)));
+
+    if (runIdFilter) {
+      info(`Analyzing run: ${pc.bold(runIdFilter)}`);
+    } else {
+      info("Analyzing all runs");
+    }
+    console.log("");
+
+    // Summary
+    console.log(pc.bold(pc.cyan("Summary")));
+    console.log(pc.dim("-".repeat(50)));
+    console.log(`Total Errors:     ${pc.bold(results.summary.totalErrors)}`);
+    console.log(`Unique Patterns:  ${pc.bold(results.summary.totalClusters)}`);
+    console.log(`Affected Runs:    ${pc.bold(results.summary.uniqueRuns)}`);
+    console.log("");
+
+    if (results.patterns.length === 0) {
+      success("No failure patterns detected. All systems operational.");
+      process.exit(0);
+    }
+
+    // Type breakdown
+    if (Object.keys(results.summary.typeBreakdown).length > 0) {
+      console.log(pc.bold(pc.cyan("Error Type Breakdown")));
+      console.log(pc.dim("-".repeat(50)));
+      for (const [type, stats] of Object.entries(results.summary.typeBreakdown)) {
+        const typeLabel = type.replace(/_/g, " ");
+        console.log(`  ${typeLabel.padEnd(25)} ${String(stats.count).padStart(4)} errors in ${stats.clusters} patterns`);
+      }
+      console.log("");
+    }
+
+    // Top failure patterns
+    console.log(pc.bold(pc.cyan("Top Failure Patterns")));
+    console.log(pc.dim("-".repeat(70)));
+    console.log(
+      pc.dim(
+        `${"ROOT CAUSE".padEnd(25)} ${"COUNT".padStart(6)} ${"RUNS".padStart(6)} ${"SEVERITY".padStart(10)}`
+      )
+    );
+    console.log(pc.dim("-".repeat(70)));
+
+    for (const pattern of results.patterns.slice(0, 10)) {
+      const label = pattern.rootCauseLabel.length > 23
+        ? pattern.rootCauseLabel.slice(0, 22) + "\u2026"
+        : pattern.rootCauseLabel;
+      const count = String(pattern.count).padStart(6);
+      const runs = String(pattern.runs.length).padStart(6);
+
+      // Color by severity
+      const severityColor =
+        pattern.severity === "critical" ? pc.red
+          : pattern.severity === "high" ? pc.yellow
+          : pattern.severity === "medium" ? pc.cyan
+          : pc.dim;
+      const severity = severityColor(pattern.severity.toUpperCase().padStart(10));
+
+      console.log(`${label.padEnd(25)} ${count} ${runs} ${severity}`);
+
+      // Show representative error
+      const shortError = pattern.representative.length > 65
+        ? pattern.representative.slice(0, 62) + "..."
+        : pattern.representative;
+      dim(`  ${pc.dim("→")} ${shortError}`);
+    }
+
+    console.log(pc.dim("-".repeat(70)));
+    console.log("");
+
+    // Remediation suggestions
+    if (results.suggestions.length > 0) {
+      console.log(pc.bold(pc.cyan("Recommended Actions")));
+      console.log(pc.dim("-".repeat(70)));
+      console.log("");
+
+      for (const suggestion of results.suggestions.slice(0, 5)) {
+        const severityColor =
+          suggestion.severity === "critical" ? pc.red
+            : suggestion.severity === "high" ? pc.yellow
+            : suggestion.severity === "medium" ? pc.cyan
+            : pc.dim;
+
+        console.log(`${severityColor("●")} ${pc.bold(suggestion.label)} (${suggestion.totalOccurrences} occurrences)`);
+
+        // Show top 2 remediation steps
+        for (const step of suggestion.remediation.slice(0, 2)) {
+          console.log(`  ${pc.dim("→")} ${step}`);
+        }
+        console.log("");
+      }
+
+      console.log(pc.dim("-".repeat(70)));
+    }
+
+    // Save report
+    const reportPath = path.join(cwd, ".ralph", "diagnosis.md");
+    diagnoseModule.saveDiagnosisReport(results, reportPath);
+    success(`Full report saved to ${pc.cyan(reportPath)}`);
+
+    process.exit(0);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
