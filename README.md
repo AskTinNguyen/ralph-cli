@@ -14,14 +14,48 @@ State lives in files, not databases. Every step is transparent and traceable.
 
 ## Installation
 
-### Global Install (Recommended)
+### Option A: Bash (Universal - Recommended for non-JS projects)
 
-Install globally to use the `ralph` command directly anywhere:
+**Zero dependencies.** Works on any Unix system (macOS, Linux, WSL).
 
 ```bash
+# Clone the repo
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+
+# Add to your PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH="$PATH:$(pwd)/bin"
+
+# Verify
+ralph.sh --help
+```
+
+Or copy directly to your project:
+
+```bash
+# Copy just the bash script and skills to your project
+curl -O https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/bin/ralph.sh
+chmod +x ralph.sh
+./ralph.sh install
+```
+
+Then use:
+
+```bash
+./ralph.sh install    # Install skills to current repo
+./ralph.sh new "task" # Create a task
+./ralph.sh go 1       # Run a task
+```
+
+### Option B: Bun/npm (For JavaScript/TypeScript projects)
+
+If you're already using Bun or npm:
+
+```bash
+# Global install
 bun add -g github:AskTinNguyen/ralph-cli
 
-# Verify installation
+# Verify
 ralph --help
 ```
 
@@ -33,33 +67,12 @@ ralph new "task" # Create a task
 ralph go 1       # Run a task
 ```
 
-### Local Install (Per-Project)
-
-Install as a dev dependency in your project:
+#### Local Install (Per-Project)
 
 ```bash
 bun add -D github:AskTinNguyen/ralph-cli
-```
-
-Use with `bunx`:
-
-```bash
 bunx ralph install
-bunx ralph new "task"
-bunx ralph go 1
 ```
-
-Or add a script to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "ralph": "ralph"
-  }
-}
-```
-
-Then use `bun run ralph install`, etc.
 
 ### What Gets Created
 
