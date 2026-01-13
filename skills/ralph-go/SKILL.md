@@ -176,24 +176,26 @@ All criteria met!
 
 ---
 
-## 🔁 END OF ITERATION - Message to User
+## END OF ITERATION - Message to User
 
-After completing your iteration work, ALWAYS end with this message:
+After completing your iteration work, show ONE of these messages:
 
+**If task is COMPLETE:**
 ```
-📍 ITERATION COMPLETE
+ITERATION COMPLETE
 
-✅ What I did: <brief summary>
-📊 Progress: <X/Y criteria complete>
-
-🔄 To continue until task is COMPLETE, run:
-
-   ! ralph.sh go <task-id>
-
-   (The "!" prefix runs bash commands inside Claude Code)
-
-⚠️  /ralph-go = ONE iteration only
-✅  ralph.sh go = LOOPS until COMPLETE
+What I did: <brief summary>
+Progress: <X/Y criteria complete>
 ```
 
-This helps users understand they need to use `ralph.sh go` for autonomous looping.
+**If task needs more work:**
+```
+ITERATION COMPLETE
+
+What I did: <brief summary>
+Progress: <X/Y criteria complete>
+
+To continue: ! ralph.sh go <task-id>
+```
+
+Keep it minimal. No emojis. No explanations about iteration modes.
