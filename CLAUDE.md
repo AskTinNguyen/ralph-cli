@@ -1,89 +1,103 @@
 # Ralph CLI
 
-Autonomous coding loop for Claude Code.
+Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation.
 
 ## Quick Reference
 
 | Use Case | Command |
 |----------|---------|
 | **Install to repo** | `ralph install` |
-| **Interactive task creation** | `claude` then `/ralph-new` or `/ralph-plan` |
-| **Interactive execution** | `claude` then `/ralph-go 1` |
-| **Headless task creation** | `ralph new "task description"` |
-| **Headless execution** | `ralph go 1` |
-| **List tasks** | `ralph list` |
+| **Generate PRD** | `ralph prd` |
+| **Create plan from PRD** | `ralph plan` |
+| **Run build iterations** | `ralph build 5` |
+| **Single iteration** | `ralph build 1` |
+| **Dry run (no commit)** | `ralph build 1 --no-commit` |
+
+## Workflow
+
+1. **PRD** → Define requirements: `ralph prd`
+2. **Plan** → Break into stories: `ralph plan`
+3. **Build** → Execute stories: `ralph build N`
 
 ## File Structure
 
 ```
 project/
-├── .claude/
-│   └── skills/
-│       ├── ralph-go/SKILL.md     # Main execution loop
-│       ├── ralph-new/SKILL.md    # Task creation
-│       └── ralph-plan/SKILL.md   # Interactive planning
+├── .agents/
+│   ├── ralph/                    # Loop templates (optional customization)
+│   │   ├── loop.sh               # Main execution loop
+│   │   ├── PROMPT_build.md       # Build prompt template
+│   │   ├── PROMPT_plan.md        # Plan prompt template
+│   │   └── config.sh             # Agent configuration
+│   └── tasks/
+│       └── prd.md                # PRD document
 └── .ralph/
-    ├── guardrails.md             # SHARED constraints for ALL tasks
-    └── ralph-1/                  # Task 1
-        ├── plan.md               # Task definition with frontmatter
-        ├── progress.md           # Iteration history (append-only)
-        └── errors.log            # Verification failures
+    ├── IMPLEMENTATION_PLAN.md    # Task plan (stories)
+    ├── progress.md               # Append-only progress log
+    ├── guardrails.md             # Lessons learned ("Signs")
+    ├── activity.log              # Activity + timing
+    ├── errors.log                # Failures
+    └── runs/                     # Raw run logs
 ```
 
-## plan.md Format
+## PRD Format
 
 ```markdown
----
-task: Add user authentication
-test_command: bun run verify
-completion_promise: "User authentication works and all tests pass"
-max_iterations: 15
----
+# Product Requirements Document
 
-# Task: Add user authentication
+## Overview
+What we're building and why.
 
-## Context
-What needs to be done and why.
+## User Stories
 
-## Success Criteria
+### [ ] US-001: Story title
+**As a** user
+**I want** feature
+**So that** benefit
+
+#### Acceptance Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
-- [ ] All tests pass
 ```
 
-## Completion Signals
+Stories are marked `[x]` when complete.
 
-| Signal | Meaning |
-|--------|---------|
-| `<promise>COMPLETE: {completion_promise}</promise>` | Task finished successfully |
-| `<promise>NEEDS_HUMAN: {reason}</promise>` | Blocked, needs intervention |
+## Agent Configuration
 
-## Exit Codes
+Set in `.agents/ralph/config.sh` or via CLI flag:
 
-| Code | Meaning |
-|------|---------|
-| 0 | `COMPLETE` - Task finished |
-| 1 | Error or failure |
-| 2 | `NEEDS_HUMAN` - Blocked |
+```bash
+# Use Claude
+ralph build 1 --agent=claude
+
+# Use Codex (default)
+ralph build 1 --agent=codex
+
+# Use Droid
+ralph build 1 --agent=droid
+```
 
 ## Package Structure
 
 ```
 ralph-cli/
-├── src/ralph.ts      # CLI (~200 lines)
-├── skills/           # Bundled Claude Code skills
-│   ├── ralph-go/
-│   ├── ralph-new/
-│   └── ralph-plan/
-├── package.json
-└── README.md
+├── bin/ralph             # Node.js CLI entry point
+├── .agents/ralph/        # Bash loop implementation
+│   ├── loop.sh           # Main execution loop
+│   ├── PROMPT_build.md   # Build iteration prompt
+│   └── PROMPT_plan.md    # Planning prompt
+├── skills/               # Optional agent skills
+│   ├── commit/           # Git commit helper
+│   ├── dev-browser/      # Browser automation
+│   └── prd/              # PRD generation
+└── package.json
 ```
 
 ## How It Works
 
-1. **Install**: `ralph install` copies skills to `.claude/skills/` and creates `.ralph/guardrails.md`
-2. **Create**: Use `/ralph-new` or `/ralph-plan` in Claude Code to define a task
-3. **Execute**: `/ralph-go <id>` runs the loop - Claude reads the task, does work, verifies, repeats
-4. **Complete**: Claude outputs `<promise>COMPLETE</promise>` when done or `NEEDS_HUMAN` if stuck
+1. **PRD**: `ralph prd` generates requirements document
+2. **Plan**: `ralph plan` creates `IMPLEMENTATION_PLAN.md` with ordered stories
+3. **Build**: `ralph build N` runs N iterations of `loop.sh`
+4. **Loop**: Each iteration picks next unchecked story, executes, commits, marks done
 
-The "loop" is Claude following skill instructions, not code managing iterations.
+The loop is stateless - each iteration reads files, does work, writes results.
