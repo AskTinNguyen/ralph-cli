@@ -171,6 +171,42 @@ cmd_update() {
     log_ok "Ralph skills updated successfully!"
 }
 
+cmd_upgrade() {
+    log_info "Upgrading Ralph CLI..."
+    echo ""
+
+    # Find the ralph-cli repo directory (parent of bin/)
+    local ralph_repo="${SCRIPT_DIR}/.."
+
+    # Check if it's a git repo
+    if [[ ! -d "$ralph_repo/.git" ]]; then
+        log_error "Cannot upgrade: ralph-cli is not a git repository"
+        echo "If you installed via curl, re-download the script:"
+        echo "  curl -O https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/bin/ralph.sh"
+        exit 1
+    fi
+
+    # Pull latest changes
+    echo "Pulling latest changes..."
+    if (cd "$ralph_repo" && git pull); then
+        log_ok "Ralph CLI updated to latest version"
+    else
+        log_error "Failed to pull updates"
+        exit 1
+    fi
+
+    echo ""
+
+    # If in a project with ralph installed, update skills too
+    if [[ -d "$CLAUDE_SKILLS_DIR/ralph-go" ]]; then
+        echo "Updating skills in current project..."
+        cmd_update
+    else
+        echo "No Ralph skills in current directory."
+        echo "Run 'ralph.sh install' in your project to install skills."
+    fi
+}
+
 cmd_new() {
     local task_name="$1"
 
@@ -352,13 +388,14 @@ cmd_help() {
 Ralph - Autonomous Coding Loop
 
 Usage:
-  ralph install          Install skills to current repo
-  ralph update           Update skills to latest version
-  ralph new "task"       Create a new task
-  ralph list             List all tasks
-  ralph go <id>          Run task (headless, pure loop)
+  ralph.sh install       Install skills to current repo
+  ralph.sh new "task"    Create a new task
+  ralph.sh list          List all tasks
+  ralph.sh go <id>       Run task (headless, loops until COMPLETE)
+  ralph.sh update        Update skills in current project
+  ralph.sh upgrade       Pull latest CLI + update skills
 
-For interactive use:
+For interactive use (one iteration at a time):
   claude
   /ralph-go <id>
 
@@ -383,6 +420,9 @@ main() {
             ;;
         update)
             cmd_update
+            ;;
+        upgrade)
+            cmd_upgrade
             ;;
         new)
             cmd_new "${*:-}"

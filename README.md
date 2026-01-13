@@ -63,8 +63,9 @@ ralph.sh go 1
 | `ralph.sh install` | Install skills to current repo |
 | `ralph.sh new "task"` | Create a new task |
 | `ralph.sh list` | List all tasks |
-| `ralph.sh go <id>` | Run task headlessly (pure loop) |
-| `ralph.sh update` | Update skills to latest version |
+| `ralph.sh go <id>` | Run task (loops until COMPLETE) |
+| `ralph.sh update` | Update skills in current project |
+| `ralph.sh upgrade` | Pull latest CLI + update skills |
 
 ### What Gets Created
 
