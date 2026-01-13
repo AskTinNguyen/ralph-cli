@@ -860,6 +860,269 @@ api.get('/partials/run-log-content', (c) => {
 });
 
 /**
+ * GET /api/partials/streams-summary
+ *
+ * Returns HTML fragment for the streams summary section showing aggregate stats.
+ */
+api.get('/partials/streams-summary', (c) => {
+  const streams = getStreams();
+
+  const totalStreams = streams.length;
+  const runningStreams = streams.filter((s) => s.status === 'running').length;
+  const completedStreams = streams.filter((s) => s.status === 'completed').length;
+  const idleStreams = streams.filter((s) => s.status === 'idle').length;
+
+  // Calculate total stories across all streams
+  let totalStories = 0;
+  let completedStories = 0;
+  for (const stream of streams) {
+    totalStories += stream.totalStories;
+    completedStories += stream.completedStories;
+  }
+
+  const overallPercentage = totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0;
+
+  if (totalStreams === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No streams found</h3>
+  <p>Create a PRD with <code>ralph prd</code> to get started.</p>
+</div>
+`);
+  }
+
+  const html = `
+<div class="streams-summary">
+  <div class="summary-stat">
+    <div class="summary-stat-value">${totalStreams}</div>
+    <div class="summary-stat-label">Total Streams</div>
+  </div>
+  <div class="summary-stat ${runningStreams > 0 ? 'running' : ''}">
+    <div class="summary-stat-value">${runningStreams}</div>
+    <div class="summary-stat-label">Running</div>
+  </div>
+  <div class="summary-stat ${completedStreams > 0 ? 'completed' : ''}">
+    <div class="summary-stat-value">${completedStreams}</div>
+    <div class="summary-stat-label">Completed</div>
+  </div>
+  <div class="summary-stat">
+    <div class="summary-stat-value">${overallPercentage}%</div>
+    <div class="summary-stat-label">Overall Progress</div>
+  </div>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/streams
+ *
+ * Returns HTML fragment for the streams list grid.
+ */
+api.get('/partials/streams', (c) => {
+  const streams = getStreams();
+
+  if (streams.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No streams found</h3>
+  <p>Create a PRD with <code>ralph prd</code> to get started.</p>
+</div>
+`);
+  }
+
+  const streamCards = streams
+    .map((stream) => {
+      const completionPercentage =
+        stream.totalStories > 0
+          ? Math.round((stream.completedStories / stream.totalStories) * 100)
+          : 0;
+
+      const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+
+      return `
+<div class="stream-card" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+  <div class="stream-header">
+    <span class="stream-id">PRD-${stream.id}</span>
+    <span class="status-badge ${stream.status}">${statusLabel}</span>
+  </div>
+  <div class="stream-title">${escapeHtml(stream.name)}</div>
+  <div class="stream-progress">
+    <div class="stream-progress-bar">
+      <div class="stream-progress-fill" style="width: ${completionPercentage}%"></div>
+    </div>
+    <div class="stream-progress-text">${stream.completedStories} of ${stream.totalStories} stories completed (${completionPercentage}%)</div>
+  </div>
+  <div class="stream-meta">
+    <div class="stream-files">
+      <span class="stream-file-badge ${stream.hasPrd ? 'present' : 'missing'}">PRD</span>
+      <span class="stream-file-badge ${stream.hasPlan ? 'present' : 'missing'}">Plan</span>
+      <span class="stream-file-badge ${stream.hasProgress ? 'present' : 'missing'}">Progress</span>
+    </div>
+  </div>
+</div>
+`;
+    })
+    .join('');
+
+  return c.html(`<div class="streams-grid">${streamCards}</div>`);
+});
+
+/**
+ * GET /api/partials/stream-detail
+ *
+ * Returns HTML fragment for a specific stream's detail view.
+ * Query params:
+ *   - id: Stream ID
+ */
+api.get('/partials/stream-detail', (c) => {
+  const id = c.req.query('id');
+
+  if (!id) {
+    return c.html(`<div class="empty-state"><p>No stream ID provided</p></div>`);
+  }
+
+  const stream = getStreamDetails(id);
+
+  if (!stream) {
+    return c.html(`
+<div class="empty-state">
+  <h3>Stream not found</h3>
+  <p>PRD-${escapeHtml(id)} does not exist.</p>
+</div>
+`);
+  }
+
+  const completionPercentage =
+    stream.totalStories > 0
+      ? Math.round((stream.completedStories / stream.totalStories) * 100)
+      : 0;
+
+  const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+
+  // Build stories list HTML
+  const storiesHtml = stream.stories.length > 0
+    ? stream.stories.map((story) => {
+        const storyStatusLabel =
+          story.status === 'in-progress'
+            ? 'In Progress'
+            : story.status.charAt(0).toUpperCase() + story.status.slice(1);
+
+        const criteriaHtml =
+          story.acceptanceCriteria.length > 0
+            ? `<div class="acceptance-criteria">
+                ${story.acceptanceCriteria
+                  .slice(0, 3)
+                  .map((ac) => `<div class="criteria-item ${ac.completed ? 'completed' : ''}">${escapeHtml(ac.text)}</div>`)
+                  .join('')}
+                ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ''}
+              </div>`
+            : '';
+
+        return `
+<div class="story-card">
+  <div class="story-header">
+    <span class="story-id">${escapeHtml(story.id)}</span>
+    <span class="status-badge ${story.status}">${storyStatusLabel}</span>
+  </div>
+  <div class="story-title">${escapeHtml(story.title)}</div>
+  ${criteriaHtml}
+</div>
+`;
+      }).join('')
+    : '<div class="empty-state"><p>No stories found in this PRD.</p></div>';
+
+  // Build runs list HTML
+  const runsHtml = stream.runs.length > 0
+    ? stream.runs.slice(0, 10).map((run) => {
+        const timestamp = run.startedAt.toLocaleString('en-US', {
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+
+        const runStatusClass = run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'error' : 'in-progress';
+        const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ''}` : 'Unknown story';
+
+        return `
+<div class="run-item">
+  <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
+    <div class="run-info">
+      <span class="status-badge ${runStatusClass}">${run.status}</span>
+      <span class="run-id">iter ${run.iteration}</span>
+      <span class="run-story">${escapeHtml(storyInfo)}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+      <span class="run-timestamp">${timestamp}</span>
+      <span class="run-expand-icon">&#9660;</span>
+    </div>
+  </div>
+  <div class="run-details"
+       hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${stream.id}&iteration=${run.iteration}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML">
+    <div class="loading">Loading run log...</div>
+  </div>
+</div>
+`;
+      }).join('')
+    : '<div class="empty-state"><p>No runs found for this stream.</p></div>';
+
+  const html = `
+<div class="stream-detail-header">
+  <div class="stream-detail-info">
+    <div class="stream-detail-title">${escapeHtml(stream.name)}</div>
+    <div class="stream-detail-meta">
+      <span class="stream-id">PRD-${stream.id}</span>
+      <span class="status-badge ${stream.status}">${statusLabel}</span>
+      <span>${stream.completedStories} / ${stream.totalStories} stories (${completionPercentage}%)</span>
+    </div>
+  </div>
+</div>
+
+<div class="stream-progress" style="margin-bottom: var(--spacing-lg);">
+  <div class="stream-progress-bar" style="height: 12px;">
+    <div class="stream-progress-fill" style="width: ${completionPercentage}%"></div>
+  </div>
+</div>
+
+<div class="stream-detail-tabs">
+  <button class="stream-tab active" onclick="switchStreamTab(this, 'stories')">Stories (${stream.totalStories})</button>
+  <button class="stream-tab" onclick="switchStreamTab(this, 'runs')">Runs (${stream.runs.length})</button>
+</div>
+
+<div id="stream-tab-stories" class="stream-tab-content active">
+  <div class="stories-grid">
+    ${storiesHtml}
+  </div>
+</div>
+
+<div id="stream-tab-runs" class="stream-tab-content">
+  <div class="run-list">
+    ${runsHtml}
+  </div>
+</div>
+
+<script>
+function switchStreamTab(btn, tabName) {
+  // Update tab buttons
+  document.querySelectorAll('.stream-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Update tab content
+  document.querySelectorAll('.stream-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('stream-tab-' + tabName).classList.add('active');
+}
+</script>
+`;
+
+  return c.html(html);
+});
+
+/**
  * Helper function to escape HTML characters
  */
 function escapeHtml(text: string): string {

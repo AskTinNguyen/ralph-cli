@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph CLI - Streams</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/htmx.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>Ralph CLI</h1>
+      <span class="subtitle">Autonomous Coding Loop</span>
+    </div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/streams.html" class="active">Streams</a>
+      <a href="/logs.html">Logs</a>
+      <a href="/editor.html">Editor</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Streams Overview Section -->
+    <section id="streams-overview">
+      <h2>Streams Overview</h2>
+      <div id="streams-summary"
+           hx-get="/api/partials/streams-summary"
+           hx-trigger="load, every 5s"
+           hx-swap="innerHTML">
+        <div class="loading">Loading streams summary...</div>
+      </div>
+    </section>
+
+    <!-- Streams List Section -->
+    <section id="streams-section">
+      <h2>All Streams</h2>
+      <div id="streams-container"
+           hx-get="/api/partials/streams"
+           hx-trigger="load, every 5s"
+           hx-swap="innerHTML">
+        <div class="loading">Loading streams...</div>
+      </div>
+    </section>
+
+    <!-- Stream Detail Section (shown when a stream is selected) -->
+    <section id="stream-detail-section" style="display: none;">
+      <div class="breadcrumbs">
+        <a href="#" onclick="hideStreamDetail(); return false;">Streams</a>
+        <span class="breadcrumb-separator">&rsaquo;</span>
+        <span id="stream-detail-title">Stream Detail</span>
+      </div>
+      <div id="stream-detail-container">
+        <!-- Stream detail content loaded via HTMX -->
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Ralph CLI Web UI &mdash; <span id="status-indicator" hx-get="/api/partials/status-indicator" hx-trigger="load, every 5s" hx-swap="innerHTML">checking...</span></p>
+  </footer>
+
+  <script>
+    // Show stream detail view
+    function showStreamDetail(streamId, streamName) {
+      document.getElementById('streams-overview').style.display = 'none';
+      document.getElementById('streams-section').style.display = 'none';
+      document.getElementById('stream-detail-section').style.display = 'block';
+      document.getElementById('stream-detail-title').textContent = streamName;
+
+      // Load stream detail content via HTMX
+      htmx.ajax('GET', '/api/partials/stream-detail?id=' + streamId, '#stream-detail-container');
+    }
+
+    // Hide stream detail view and show streams list
+    function hideStreamDetail() {
+      document.getElementById('streams-overview').style.display = 'block';
+      document.getElementById('streams-section').style.display = 'block';
+      document.getElementById('stream-detail-section').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
