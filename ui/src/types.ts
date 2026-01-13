@@ -178,3 +178,110 @@ export interface APIError {
   message: string;
   details?: Record<string, unknown>;
 }
+
+/**
+ * Token metrics for a model or aggregate
+ */
+export interface TokenMetrics {
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  inputCost?: number;
+  outputCost?: number;
+  runCount?: number;
+}
+
+/**
+ * Token data for a single run
+ */
+export interface RunTokenData {
+  runId: string;
+  streamId?: string;
+  storyId?: string;
+  inputTokens: number;
+  outputTokens: number;
+  model?: string;
+  timestamp: string;
+  estimated: boolean;
+  cost: number;
+}
+
+/**
+ * Token summary for a stream
+ */
+export interface StreamTokenSummary {
+  streamId: string;
+  streamName: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  runCount: number;
+  storyCount: number;
+  avgCostPerStory: number;
+  byStory?: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    totalCost: number;
+    inputCost: number;
+    outputCost: number;
+    runs: number;
+    estimatedCount: number;
+  }>;
+  byModel?: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    totalCost: number;
+    inputCost: number;
+    outputCost: number;
+    runs: number;
+  }>;
+  runs?: RunTokenData[];
+}
+
+/**
+ * Token summary for a story
+ */
+export interface StoryTokenSummary {
+  streamId: string;
+  storyId: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  runCount: number;
+  estimatedCount: number;
+  runs: RunTokenData[];
+}
+
+/**
+ * Overall token summary across all streams
+ */
+export interface TokenSummary {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+  avgCostPerStory: number;
+  avgCostPerRun: number;
+  byStream: StreamTokenSummary[];
+  byModel: Record<string, TokenMetrics>;
+}
+
+/**
+ * Single data point for token trends
+ */
+export interface TokenTrendDataPoint {
+  date: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  runCount: number;
+}
+
+/**
+ * Token trends over time for charts
+ */
+export interface TokenTrend {
+  period: '7d' | '30d' | '90d' | 'all';
+  dataPoints: TokenTrendDataPoint[];
+}

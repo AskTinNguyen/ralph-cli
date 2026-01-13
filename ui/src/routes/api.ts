@@ -10,6 +10,7 @@ import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, Bui
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
+import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends } from '../services/token-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -2320,6 +2321,151 @@ api.post('/files/*/open', async (c) => {
       500
     );
   }
+});
+
+/**
+ * Token API Endpoints
+ *
+ * REST API endpoints for token consumption and cost tracking.
+ */
+
+/**
+ * GET /api/tokens/summary
+ *
+ * Returns overall token/cost summary across all streams.
+ * Response includes:
+ *   - totalInputTokens, totalOutputTokens, totalCost
+ *   - avgCostPerStory, avgCostPerRun
+ *   - byStream: array of per-stream summaries
+ *   - byModel: object keyed by model name
+ */
+api.get('/tokens/summary', (c) => {
+  const summary = getTokenSummary();
+  return c.json({
+    summary: {
+      totalInputTokens: summary.totalInputTokens,
+      totalOutputTokens: summary.totalOutputTokens,
+      totalCost: summary.totalCost,
+      avgCostPerStory: summary.avgCostPerStory,
+      avgCostPerRun: summary.avgCostPerRun,
+    },
+    byStream: summary.byStream,
+    byModel: summary.byModel,
+  });
+});
+
+/**
+ * GET /api/tokens/stream/:id
+ *
+ * Returns detailed token metrics for a specific stream.
+ * Includes per-story breakdown, per-model breakdown, and all runs.
+ */
+api.get('/tokens/stream/:id', (c) => {
+  const id = c.req.param('id');
+
+  const streamTokens = getStreamTokens(id);
+
+  if (!streamTokens) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  return c.json(streamTokens);
+});
+
+/**
+ * GET /api/tokens/story/:streamId/:storyId
+ *
+ * Returns token metrics for a specific story within a stream.
+ * Includes all runs for that story.
+ */
+api.get('/tokens/story/:streamId/:storyId', (c) => {
+  const streamId = c.req.param('streamId');
+  const storyId = c.req.param('storyId');
+
+  const storyTokens = getStoryTokens(streamId, storyId);
+
+  if (!storyTokens) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Story ${storyId} in stream PRD-${streamId} not found`,
+      },
+      404
+    );
+  }
+
+  return c.json(storyTokens);
+});
+
+/**
+ * GET /api/tokens/runs
+ *
+ * Returns token data for recent runs.
+ * Query params:
+ *   - streamId: Filter to specific stream (optional)
+ *   - limit: Max number of runs to return (default: 50)
+ *   - offset: Number of runs to skip for pagination (default: 0)
+ *   - from: Filter runs from this date (ISO format, optional)
+ *   - to: Filter runs until this date (ISO format, optional)
+ */
+api.get('/tokens/runs', (c) => {
+  const streamId = c.req.query('streamId');
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+
+  // Validate limit and offset
+  const validLimit = Math.min(Math.max(1, limit), 500); // Cap at 500
+  const validOffset = Math.max(0, offset);
+
+  const result = getRunTokens({
+    streamId: streamId || undefined,
+    limit: validLimit,
+    offset: validOffset,
+    from: from || undefined,
+    to: to || undefined,
+  });
+
+  return c.json({
+    runs: result.runs,
+    pagination: {
+      total: result.total,
+      limit: validLimit,
+      offset: validOffset,
+      hasMore: validOffset + validLimit < result.total,
+    },
+  });
+});
+
+/**
+ * GET /api/tokens/trends
+ *
+ * Returns time-series token data for charts.
+ * Query params:
+ *   - period: Time period ('7d', '30d', '90d', 'all'). Default: '7d'
+ *
+ * Returns data points grouped by day with:
+ *   - date, inputTokens, outputTokens, totalCost, runCount
+ */
+api.get('/tokens/trends', (c) => {
+  const periodParam = c.req.query('period') || '7d';
+
+  // Validate period
+  const validPeriods = ['7d', '30d', '90d', 'all'] as const;
+  const period = validPeriods.includes(periodParam as typeof validPeriods[number])
+    ? (periodParam as '7d' | '30d' | '90d' | 'all')
+    : '7d';
+
+  const trends = getTokenTrends(period);
+
+  return c.json(trends);
 });
 
 export { api };
