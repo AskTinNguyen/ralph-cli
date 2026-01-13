@@ -1,4 +1,5 @@
 # Build
+<!-- Version: 1.0.0 -->
 
 You are an autonomous coding agent. Your task is to complete the work for exactly one story and record the outcome.
 

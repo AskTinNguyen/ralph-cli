@@ -1,4 +1,5 @@
 # Planning
+<!-- Version: 1.0.0 -->
 
 You are an autonomous coding agent. Your task is to create or update an implementation plan based on the PRD and existing code.
 

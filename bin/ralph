@@ -55,6 +55,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
   ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
   ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
+  ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -66,6 +67,11 @@ ${pc.bold(pc.cyan("Registry commands:"))}
 ${pc.bold(pc.cyan("Import commands:"))}
   ${pc.green("import guardrails")} ${pc.dim("[--from project]")}   Import guardrails from another project
   ${pc.green("import guardrails")} ${pc.dim("--all")}              Import all guardrails from selected project
+
+${pc.bold(pc.cyan("Optimize commands:"))}
+  ${pc.green("optimize prompts")}                    Analyze prompt effectiveness and generate suggestions
+  ${pc.green("optimize prompts")} ${pc.dim("--apply")}           Apply selected suggestions to templates
+  ${pc.green("optimize prompts")} ${pc.dim("--versions")}        Show prompt version effectiveness comparison
 
 ${pc.bold(pc.cyan("Stats options:"))}
   ${pc.yellow("--global")} ${pc.dim("(-g)")}                       Show metrics across all registered projects
@@ -1666,6 +1672,276 @@ ${pc.bold(pc.cyan("Examples:"))}
     console.log(pc.dim("=".repeat(60)));
     success(`Metrics cached to ${pc.cyan(".ralph/metrics/stats.json")}`);
     process.exit(0);
+  }
+
+  if (cmd === "optimize") {
+    const optimizeModule = require("../lib/optimize");
+    const subCmd = args[1];
+
+    // Parse flags
+    let applyFlag = false;
+    let versionsFlag = false;
+    let initFlag = false;
+
+    for (const arg of args.slice(2)) {
+      if (arg === "--apply") {
+        applyFlag = true;
+      } else if (arg === "--versions") {
+        versionsFlag = true;
+      } else if (arg === "--init") {
+        initFlag = true;
+      }
+    }
+
+    if (!subCmd || subCmd === "help") {
+      console.log(`${pc.bold("ralph optimize")} ${pc.dim("<type>")}
+
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("prompts")}                    Analyze prompt effectiveness and generate suggestions
+  ${pc.green("prompts")} ${pc.dim("--init")}           Initialize version tracking for prompt templates
+  ${pc.green("prompts")} ${pc.dim("--versions")}       Show prompt version effectiveness comparison
+  ${pc.green("prompts")} ${pc.dim("--apply")}          Review and apply suggestions interactively
+
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--init")}                     Initialize version tracking (adds version comments)
+  ${pc.yellow("--versions")}                 Show effectiveness comparison by version
+  ${pc.yellow("--apply")}                    Interactively review and apply suggestions
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph optimize prompts")}              Generate suggestions based on run analysis
+  ${pc.dim("ralph optimize prompts --versions")}   Compare success rates across versions
+  ${pc.dim("ralph optimize prompts --apply")}      Apply selected suggestions to templates
+`);
+      process.exit(0);
+    }
+
+    if (subCmd === "prompts") {
+      const ralphDir = path.join(cwd, ".ralph");
+      const runsDir = path.join(ralphDir, "runs");
+      const templatePath = path.join(cwd, ".agents", "ralph", "PROMPT_build.md");
+      const suggestionsPath = optimizeModule.getSuggestionsPath(cwd);
+
+      // Initialize version tracking
+      if (initFlag) {
+        info("Initializing prompt template versions...");
+        const templates = optimizeModule.initializeVersions(cwd);
+
+        if (templates.length === 0) {
+          warn("No prompt templates found in .agents/ralph/");
+          info(`Run ${pc.cyan("ralph install")} first to set up templates.`);
+          process.exit(0);
+        }
+
+        console.log("");
+        console.log(pc.bold("Prompt Templates"));
+        console.log(pc.dim("-".repeat(50)));
+        for (const template of templates) {
+          const status = template.action === "initialized" ? pc.green("initialized") : pc.dim("exists");
+          console.log(`  ${template.name}: v${template.version} (${status})`);
+        }
+        console.log("");
+        success("Version tracking initialized.");
+        process.exit(0);
+      }
+
+      // Show version comparison
+      if (versionsFlag) {
+        const versions = optimizeModule.getVersionComparison(cwd);
+
+        if (versions.length === 0) {
+          warn("No version metrics found.");
+          info(`Run ${pc.cyan("ralph optimize prompts --init")} to initialize version tracking.`);
+          process.exit(0);
+        }
+
+        console.log("");
+        console.log(pc.bold("Prompt Version Effectiveness"));
+        console.log(pc.dim("=".repeat(60)));
+        console.log("");
+        console.log(pc.dim(`${"VERSION".padEnd(12)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(9)} ${"AVG DUR".padStart(10)} ${"STATUS".padEnd(10)}`));
+        console.log(pc.dim("-".repeat(60)));
+
+        for (const v of versions) {
+          const version = v.version.padEnd(12);
+          const runs = String(v.runs).padStart(6);
+          const rate = v.successRate != null ? `${v.successRate}%`.padStart(9) : "N/A".padStart(9);
+          const dur = v.avgDuration != null ? `${v.avgDuration}s`.padStart(10) : "N/A".padStart(10);
+          const status = v.isCurrent ? pc.green("current") : pc.dim("previous");
+
+          const rateColor = v.successRate >= 70 ? pc.green : v.successRate >= 50 ? pc.yellow : pc.red;
+          console.log(`${version} ${runs} ${v.successRate != null ? rateColor(rate) : pc.dim(rate)} ${dur} ${status}`);
+        }
+        console.log(pc.dim("-".repeat(60)));
+        console.log("");
+
+        // Show best version recommendation
+        if (versions.length > 1) {
+          const best = versions[0];
+          const current = versions.find((v) => v.isCurrent);
+          if (current && best.version !== current.version && best.successRate > (current.successRate || 0)) {
+            const improvement = (best.successRate || 0) - (current.successRate || 0);
+            warn(`Version ${best.version} has ${improvement}% higher success rate than current.`);
+            info("Consider reverting recent prompt changes.");
+          }
+        }
+        process.exit(0);
+      }
+
+      // Check for runs
+      if (!exists(runsDir)) {
+        warn("No runs directory found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Generate suggestions
+      info("Analyzing prompt effectiveness...");
+      const result = optimizeModule.generateAllSuggestions(cwd, templatePath);
+
+      if (result.error) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      const { suggestions, analysis, categories } = result;
+
+      // Save suggestions to file
+      optimizeModule.saveSuggestions(suggestions, analysis, suggestionsPath);
+
+      // Display analysis summary
+      console.log("");
+      console.log(pc.bold("Prompt Analysis Summary"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log(`Template:        ${pc.dim(path.basename(templatePath))}`);
+      console.log(`Sections:        ${analysis.sectionCount}`);
+      console.log(`Instructions:    ${analysis.instructionCount}`);
+      console.log(`Runs analyzed:   ${analysis.runsAnalyzed}`);
+      console.log(pc.dim("-".repeat(60)));
+      console.log("");
+
+      // Show categorized instructions
+      if (categories) {
+        if (categories.consistentlyFollowed.length > 0) {
+          console.log(pc.bold(pc.green("Consistently Followed Instructions")));
+          for (const c of categories.consistentlyFollowed.slice(0, 3)) {
+            const text = c.text.length > 60 ? c.text.slice(0, 57) + "..." : c.text;
+            console.log(`  ${pc.green("✓")} ${text}`);
+            dim(`    Follow rate: ${c.followRate}%`);
+          }
+          console.log("");
+        }
+
+        if (categories.consistentlyIgnored.length > 0) {
+          console.log(pc.bold(pc.yellow("Consistently Ignored Instructions")));
+          for (const c of categories.consistentlyIgnored.slice(0, 3)) {
+            const text = c.text.length > 60 ? c.text.slice(0, 57) + "..." : c.text;
+            console.log(`  ${pc.yellow("○")} ${text}`);
+            dim(`    Follow rate: ${c.followRate}%`);
+          }
+          console.log("");
+        }
+      }
+
+      // Show suggestions summary
+      if (suggestions.length === 0) {
+        success("No significant improvement suggestions at this time.");
+        dim("Continue running iterations to gather more data.");
+      } else {
+        console.log(pc.bold(`Generated ${suggestions.length} Suggestion(s)`));
+        console.log(pc.dim("-".repeat(50)));
+
+        const byPriority = {
+          high: suggestions.filter((s) => s.priority === "high"),
+          medium: suggestions.filter((s) => s.priority === "medium"),
+          low: suggestions.filter((s) => s.priority === "low"),
+        };
+
+        if (byPriority.high.length > 0) {
+          console.log(`  ${pc.red("●")} High priority:   ${byPriority.high.length}`);
+        }
+        if (byPriority.medium.length > 0) {
+          console.log(`  ${pc.yellow("●")} Medium priority: ${byPriority.medium.length}`);
+        }
+        if (byPriority.low.length > 0) {
+          console.log(`  ${pc.dim("●")} Low priority:    ${byPriority.low.length}`);
+        }
+        console.log("");
+
+        success(`Suggestions saved to ${pc.cyan(".ralph/candidates/prompt-suggestions.md")}`);
+        console.log("");
+        info(`Run ${pc.cyan("ralph optimize prompts --apply")} to review and apply suggestions.`);
+      }
+
+      // Interactive apply mode
+      if (applyFlag && suggestions.length > 0) {
+        const { intro, outro, select, confirm, isCancel } = await import("@clack/prompts");
+
+        console.log("");
+        intro("Apply Prompt Suggestions");
+
+        for (const suggestion of suggestions) {
+          console.log("");
+          console.log(pc.dim("-".repeat(60)));
+          const priorityColor = suggestion.priority === "high" ? pc.red : suggestion.priority === "medium" ? pc.yellow : pc.dim;
+          console.log(`${priorityColor(`[${suggestion.priority}]`)} ${pc.bold(suggestion.type)}: ${suggestion.section}`);
+          console.log("");
+
+          if (suggestion.instruction) {
+            console.log(`${pc.cyan("Instruction:")} "${suggestion.instruction}"`);
+          }
+          console.log(`${pc.yellow("Why:")} ${suggestion.reason}`);
+          console.log(`${pc.green("Suggestion:")} ${suggestion.suggestion}`);
+          console.log("");
+
+          if (suggestion.metrics) {
+            dim("Metrics:");
+            for (const [key, value] of Object.entries(suggestion.metrics)) {
+              if (value != null) {
+                const label = key.replace(/([A-Z])/g, " $1").trim();
+                dim(`  ${label}: ${typeof value === "number" && key.includes("Rate") ? value + "%" : value}`);
+              }
+            }
+          }
+          console.log("");
+
+          const action = await select({
+            message: "What would you like to do?",
+            options: [
+              { value: "note", label: "Note for later (keep in suggestions)" },
+              { value: "dismiss", label: "Dismiss (remove from suggestions)" },
+              { value: "skip", label: "Skip for now" },
+            ],
+          });
+
+          if (isCancel(action)) {
+            outro("Review cancelled. Suggestions preserved.");
+            process.exit(0);
+          }
+
+          if (action === "dismiss") {
+            dim(`  Dismissed: ${suggestion.id}`);
+            // Remove from suggestions (in memory, will be saved at end)
+            const idx = suggestions.indexOf(suggestion);
+            if (idx >= 0) {
+              suggestions.splice(idx, 1);
+            }
+          } else if (action === "note") {
+            success(`  Noted: ${suggestion.id}`);
+          } else {
+            dim(`  Skipped: ${suggestion.id}`);
+          }
+        }
+
+        // Save updated suggestions
+        optimizeModule.saveSuggestions(suggestions, analysis, suggestionsPath);
+        outro(`Done. ${suggestions.length} suggestions remaining.`);
+      }
+
+      process.exit(0);
+    }
+
+    error(`Unknown optimize type: ${pc.bold(subCmd)}`);
+    info(`Run ${pc.cyan("ralph optimize help")} for usage.`);
+    process.exit(1);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
