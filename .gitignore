@@ -23,9 +23,6 @@ pnpm-debug.log*
 coverage/
 dist/
 
-# Generated during ralph runs (causes Claude CLI exit errors)
-lib/diagnose/
-lib/import/
-lib/optimize/
+# Browser automation temp files
 skills/dev-browser/profiles/
 skills/dev-browser/tmp/
