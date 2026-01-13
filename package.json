@@ -1,0 +1,37 @@
+{
+  "name": "ralph-cli",
+  "version": "0.3.0",
+  "description": "Autonomous coding loop for Claude Code - iteratively complete tasks until done",
+  "type": "module",
+  "bin": {
+    "ralph": "./src/ralph.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --fix src/",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.3"
+  },
+  "files": [
+    "src",
+    "skills"
+  ],
+  "keywords": [
+    "ralph",
+    "claude",
+    "claude-code",
+    "ai",
+    "autonomous",
+    "coding",
+    "agent",
+    "llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AskTinNguyen/ralph-cli.git"
+  },
+  "license": "MIT"
+}
