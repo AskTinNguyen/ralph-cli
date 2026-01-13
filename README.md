@@ -121,11 +121,12 @@ your-repo/
 │       ├── ralph-new/SKILL.md     # Task creation
 │       └── ralph-plan/SKILL.md    # Planning
 └── .ralph/
-    ├── guardrails.md              # Safety constraints (shared)
+    ├── guardrails.md              # Safety constraints (shared, READ FIRST)
     └── ralph-1/                   # Task 1
         ├── plan.md                # Task definition
-        ├── progress.md            # Iteration history
-        └── errors.log             # Test failures
+        ├── progress.md            # Iteration history (append-only)
+        ├── activity.log           # Detailed action log (append-only)
+        └── errors.log             # Test failures (append-only)
 ```
 
 ## Task Definition
@@ -170,6 +171,109 @@ Ralph outputs these markers to control the loop:
 | 0 | SUCCESS - Task completed |
 | 1 | ERROR - Unexpected error |
 | 2 | NEEDS_HUMAN - Claude escalated |
+
+## State Files (Critical for Agents)
+
+Ralph uses state files as the memory and harness for continuation. **Agents MUST read these files at the start of each iteration and write to them after each action.**
+
+### guardrails.md (Read Before Every Action)
+
+**Purpose**: Safety constraints that apply to ALL tasks. Violations are unacceptable.
+
+**When to read**: Before starting any work, before every iteration.
+
+**Template**:
+```markdown
+# Guardrails
+
+## Safety Constraints (NEVER do these)
+- Never push directly to main/master branch
+- Never delete production data
+- Never commit secrets/credentials
+- Never skip tests
+
+## Project-Specific Rules
+- (Add your project's constraints)
+```
+
+### progress.md (Append After Every Iteration)
+
+**Purpose**: Iteration history that enables continuation. Future iterations read this to understand what's been tried.
+
+**When to write**: After EVERY iteration, whether pass or fail.
+
+**Template**:
+```markdown
+## Iteration N - YYYY-MM-DD HH:MM:SS
+- **Attempted**: What you tried to do
+- **Result**: PASSED | FAILED
+- **Files changed**: List of files modified
+- **Criteria met**: Which checkboxes can now be checked
+- **Next**: What to try next (if not complete)
+```
+
+### errors.log (Append On Failure)
+
+**Purpose**: Record of test failures. Prevents repeating the same mistakes.
+
+**When to write**: When `test_command` fails.
+
+**Template**:
+```markdown
+## Iteration N - YYYY-MM-DD HH:MM:SS
+Command: bun test
+Exit code: 1
+Output:
+  FAIL src/components/Button.test.ts
+    ✕ should render correctly
+      Expected: true
+      Received: false
+```
+
+### activity.log (Append Detailed Actions)
+
+**Purpose**: Detailed log of all actions taken. Useful for debugging and auditing.
+
+**When to write**: After significant actions (file edits, commands run, decisions made).
+
+**Template**:
+```markdown
+## Iteration N - YYYY-MM-DD HH:MM:SS
+
+### Actions Taken
+1. Read plan.md - identified next criterion: "Add login button"
+2. Searched codebase for existing button components
+3. Created src/components/LoginButton.tsx
+4. Added tests in src/components/LoginButton.test.ts
+5. Ran test_command: bun test
+6. Result: PASSED
+
+### Decisions Made
+- Used existing Button component as base
+- Placed in components/ directory following project convention
+```
+
+### Agent Loop Reminder
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  START OF EVERY ITERATION:                              │
+│  1. Read guardrails.md    → Know constraints            │
+│  2. Read plan.md          → Know the goal               │
+│  3. Read progress.md      → Know what's done            │
+│  4. Read errors.log       → Know what failed            │
+│                                                         │
+│  AFTER EVERY ITERATION:                                 │
+│  5. Run test_command      → Verify work                 │
+│  6. Append to progress.md → Record what happened        │
+│  7. Append to errors.log  → If tests failed             │
+│  8. Append to activity.log→ Detailed actions            │
+│                                                         │
+│  THEN:                                                  │
+│  9. Check completion      → All criteria met?           │
+│  10. Output signal        → COMPLETE or continue        │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Philosophy
 

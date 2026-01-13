@@ -61,11 +61,33 @@ Everything lives in simple files you can read:
 
 | File | What it is |
 |------|------------|
+| `guardrails.md` | Safety rules Claude must NEVER violate |
 | `plan.md` | The task definition ("what to build") |
 | `progress.md` | History of what happened each round |
+| `activity.log` | Detailed log of actions taken |
 | `errors.log` | What went wrong (if anything) |
 
 No database. No server. You can open these in Notepad and see exactly what's happening. **Transparency over magic.**
+
+### Guardrails: The Safety Net
+
+The `guardrails.md` file is special—it's shared across ALL tasks and contains rules Claude must never break:
+
+```markdown
+# Guardrails
+
+## Safety Constraints (NEVER do these)
+- Never push directly to main/master branch
+- Never delete production data
+- Never commit secrets/credentials
+- Never skip tests
+
+## Project-Specific Rules
+- Always use the existing component library
+- Never modify the database schema without migration
+```
+
+Think of guardrails as the "house rules" for your project. Claude reads this file before every iteration and treats violations as unacceptable. You can customize it for your project's specific needs.
 
 ### The Minimal CLI
 
@@ -375,10 +397,11 @@ The test command is Claude's feedback loop. Fail → learn → fix → try again
 ```
 your-project/
 └── .ralph/
-    ├── guardrails.md      # Constraints for ALL tasks
+    ├── guardrails.md      # Constraints for ALL tasks (READ FIRST)
     ├── ralph-1/           # Task 1
     │   ├── plan.md        # Task definition
     │   ├── progress.md    # Iteration history
+    │   ├── activity.log   # Detailed action log
     │   └── errors.log     # Test failures
     └── ralph-2/           # Task 2
         └── ...
