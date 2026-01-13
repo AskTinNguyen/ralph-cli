@@ -565,24 +565,19 @@ cmd_go() {
         local tmpfile
         tmpfile=$(mktemp)
 
-        # Run claude with permissions for autonomous execution
-        # --output-format stream-json streams events in real-time
-        # We parse the JSON to show progress while capturing full output
+        # Run claude with stream-json for real-time events
+        # --include-partial-messages shows chunks as they arrive
         claude -p "/ralph-go $task_id" \
             --output-format stream-json \
+            --include-partial-messages \
             --dangerously-skip-permissions \
             2>&1 | tee "$tmpfile" | while IFS= read -r line; do
-                # Parse stream-json events and display relevant content
-                case "$line" in
-                    *'"type":"assistant"'*)
-                        # Extract and display assistant message content
-                        echo "$line" | sed 's/.*"content":\[{"type":"text","text":"//;s/"}].*//' | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g' 2>/dev/null || true
-                        ;;
-                    *'"type":"result"'*)
-                        # Show final result
-                        echo "$line" | sed 's/.*"result":"//;s/"}.*//' | sed 's/\\n/\n/g; s/\\t/\t/g; s/\\"/"/g' 2>/dev/null || true
-                        ;;
-                esac
+                # Show content from assistant messages
+                if [[ "$line" == *'"type":"content_block_delta"'* ]]; then
+                    printf '%s' "$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null)" || true
+                elif [[ "$line" == *'"type":"result"'* ]]; then
+                    echo ""  # newline after streaming
+                fi
             done || true
 
         # Check completion signals from captured output
