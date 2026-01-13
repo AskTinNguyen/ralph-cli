@@ -9,7 +9,10 @@
 </head>
 <body>
   <header>
-    <h1>Ralph CLI</h1>
+    <div class="header-content">
+      <h1>Ralph CLI</h1>
+      <span class="subtitle">Autonomous Coding Loop</span>
+    </div>
     <nav>
       <a href="/" class="active">Dashboard</a>
       <a href="/streams.html">Streams</a>
@@ -17,11 +20,33 @@
       <a href="/editor.html">Editor</a>
     </nav>
   </header>
+
   <main>
-    <section id="progress">
-      <h2>Progress</h2>
-      <p>Dashboard content will be implemented in US-006.</p>
+    <!-- Progress Section -->
+    <section id="progress-section">
+      <h2>Overall Progress</h2>
+      <div id="progress-container"
+           hx-get="/api/partials/progress"
+           hx-trigger="load, every 5s"
+           hx-swap="innerHTML">
+        <div class="loading">Loading progress...</div>
+      </div>
+    </section>
+
+    <!-- Stories Section -->
+    <section id="stories-section">
+      <h2>User Stories</h2>
+      <div id="stories-container"
+           hx-get="/api/partials/stories"
+           hx-trigger="load, every 5s"
+           hx-swap="innerHTML">
+        <div class="loading">Loading stories...</div>
+      </div>
     </section>
   </main>
+
+  <footer>
+    <p>Ralph CLI Web UI &mdash; <span id="status-indicator" hx-get="/api/partials/status-indicator" hx-trigger="load, every 5s" hx-swap="innerHTML">checking...</span></p>
+  </footer>
 </body>
 </html>
