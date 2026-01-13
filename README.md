@@ -143,11 +143,33 @@ claude -> curl -fsSL https://claude.ai/install.sh | bash
 droid  -> curl -fsSL https://app.factory.ai/cli | sh
 ```
 
+## Multi-Stream (Parallel Execution)
+
+Run multiple PRDs in parallel using git worktrees:
+
+```bash
+ralph stream new              # Creates prd-1
+ralph stream new              # Creates prd-2
+# Edit .ralph/prd-1/prd.md and .ralph/prd-2/prd.md
+
+ralph stream init 1           # Create isolated worktree
+ralph stream init 2
+
+ralph stream build 1 &        # Run in background
+ralph stream build 2 &        # Run another in parallel
+wait
+
+ralph stream merge 1          # Merge completed work
+ralph stream merge 2
+```
+
+See `ralph stream --help` for all commands.
+
 ## State files (.ralph/)
 
 - `IMPLEMENTATION_PLAN.md` — task plan grouped by story
 - `progress.md` — append‑only progress log
-- `guardrails.md` — “Signs” (lessons learned)
+- `guardrails.md` — "Signs" (lessons learned)
 - `activity.log` — activity + timing log
 - `errors.log` — repeated failures and notes
 - `runs/` — raw run logs + summaries
