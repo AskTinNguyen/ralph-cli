@@ -3,32 +3,48 @@
 ## Setup (run once per repo)
 
 ```bash
-bun add github:AskTinNguyen/ralph-cli
+npm install -g @iannuttall/ralph
 ralph install
 ```
 
-## Phase 1: Planning (Critical)
+## Phase 1: PRD Generation
 
-Use `/ralph-plan` for interactive planning. This generates:
-
-1. **plan.md** - Task definition with success criteria
-2. **guardrails.md** - Constraints you must NEVER violate
+Generate a Product Requirements Document:
 
 ```bash
-claude
-> /ralph-plan Add user authentication
+ralph prd
 ```
 
-The planning phase asks questions to define:
-- What needs to be built
-- How to verify completion (`test_command`)
-- What "done" looks like (`completion_promise`)
-- Success criteria checklist
+This creates `.agents/tasks/prd.md` with user stories in the format:
 
-## Phase 2: Execution
+```markdown
+### [ ] US-001: Story title
+**As a** user
+**I want** feature
+**So that** benefit
+
+#### Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+```
+
+## Phase 2: Planning
+
+Generate an implementation plan from the PRD:
 
 ```bash
-> /ralph-go 1
+ralph plan
+```
+
+This creates `.ralph/IMPLEMENTATION_PLAN.md` breaking down stories into concrete tasks.
+
+## Phase 3: Execution
+
+Run build iterations:
+
+```bash
+ralph build 5    # Run 5 iterations
+ralph build 1    # Run 1 iteration
 ```
 
 ## Key Files
@@ -36,61 +52,84 @@ The planning phase asks questions to define:
 | File | Purpose | Agent Action |
 |------|---------|--------------|
 | `guardrails.md` | Safety constraints | Read FIRST, NEVER violate |
-| `plan.md` | Task definition + success criteria | Read to know what to do |
-| `progress.md` | Iteration history | Smart append (see below) |
-| `errors.log` | Test failures | Rolling window, max 3 unique |
+| `prd.md` | User stories | Read to know requirements |
+| `IMPLEMENTATION_PLAN.md` | Task breakdown | Read for implementation details |
+| `progress.md` | Iteration history | Append after each iteration |
+| `errors.log` | Verification failures | Log when tests fail |
 
-## Context Management (Prevent Bloat)
+## File Structure
 
-**progress.md** - Smart append:
-- Keep last 5 iterations in detail
-- Summarize older iterations into "## Summary (Iterations 1-N)"
-
-**errors.log** - Rolling window:
-- Keep only last 3 unique errors
-- Skip duplicates (don't append same error twice)
-- Remove oldest when adding new
+```
+project/
+├── .agents/
+│   ├── ralph/              # Loop templates
+│   │   ├── loop.sh
+│   │   ├── PROMPT_build.md
+│   │   └── PROMPT_plan.md
+│   └── tasks/
+│       └── prd.md          # Product requirements
+└── .ralph/
+    ├── guardrails.md
+    ├── IMPLEMENTATION_PLAN.md
+    ├── progress.md
+    └── errors.log
+```
 
 ## Definition of Complete
 
-Task is complete when ALL conditions met:
+Story is complete when ALL conditions met:
 
-1. All `Success Criteria` checkboxes are checked: `- [x]`
-2. `test_command` passes
-3. Output: `<promise>COMPLETE: {completion_promise}</promise>`
+1. All acceptance criteria checkboxes checked: `- [x]`
+2. Verification tests pass
+3. Output: `<promise>COMPLETE</promise>`
+
+Mark story as done in PRD:
+
+```markdown
+### [x] US-001: Story title
+```
 
 ## Definition of Blocked
 
-When stuck after 3+ attempts:
+When stuck after repeated attempts:
 
 ```
 <promise>NEEDS_HUMAN: {specific reason}</promise>
 ```
 
-## Continuation Harness
+## Iteration Flow
 
 **READ (start of iteration):**
-1. guardrails.md → constraints
-2. plan.md → goal + criteria
-3. progress.md → what's done
-4. errors.log → recent failures
+1. `.ralph/guardrails.md` → constraints
+2. `.agents/tasks/prd.md` → requirements
+3. `.ralph/IMPLEMENTATION_PLAN.md` → breakdown
+4. `.ralph/progress.md` → what's done
+5. `.ralph/errors.log` → recent failures
 
 **WORK:**
-5. Do work toward next criterion
-6. Run test_command
+6. Pick next unchecked story from PRD
+7. Make code changes
+8. Run verification tests
 
 **WRITE (end of iteration):**
-7. Update progress.md (summarize if > 5)
-8. Update errors.log (if new unique error)
+9. Update progress.md with iteration summary
+10. Update errors.log if tests failed
+11. Mark story [x] in prd.md if complete
 
 **CHECK:**
-9. All criteria met? → COMPLETE
-10. Stuck 3+ times? → NEEDS_HUMAN
-11. Otherwise → next iteration
+12. All stories done? → output COMPLETE
+13. Stuck repeatedly? → output NEEDS_HUMAN
+14. Otherwise → next iteration
 
-## Update Skills
+## Multi-Stream (Parallel Execution)
+
+For running multiple PRDs in parallel:
 
 ```bash
-bun update ralph-cli
-ralph update
+ralph stream new              # Create prd-1
+ralph stream init 1           # Create worktree
+ralph stream build 1 5        # Run 5 iterations
+ralph stream merge 1          # Merge when done
 ```
+
+See `ralph stream --help` for details.

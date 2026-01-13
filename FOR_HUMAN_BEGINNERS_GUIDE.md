@@ -49,11 +49,11 @@ We spent a lot of time building complex code to manage this loop—tracking stat
 
 Then we realized: **Claude already knows how to follow instructions.**
 
-Instead of code that says "now read the file, now check progress, now run tests," you just write a **skill**—a set of instructions Claude follows:
+Instead of code that says "now read the file, now check progress, now run tests," you just write **prompts**—instructions that guide the execution:
 
-> "Read the task file. See what's not checked. Do that work. Run the test command. Update progress. If everything passes, say COMPLETE. Otherwise, keep going."
+> "Read the PRD. See what stories remain. Pick the next one. Do that work. Run the test command. Update progress. If everything passes, mark it done. Otherwise, keep going."
 
-That's the `/ralph-go` skill. It's just instructions, not code.
+That's the build loop. It's just instructions in `PROMPT_build.md`, not code.
 
 ### Why Files?
 
@@ -61,9 +61,10 @@ Everything lives in simple files you can read:
 
 | File | What it is |
 |------|------------|
-| `guardrails.md` | Safety rules Claude must NEVER violate |
-| `plan.md` | The task definition ("what to build") |
-| `progress.md` | History of what happened each round |
+| `guardrails.md` | Safety rules Ralph must NEVER violate |
+| `prd.md` | Product requirements document with user stories |
+| `IMPLEMENTATION_PLAN.md` | Breakdown of stories into tasks |
+| `progress.md` | History of what happened each iteration |
 | `errors.log` | What went wrong (if anything) |
 
 No database. No server. You can open these in Notepad and see exactly what's happening. **Transparency over magic.**
@@ -90,13 +91,13 @@ Think of guardrails as the "house rules" for your project. Claude reads this fil
 
 ### The Minimal CLI
 
-The 170-line CLI exists only because:
+The CLI exists only because:
 
-1. **Automation** - Scripts need to run `ralph go 1` without a human typing
+1. **Automation** - Scripts need to run `ralph build 1` without a human typing
 2. **Exit codes** - Programs need numbers (0 = success, 2 = needs help)
-3. **Convenience** - `ralph new "Add feature"` is faster than creating files manually
+3. **Convenience** - `ralph prd` is faster than creating files manually
 
-But the CLI doesn't contain the smarts. It just says "hey Claude, run the `/ralph-go` skill on task 1."
+But the CLI doesn't contain the smarts. It just invokes the bash loop with the right prompts.
 
 ### Analogy
 
@@ -105,31 +106,31 @@ Think of it like a recipe card vs. a cooking robot:
 - **Old approach**: Build a robot that knows every cooking technique, tracks ingredients, manages timers
 - **New approach**: Hand a skilled chef a recipe card. They already know how to cook. The card just tells them *what* to make.
 
-Claude is the chef. The skill is the recipe card. The CLI just hands over the card.
+Ralph (the agent) is the chef. The prompt is the recipe card. The CLI just hands over the card.
 
 ### Why This Works
 
-Claude Code has a feature called **skills**—reusable instruction sets. When you type `/ralph-go`, Claude loads those instructions and follows them. The instructions say:
+Ralph uses **prompts**—reusable instruction templates. When you run `ralph build`, it loads the build prompt and follows it. The instructions say:
 
-1. Read your task files
-2. Understand where you left off
-3. Do the next piece of work
+1. Read the PRD and plan
+2. Understand which stories are done
+3. Pick the next story and do that work
 4. Test it
 5. Record what happened
-6. Either finish or continue
+6. Either mark complete or continue
 
-Claude "loops" not because code forces it to, but because the instructions say "keep going until done."
+Ralph "loops" not because code forces it to, but because the bash script runs iterations until the PRD is complete.
 
 ### Summary
 
 | Before | After |
 |--------|-------|
-| Complex state machine | Simple instructions |
-| 26 files of code | 3 skill files |
-| Code manages the loop | Claude follows instructions naturally |
+| Complex state machine | Simple bash loop |
+| 26 files of code | 1 bash script + 2 prompts |
+| Code manages the loop | Bash runs iterations |
 | Opaque execution | Human-readable files |
 
-**Ralph is Claude following a to-do list until it's done.** The elegance is that we stopped trying to build clever software and instead just told Claude what to do in plain language.
+**Ralph is an agent following a PRD until it's done.** The elegance is that we stopped trying to build clever software and instead used simple bash scripts with clear prompts.
 
 ---
 
@@ -137,53 +138,53 @@ Claude "loops" not because code forces it to, but because the instructions say "
 
 ### The Answer: Instructions, Not Code
 
-Ralph (Claude) knows because **the skill tells it to**. The `/ralph-go` skill is literally a document that says things like:
+Ralph knows because **the prompt tells it to**. The `PROMPT_build.md` file is literally a document that says things like:
 
 ```markdown
 ## After Each Iteration
 
-1. Run the test_command from the frontmatter
+1. Run verification tests
 2. If tests fail, append the error to errors.log
 3. Append a summary to progress.md with:
    - What you tried
    - What happened
-   - Which criteria are now met
-4. If all criteria are checked, output <promise>COMPLETE</promise>
+   - Which stories are now complete
+4. If all stories are done, output <promise>COMPLETE</promise>
 ```
 
-Claude reads these instructions and follows them. No code enforces it—Claude just does what the instructions say, the same way a human would follow a recipe.
+The agent reads these instructions and follows them. No code enforces it—the agent just does what the instructions say, the same way a human would follow a recipe.
 
 ### When Each File Gets Updated
 
-| File | When Claude Updates It | What Goes In |
+| File | When Ralph Updates It | What Goes In |
 |------|----------------------|--------------|
-| `plan.md` | Rarely (only to check off criteria) | The checkboxes: `- [ ]` → `- [x]` |
-| `progress.md` | After every iteration | "Iteration 3: Added login button, tests pass" |
-| `errors.log` | When tests fail | The error output from the test command |
+| `prd.md` | When story is complete | Story checkboxes: `- [ ]` → `- [x]` |
+| `progress.md` | After every iteration | "Iteration 3: Completed US-001, tests pass" |
+| `errors.log` | When tests fail | The error output from verification |
 
 ### A Concrete Example
 
-Say the skill instructions include:
+Say the prompt includes:
 
 ```markdown
 ## Iteration Flow
 
-1. Read plan.md to see the task and unchecked criteria
+1. Read prd.md to see unchecked stories
 2. Read progress.md to see what you've already tried
-3. Pick one unchecked criterion to work on
+3. Pick one unchecked story to work on
 4. Make the code changes
-5. Run: `{test_command}` from the frontmatter
+5. Run verification tests
 6. If it fails:
    - Append the error to errors.log
    - Append to progress.md: "Iteration N: Tried X, failed because Y"
 7. If it passes:
-   - Check off the criterion in plan.md
-   - Append to progress.md: "Iteration N: Completed X"
-8. If all criteria checked → output COMPLETE
+   - Check off the story in prd.md
+   - Append to progress.md: "Iteration N: Completed US-001"
+8. If all stories checked → output COMPLETE
 9. Otherwise → continue to next iteration
 ```
 
-Claude reads this and does exactly that. The file updates happen because the instructions say to update them.
+The agent reads this and does exactly that. The file updates happen because the instructions say to update them.
 
 ### Why This Works
 
@@ -197,9 +198,9 @@ We're not teaching Claude anything new. We're just giving it a specific workflow
 
 ### The Trust Model
 
-You might ask: "What if Claude doesn't follow the instructions?"
+You might ask: "What if the agent doesn't follow the instructions?"
 
-In practice, Claude is very good at following explicit instructions. The skill says "append to progress.md after each iteration" and Claude does it. It's the same reliability you get when you tell Claude "write a function that does X"—it does X.
+In practice, modern AI agents are very good at following explicit instructions. The prompt says "append to progress.md after each iteration" and the agent does it.
 
 The instructions are the source of truth. Change the instructions, change the behavior. No code to modify.
 
@@ -209,24 +210,27 @@ The instructions are the source of truth. Change the instructions, change the be
 
 ### The Test Command
 
-Every task has a `test_command` in its frontmatter:
+PRD stories can specify verification commands. Ralph detects your project type and suggests the right test command:
 
 ```markdown
----
-task: Add login button
-test_command: npm test    # Claude suggests this based on your project type
-completion_promise: "Login button works and all tests pass"
-max_iterations: 15
----
+### [ ] US-001: Add login button
+**As a** user
+**I want** a login button
+**So that** I can authenticate
+
+#### Acceptance Criteria
+- [ ] Button renders on page
+- [ ] Button triggers auth flow
+- [ ] All tests pass
 ```
 
-After Claude makes changes, it runs that command. The result determines what happens next.
+After Ralph makes changes, it runs tests. The result determines what happens next.
 
 ### Works With Any Language
 
-Ralph doesn't care what language you use. During task creation, Claude detects your project type and suggests the right test command:
+Ralph doesn't care what language you use. It detects your project type and suggests the right test command:
 
-| Your Project | Claude Suggests |
+| Your Project | Ralph Suggests |
 |--------------|-----------------|
 | JavaScript/TypeScript | `npm test` or `bun test` |
 | Rust | `cargo test` |
@@ -234,11 +238,11 @@ Ralph doesn't care what language you use. During task creation, Claude detects y
 | Go | `go test ./...` |
 | C++ | `make test` or `ctest` |
 
-You can always override with your own command.
+You can configure verification in `.agents/ralph/config.sh`.
 
 ### What Can Cause Test Failures
 
-| Failure Type | Example | What Claude Does |
+| Failure Type | Example | What Ralph Does |
 |--------------|---------|------------------|
 | **Code doesn't compile** | Syntax error, missing import | Fix the error, try again |
 | **Test assertions fail** | `expect(button).toExist()` fails | Investigate why, fix code |
@@ -251,9 +255,9 @@ You can always override with your own command.
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                                                         │
-│   Claude makes changes                                  │
+│   Ralph makes changes                                   │
 │         ↓                                               │
-│   Runs: bun test                                        │
+│   Runs verification                                     │
 │         ↓                                               │
 │   ┌─────────────┐                                       │
 │   │ Tests pass? │                                       │
@@ -264,8 +268,9 @@ You can always override with your own command.
 │   Update    Log error                                   │
 │   progress  to errors.log                               │
 │      ↓        ↓                                         │
-│   Check     Try to fix                                  │
-│   criteria  (next iteration)                            │
+│   Mark      Try to fix                                  │
+│   story     (next iteration)                            │
+│   done                                                  │
 │      ↓                                                  │
 │   All done? ──NO──→ Continue working                    │
 │      │                                                  │
@@ -283,25 +288,25 @@ You can always override with your own command.
 | **Test command** | Verification that runs every iteration |
 | **Completion promise** | The final "I'm done" declaration |
 
-The promise is **not** automatically triggered by passing tests. Claude must:
+The promise is **not** automatically triggered by passing tests. Ralph must:
 
 1. Have all tests passing **AND**
-2. Believe all success criteria are met **AND**
-3. Explicitly output `<promise>COMPLETE: Login button works and all tests pass</promise>`
+2. Believe all story acceptance criteria are met **AND**
+3. Explicitly output `<promise>COMPLETE</promise>`
 
 #### Why Separate Them?
 
-Tests might pass but criteria aren't met:
+Tests might pass but acceptance criteria aren't met:
 
 ```markdown
-## Success Criteria
+#### Acceptance Criteria
 - [x] Login button exists
 - [x] Button calls auth API
 - [ ] Button shows loading state   ← Tests pass, but this isn't done
 - [x] All tests pass
 ```
 
-Claude won't say COMPLETE because one checkbox is unchecked, even though `bun test` passes.
+Ralph won't say COMPLETE because one checkbox is unchecked, even though tests pass.
 
 ### Ways the Process Can Break Down
 
@@ -314,7 +319,7 @@ Iteration 3: Failed - still wrong
 Iteration 4: Failed - same error
 ```
 
-After repeated failures, Claude might output:
+After repeated failures, Ralph might output:
 
 ```
 <promise>NEEDS_HUMAN: Cannot figure out why auth module won't import</promise>
@@ -324,11 +329,7 @@ This exits with code 2, signaling human help is needed.
 
 #### 2. Max Iterations Reached
 
-```markdown
-max_iterations: 15
-```
-
-If Claude hits 15 iterations without completing, it stops. Exit code 3 (MAX_ITER).
+If Ralph hits the max iterations without completing, it stops.
 
 #### 3. No Progress (Stalled)
 
@@ -340,7 +341,7 @@ Iteration 6: Tried X again, failed
 Iteration 7: Tried X differently, still failed
 ```
 
-The system detects stalling. Exit code 4 (STALLED).
+The system detects stalling.
 
 ### Good Test Commands
 
@@ -384,12 +385,12 @@ Output:
 ### Summary
 
 - **Tests** = verification run every iteration
-- **Promise** = Claude's declaration that everything is done
+- **Promise** = Ralph's declaration that everything is done
 - Tests can fail for many reasons (bugs, missing code, regressions)
-- Claude keeps trying until tests pass AND all criteria are met
-- If truly stuck, Claude says `NEEDS_HUMAN` instead of spinning forever
+- Ralph keeps trying until tests pass AND all criteria are met
+- If truly stuck, Ralph says `NEEDS_HUMAN` instead of spinning forever
 
-The test command is Claude's feedback loop. Fail → learn → fix → try again. The promise is the finish line.
+The test command is Ralph's feedback loop. Fail → learn → fix → try again. The promise is the finish line.
 
 ---
 
@@ -399,27 +400,21 @@ If you're building a web UI, Ralph can take screenshots to help you verify the w
 
 ### How to Enable
 
-Add `visual_verification: true` to your task:
-
-```markdown
----
-task: Add dark mode toggle
-test_command: npm test
-visual_verification: true
----
-```
+Configure visual verification in your workflow (requires the `dev-browser` skill).
 
 ### What Happens
 
 1. Ralph makes changes to your code
 2. Runs your tests (as usual)
 3. **Also** opens a browser, navigates to your app, takes screenshots
-4. Saves screenshots to `.ralph/ralph-1/screenshots/`
+4. Saves screenshots to `.ralph/screenshots/`
 
 You can review the screenshots to see what the UI looks like at each step. This is especially useful for:
 - Design changes where "does it look right?" matters
 - Catching visual regressions tests might miss
 - Showing stakeholders what was built
+
+Install the skill: `ralph install --skills` and select `dev-browser`.
 
 ---
 
@@ -429,26 +424,20 @@ If you're working with specialized tools like Unreal Engine, Unity, or embedded 
 
 ### The Problem
 
-Claude knows general patterns, but your Unreal Engine 5 project might have specific:
+Modern AI agents know general patterns, but your Unreal Engine 5 project might have specific:
 - Build commands (`RunUAT.bat` with certain flags)
 - Test commands (Automation Framework setup)
 - Verification patterns (PIE testing)
 
 ### The Solution
 
-When Ralph detects a specialized project without a testing skill, it asks:
-
-> "This looks like an Unreal Engine project. Want me to create a testing skill for better task execution?"
-
-If you say yes, Ralph creates `.claude/skills/unreal-testing/SKILL.md` with patterns for your project type.
+Configure project-specific commands in `.agents/ralph/config.sh` or create custom verification scripts that Ralph calls during iterations.
 
 ### Why This Helps
 
-- Future tasks automatically use the right test commands
+- Iterations use the right test commands automatically
 - No need to explain your build process each time
-- The skill becomes project documentation
-
-You can also create testing skills manually if you know exactly what you want.
+- The config becomes project documentation
 
 ---
 
@@ -468,46 +457,46 @@ You can also create testing skills manually if you know exactly what you want.
 
 ```
 your-project/
+├── .agents/
+│   ├── ralph/              # Ralph templates
+│   │   └── loop.sh
+│   └── tasks/
+│       └── prd.md          # Product requirements
 └── .ralph/
-    ├── guardrails.md      # Constraints for ALL tasks (READ FIRST)
-    ├── ralph-1/           # Task 1
-    │   ├── plan.md        # Task definition
-    │   ├── progress.md    # Iteration history
-    │   └── errors.log     # Test failures
-    └── ralph-2/           # Task 2
-        └── ...
+    ├── guardrails.md       # Constraints (READ FIRST)
+    ├── IMPLEMENTATION_PLAN.md  # Task breakdown
+    ├── progress.md         # Iteration history
+    └── errors.log          # Test failures
 ```
 
 ### Commands
 
 ```bash
-# Create a new task
-ralph new "Add dark mode"
+# Generate PRD
+ralph prd
 
-# List all tasks
-ralph list
+# Generate plan from PRD
+ralph plan
 
-# Run a task
-ralph go 1
+# Run build iterations
+ralph build 5
 
-# Or use Claude Code interactively
-claude
-> /ralph-plan Add dark mode
-> /ralph-go 1
+# Install to repo
+ralph install
 ```
 
 ---
 
 ## Key Takeaways
 
-1. **Ralph is simple**: It's Claude following a checklist until done
+1. **Ralph is simple**: It's an agent following a PRD until done
 2. **State lives in files**: Human-readable, no database needed
-3. **Skills are instructions**: No complex code, just tell Claude what to do
+3. **Prompts are instructions**: No complex code, just clear prompts
 4. **Tests provide feedback**: Fail → fix → retry loop
-5. **Promise means done**: Claude declares completion explicitly
+5. **Promise means done**: Agent declares completion explicitly
 6. **Escape hatches exist**: NEEDS_HUMAN, max iterations, stall detection
-7. **Works with any language**: Claude detects your project and suggests the right commands
-8. **Visual verification**: Screenshots for web UI projects
-9. **Extensible**: Add custom testing skills for specialized projects
+7. **Works with any language**: Detects your project and suggests the right commands
+8. **Visual verification**: Screenshots for web UI projects (with dev-browser skill)
+9. **Extensible**: Configure custom commands in `.agents/ralph/config.sh`
 
-The magic isn't in the code—it's in realizing Claude already knows how to work. We just needed to give it a clear workflow to follow.
+The magic isn't in the code—it's in realizing agents already know how to work. We just needed to give them a clear workflow to follow.
