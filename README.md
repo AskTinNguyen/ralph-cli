@@ -181,9 +181,10 @@ your-repo/
 ```markdown
 ---
 task: Add health endpoint
-test_command: bun test
+test_command: npm test              # Or: cargo test, go test, pytest, make test, etc.
 completion_promise: "Health endpoint returns 200 and all tests pass"
 max_iterations: 15
+visual_verification: false          # Set true for web UI tasks
 ---
 
 # Task: Add health endpoint
@@ -196,6 +197,33 @@ We need a health check endpoint for load balancer probes.
 - [ ] Response includes { status: "ok" }
 - [ ] All tests pass
 ```
+
+### Language-Agnostic Testing
+
+Ralph works with any project type. During task creation, Claude detects your project and suggests appropriate test commands:
+
+| Project Type | Detection | Example Test Command |
+|--------------|-----------|---------------------|
+| JavaScript/TypeScript | `package.json` | `npm test`, `bun test` |
+| Rust | `Cargo.toml` | `cargo test` |
+| Go | `go.mod` | `go test ./...` |
+| Python | `pyproject.toml` | `pytest` |
+| C++ (CMake) | `CMakeLists.txt` | `cmake --build . && ctest` |
+| C++ (Make) | `Makefile` | `make && make test` |
+
+### Visual Verification (Web UI)
+
+For frontend tasks, enable visual verification to capture screenshots:
+
+```markdown
+---
+task: Add dark mode toggle
+test_command: npm test
+visual_verification: true
+---
+```
+
+When enabled, Ralph uses Playwright MCP tools to capture screenshots at `.ralph/ralph-N/screenshots/` for human review.
 
 ## Completion Signals
 
@@ -334,12 +362,57 @@ Output:
 9. All criteria met? → COMPLETE
 10. Otherwise → next iteration
 
+## Custom Testing Skills
+
+For specialized projects (Unreal Engine, Unity, Godot, embedded systems, etc.), you can add custom testing skills that Ralph will discover and use.
+
+### How It Works
+
+1. During planning, Ralph checks `.claude/skills/` for testing skills
+2. If found, incorporates their guidance into verification proposals
+3. If not found for a specialized project, **Ralph offers to create one**
+
+### Creating a Custom Testing Skill
+
+Add a skill to your project:
+
+```
+.claude/skills/
+└── unreal-testing/
+    └── SKILL.md
+```
+
+Example `SKILL.md`:
+
+```markdown
+---
+name: unreal-testing
+description: Testing patterns for Unreal Engine projects
+---
+
+# Unreal Engine Testing
+
+## Build Command
+UnrealEditor-Cmd.exe MyProject -build
+
+## Test Command
+UnrealEditor-Cmd.exe MyProject -ExecCmds="Automation RunTests MyProject"
+
+## Common Patterns
+- Use Automation Framework for unit tests
+- PIE testing for gameplay verification
+- Gauntlet for performance tests
+```
+
+Ralph will use this skill to propose appropriate test commands and acceptance criteria for all tasks in this project.
+
 ## Philosophy
 
 - **State lives in files** - Human-readable, no database needed
 - **Minimal tooling** - ~200 lines of code, no server
 - **Transparent execution** - Read any file to understand what's happening
 - **Portable** - Works in any repo with Claude Code
+- **Language-agnostic** - Defers to Claude's knowledge of your ecosystem
 
 ## License
 

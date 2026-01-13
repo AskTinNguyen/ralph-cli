@@ -214,13 +214,27 @@ Every task has a `test_command` in its frontmatter:
 ```markdown
 ---
 task: Add login button
-test_command: bun test
+test_command: npm test    # Claude suggests this based on your project type
 completion_promise: "Login button works and all tests pass"
 max_iterations: 15
 ---
 ```
 
 After Claude makes changes, it runs that command. The result determines what happens next.
+
+### Works With Any Language
+
+Ralph doesn't care what language you use. During task creation, Claude detects your project type and suggests the right test command:
+
+| Your Project | Claude Suggests |
+|--------------|-----------------|
+| JavaScript/TypeScript | `npm test` or `bun test` |
+| Rust | `cargo test` |
+| Python | `pytest` |
+| Go | `go test ./...` |
+| C++ | `make test` or `ctest` |
+
+You can always override with your own command.
 
 ### What Can Cause Test Failures
 
@@ -330,12 +344,12 @@ The system detects stalling. Exit code 4 (STALLED).
 
 ### Good Test Commands
 
-| Approach | Command | Why It Works |
-|----------|---------|--------------|
-| **Unit tests** | `bun test` | Fast, specific feedback |
-| **Type checking** | `bun run verify` | Catches errors before runtime |
-| **Build check** | `bun run build` | Ensures everything compiles |
-| **Combined** | `bun run verify && bun test` | Multiple safety nets |
+| Approach | Examples | Why It Works |
+|----------|----------|--------------|
+| **Unit tests** | `npm test`, `cargo test`, `pytest` | Fast, specific feedback |
+| **Type/compile check** | `tsc --noEmit`, `cargo check`, `go build` | Catches errors before runtime |
+| **Build** | `npm run build`, `make`, `cargo build` | Ensures everything compiles |
+| **Combined** | `npm run lint && npm test` | Multiple safety nets |
 | **Custom script** | `./scripts/check-feature.sh` | Task-specific validation |
 
 ### Example: A Failing Test Flow
@@ -376,6 +390,65 @@ Output:
 - If truly stuck, Claude says `NEEDS_HUMAN` instead of spinning forever
 
 The test command is Claude's feedback loop. Fail → learn → fix → try again. The promise is the finish line.
+
+---
+
+## Visual Verification (For Web Projects)
+
+If you're building a web UI, Ralph can take screenshots to help you verify the work visually.
+
+### How to Enable
+
+Add `visual_verification: true` to your task:
+
+```markdown
+---
+task: Add dark mode toggle
+test_command: npm test
+visual_verification: true
+---
+```
+
+### What Happens
+
+1. Ralph makes changes to your code
+2. Runs your tests (as usual)
+3. **Also** opens a browser, navigates to your app, takes screenshots
+4. Saves screenshots to `.ralph/ralph-1/screenshots/`
+
+You can review the screenshots to see what the UI looks like at each step. This is especially useful for:
+- Design changes where "does it look right?" matters
+- Catching visual regressions tests might miss
+- Showing stakeholders what was built
+
+---
+
+## Custom Testing Skills (For Specialized Projects)
+
+If you're working with specialized tools like Unreal Engine, Unity, or embedded systems, Ralph can use custom testing knowledge you provide.
+
+### The Problem
+
+Claude knows general patterns, but your Unreal Engine 5 project might have specific:
+- Build commands (`RunUAT.bat` with certain flags)
+- Test commands (Automation Framework setup)
+- Verification patterns (PIE testing)
+
+### The Solution
+
+When Ralph detects a specialized project without a testing skill, it asks:
+
+> "This looks like an Unreal Engine project. Want me to create a testing skill for better task execution?"
+
+If you say yes, Ralph creates `.claude/skills/unreal-testing/SKILL.md` with patterns for your project type.
+
+### Why This Helps
+
+- Future tasks automatically use the right test commands
+- No need to explain your build process each time
+- The skill becomes project documentation
+
+You can also create testing skills manually if you know exactly what you want.
 
 ---
 
@@ -433,5 +506,8 @@ claude
 4. **Tests provide feedback**: Fail → fix → retry loop
 5. **Promise means done**: Claude declares completion explicitly
 6. **Escape hatches exist**: NEEDS_HUMAN, max iterations, stall detection
+7. **Works with any language**: Claude detects your project and suggests the right commands
+8. **Visual verification**: Screenshots for web UI projects
+9. **Extensible**: Add custom testing skills for specialized projects
 
 The magic isn't in the code—it's in realizing Claude already knows how to work. We just needed to give it a clear workflow to follow.
