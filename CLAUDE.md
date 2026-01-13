@@ -6,7 +6,8 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 
 | Use Case | Command |
 |----------|---------|
-| **Install to repo** | `ralph install` |
+| **Install ralph-cli** | `git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link` |
+| **Install to project** | `ralph install` |
 | **Generate PRD** | `ralph prd` |
 | **Create plan from PRD** | `ralph plan` (creates PRD-N folder) |
 | **Run build iterations** | `ralph build 5` |

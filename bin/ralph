@@ -51,6 +51,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
+  ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -58,6 +59,14 @@ ${pc.bold(pc.cyan("Registry commands:"))}
   ${pc.green("registry list")} ${pc.dim("[--tags t1,t2]")}         List registered projects
   ${pc.green("registry remove")}                      Remove current project from registry
   ${pc.green("registry update")}                      Update project metadata and stats
+
+${pc.bold(pc.cyan("Search options:"))}
+  ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
+  ${pc.yellow("--type")} ${pc.dim("<type>")}                       Filter by type (guardrail|progress|evaluation|run)
+  ${pc.yellow("--tags")} ${pc.dim("t1,t2")}                        Filter by project tags
+  ${pc.yellow("--since")} ${pc.dim("<date|Nd|Nw|Nm>")}             Filter by date (e.g., 7d, 2w, 1m)
+  ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max results (default 20)
+  ${pc.yellow("--rebuild")}                           Rebuild search index before searching
 
 ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
@@ -141,6 +150,14 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg.startsWith("--progress=")) {
     progressPath = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  // Skip --tags and its value (handled per-command)
+  if (arg.startsWith("--tags=")) {
+    continue;
+  }
+  if (arg === "--tags") {
+    i += 1; // Skip the value too
     continue;
   }
   if (arg === "--progress") {
@@ -958,6 +975,208 @@ ${pc.bold(pc.cyan("Examples:"))}
     error(`Unknown registry command: ${pc.bold(subCmd)}`);
     info(`Run ${pc.cyan("ralph registry help")} for usage.`);
     process.exit(1);
+  }
+
+  if (cmd === "search") {
+    const searchModule = require("../lib/search");
+    const registryModule = require("../lib/registry");
+
+    // Parse search-specific flags
+    let projectFilter = null;
+    let typeFilter = null;
+    let sinceFilter = null;
+    let limitValue = 20;
+    let rebuildFlag = false;
+    const searchTags = [];
+    const queryParts = [];
+
+    // First parse --tags from rawArgs (since they're stripped earlier)
+    for (let i = 0; i < rawArgs.length; i++) {
+      if (rawArgs[i].startsWith("--tags=")) {
+        const tagVal = rawArgs[i].split("=").slice(1).join("=");
+        searchTags.push(...tagVal.split(",").map((t) => t.trim().toLowerCase()));
+      } else if (rawArgs[i] === "--tags" && rawArgs[i + 1]) {
+        searchTags.push(...rawArgs[i + 1].split(",").map((t) => t.trim().toLowerCase()));
+        i++; // Skip the value too
+      }
+    }
+
+    for (let i = 1; i < args.length; i++) {
+      const arg = args[i];
+      if (arg.startsWith("--project=")) {
+        projectFilter = arg.split("=").slice(1).join("=");
+      } else if (arg === "--project" && args[i + 1]) {
+        projectFilter = args[++i];
+      } else if (arg.startsWith("--type=")) {
+        typeFilter = arg.split("=").slice(1).join("=");
+      } else if (arg === "--type" && args[i + 1]) {
+        typeFilter = args[++i];
+      } else if (arg.startsWith("--since=")) {
+        sinceFilter = arg.split("=").slice(1).join("=");
+      } else if (arg === "--since" && args[i + 1]) {
+        sinceFilter = args[++i];
+      } else if (arg.startsWith("--limit=")) {
+        limitValue = parseInt(arg.split("=")[1], 10) || 20;
+      } else if (arg === "--limit" && args[i + 1]) {
+        limitValue = parseInt(args[++i], 10) || 20;
+      } else if (arg === "--rebuild") {
+        rebuildFlag = true;
+      } else if (!arg.startsWith("--")) {
+        queryParts.push(arg);
+      }
+    }
+
+    const query = queryParts.join(" ").trim();
+
+    // Validate type filter
+    const validTypes = ["guardrail", "progress", "evaluation", "run"];
+    if (typeFilter && !validTypes.includes(typeFilter)) {
+      error(`Invalid type: ${pc.bold(typeFilter)}`);
+      info(`Valid types: ${validTypes.map((t) => pc.cyan(t)).join(", ")}`);
+      process.exit(1);
+    }
+
+    // Ensure registry exists
+    registryModule.ensureGlobalRegistry();
+
+    // Check if any projects are registered
+    const projects = registryModule.listProjects();
+    if (projects.length === 0) {
+      warn("No projects registered in the global registry.");
+      info(`Use ${pc.cyan("ralph registry add")} to register projects first.`);
+      process.exit(0);
+    }
+
+    // Rebuild index if requested or if it doesn't exist
+    const indexPath = searchModule.getSearchIndexPath();
+    if (rebuildFlag || !exists(indexPath)) {
+      info("Building search index...");
+      const stats = searchModule.buildIndex();
+      dim(`Indexed ${stats.projects} projects: ${stats.guardrails} guardrails, ${stats.progress} progress entries, ${stats.evaluations} evaluations, ${stats.runs} runs`);
+      console.log("");
+    }
+
+    // Perform search
+    if (!query && !projectFilter && !typeFilter && searchTags.length === 0 && !sinceFilter) {
+      // Show help if no query or filters
+      console.log(`${pc.bold("ralph search")} ${pc.dim("<query>")} ${pc.dim("[options]")}
+
+${pc.bold(pc.cyan("Usage:"))}
+  ${pc.green("ralph search")} ${pc.dim("\"test before commit\"")}       Search for a phrase
+  ${pc.green("ralph search")} ${pc.dim("error --type guardrail")}      Search guardrails for \"error\"
+  ${pc.green("ralph search")} ${pc.dim("--project myapp")}             List all entries from a project
+  ${pc.green("ralph search")} ${pc.dim("--tags typescript")}           Search in TypeScript projects
+  ${pc.green("ralph search")} ${pc.dim("--since 7d")}                  Search recent entries (last 7 days)
+  ${pc.green("ralph search")} ${pc.dim("--rebuild")}                   Rebuild index and list all
+
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--project")} ${pc.dim("<name>")}      Filter by project name or ID
+  ${pc.yellow("--type")} ${pc.dim("<type>")}         Filter: guardrail, progress, evaluation, run
+  ${pc.yellow("--tags")} ${pc.dim("t1,t2")}          Filter by project tags
+  ${pc.yellow("--since")} ${pc.dim("<when>")}        Filter by date: 7d, 2w, 1m, or ISO date
+  ${pc.yellow("--limit")} ${pc.dim("<N>")}           Max results (default 20)
+  ${pc.yellow("--rebuild")}             Rebuild search index first
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph search \"missing dependency\" --type guardrail")}
+  ${pc.dim("ralph search US-001 --project ralph-cli")}
+  ${pc.dim("ralph search --tags typescript,cli --since 30d")}
+`);
+      process.exit(0);
+    }
+
+    const results = searchModule.search(query, {
+      project: projectFilter,
+      type: typeFilter,
+      tags: searchTags.length > 0 ? searchTags : null,
+      since: sinceFilter,
+      limit: limitValue,
+    });
+
+    // Display results
+    console.log("");
+    if (query) {
+      console.log(pc.bold(`Search: "${query}"`));
+    } else {
+      console.log(pc.bold("Search Results"));
+    }
+
+    // Show active filters
+    const activeFilters = [];
+    if (projectFilter) activeFilters.push(`project=${projectFilter}`);
+    if (typeFilter) activeFilters.push(`type=${typeFilter}`);
+    if (searchTags.length > 0) activeFilters.push(`tags=${searchTags.join(",")}`);
+    if (sinceFilter) activeFilters.push(`since=${sinceFilter}`);
+    if (activeFilters.length > 0) {
+      dim(`Filters: ${activeFilters.join(", ")}`);
+    }
+
+    console.log(pc.dim("─".repeat(70)));
+    console.log(`Found ${pc.bold(results.totalCount)} results${results.totalCount > results.returnedCount ? ` (showing ${results.returnedCount})` : ""}`);
+    console.log("");
+
+    if (results.results.length === 0) {
+      dim("No matching entries found.");
+      console.log("");
+      info(`Tips:`);
+      dim(`  - Try broader search terms`);
+      dim(`  - Use ${pc.cyan("--rebuild")} to refresh the index`);
+      dim(`  - Check registered projects with ${pc.cyan("ralph registry list")}`);
+      process.exit(0);
+    }
+
+    for (const result of results.results) {
+      // Type badge with color
+      const typeBadge =
+        result.type === "guardrail"
+          ? pc.yellow(`[${result.type}]`)
+          : result.type === "progress"
+            ? pc.green(`[${result.type}]`)
+            : result.type === "evaluation"
+              ? pc.blue(`[${result.type}]`)
+              : pc.magenta(`[${result.type}]`);
+
+      // Relevance indicator
+      const relevance = result.relevance >= 80 ? pc.green("●●●") : result.relevance >= 50 ? pc.yellow("●●○") : pc.dim("●○○");
+
+      console.log(`${typeBadge} ${pc.bold(result.title)} ${relevance}`);
+      dim(`   Project: ${result.projectName} | Score: ${result.relevance}/100`);
+
+      // Show snippet with highlighting
+      if (result.snippet && result.snippet.text) {
+        let snippetText = result.snippet.text;
+        // Apply highlighting for terminal display
+        if (result.snippet.highlights && result.snippet.highlights.length > 0 && query) {
+          // Highlight query terms in the snippet
+          const lowerQuery = query.toLowerCase();
+          const terms = [lowerQuery, ...query.toLowerCase().split(/\s+/).filter((t) => t.length >= 2)];
+          for (const term of terms) {
+            const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+            snippetText = snippetText.replace(regex, pc.bold(pc.cyan("$1")));
+          }
+        }
+        // Clean up newlines for display
+        snippetText = snippetText.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+        if (snippetText.length > 150) {
+          snippetText = snippetText.slice(0, 147) + "...";
+        }
+        console.log(`   ${pc.dim(snippetText)}`);
+      }
+
+      // Show source file
+      if (result.source) {
+        const relSource = result.source.replace(result.projectPath, "").replace(/^\//, "");
+        dim(`   Source: ${relSource}`);
+      }
+
+      console.log("");
+    }
+
+    console.log(pc.dim("─".repeat(70)));
+    if (results.totalCount > results.returnedCount) {
+      info(`Showing ${results.returnedCount} of ${results.totalCount} results. Use ${pc.cyan("--limit")} to see more.`);
+    }
+    process.exit(0);
   }
 
   const result = spawnSync(loopPath, loopArgs, {

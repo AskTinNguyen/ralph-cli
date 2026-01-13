@@ -1,7 +1,11 @@
 {
-  "name": "@iannuttall/ralph",
+  "name": "ralph-cli",
   "version": "0.1.1",
   "description": "Minimal, file-based agent loop for autonomous coding.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AskTinNguyen/ralph-cli.git"
+  },
   "bin": {
     "ralph": "bin/ralph"
   },
