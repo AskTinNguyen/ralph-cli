@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ralph CLI - Editor</title>
+  <title>Ralph CLI - Viewer</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/htmx.min.js"></script>
   <script src="/js/marked.min.js"></script>
@@ -32,14 +32,14 @@
       <a href="/">Dashboard</a>
       <a href="/streams.html">Streams</a>
       <a href="/logs.html">Logs</a>
-      <a href="/editor.html" class="active">Editor</a>
+      <a href="/editor.html" class="active">Viewer</a>
     </nav>
   </header>
 
   <main class="editor-main">
     <!-- Breadcrumbs -->
     <nav id="editor-breadcrumbs" class="breadcrumbs" style="display: none;">
-      <a href="/editor.html">Editor</a>
+      <a href="/editor.html">Viewer</a>
       <span class="breadcrumb-separator">&rsaquo;</span>
       <span id="breadcrumb-stream"></span>
       <span class="breadcrumb-separator">&rsaquo;</span>
@@ -67,7 +67,13 @@
           </select>
         </div>
         <div class="editor-status">
-          <span id="save-status" class="save-status"></span>
+          <button id="open-in-editor-btn"
+                  class="btn btn-primary btn-sm"
+                  onclick="openInExternalEditor()"
+                  disabled
+                  title="Open file in your text editor">
+            Open in Editor
+          </button>
         </div>
       </div>
     </section>
@@ -75,18 +81,16 @@
     <!-- Editor Section -->
     <section id="editor-section">
       <div class="editor-container">
-        <!-- Editor Pane -->
+        <!-- Viewer Pane -->
         <div class="editor-pane">
           <div class="pane-header">
-            <span class="pane-title">Editor</span>
+            <span class="pane-title">Document Viewer</span>
           </div>
           <textarea id="editor-textarea"
                     class="editor-textarea"
-                    placeholder="Select a stream and file to start editing..."
+                    placeholder="Select a stream and file to view..."
                     disabled
-                    hx-put=""
-                    hx-trigger="keyup changed delay:1000ms"
-                    hx-swap="none"></textarea>
+                    readonly></textarea>
         </div>
 
         <!-- Preview Pane -->
@@ -112,8 +116,7 @@
     // State management
     let currentStreamId = '';
     let currentFile = '';
-    let saveTimeout = null;
-    let lastSavedContent = '';
+    let currentFilePath = '';
 
     // Initialize marked options
     if (typeof marked !== 'undefined') {
@@ -205,18 +208,20 @@
     document.getElementById('stream-selector').addEventListener('change', async (e) => {
       currentStreamId = e.target.value;
       currentFile = '';
+      currentFilePath = '';
       updateBreadcrumbs();
       const fileSelector = document.getElementById('file-selector');
       const textarea = document.getElementById('editor-textarea');
       const preview = document.getElementById('preview-content');
+      const openBtn = document.getElementById('open-in-editor-btn');
 
       if (!currentStreamId) {
         fileSelector.innerHTML = '<option value="">Select a file...</option>';
         fileSelector.disabled = true;
         textarea.value = '';
         textarea.disabled = true;
-        textarea.removeAttribute('hx-put');
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        openBtn.disabled = true;
         return;
       }
 
@@ -265,18 +270,21 @@
       updateBreadcrumbs();
       const textarea = document.getElementById('editor-textarea');
       const preview = document.getElementById('preview-content');
+      const openBtn = document.getElementById('open-in-editor-btn');
 
       if (!currentFile || !currentStreamId) {
         textarea.value = '';
         textarea.disabled = true;
-        textarea.removeAttribute('hx-put');
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        openBtn.disabled = true;
+        currentFilePath = '';
         return;
       }
 
       // Load file content
       try {
         const filePath = `PRD-${currentStreamId}/${currentFile}`;
+        currentFilePath = filePath;
         const response = await fetch(`/api/files/${encodeURIComponent(filePath)}`);
 
         if (!response.ok) {
@@ -286,45 +294,53 @@
         const content = await response.text();
         textarea.value = content;
         textarea.disabled = false;
-        lastSavedContent = content;
-
-        // Set up HTMX PUT endpoint
-        const putUrl = `/api/files/${encodeURIComponent(filePath)}`;
-        textarea.setAttribute('hx-put', putUrl);
-        htmx.process(textarea);
 
         // Update preview
         updatePreview(content);
 
-        // Clear any previous save status
-        updateSaveStatus('');
+        // Enable the "Open in Editor" button
+        openBtn.disabled = false;
       } catch (error) {
         console.error('Failed to load file:', error);
         textarea.value = '';
         textarea.disabled = true;
         preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
-        updateSaveStatus('Error', 'error');
+        openBtn.disabled = true;
+        currentFilePath = '';
       }
     });
 
-    // Update markdown preview with debounce
-    let previewTimeout = null;
-    document.getElementById('editor-textarea').addEventListener('input', (e) => {
-      const content = e.target.value;
-
-      // Debounce preview update
-      if (previewTimeout) {
-        clearTimeout(previewTimeout);
+    // Open file in external editor
+    async function openInExternalEditor() {
+      if (!currentFilePath) {
+        return;
       }
-      previewTimeout = setTimeout(() => {
-        updatePreview(content);
-      }, 150);
 
-      // Show "Saving..." status after a short delay
-      if (content !== lastSavedContent) {
-        updateSaveStatus('Unsaved changes', 'pending');
+      const openBtn = document.getElementById('open-in-editor-btn');
+      openBtn.disabled = true;
+      openBtn.textContent = 'Opening...';
+
+      try {
+        const response = await fetch(`/api/files/${encodeURIComponent(currentFilePath)}/open`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to open file');
+        }
+
+        // Reset button after a short delay
+        setTimeout(() => {
+          openBtn.textContent = 'Open in Editor';
+          openBtn.disabled = false;
+        }, 1000);
+      } catch (error) {
+        console.error('Failed to open file:', error);
+        openBtn.textContent = 'Open in Editor';
+        openBtn.disabled = false;
+        showErrorToast('Failed to open file in editor. Make sure VSCode or a text editor is installed.');
       }
-    });
+    }
 
     // Update preview content
     function updatePreview(content) {
@@ -348,73 +364,12 @@
       }
     }
 
-    // Update save status indicator
-    function updateSaveStatus(message, status = '') {
-      const statusEl = document.getElementById('save-status');
-      statusEl.textContent = message;
-      statusEl.className = 'save-status';
-      if (status) {
-        statusEl.classList.add(status);
-      }
-    }
-
     // Escape HTML for safe display
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
-
-    // Listen for HTMX events to update save status
-    document.body.addEventListener('htmx:beforeRequest', (e) => {
-      if (e.target.id === 'editor-textarea') {
-        updateSaveStatus('Saving...', 'saving');
-      }
-    });
-
-    document.body.addEventListener('htmx:afterRequest', (e) => {
-      if (e.target.id === 'editor-textarea') {
-        if (e.detail.successful) {
-          lastSavedContent = e.target.value;
-          updateSaveStatus('Saved', 'saved');
-
-          // Clear the "Saved" message after 3 seconds
-          setTimeout(() => {
-            const statusEl = document.getElementById('save-status');
-            if (statusEl.textContent === 'Saved') {
-              updateSaveStatus('');
-            }
-          }, 3000);
-        } else {
-          updateSaveStatus('Error saving', 'error');
-        }
-      }
-    });
-
-    // Handle keyboard shortcuts
-    document.getElementById('editor-textarea').addEventListener('keydown', (e) => {
-      // Cmd/Ctrl + S to save immediately
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        const textarea = e.target;
-        if (textarea.value !== lastSavedContent && textarea.getAttribute('hx-put')) {
-          htmx.trigger(textarea, 'keyup');
-        }
-      }
-
-      // Tab key to insert spaces
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = e.target.selectionStart;
-        const end = e.target.selectionEnd;
-        const value = e.target.value;
-        e.target.value = value.substring(0, start) + '  ' + value.substring(end);
-        e.target.selectionStart = e.target.selectionEnd = start + 2;
-
-        // Trigger input event to update preview
-        e.target.dispatchEvent(new Event('input'));
-      }
-    });
 
     // ============================================
     // Error Toast Handling

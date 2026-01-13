@@ -2219,4 +2219,94 @@ api.post('/stream/:id/build', async (c) => {
   });
 });
 
+/**
+ * POST /api/files/:path/open
+ *
+ * Open file in user's default text editor or VSCode.
+ * The :path parameter should be a relative path within .ralph.
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 403 if path is outside .ralph directory
+ *   - 404 if file not found
+ *   - 500 on error
+ */
+api.post('/files/*/open', async (c) => {
+  // Extract the path from the wildcard match
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, '').replace(/\/open$/, '');
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'File path is required',
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: 'forbidden',
+        message: 'Access denied: path is outside .ralph directory',
+      },
+      403
+    );
+  }
+
+  // Check if file exists
+  if (!fs.existsSync(validatedPath)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `File not found: ${requestedPath}`,
+      },
+      404
+    );
+  }
+
+  try {
+    // Try to open in VSCode first, fall back to system default
+    const { exec } = await import('node:child_process');
+    const platform = process.platform;
+
+    let command: string;
+    if (platform === 'darwin') {
+      // macOS - try VSCode, then fall back to 'open'
+      command = `code "${validatedPath}" 2>/dev/null || open -t "${validatedPath}"`;
+    } else if (platform === 'win32') {
+      // Windows - try VSCode, then fall back to notepad
+      command = `code "${validatedPath}" 2>nul || notepad "${validatedPath}"`;
+    } else {
+      // Linux - try VSCode, then xdg-open
+      command = `code "${validatedPath}" 2>/dev/null || xdg-open "${validatedPath}"`;
+    }
+
+    exec(command, (error) => {
+      if (error) {
+        console.error('Failed to open file:', error);
+      }
+    });
+
+    return c.json({
+      success: true,
+      message: 'File opened in external editor',
+      path: requestedPath,
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return c.json(
+      {
+        error: 'internal_error',
+        message: `Failed to open file: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
 export { api };

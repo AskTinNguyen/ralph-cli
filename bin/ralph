@@ -28,6 +28,7 @@ let prdNumber = null;  // PRD number for folder-based storage (e.g., --prd=1 use
 let planPath = null;
 let progressPath = null;
 let prdOutPath = null;
+let uiOpenBrowser = false;  // For --open flag in ui command
 
 function exists(p) {
   try {
@@ -57,6 +58,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
   ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
+  ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -91,6 +93,10 @@ ${pc.bold(pc.cyan("Diagnose options:"))}
   ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
   ${pc.yellow("--json")}                             Output results as JSON
   ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max errors to analyze (default 500)
+
+${pc.bold(pc.cyan("UI options:"))}
+  ${pc.yellow("[port]")}                             Port number (default 3000)
+  ${pc.yellow("--open")}                             Open browser automatically after starting
 
 ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
@@ -197,6 +203,10 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   if (arg === "--progress") {
     progressPath = rawArgs[i + 1];
     i += 1;
+    continue;
+  }
+  if (arg === "--open") {
+    uiOpenBrowser = true;
     continue;
   }
   args.push(arg);
@@ -2094,6 +2104,136 @@ ${pc.bold(pc.cyan("Examples:"))}
     success(`Full report saved to ${pc.cyan(reportPath)}`);
 
     process.exit(0);
+  }
+
+  if (cmd === "ui") {
+    const { spawn } = require("child_process");
+
+    // Parse port from arguments (first non-flag arg after "ui")
+    let port = 3000;
+    const portArg = args.slice(1).find((a) => !a.startsWith("--") && /^\d+$/.test(a));
+    if (portArg) {
+      port = parseInt(portArg, 10);
+      if (port < 1 || port > 65535) {
+        error(`Invalid port number: ${pc.bold(portArg)}`);
+        info("Port must be between 1 and 65535.");
+        process.exit(1);
+      }
+    }
+
+    const uiDir = path.join(repoRoot, "ui");
+    const serverPath = path.join(uiDir, "src", "server.ts");
+
+    // Check that ui directory exists
+    if (!exists(uiDir)) {
+      error(`UI directory not found at ${pc.cyan(uiDir)}`);
+      process.exit(1);
+    }
+
+    // Check that server.ts exists
+    if (!exists(serverPath)) {
+      error(`Server file not found at ${pc.cyan(serverPath)}`);
+      process.exit(1);
+    }
+
+    info(`Starting Ralph UI server on port ${pc.bold(port)}...`);
+
+    // Function to open browser based on platform
+    const openBrowser = (url) => {
+      const platform = os.platform();
+      let openCmd;
+      let openArgs;
+
+      if (platform === "darwin") {
+        openCmd = "open";
+        openArgs = [url];
+      } else if (platform === "win32") {
+        openCmd = "cmd";
+        openArgs = ["/c", "start", url];
+      } else {
+        // Linux and others
+        openCmd = "xdg-open";
+        openArgs = [url];
+      }
+
+      spawn(openCmd, openArgs, {
+        detached: true,
+        stdio: "ignore",
+      }).unref();
+    };
+
+    // Spawn the server process
+    const serverEnv = { ...process.env, PORT: String(port), RALPH_ROOT: cwd };
+
+    // Use npx tsx to run TypeScript directly
+    const serverProcess = spawn("npx", ["tsx", "src/server.ts"], {
+      cwd: uiDir,
+      env: serverEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let serverStarted = false;
+    const serverUrl = `http://localhost:${port}`;
+
+    serverProcess.stdout.on("data", (data) => {
+      const output = data.toString();
+      process.stdout.write(output);
+
+      // Check if server has started (look for the "running at" message)
+      if (!serverStarted && output.includes("running at")) {
+        serverStarted = true;
+        success(`Server running at ${pc.cyan(serverUrl)}`);
+
+        if (uiOpenBrowser) {
+          info("Opening browser...");
+          openBrowser(serverUrl);
+        }
+      }
+    });
+
+    serverProcess.stderr.on("data", (data) => {
+      const output = data.toString();
+
+      // Check for EADDRINUSE (port in use) error
+      if (output.includes("EADDRINUSE") || output.includes("address already in use")) {
+        error(`Port ${pc.bold(port)} is already in use.`);
+        info(`Try a different port: ${pc.cyan(`ralph ui ${port + 1}`)}`);
+        info(`Or stop the process using port ${port} and try again.`);
+        serverProcess.kill();
+        process.exit(1);
+      }
+
+      process.stderr.write(output);
+    });
+
+    serverProcess.on("error", (err) => {
+      if (err.code === "ENOENT") {
+        error("npx command not found. Make sure Node.js is installed.");
+      } else {
+        error(`Failed to start server: ${err.message}`);
+      }
+      process.exit(1);
+    });
+
+    serverProcess.on("close", (code) => {
+      if (code !== 0 && code !== null) {
+        error(`Server exited with code ${code}`);
+        process.exit(code);
+      }
+    });
+
+    // Handle SIGINT/SIGTERM to gracefully stop the server
+    const cleanup = () => {
+      dim("\nStopping server...");
+      serverProcess.kill();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+
+    // Keep the process running
+    return;
   }
 
   const result = spawnSync(loopPath, loopArgs, {
