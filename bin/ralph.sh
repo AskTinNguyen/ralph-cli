@@ -412,7 +412,9 @@ cmd_go() {
 
         # Run claude with permissions for autonomous execution
         # --dangerously-skip-permissions allows file writes without prompts
+        # --verbose shows tool usage progress during execution
         claude -p "/ralph-go $task_id" \
+            --verbose \
             --output-format text \
             --dangerously-skip-permissions \
             2>&1 | tee "$tmpfile" || true
