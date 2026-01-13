@@ -2822,4 +2822,251 @@ api.get('/partials/token-models', (c) => {
   return c.html(`<div class="token-models-grid">${modelCards}</div>`);
 });
 
+/**
+ * GET /api/partials/token-stories/:streamId
+ *
+ * Returns HTML fragment for expandable per-story token breakdown within a stream.
+ * Shows story ID, title, status, runs, tokens, and cost with accordion expand/collapse.
+ * Highlights stories with unusually high token consumption.
+ */
+api.get('/partials/token-stories/:streamId', (c) => {
+  const streamId = c.req.param('streamId');
+  const streamTokens = getStreamTokens(streamId);
+  const streamDetails = getStreamDetails(streamId);
+
+  if (!streamTokens || !streamDetails) {
+    return c.html(`
+<div class="empty-state">
+  <div class="empty-icon">&#128203;</div>
+  <h3>Stream not found</h3>
+  <p>PRD-${escapeHtml(streamId)} does not exist or has no token data.</p>
+</div>
+`);
+  }
+
+  // Format currency
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) {
+      return `$${cost.toFixed(2)}`;
+    } else if (cost >= 0.01) {
+      return `$${cost.toFixed(3)}`;
+    } else if (cost > 0) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return '$0.00';
+  };
+
+  // Format token counts
+  const formatTokens = (tokens: number): string => {
+    if (tokens >= 1_000_000) {
+      return `${(tokens / 1_000_000).toFixed(2)}M`;
+    } else if (tokens >= 1_000) {
+      return `${(tokens / 1_000).toFixed(1)}K`;
+    }
+    return tokens.toString();
+  };
+
+  // Get stories from stream details
+  const stories = streamDetails.stories || [];
+
+  // Map byStory data to include story title and status
+  const storyTokenData = stories.map(story => {
+    const tokenData = streamTokens.byStory?.[story.id] || {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      totalCost: 0,
+      runs: 0,
+      estimatedCount: 0,
+    };
+
+    // Calculate tokens per acceptance criterion
+    const criteriaCount = story.acceptanceCriteria?.length || 0;
+    const tokensPerCriterion = criteriaCount > 0
+      ? Math.round(tokenData.totalTokens / criteriaCount)
+      : 0;
+
+    return {
+      id: story.id,
+      title: story.title,
+      status: story.status,
+      inputTokens: tokenData.inputTokens,
+      outputTokens: tokenData.outputTokens,
+      totalTokens: tokenData.totalTokens,
+      totalCost: tokenData.totalCost,
+      runs: tokenData.runs,
+      estimatedCount: tokenData.estimatedCount,
+      criteriaCount,
+      tokensPerCriterion,
+    };
+  });
+
+  if (storyTokenData.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <div class="empty-icon">&#128221;</div>
+  <h3>No stories found</h3>
+  <p>This stream has no user stories defined.</p>
+</div>
+`);
+  }
+
+  // Calculate average tokens to identify high consumption stories
+  const avgTokens = storyTokenData.reduce((sum, s) => sum + s.totalTokens, 0) / storyTokenData.length;
+  const highConsumptionThreshold = avgTokens * 1.5; // 50% above average is "high"
+
+  // Find max cost for scaling
+  const maxCost = Math.max(...storyTokenData.map(s => s.totalCost), 0.01);
+
+  // Get runs for this stream to link to individual run logs
+  const runs = streamTokens.runs || [];
+
+  // Build story accordion HTML
+  const storyItems = storyTokenData.map(story => {
+    const isHighConsumption = story.totalTokens > highConsumptionThreshold && story.totalTokens > 0;
+    const costPercentage = maxCost > 0 ? Math.round((story.totalCost / maxCost) * 100) : 0;
+
+    // Status badge class
+    const statusClass = story.status === 'completed' ? 'completed' :
+                        story.status === 'in-progress' ? 'in-progress' : 'pending';
+    const statusLabel = story.status === 'in-progress' ? 'In Progress' :
+                        story.status.charAt(0).toUpperCase() + story.status.slice(1);
+
+    // Get runs for this story
+    const storyRuns = runs.filter(run => run.storyId === story.id);
+
+    // Build run list HTML for expanded view
+    const runListHtml = storyRuns.length > 0
+      ? storyRuns.map(run => {
+          const runDate = new Date(run.timestamp);
+          const dateStr = runDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const timeStr = runDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          const estimatedLabel = run.estimated ? '<span class="token-estimated" title="Estimated tokens">~</span>' : '';
+
+          return `
+<div class="token-story-run">
+  <div class="token-story-run-info">
+    <span class="token-story-run-id">${escapeHtml(run.runId.substring(0, 15))}...</span>
+    <span class="token-story-run-time">${dateStr} ${timeStr}</span>
+  </div>
+  <div class="token-story-run-stats">
+    <span class="token-input" title="Input tokens">&#8593; ${formatTokens(run.inputTokens)}</span>
+    <span class="token-output" title="Output tokens">&#8595; ${formatTokens(run.outputTokens)}</span>
+    <span class="token-story-run-cost">${formatCurrency(run.cost)}${estimatedLabel}</span>
+  </div>
+</div>
+`;
+        }).join('')
+      : '<div class="token-story-no-runs">No runs recorded for this story.</div>';
+
+    return `
+<div class="token-story-accordion${isHighConsumption ? ' high-consumption' : ''}" data-story-id="${escapeHtml(story.id)}">
+  <div class="token-story-header" onclick="toggleTokenStory(this)">
+    <div class="token-story-info">
+      <span class="token-story-expand-icon">&#9654;</span>
+      <span class="token-story-id">${escapeHtml(story.id)}</span>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
+      <span class="token-story-title">${escapeHtml(story.title)}</span>
+      ${isHighConsumption ? '<span class="token-high-badge" title="High token consumption">&#9888; High</span>' : ''}
+    </div>
+    <div class="token-story-summary">
+      <span class="token-story-runs">${story.runs} runs</span>
+      <span class="token-story-tokens">
+        <span class="token-input" title="Input tokens">&#8593; ${formatTokens(story.inputTokens)}</span>
+        <span class="token-output" title="Output tokens">&#8595; ${formatTokens(story.outputTokens)}</span>
+      </span>
+      <span class="token-story-cost">
+        <div class="token-cost-bar mini">
+          <div class="token-cost-fill" style="width: ${costPercentage}%"></div>
+        </div>
+        <span class="token-cost-value">${formatCurrency(story.totalCost)}</span>
+      </span>
+    </div>
+  </div>
+  <div class="token-story-content" style="display: none;">
+    <div class="token-story-metrics">
+      <div class="token-story-metric">
+        <span class="token-story-metric-label">Acceptance Criteria</span>
+        <span class="token-story-metric-value">${story.criteriaCount}</span>
+      </div>
+      <div class="token-story-metric">
+        <span class="token-story-metric-label">Avg Tokens/Criterion</span>
+        <span class="token-story-metric-value">${formatTokens(story.tokensPerCriterion)}</span>
+      </div>
+      <div class="token-story-metric">
+        <span class="token-story-metric-label">Total Tokens</span>
+        <span class="token-story-metric-value">${formatTokens(story.totalTokens)}</span>
+      </div>
+      <div class="token-story-metric">
+        <span class="token-story-metric-label">Estimated Runs</span>
+        <span class="token-story-metric-value">${story.estimatedCount} of ${story.runs}</span>
+      </div>
+    </div>
+    <div class="token-story-runs-section">
+      <h4>Run History</h4>
+      <div class="token-story-runs-list">
+        ${runListHtml}
+      </div>
+    </div>
+  </div>
+</div>
+`;
+  }).join('');
+
+  const html = `
+<div class="token-stories-container">
+  <div class="token-stories-header">
+    <h3>Per-Story Token Breakdown</h3>
+    <div class="token-stories-actions">
+      <button class="btn btn-sm" onclick="expandAllTokenStories()">Expand All</button>
+      <button class="btn btn-sm" onclick="collapseAllTokenStories()">Collapse All</button>
+    </div>
+  </div>
+  <div class="token-stories-list">
+    ${storyItems}
+  </div>
+</div>
+
+<script>
+function toggleTokenStory(headerEl) {
+  var accordion = headerEl.parentElement;
+  var content = accordion.querySelector('.token-story-content');
+  var icon = accordion.querySelector('.token-story-expand-icon');
+
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.innerHTML = '&#9660;';
+    accordion.classList.add('expanded');
+  } else {
+    content.style.display = 'none';
+    icon.innerHTML = '&#9654;';
+    accordion.classList.remove('expanded');
+  }
+}
+
+function expandAllTokenStories() {
+  document.querySelectorAll('.token-story-accordion').forEach(function(accordion) {
+    var content = accordion.querySelector('.token-story-content');
+    var icon = accordion.querySelector('.token-story-expand-icon');
+    content.style.display = 'block';
+    icon.innerHTML = '&#9660;';
+    accordion.classList.add('expanded');
+  });
+}
+
+function collapseAllTokenStories() {
+  document.querySelectorAll('.token-story-accordion').forEach(function(accordion) {
+    var content = accordion.querySelector('.token-story-content');
+    var icon = accordion.querySelector('.token-story-expand-icon');
+    content.style.display = 'none';
+    icon.innerHTML = '&#9654;';
+    accordion.classList.remove('expanded');
+  });
+}
+</script>
+`;
+
+  return c.html(html);
+});
+
 export { api };

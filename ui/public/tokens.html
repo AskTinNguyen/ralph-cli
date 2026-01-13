@@ -72,6 +72,18 @@
         <div class="loading"><span class="loading-spinner"></span> Loading model token data...</div>
       </div>
     </section>
+
+    <!-- Per-Story Token Detail Section (shown when a stream is selected) -->
+    <section id="token-stories-section" style="display: none;">
+      <div class="token-stories-breadcrumb">
+        <a href="#" onclick="hideTokenStories(); return false;">&larr; Back to Streams</a>
+        <span class="token-stories-stream-title" id="token-stories-stream-title">Stream Detail</span>
+      </div>
+      <h2>Per-Story Token Breakdown <span class="htmx-indicator" id="stories-indicator"><span class="loading-spinner"></span></span></h2>
+      <div id="token-stories-container">
+        <!-- Story breakdown content loaded via HTMX -->
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -167,11 +179,42 @@
     // Stream Detail Navigation
     // ============================================
 
-    // Navigate to stream detail view
+    // Show token stories detail for a stream
     function showTokenStreamDetail(streamId, streamName) {
-      // Navigate to streams page with the specific stream focused
-      window.location.href = '/streams.html?stream=' + encodeURIComponent(streamId);
+      // Show the stories section and hide the overview sections
+      document.getElementById('token-summary-section').style.display = 'none';
+      document.getElementById('token-streams-section').style.display = 'none';
+      document.getElementById('token-models-section').style.display = 'none';
+      document.getElementById('token-stories-section').style.display = 'block';
+
+      // Update the stream title
+      document.getElementById('token-stories-stream-title').textContent = 'PRD-' + streamId + ': ' + streamName;
+
+      // Load the story breakdown via HTMX
+      htmx.ajax('GET', '/api/partials/token-stories/' + encodeURIComponent(streamId), '#token-stories-container');
     }
+
+    // Hide token stories and show the main view
+    function hideTokenStories() {
+      document.getElementById('token-summary-section').style.display = 'block';
+      document.getElementById('token-streams-section').style.display = 'block';
+      document.getElementById('token-models-section').style.display = 'block';
+      document.getElementById('token-stories-section').style.display = 'none';
+
+      // Clear the container
+      document.getElementById('token-stories-container').innerHTML = '';
+    }
+
+    // Check URL params for initial stream selection
+    document.addEventListener('DOMContentLoaded', function() {
+      var urlParams = new URLSearchParams(window.location.search);
+      var streamId = urlParams.get('stream');
+      var streamName = urlParams.get('name') || 'Stream ' + streamId;
+
+      if (streamId) {
+        showTokenStreamDetail(streamId, streamName);
+      }
+    });
 
     // ============================================
     // Error Handling
