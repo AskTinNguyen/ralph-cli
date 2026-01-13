@@ -226,12 +226,23 @@ export function parseRunLog(runId: string, streamId?: string, iteration?: number
   let logPath: string | null = null;
 
   if (streamId && iteration !== undefined) {
-    // Direct path construction
+    // Try direct path construction in stream-specific directory
     logPath = path.join(ralphRoot, `PRD-${streamId}`, 'runs', `run-${runId}-iter-${iteration}.log`);
+
+    // If not found, try centralized runs directory
+    if (!fs.existsSync(logPath)) {
+      logPath = path.join(ralphRoot, 'runs', `run-${runId}-iter-${iteration}.log`);
+    }
   } else if (streamId) {
     // Search for the run log in the stream's runs directory
-    const runsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
-    logPath = findRunLog(runsDir, runId);
+    const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
+    logPath = findRunLog(streamRunsDir, runId);
+
+    // If not found, try centralized runs directory
+    if (!logPath) {
+      const centralRunsDir = path.join(ralphRoot, 'runs');
+      logPath = findRunLog(centralRunsDir, runId);
+    }
   } else {
     // Search all streams for the run log
     logPath = findRunLogGlobally(ralphRoot, runId);
@@ -270,6 +281,14 @@ function findRunLog(runsDir: string, runId: string): string | null {
  * Search all streams for a run log by ID.
  */
 function findRunLogGlobally(ralphRoot: string, runId: string): string | null {
+  // First check centralized runs directory
+  const centralRunsDir = path.join(ralphRoot, 'runs');
+  const centralLog = findRunLog(centralRunsDir, runId);
+  if (centralLog) {
+    return centralLog;
+  }
+
+  // Then check stream-specific directories
   try {
     const entries = fs.readdirSync(ralphRoot, { withFileTypes: true });
 
@@ -343,37 +362,61 @@ export function listRunLogs(streamId: string): Array<{ runId: string; iteration:
     return [];
   }
 
-  const runsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
-  if (!fs.existsSync(runsDir)) {
-    return [];
-  }
-
   const runs: Array<{ runId: string; iteration: number; logPath: string; hasSummary: boolean }> = [];
 
-  try {
-    const entries = fs.readdirSync(runsDir);
-
-    for (const entry of entries) {
-      // Match run log files: run-YYYYMMDD-HHMMSS-XXXXX-iter-N.log
-      const match = entry.match(/^run-(\d{8}-\d{6}-\d+)-iter-(\d+)\.log$/);
-      if (match) {
-        const runId = match[1];
-        const iteration = parseInt(match[2], 10);
-        const logPath = path.join(runsDir, entry);
-        const summaryPath = logPath.replace('.log', '.md');
-        const hasSummary = fs.existsSync(summaryPath);
-
-        runs.push({ runId, iteration, logPath, hasSummary });
-      }
+  // Helper function to scan a runs directory
+  const scanRunsDir = (runsDir: string) => {
+    if (!fs.existsSync(runsDir)) {
+      return;
     }
 
-    // Sort by run ID descending (newest first)
-    runs.sort((a, b) => b.runId.localeCompare(a.runId));
-  } catch {
-    // Ignore read errors
-  }
+    try {
+      const entries = fs.readdirSync(runsDir);
 
-  return runs;
+      for (const entry of entries) {
+        // Match run log files: run-YYYYMMDD-HHMMSS-XXXXX-iter-N.log
+        const match = entry.match(/^run-(\d{8}-\d{6}-\d+)-iter-(\d+)\.log$/);
+        if (match) {
+          const runId = match[1];
+          const iteration = parseInt(match[2], 10);
+          const logPath = path.join(runsDir, entry);
+          const summaryPath = logPath.replace('.log', '.md');
+          const hasSummary = fs.existsSync(summaryPath);
+
+          // Check if run belongs to this stream by looking for PRD-{streamId} references in log
+          try {
+            const logContent = fs.readFileSync(logPath, 'utf-8');
+            const prdMarker = `PRD-${streamId}`;
+            if (logContent.includes(prdMarker)) {
+              runs.push({ runId, iteration, logPath, hasSummary });
+            }
+          } catch {
+            // If we can't read the log, skip it
+          }
+        }
+      }
+    } catch {
+      // Ignore read errors
+    }
+  };
+
+  // Check stream-specific runs directory first
+  const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
+  scanRunsDir(streamRunsDir);
+
+  // Also check centralized runs directory
+  const centralRunsDir = path.join(ralphRoot, 'runs');
+  scanRunsDir(centralRunsDir);
+
+  // Remove duplicates (same runId + iteration)
+  const uniqueRuns = runs.filter((run, index, self) =>
+    index === self.findIndex((r) => r.runId === run.runId && r.iteration === run.iteration)
+  );
+
+  // Sort by run ID descending (newest first)
+  uniqueRuns.sort((a, b) => b.runId.localeCompare(a.runId));
+
+  return uniqueRuns;
 }
 
 /**

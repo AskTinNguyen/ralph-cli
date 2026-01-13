@@ -63,6 +63,15 @@
         </select>
         <span class="logs-refresh-indicator htmx-indicator"><span class="loading-spinner"></span> Refreshing...</span>
       </div>
+
+      <!-- Terminal Commands Section -->
+      <div id="terminal-commands"
+           hx-get="/api/partials/terminal-commands"
+           hx-trigger="load, change from:#stream-filter"
+           hx-swap="innerHTML"
+           hx-include="#stream-filter">
+      </div>
+
       <div id="logs-container"
            hx-get="/api/partials/activity-logs"
            hx-trigger="load, every 2s"

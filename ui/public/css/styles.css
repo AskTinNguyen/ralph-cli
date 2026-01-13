@@ -2243,3 +2243,51 @@ footer {
     font-size: 0.75rem;
   }
 }
+
+/* Terminal Commands Box */
+.terminal-commands-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.terminal-commands-box h3 {
+  font-size: 1rem;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.terminal-commands-box p {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+  font-size: 0.875rem;
+}
+
+.terminal-command {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.terminal-command:last-child {
+  margin-bottom: 0;
+}
+
+.terminal-command code {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  background: transparent;
+  padding: 0;
+}
+
+.terminal-command code:first-child {
+  color: var(--text-muted);
+  font-style: italic;
+}
