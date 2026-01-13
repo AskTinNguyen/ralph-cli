@@ -78,6 +78,31 @@ For frontend/web UI tasks, include visual verification options using Playwright 
 
 If custom testing skills exist, incorporate their guidance into the verification proposal.
 
+**If no custom testing skill exists for a specialized project** (Unreal, Unity, Godot, embedded, etc.):
+
+Ask the user:
+```json
+{
+  "questions": [{
+    "question": "This looks like a [project type] project. Want me to create a testing skill for better task execution?",
+    "header": "Testing",
+    "options": [
+      {"label": "Yes, create skill", "description": "Create .claude/skills/[type]-testing/SKILL.md with project patterns"},
+      {"label": "No, continue", "description": "Use default detection for this task"}
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+If user accepts, create a testing skill that documents:
+- Build commands for this project type
+- Test discovery and execution patterns
+- Common verification approaches
+- Project-specific considerations
+
+Then continue planning with the new skill's guidance.
+
 ### 3. Explore Codebase (If Needed)
 
 Based on answers, explore relevant code to inform the plan.

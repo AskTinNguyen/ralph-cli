@@ -60,12 +60,27 @@ If task description provided, use it. Otherwise ask using AskUserQuestion:
 **Question 2: Verification**
 
 Before suggesting test commands:
-1. Check for user-added testing skills in `.claude/skills/` (e.g., `unreal-testing/`, `unity-testing/`)
+1. Check for user-added testing skills in `.claude/skills/`
 2. Detect project type from build files (package.json, Cargo.toml, CMakeLists.txt, etc.)
 
 For web UI projects, include visual verification options using Playwright MCP tools.
 
-If custom testing skills exist, incorporate their guidance into the verification proposal.
+If custom testing skills exist, incorporate their guidance.
+
+For specialized projects (Unreal, Unity, Godot, etc.) without a testing skill, offer to create one:
+```json
+{
+  "questions": [{
+    "question": "Create a testing skill for this [project type] project?",
+    "header": "Testing",
+    "options": [
+      {"label": "Yes", "description": "Create .claude/skills/[type]-testing/SKILL.md"},
+      {"label": "Skip", "description": "Continue without custom skill"}
+    ],
+    "multiSelect": false
+  }]
+}
+```
 
 ### 4. Create plan.md
 
