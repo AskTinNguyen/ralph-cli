@@ -80,6 +80,7 @@ ${pc.bold(pc.cyan("Stats options:"))}
   ${pc.yellow("--global")} ${pc.dim("(-g)")}                       Show metrics across all registered projects
   ${pc.yellow("--json")}                             Output metrics as JSON for tooling
   ${pc.yellow("--no-cache")}                         Regenerate metrics (ignore cache)
+  ${pc.yellow("--tokens")}                           Show token usage and cost metrics
 
 ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
@@ -1492,6 +1493,7 @@ ${pc.bold(pc.cyan("Examples:"))}
     let globalFlag = false;
     let jsonFlag = false;
     let noCache = false;
+    let tokensFlag = false;
 
     for (const arg of args.slice(1)) {
       if (arg === "--global" || arg === "-g") {
@@ -1500,7 +1502,182 @@ ${pc.bold(pc.cyan("Examples:"))}
         jsonFlag = true;
       } else if (arg === "--no-cache") {
         noCache = true;
+      } else if (arg === "--tokens") {
+        tokensFlag = true;
       }
+    }
+
+    // Handle --tokens flag - show token/cost metrics
+    if (tokensFlag) {
+      const tokensModule = require("../lib/tokens");
+      const ralphDir = path.join(cwd, ".ralph");
+
+      if (!exists(ralphDir)) {
+        warn("No .ralph directory found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Collect token data from all PRD-N folders
+      const prdDirs = fs.readdirSync(ralphDir)
+        .filter((dir) => /^PRD-\d+$/.test(dir))
+        .map((dir) => ({
+          id: dir.replace("PRD-", ""),
+          path: path.join(ralphDir, dir),
+        }));
+
+      if (prdDirs.length === 0) {
+        warn("No PRD directories found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Aggregate token data across all streams
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCost = 0;
+      let totalRuns = 0;
+      let totalEstimated = 0;
+      const byModel = {};
+      const byStream = [];
+
+      for (const prdDir of prdDirs) {
+        const cache = tokensModule.loadTokenCache(prdDir.path);
+        if (!cache || !cache.totals) continue;
+
+        const streamCost = cache.totals.totalCost || 0;
+        const streamInputTokens = cache.totals.totalInputTokens || 0;
+        const streamOutputTokens = cache.totals.totalOutputTokens || 0;
+        const streamRuns = cache.totals.runCount || 0;
+        const streamEstimated = cache.totals.estimatedCount || 0;
+
+        totalInputTokens += streamInputTokens;
+        totalOutputTokens += streamOutputTokens;
+        totalCost += streamCost;
+        totalRuns += streamRuns;
+        totalEstimated += streamEstimated;
+
+        byStream.push({
+          id: prdDir.id,
+          inputTokens: streamInputTokens,
+          outputTokens: streamOutputTokens,
+          cost: streamCost,
+          runs: streamRuns,
+        });
+
+        // Aggregate by model
+        if (cache.byModel) {
+          for (const [model, data] of Object.entries(cache.byModel)) {
+            if (!byModel[model]) {
+              byModel[model] = { inputTokens: 0, outputTokens: 0, cost: 0, runs: 0 };
+            }
+            byModel[model].inputTokens += data.inputTokens || 0;
+            byModel[model].outputTokens += data.outputTokens || 0;
+            byModel[model].cost += data.totalCost || 0;
+            byModel[model].runs += data.runs || 0;
+          }
+        }
+      }
+
+      // Format cost for display
+      const formatCost = (cost) => {
+        if (cost >= 1) return `$${cost.toFixed(2)}`;
+        if (cost >= 0.01) return `$${cost.toFixed(3)}`;
+        if (cost > 0) return `$${cost.toFixed(4)}`;
+        return "$0.00";
+      };
+
+      // Format tokens with K/M suffix
+      const formatTokens = (num) => {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+        if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+        return num.toString();
+      };
+
+      if (jsonFlag) {
+        console.log(JSON.stringify({
+          totalInputTokens,
+          totalOutputTokens,
+          totalCost,
+          totalRuns,
+          totalEstimated,
+          avgCostPerRun: totalRuns > 0 ? totalCost / totalRuns : 0,
+          byModel,
+          byStream,
+        }, null, 2));
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Token Usage & Cost Metrics"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+
+      // Overview
+      console.log(pc.bold(pc.cyan("Overview")));
+      console.log(pc.dim("-".repeat(40)));
+      console.log(`Input Tokens:    ${pc.bold(formatTokens(totalInputTokens))}`);
+      console.log(`Output Tokens:   ${pc.bold(formatTokens(totalOutputTokens))}`);
+      console.log(`Total Tokens:    ${pc.bold(formatTokens(totalInputTokens + totalOutputTokens))}`);
+      console.log(`Total Cost:      ${pc.green(formatCost(totalCost))}`);
+      console.log(`Total Runs:      ${pc.bold(totalRuns)}`);
+      console.log(`Avg Cost/Run:    ${formatCost(totalRuns > 0 ? totalCost / totalRuns : 0)}`);
+      if (totalEstimated > 0) {
+        console.log(`Estimated Runs:  ${pc.yellow(totalEstimated)} (${Math.round((totalEstimated / totalRuns) * 100)}%)`);
+      }
+      console.log("");
+
+      // By Model
+      const models = Object.keys(byModel);
+      if (models.length > 0) {
+        console.log(pc.bold(pc.cyan("By Model")));
+        console.log(pc.dim("-".repeat(60)));
+        console.log(
+          pc.dim(
+            `${"MODEL".padEnd(15)} ${"TOKENS".padStart(12)} ${"COST".padStart(10)} ${"RUNS".padStart(6)}`
+          )
+        );
+        console.log(pc.dim("-".repeat(60)));
+
+        for (const model of models) {
+          const data = byModel[model];
+          const tokens = formatTokens(data.inputTokens + data.outputTokens);
+          const cost = formatCost(data.cost);
+          const runs = String(data.runs).padStart(6);
+          console.log(
+            `${model.padEnd(15)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`
+          );
+        }
+        console.log("");
+      }
+
+      // By Stream
+      if (byStream.length > 0) {
+        console.log(pc.bold(pc.cyan("By Stream")));
+        console.log(pc.dim("-".repeat(60)));
+        console.log(
+          pc.dim(
+            `${"STREAM".padEnd(10)} ${"TOKENS".padStart(12)} ${"COST".padStart(10)} ${"RUNS".padStart(6)}`
+          )
+        );
+        console.log(pc.dim("-".repeat(60)));
+
+        for (const stream of byStream.slice(0, 10)) {
+          const name = `PRD-${stream.id}`;
+          const tokens = formatTokens(stream.inputTokens + stream.outputTokens);
+          const cost = formatCost(stream.cost);
+          const runs = String(stream.runs).padStart(6);
+          console.log(
+            `${name.padEnd(10)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`
+          );
+        }
+        if (byStream.length > 10) {
+          console.log(pc.dim(`  ... and ${byStream.length - 10} more streams`));
+        }
+        console.log("");
+      }
+
+      console.log(pc.dim("=".repeat(60)));
+      success("Token stats generated.");
+      process.exit(0);
     }
 
     // Trend arrow helper with color

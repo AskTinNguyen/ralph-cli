@@ -50,6 +50,42 @@
       </div>
     </section>
 
+    <!-- Export Section -->
+    <section id="token-export-section">
+      <h2>Export Reports</h2>
+      <div class="export-controls">
+        <div class="export-options">
+          <div class="control-group">
+            <label for="export-format">Format:</label>
+            <select id="export-format">
+              <option value="csv" selected>CSV</option>
+              <option value="json">JSON</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="export-from">From:</label>
+            <input type="date" id="export-from" />
+          </div>
+          <div class="control-group">
+            <label for="export-to">To:</label>
+            <input type="date" id="export-to" />
+          </div>
+          <div class="control-group">
+            <label for="export-stream">Stream:</label>
+            <select id="export-stream">
+              <option value="" selected>All Streams</option>
+              <!-- Stream options populated dynamically -->
+            </select>
+          </div>
+        </div>
+        <div class="export-buttons">
+          <button class="export-button" onclick="exportTokenReport()">
+            <span class="export-icon">&#8615;</span> Export Report
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Token Summary Section -->
     <section id="token-summary-section">
       <h2>Token Consumption Overview <span class="htmx-indicator" id="summary-indicator"><span class="loading-spinner"></span></span></h2>
@@ -605,10 +641,19 @@
       }
     }
 
+    // Hide export section when viewing stream details
+    function updateExportSectionVisibility(visible) {
+      var exportSection = document.getElementById('token-export-section');
+      if (exportSection) {
+        exportSection.style.display = visible ? 'block' : 'none';
+      }
+    }
+
     // Update showTokenStreamDetail to hide chart section
     var originalShowTokenStreamDetail = showTokenStreamDetail;
     showTokenStreamDetail = function(streamId, streamName) {
       updateChartSectionVisibility(false);
+      updateExportSectionVisibility(false);
       originalShowTokenStreamDetail(streamId, streamName);
     };
 
@@ -616,13 +661,76 @@
     var originalHideTokenStories = hideTokenStories;
     hideTokenStories = function() {
       updateChartSectionVisibility(true);
+      updateExportSectionVisibility(true);
       originalHideTokenStories();
     };
+
+    // ============================================
+    // Export Functionality
+    // ============================================
+
+    // Populate export stream dropdown
+    function populateExportStreamDropdown() {
+      fetch('/api/tokens/summary')
+        .then(function(response) {
+          if (!response.ok) throw new Error('Failed to fetch streams');
+          return response.json();
+        })
+        .then(function(data) {
+          var select = document.getElementById('export-stream');
+          var streams = data.byStream || [];
+
+          // Clear existing options except the first one
+          while (select.options.length > 1) {
+            select.remove(1);
+          }
+
+          // Add stream options
+          streams.forEach(function(stream) {
+            var option = document.createElement('option');
+            option.value = stream.streamId;
+            option.textContent = 'PRD-' + stream.streamId + ': ' + stream.streamName;
+            select.appendChild(option);
+          });
+        })
+        .catch(function(error) {
+          console.error('Error fetching streams for export:', error);
+        });
+    }
+
+    // Export token report
+    function exportTokenReport() {
+      var format = document.getElementById('export-format').value;
+      var from = document.getElementById('export-from').value;
+      var to = document.getElementById('export-to').value;
+      var streamId = document.getElementById('export-stream').value;
+
+      // Build URL with query params
+      var url = '/api/tokens/export?format=' + encodeURIComponent(format);
+      if (from) {
+        url += '&from=' + encodeURIComponent(from);
+      }
+      if (to) {
+        url += '&to=' + encodeURIComponent(to);
+      }
+      if (streamId) {
+        url += '&streamId=' + encodeURIComponent(streamId);
+      }
+
+      // Trigger download via anchor element
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
     // Initialize chart on page load
     document.addEventListener('DOMContentLoaded', function() {
       initTokenChart();
       populateStreamDropdown();
+      populateExportStreamDropdown();
       updateChart();
     });
 

@@ -3338,6 +3338,131 @@ api.get('/tokens/budget', (c) => {
 });
 
 /**
+ * GET /api/tokens/export
+ *
+ * Export token and cost data in CSV or JSON format.
+ * Query params:
+ *   - format: 'csv' or 'json' (default: 'csv')
+ *   - from: Start date for filtering (ISO format, optional)
+ *   - to: End date for filtering (ISO format, optional)
+ *   - streamId: Filter to specific stream (optional)
+ *
+ * Returns:
+ *   - CSV: Content-Disposition attachment with filename including date range
+ *   - JSON: Token data as JSON object
+ */
+api.get('/tokens/export', (c) => {
+  const format = c.req.query('format') || 'csv';
+  const from = c.req.query('from');
+  const to = c.req.query('to');
+  const streamId = c.req.query('streamId');
+
+  // Get all runs with optional date filtering
+  const result = getRunTokens({
+    streamId: streamId || undefined,
+    limit: 10000, // Get all runs
+    offset: 0,
+    from: from || undefined,
+    to: to || undefined,
+  });
+
+  const runs = result.runs;
+
+  // Get summary data
+  const summary = getTokenSummary();
+
+  // Build filename with date range
+  const now = new Date();
+  const formatDate = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
+  let filename = 'token-report';
+  if (from || to) {
+    const fromStr = from ? formatDate(new Date(from)) : 'start';
+    const toStr = to ? formatDate(new Date(to)) : formatDate(now);
+    filename += `-${fromStr}-to-${toStr}`;
+  } else {
+    filename += `-${formatDate(now)}`;
+  }
+  if (streamId) {
+    filename += `-stream-${streamId}`;
+  }
+
+  if (format === 'json') {
+    // JSON export
+    const exportData = {
+      exportedAt: now.toISOString(),
+      dateRange: {
+        from: from || null,
+        to: to || null,
+      },
+      streamId: streamId || null,
+      summary: {
+        totalInputTokens: summary.totalInputTokens,
+        totalOutputTokens: summary.totalOutputTokens,
+        totalCost: summary.totalCost,
+        avgCostPerStory: summary.avgCostPerStory,
+        avgCostPerRun: summary.avgCostPerRun,
+        totalRuns: runs.length,
+      },
+      byStream: summary.byStream,
+      byModel: summary.byModel,
+      runs: runs,
+    };
+
+    c.header('Content-Disposition', `attachment; filename="${filename}.json"`);
+    c.header('Content-Type', 'application/json');
+    return c.body(JSON.stringify(exportData, null, 2));
+  } else {
+    // CSV export
+    const csvRows: string[] = [];
+
+    // Header row
+    csvRows.push('Run ID,Stream ID,Story ID,Model,Input Tokens,Output Tokens,Total Tokens,Cost (USD),Estimated,Timestamp');
+
+    // Data rows
+    for (const run of runs) {
+      const totalTokens = run.inputTokens + run.outputTokens;
+      const row = [
+        run.runId,
+        run.streamId || '',
+        run.storyId || '',
+        run.model || 'unknown',
+        run.inputTokens.toString(),
+        run.outputTokens.toString(),
+        totalTokens.toString(),
+        run.cost.toFixed(6),
+        run.estimated ? 'true' : 'false',
+        run.timestamp,
+      ].map(field => {
+        // Escape fields containing commas or quotes
+        if (typeof field === 'string' && (field.includes(',') || field.includes('"'))) {
+          return `"${field.replace(/"/g, '""')}"`;
+        }
+        return field;
+      }).join(',');
+
+      csvRows.push(row);
+    }
+
+    // Add summary section
+    csvRows.push('');
+    csvRows.push('Summary');
+    csvRows.push(`Total Input Tokens,${summary.totalInputTokens}`);
+    csvRows.push(`Total Output Tokens,${summary.totalOutputTokens}`);
+    csvRows.push(`Total Cost (USD),${summary.totalCost.toFixed(6)}`);
+    csvRows.push(`Average Cost per Story,${summary.avgCostPerStory.toFixed(6)}`);
+    csvRows.push(`Average Cost per Run,${summary.avgCostPerRun.toFixed(6)}`);
+    csvRows.push(`Total Runs,${runs.length}`);
+
+    c.header('Content-Disposition', `attachment; filename="${filename}.csv"`);
+    c.header('Content-Type', 'text/csv');
+    return c.body(csvRows.join('\n'));
+  }
+});
+
+/**
  * GET /api/partials/token-budget
  *
  * Returns HTML fragment for budget progress bars.
