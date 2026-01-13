@@ -452,10 +452,10 @@ cmd_status() {
 
 cmd_log() {
     local task_id_arg="$1"
-    local log_type="${2:-all}"  # all, progress, errors, activity
+    local log_type="${2:-all}"  # all, progress, errors, iterations, last
 
     if [[ -z "$task_id_arg" ]]; then
-        log_error "Usage: ralph log <task-id> [progress|errors|all]"
+        log_error "Usage: ralph log <task-id> [progress|errors|iterations|last|all]"
         exit 1
     fi
 
@@ -489,6 +489,30 @@ cmd_log() {
                 echo "No errors logged"
             fi
             ;;
+        iterations)
+            # List all iteration logs
+            if [[ -d "$task_dir/logs" ]]; then
+                echo "=== Iteration Logs ==="
+                ls -la "$task_dir/logs/"
+            else
+                echo "No iteration logs found"
+            fi
+            ;;
+        last)
+            # Show the most recent iteration log
+            if [[ -d "$task_dir/logs" ]]; then
+                local latest
+                latest=$(ls -t "$task_dir/logs"/iteration-*.log 2>/dev/null | head -1)
+                if [[ -n "$latest" ]]; then
+                    echo "=== ${latest##*/} ==="
+                    cat "$latest"
+                else
+                    echo "No iteration logs found"
+                fi
+            else
+                echo "No iteration logs found"
+            fi
+            ;;
         all|*)
             # Show progress
             if [[ -f "$task_dir/progress.md" ]]; then
@@ -506,6 +530,21 @@ cmd_log() {
                 echo "$(printf '=%.0s' {1..50})"
                 cat "$task_dir/errors.log"
                 echo ""
+            fi
+
+            # Show iteration logs summary
+            if [[ -d "$task_dir/logs" ]]; then
+                local log_count
+                log_count=$(ls "$task_dir/logs"/iteration-*.log 2>/dev/null | wc -l | tr -d ' ')
+                if [[ "$log_count" -gt 0 ]]; then
+                    echo "$(printf '=%.0s' {1..50})"
+                    echo "ITERATION LOGS ($log_count files)"
+                    echo "$(printf '=%.0s' {1..50})"
+                    ls -la "$task_dir/logs/"
+                    echo ""
+                    echo "View latest: ralph.sh log $task_id last"
+                    echo ""
+                fi
             fi
 
             # Show plan summary
@@ -546,8 +585,13 @@ cmd_go() {
         [[ "$max" =~ ^[0-9]+$ ]] && max_iterations=$max
     fi
 
+    # Create logs directory for this task
+    local logs_dir="$task_dir/logs"
+    mkdir -p "$logs_dir"
+
     log_info "Running Ralph on $task_id..."
     echo "Max iterations: $max_iterations"
+    echo "Logs: $logs_dir/"
     echo ""
 
     # =========================================================================
@@ -560,34 +604,30 @@ cmd_go() {
         echo "$(printf '=%.0s' {1..50})"
         echo ""
 
-        # Fresh Claude invocation - no accumulated context
-        # Use temp file to capture output for completion detection
-        local tmpfile
-        tmpfile=$(mktemp)
+        # Log file for this iteration (persisted for debugging)
+        local log_file="$logs_dir/iteration-${iteration}.log"
 
         # Simple approach from iannuttall/ralph:
         # Run claude directly with stdio inherit via tee
         # No stream-json parsing - just let the terminal handle streaming naturally
         claude -p "/ralph-go $task_id" \
             --dangerously-skip-permissions \
-            2>&1 | tee "$tmpfile" || true
+            2>&1 | tee "$log_file" || true
 
         # Check completion signals from captured output
-        if grep -q '<promise>COMPLETE' "$tmpfile"; then
-            rm -f "$tmpfile"
+        if grep -q '<promise>COMPLETE' "$log_file"; then
             echo ""
             log_ok "Task completed successfully"
+            log_ok "Log saved: $log_file"
             exit 0
         fi
 
-        if grep -q 'NEEDS_HUMAN' "$tmpfile"; then
-            rm -f "$tmpfile"
+        if grep -q 'NEEDS_HUMAN' "$log_file"; then
             echo ""
             log_warn "Task needs human intervention"
+            log_warn "Log saved: $log_file"
             exit 2
         fi
-
-        rm -f "$tmpfile"
 
         # Loop continues: new brain, same task, updated filesystem
     done
@@ -606,11 +646,16 @@ Usage:
   ralph.sh new "task"       Create a new task
   ralph.sh list             List all tasks
   ralph.sh status           Show status of all tasks and running loops
-  ralph.sh log <id>         Show logs for a task
-  ralph.sh log <id> errors  Show only errors for a task
   ralph.sh go <id>          Run task (headless, loops until COMPLETE)
   ralph.sh update           Update skills in current project
   ralph.sh upgrade          Pull latest CLI + update skills
+
+Logs:
+  ralph.sh log <id>            Show all logs for a task
+  ralph.sh log <id> progress   Show progress.md
+  ralph.sh log <id> errors     Show errors.log
+  ralph.sh log <id> iterations List iteration log files
+  ralph.sh log <id> last       Show most recent iteration log
 
 For interactive use (one iteration at a time):
   claude
