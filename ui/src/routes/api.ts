@@ -1610,64 +1610,6 @@ ${detailsHtml}
 });
 
 /**
- * GET /api/partials/terminal-commands
- *
- * Returns HTML fragment showing terminal commands for monitoring stream progress.
- * Query params:
- *   - streamId: Optional stream ID to show commands for specific stream
- */
-api.get('/partials/terminal-commands', (c) => {
-  const mode = getMode();
-  const requestedStreamId = c.req.query('streamId');
-  const ralphRoot = getRalphRoot();
-
-  if (!ralphRoot) {
-    return c.html('');
-  }
-
-  // Determine the stream ID to use
-  let streamId: string | undefined = requestedStreamId;
-
-  // If no stream specified and in multi mode, use the most recent stream
-  if (!streamId && mode === 'multi') {
-    const streams = getStreams();
-    if (streams.length > 0) {
-      streamId = streams[streams.length - 1].id;
-    }
-  }
-
-  // If we don't have a stream ID, don't show the terminal commands
-  if (!streamId) {
-    return c.html('');
-  }
-
-  // Get project root (parent of .ralph)
-  const projectRoot = path.dirname(ralphRoot);
-
-  // Build the terminal commands
-  const progressPath = `.ralph/PRD-${streamId}/progress.md`;
-  const runLogsPattern = `.ralph/PRD-${streamId}/runs/run-*-iter-*.log`;
-
-  const html = `
-<div class="terminal-commands-box">
-  <h3>Via Terminal</h3>
-  <p>Watch PRD-${streamId} progress in real-time:</p>
-  <div class="terminal-command">
-    <code># Watch progress file (updates after each iteration)</code><br>
-    <code>cd ${escapeHtml(projectRoot)}</code><br>
-    <code>tail -f ${progressPath}</code>
-  </div>
-  <div class="terminal-command">
-    <code># Watch current iteration log</code><br>
-    <code>tail -f ${runLogsPattern}</code>
-  </div>
-</div>
-`;
-
-  return c.html(html);
-});
-
-/**
  * GET /api/partials/stream-options
  *
  * Returns HTML options for the stream selector dropdown.
