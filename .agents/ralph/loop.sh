@@ -55,16 +55,32 @@ resolve_agent_cmd() {
   local name="$1"
   case "$name" in
     claude)
-      echo "${AGENT_CLAUDE_CMD:-claude -p --dangerously-skip-permissions}"
+      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
+        echo "$AGENT_CLAUDE_CMD"
+      else
+        echo "claude -p --dangerously-skip-permissions"
+      fi
       ;;
     droid)
-      echo "$AGENT_DROID_CMD"
+      if [[ -n "${AGENT_DROID_CMD:-}" ]]; then
+        echo "$AGENT_DROID_CMD"
+      else
+        echo "droid exec --skip-permissions-unsafe -f {prompt}"
+      fi
       ;;
     codex|"")
-      echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
+        echo "$AGENT_CODEX_CMD"
+      else
+        echo "codex exec --yolo --skip-git-repo-check -"
+      fi
       ;;
     *)
-      echo "${AGENT_CODEX_CMD:-codex exec --yolo --skip-git-repo-check -}"
+      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
+        echo "$AGENT_CODEX_CMD"
+      else
+        echo "codex exec --yolo --skip-git-repo-check -"
+      fi
       ;;
   esac
 }
