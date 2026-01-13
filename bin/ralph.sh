@@ -78,6 +78,59 @@ get_next_task_id() {
 # Commands
 # ============================================================================
 
+setup_path() {
+    # Check if already in PATH
+    if command -v ralph.sh &>/dev/null; then
+        return 0
+    fi
+
+    # Detect shell config file
+    local shell_config=""
+    local shell_name="${SHELL##*/}"
+
+    case "$shell_name" in
+        zsh)  shell_config="$HOME/.zshrc" ;;
+        bash)
+            if [[ -f "$HOME/.bash_profile" ]]; then
+                shell_config="$HOME/.bash_profile"
+            else
+                shell_config="$HOME/.bashrc"
+            fi
+            ;;
+        *)    shell_config="$HOME/.profile" ;;
+    esac
+
+    # Check if already added to config
+    if grep -q "ralph-cli/bin" "$shell_config" 2>/dev/null; then
+        log_ok "PATH already configured in $shell_config"
+        return 0
+    fi
+
+    echo ""
+    echo "Add ralph.sh to PATH for easier access?"
+    echo "  This will add a line to $shell_config"
+    echo ""
+    printf "  Add to PATH? [Y/n] "
+    read -r response
+
+    if [[ "$response" =~ ^[Nn] ]]; then
+        echo ""
+        echo "Skipped. To add manually later:"
+        echo "  export PATH=\"$SCRIPT_DIR:\$PATH\""
+        return 0
+    fi
+
+    # Add to shell config
+    echo "" >> "$shell_config"
+    echo "# Ralph CLI" >> "$shell_config"
+    echo "export PATH=\"$SCRIPT_DIR:\$PATH\"" >> "$shell_config"
+
+    log_ok "Added to $shell_config"
+    echo ""
+    echo "Run this to use immediately (or restart terminal):"
+    echo "  source $shell_config"
+}
+
 cmd_install() {
     log_info "Installing Ralph skills..."
     echo ""
@@ -114,11 +167,17 @@ cmd_install() {
 
     echo ""
     log_ok "Ralph installed successfully!"
+
+    # Offer to add to PATH
+    setup_path
+
     echo ""
     echo "Next steps:"
     echo "  1. Start Claude Code: claude"
     echo "  2. Create a task: /ralph-new Add my feature"
-    echo "  3. Run the task: /ralph-go 1"
+    echo "  3. Run the task:"
+    echo "     - Autonomous loop: ralph.sh go 1"
+    echo "     - Single iteration: /ralph-go 1 (inside Claude Code)"
 }
 
 cmd_update() {

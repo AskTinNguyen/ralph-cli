@@ -158,11 +158,11 @@ These constraints apply to ALL Ralph tasks.
 Created task: ralph-N
   .ralph/ralph-N/plan.md
 
-To start:
-  /ralph-go N
+To run:
+  Autonomous loop (terminal): ralph.sh go N
+  Single iteration (Claude Code): /ralph-go N
 
-Or edit the plan first:
-  .ralph/ralph-N/plan.md
+Note: Use full path to ralph.sh if not in PATH
 ```
 
 ## Example
@@ -184,7 +184,9 @@ Task: Add dark mode toggle
 Test: bun run verify
 Max iterations: 15
 
-To start: /ralph-go 1
+To run:
+  Autonomous loop (terminal): ralph.sh go 1
+  Single iteration (Claude Code): /ralph-go 1
 ```
 
 ## File Structure Created

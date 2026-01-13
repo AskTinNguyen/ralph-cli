@@ -145,7 +145,12 @@ mkdir -p .ralph/ralph-N/screenshots
 ```
 Created task: ralph-N
 Plan saved to: .ralph/ralph-N/plan.md
-To start: /ralph-go N
+
+To run:
+  Autonomous loop (terminal): ralph.sh go N
+  Single iteration (Claude Code): /ralph-go N
+
+Note: Use full path to ralph.sh if not in PATH
 ```
 
 ## Important Rules
@@ -187,5 +192,7 @@ Task: <inferred from conversation>
 Test: bun run verify
 Max iterations: 15
 
-To start: /ralph-go 1
+To run:
+  Autonomous loop (terminal): ralph.sh go 1
+  Single iteration (Claude Code): /ralph-go 1
 ```

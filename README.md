@@ -17,33 +17,26 @@ State lives in files, not databases. Every step is transparent and traceable.
 **Zero dependencies.** Pure bash. Works on macOS, Linux, and Windows (Git Bash/WSL).
 
 ```bash
-# Clone the repo
+# Clone and install
 git clone https://github.com/AskTinNguyen/ralph-cli.git
-
-# Add to your PATH (add to ~/.bashrc or ~/.zshrc)
-export PATH="$PATH:$HOME/ralph-cli/bin"
-
-# Verify
-ralph.sh --help
+cd ralph-cli
+./bin/ralph.sh install
 ```
 
-Or copy directly to your project:
+The installer will:
+1. Copy Ralph skills to your project's `.claude/skills/`
+2. **Ask to add `ralph.sh` to your PATH** (recommended - just press Enter)
+3. Create `.ralph/guardrails.md` for safety constraints
 
-```bash
-curl -O https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/bin/ralph.sh
-chmod +x ralph.sh
-```
+After install, restart your terminal or run `source ~/.zshrc` (or `.bashrc`).
 
 ## Quick Start
 
 ```bash
-# 1. Install Ralph skills to your repo
-ralph.sh install
-
-# 2. Create a task
+# 1. Create a task
 ralph.sh new "Add user authentication"
 
-# 3. Run the task (FULL LOOP until complete)
+# 2. Run the task (loops until complete)
 ralph.sh go 1
 ```
 
