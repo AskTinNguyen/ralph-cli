@@ -200,8 +200,10 @@ get_stream_status() {
   fi
 
   local total remaining
-  total=$(grep -c '### \[' "$prd_file" 2>/dev/null || echo 0)
-  remaining=$(grep -c '### \[ \]' "$prd_file" 2>/dev/null || echo 0)
+  total=$(grep -c '### \[' "$prd_file" 2>/dev/null || true)
+  remaining=$(grep -c '### \[ \]' "$prd_file" 2>/dev/null || true)
+  total=${total:-0}
+  remaining=${remaining:-0}
 
   if [[ "$total" -eq 0 ]]; then
     echo "no_stories"
@@ -216,8 +218,10 @@ count_stories() {
   local prd_file="$1"
   if [[ -f "$prd_file" ]]; then
     local total remaining
-    total=$(grep -c '### \[' "$prd_file" 2>/dev/null || echo 0)
-    remaining=$(grep -c '### \[ \]' "$prd_file" 2>/dev/null || echo 0)
+    total=$(grep -c '### \[' "$prd_file" 2>/dev/null || true)
+    remaining=$(grep -c '### \[ \]' "$prd_file" 2>/dev/null || true)
+    total=${total:-0}
+    remaining=${remaining:-0}
     local done=$((total - remaining))
     echo "$done/$total"
   else
