@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph CLI - Live Logs</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/js/htmx.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>Ralph CLI</h1>
+      <span class="subtitle">Autonomous Coding Loop</span>
+    </div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/streams.html">Streams</a>
+      <a href="/logs.html" class="active">Logs</a>
+      <a href="/editor.html">Editor</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Activity Logs Section -->
+    <section id="logs-section">
+      <h2>Activity Logs</h2>
+      <div class="logs-controls">
+        <select id="stream-filter"
+                hx-get="/api/partials/activity-logs"
+                hx-trigger="change"
+                hx-target="#logs-container"
+                hx-include="#stream-filter, #level-filter"
+                name="streamId">
+          <option value="">Latest Stream</option>
+          <option value="3">PRD-3 (Ralph CLI Web UI)</option>
+        </select>
+        <select id="level-filter"
+                hx-get="/api/partials/activity-logs"
+                hx-trigger="change"
+                hx-target="#logs-container"
+                hx-include="#stream-filter, #level-filter"
+                name="level">
+          <option value="">All Levels</option>
+          <option value="error">Errors Only</option>
+          <option value="warning">Warnings & Errors</option>
+          <option value="info">Info & Above</option>
+        </select>
+        <span class="logs-refresh-indicator htmx-indicator">Refreshing...</span>
+      </div>
+      <div id="logs-container"
+           hx-get="/api/partials/activity-logs"
+           hx-trigger="load, every 2s"
+           hx-swap="innerHTML"
+           hx-include="#stream-filter, #level-filter"
+           hx-indicator=".logs-refresh-indicator">
+        <div class="loading">Loading activity logs...</div>
+      </div>
+    </section>
+
+    <!-- Run Logs Section -->
+    <section id="runs-section">
+      <h2>Recent Runs</h2>
+      <div id="runs-container"
+           hx-get="/api/partials/run-list"
+           hx-trigger="load, every 5s, change from:#stream-filter"
+           hx-swap="innerHTML"
+           hx-include="#stream-filter">
+        <div class="loading">Loading runs...</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Ralph CLI Web UI &mdash; <span id="status-indicator" hx-get="/api/partials/status-indicator" hx-trigger="load, every 5s" hx-swap="innerHTML">checking...</span></p>
+  </footer>
+</body>
+</html>

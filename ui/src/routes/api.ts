@@ -645,6 +645,221 @@ api.get('/partials/status-indicator', (c) => {
 });
 
 /**
+ * GET /api/partials/activity-logs
+ *
+ * Returns HTML fragment for the activity logs list.
+ * Query params:
+ *   - level: Filter by minimum log level (error, warning, info)
+ */
+api.get('/partials/activity-logs', (c) => {
+  const mode = getMode();
+  const levelFilter = c.req.query('level') as LogLevel | undefined;
+  const requestedStreamId = c.req.query('streamId');
+
+  // Get the stream ID (from query param or most recent in multi mode)
+  let streamId: string | undefined = requestedStreamId;
+  if (!streamId && mode === 'multi') {
+    const streams = getStreams();
+    if (streams.length > 0) {
+      streamId = streams[streams.length - 1].id;
+    }
+  }
+
+  // Parse activity logs
+  let entries = parseActivityLog(streamId);
+
+  // Filter by log level if specified
+  if (levelFilter) {
+    const levelPriority: Record<LogLevel, number> = {
+      error: 4,
+      warning: 3,
+      info: 2,
+      debug: 1,
+    };
+
+    const minPriority = levelPriority[levelFilter] || 0;
+    entries = entries.filter((entry) => levelPriority[entry.level] >= minPriority);
+  }
+
+  // Limit to most recent 50 entries
+  entries = entries.slice(0, 50);
+
+  if (entries.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No activity logs found</h3>
+  <p>Activity will appear here when Ralph starts running.</p>
+</div>
+`);
+  }
+
+  const logEntriesHtml = entries
+    .map((entry) => {
+      const timestamp = entry.timestamp.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+
+      return `
+<div class="log-entry ${entry.level}">
+  <span class="log-timestamp">${timestamp}</span>
+  <span class="log-level ${entry.level}">${entry.level}</span>
+  <span class="log-message">${escapeHtml(entry.message)}</span>
+</div>
+`;
+    })
+    .join('');
+
+  return c.html(`<div class="log-entries">${logEntriesHtml}</div>`);
+});
+
+/**
+ * GET /api/partials/run-list
+ *
+ * Returns HTML fragment for the expandable run logs list.
+ */
+api.get('/partials/run-list', (c) => {
+  const mode = getMode();
+  const requestedStreamId = c.req.query('streamId');
+
+  // Get the stream ID and runs
+  let streamId: string | undefined = requestedStreamId;
+  let runs: Array<{
+    id: string;
+    iteration: number;
+    startedAt: Date;
+    status: string;
+    storyId?: string;
+    storyTitle?: string;
+    logPath: string;
+    summaryPath?: string;
+  }> = [];
+
+  if (mode === 'multi') {
+    const streams = getStreams();
+    if (streams.length > 0) {
+      // Use requested stream or default to most recent
+      const targetStreamId = streamId || streams[streams.length - 1].id;
+      streamId = targetStreamId;
+      const details = getStreamDetails(targetStreamId);
+      if (details) {
+        runs = details.runs;
+      }
+    }
+  }
+
+  if (runs.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No runs found</h3>
+  <p>Runs will appear here when you execute <code>ralph build</code>.</p>
+</div>
+`);
+  }
+
+  // Sort by most recent first and limit to 10 runs
+  runs = [...runs].sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime()).slice(0, 10);
+
+  const runListHtml = runs
+    .map((run, index) => {
+      const timestamp = run.startedAt.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+
+      const statusClass = run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'error' : 'in-progress';
+      const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ''}` : 'Unknown story';
+
+      // Create a unique ID for the run details container
+      const runDetailsId = `run-details-${index}`;
+
+      return `
+<div class="run-item" data-run-id="${escapeHtml(run.id)}">
+  <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
+    <div class="run-info">
+      <span class="status-badge ${statusClass}">${run.status}</span>
+      <span class="run-id">iter ${run.iteration}</span>
+      <span class="run-story">${escapeHtml(storyInfo)}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+      <span class="run-timestamp">${timestamp}</span>
+      <span class="run-expand-icon">&#9660;</span>
+    </div>
+  </div>
+  <div class="run-details" id="${runDetailsId}"
+       hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${streamId || ''}&iteration=${run.iteration}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML">
+    <div class="loading">Loading run log...</div>
+  </div>
+</div>
+`;
+    })
+    .join('');
+
+  return c.html(`<div class="run-list">${runListHtml}</div>`);
+});
+
+/**
+ * GET /api/partials/run-log-content
+ *
+ * Returns HTML fragment for the content of a specific run log.
+ * Query params:
+ *   - runId: The run ID
+ *   - streamId: The stream ID
+ *   - iteration: The iteration number
+ */
+api.get('/partials/run-log-content', (c) => {
+  const runId = c.req.query('runId');
+  const streamId = c.req.query('streamId');
+  const iterationStr = c.req.query('iteration');
+
+  if (!runId) {
+    return c.html(`<p class="empty-state">No run ID provided</p>`);
+  }
+
+  const iteration = iterationStr ? parseInt(iterationStr, 10) : undefined;
+  const entries = parseRunLog(runId, streamId, iteration);
+
+  if (entries.length === 0) {
+    return c.html(`<p class="empty-state">Run log content not available</p>`);
+  }
+
+  // Limit to first 100 entries for performance
+  const limitedEntries = entries.slice(0, 100);
+
+  const logContentHtml = limitedEntries
+    .map((entry) => {
+      const timestamp = entry.timestamp.toLocaleString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+
+      return `
+<div class="log-entry ${entry.level}">
+  <span class="log-timestamp">${timestamp}</span>
+  <span class="log-level ${entry.level}">${entry.level}</span>
+  <span class="log-message">${escapeHtml(entry.message)}</span>
+</div>
+`;
+    })
+    .join('');
+
+  const hasMore = entries.length > 100 ? `<p style="color: var(--text-muted); font-size: 0.75rem; margin-top: var(--spacing-sm);">Showing first 100 of ${entries.length} entries</p>` : '';
+
+  return c.html(`<div class="run-log-content">${logContentHtml}${hasMore}</div>`);
+});
+
+/**
  * Helper function to escape HTML characters
  */
 function escapeHtml(text: string): string {
