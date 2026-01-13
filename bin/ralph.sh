@@ -521,6 +521,7 @@ cmd_log() {
 }
 
 # Process stream-json output for real-time display
+# Writes directly to /dev/tty to bypass pipe buffering
 process_stream() {
     while IFS= read -r line; do
         # Skip non-JSON lines
@@ -529,15 +530,18 @@ process_stream() {
         # Extract and print text from content_block_delta events
         # JSON structure: {"type":"stream_event","event":{"type":"content_block_delta","delta":{"text":"..."}}}
         if [[ "$line" == *'"content_block_delta"'* ]]; then
+            local text=""
             if command -v jq &>/dev/null; then
-                printf '%s' "$(echo "$line" | jq -j '.event.delta.text // .delta.text // empty' 2>/dev/null)"
+                text=$(echo "$line" | jq -j '.event.delta.text // .delta.text // empty' 2>/dev/null)
             else
                 # Fallback sed parsing
-                printf '%s' "$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null)" || true
+                text=$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null) || true
             fi
+            # Write directly to terminal to bypass buffering
+            [[ -n "$text" ]] && printf '%s' "$text" > /dev/tty
         fi
     done
-    echo ""  # Final newline
+    echo "" > /dev/tty  # Final newline
 }
 
 cmd_go() {
