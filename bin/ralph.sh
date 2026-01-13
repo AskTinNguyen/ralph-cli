@@ -520,30 +520,6 @@ cmd_log() {
     esac
 }
 
-# Process stream-json output for real-time display
-# Writes directly to /dev/tty to bypass pipe buffering
-process_stream() {
-    while IFS= read -r line; do
-        # Skip non-JSON lines
-        [[ "$line" != "{"* ]] && continue
-
-        # Extract and print text from content_block_delta events
-        # JSON structure: {"type":"stream_event","event":{"type":"content_block_delta","delta":{"text":"..."}}}
-        if [[ "$line" == *'"content_block_delta"'* ]]; then
-            local text=""
-            if command -v jq &>/dev/null; then
-                text=$(echo "$line" | jq -j '.event.delta.text // .delta.text // empty' 2>/dev/null)
-            else
-                # Fallback sed parsing
-                text=$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null) || true
-            fi
-            # Write directly to terminal to bypass buffering
-            [[ -n "$text" ]] && printf '%s' "$text" > /dev/tty
-        fi
-    done
-    echo "" > /dev/tty  # Final newline
-}
-
 cmd_go() {
     local task_id_arg="$1"
 
@@ -585,19 +561,16 @@ cmd_go() {
         echo ""
 
         # Fresh Claude invocation - no accumulated context
-        # Use temp file to capture output while streaming to terminal
+        # Use temp file to capture output for completion detection
         local tmpfile
         tmpfile=$(mktemp)
 
-        # Run claude with stream-json for real-time events
-        # --verbose is required for stream-json in print mode
-        # --include-partial-messages shows chunks as they arrive
+        # Simple approach from iannuttall/ralph:
+        # Run claude directly with stdio inherit via tee
+        # No stream-json parsing - just let the terminal handle streaming naturally
         claude -p "/ralph-go $task_id" \
-            --output-format stream-json \
-            --verbose \
-            --include-partial-messages \
             --dangerously-skip-permissions \
-            2>&1 | tee "$tmpfile" | process_stream
+            2>&1 | tee "$tmpfile" || true
 
         # Check completion signals from captured output
         if grep -q '<promise>COMPLETE' "$tmpfile"; then
