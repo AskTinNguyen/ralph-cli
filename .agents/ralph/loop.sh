@@ -86,15 +86,7 @@ else
   ACTIVE_PRD_NUMBER=""
 fi
 
-# Legacy default paths (used when PRD_PATH is explicitly set to old location)
-LEGACY_PRD_PATH=".agents/tasks/prd.md"
-LEGACY_PLAN_PATH=".ralph/IMPLEMENTATION_PLAN.md"
-LEGACY_PROGRESS_PATH=".ralph/progress.md"
-
 # Default paths use PRD-N folder structure
-DEFAULT_PRD_PATH=""
-DEFAULT_PLAN_PATH=""
-DEFAULT_PROGRESS_PATH=""
 DEFAULT_AGENTS_PATH="AGENTS.md"
 DEFAULT_PROMPT_PLAN=".agents/ralph/PROMPT_plan.md"
 DEFAULT_PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
@@ -145,14 +137,7 @@ resolve_agent_cmd() {
         echo "droid exec --skip-permissions-unsafe -f {prompt}"
       fi
       ;;
-    codex|"")
-      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
-        echo "$AGENT_CODEX_CMD"
-      else
-        echo "codex exec --yolo --skip-git-repo-check -"
-      fi
-      ;;
-    *)
+    codex|""|*)
       if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
         echo "$AGENT_CODEX_CMD"
       else
