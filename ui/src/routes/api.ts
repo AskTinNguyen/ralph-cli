@@ -2468,4 +2468,309 @@ api.get('/tokens/trends', (c) => {
   return c.json(trends);
 });
 
+/**
+ * Token Dashboard Partial Endpoints for HTMX
+ *
+ * These endpoints return HTML fragments for the token dashboard.
+ */
+
+/**
+ * GET /api/partials/token-summary
+ *
+ * Returns HTML fragment for the token summary cards.
+ * Shows total tokens consumed (input/output breakdown),
+ * total estimated cost with currency formatting,
+ * and cost trend indicator (up/down vs previous period).
+ */
+api.get('/partials/token-summary', (c) => {
+  const summary = getTokenSummary();
+
+  // Calculate previous period cost for trend
+  const trends = getTokenTrends('7d');
+  let previousCost = 0;
+  let currentCost = 0;
+  const dataPoints = trends.dataPoints;
+
+  if (dataPoints.length >= 2) {
+    // Split data points into two halves for comparison
+    const midpoint = Math.floor(dataPoints.length / 2);
+    for (let i = 0; i < midpoint; i++) {
+      previousCost += dataPoints[i].totalCost;
+    }
+    for (let i = midpoint; i < dataPoints.length; i++) {
+      currentCost += dataPoints[i].totalCost;
+    }
+  }
+
+  // Determine trend direction
+  let trendDirection: 'up' | 'down' | 'neutral' = 'neutral';
+  let trendPercentage = 0;
+  if (previousCost > 0 && currentCost > 0) {
+    trendPercentage = Math.round(((currentCost - previousCost) / previousCost) * 100);
+    if (trendPercentage > 5) {
+      trendDirection = 'up';
+    } else if (trendPercentage < -5) {
+      trendDirection = 'down';
+    }
+  }
+
+  // Format currency
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) {
+      return `$${cost.toFixed(2)}`;
+    } else if (cost >= 0.01) {
+      return `$${cost.toFixed(3)}`;
+    } else if (cost > 0) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return '$0.00';
+  };
+
+  // Format token counts
+  const formatTokens = (tokens: number): string => {
+    if (tokens >= 1_000_000) {
+      return `${(tokens / 1_000_000).toFixed(2)}M`;
+    } else if (tokens >= 1_000) {
+      return `${(tokens / 1_000).toFixed(1)}K`;
+    }
+    return tokens.toString();
+  };
+
+  // Handle empty state
+  if (summary.totalInputTokens === 0 && summary.totalOutputTokens === 0) {
+    return c.html(`
+<div class="empty-state empty-state-setup">
+  <div class="empty-icon">&#128200;</div>
+  <h3>No token data yet</h3>
+  <p>Token consumption data will appear here after running <code>ralph build</code> commands.</p>
+</div>
+`);
+  }
+
+  // Trend indicator HTML
+  let trendHtml = '';
+  if (trendDirection === 'up') {
+    trendHtml = `<span class="token-trend up" title="Cost trend vs previous period">&#9650; +${trendPercentage}%</span>`;
+  } else if (trendDirection === 'down') {
+    trendHtml = `<span class="token-trend down" title="Cost trend vs previous period">&#9660; ${trendPercentage}%</span>`;
+  } else {
+    trendHtml = `<span class="token-trend neutral" title="Cost trend vs previous period">&#8212; 0%</span>`;
+  }
+
+  const totalTokens = summary.totalInputTokens + summary.totalOutputTokens;
+
+  const html = `
+<div class="token-summary-cards">
+  <div class="token-card">
+    <div class="token-card-label">Total Tokens</div>
+    <div class="token-card-value">${formatTokens(totalTokens)}</div>
+    <div class="token-card-breakdown">
+      <span class="token-input" title="Input tokens">&#8593; ${formatTokens(summary.totalInputTokens)}</span>
+      <span class="token-output" title="Output tokens">&#8595; ${formatTokens(summary.totalOutputTokens)}</span>
+    </div>
+  </div>
+
+  <div class="token-card token-card-highlight">
+    <div class="token-card-label">Total Cost</div>
+    <div class="token-card-value">${formatCurrency(summary.totalCost)}</div>
+    <div class="token-card-breakdown">
+      ${trendHtml}
+    </div>
+  </div>
+
+  <div class="token-card">
+    <div class="token-card-label">Avg Cost / Story</div>
+    <div class="token-card-value">${formatCurrency(summary.avgCostPerStory)}</div>
+    <div class="token-card-breakdown">
+      <span class="token-muted">per completed story</span>
+    </div>
+  </div>
+
+  <div class="token-card">
+    <div class="token-card-label">Avg Cost / Run</div>
+    <div class="token-card-value">${formatCurrency(summary.avgCostPerRun)}</div>
+    <div class="token-card-breakdown">
+      <span class="token-muted">per build iteration</span>
+    </div>
+  </div>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/token-streams
+ *
+ * Returns HTML fragment for the token usage by stream table.
+ */
+api.get('/partials/token-streams', (c) => {
+  const summary = getTokenSummary();
+
+  if (summary.byStream.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <div class="empty-icon">&#128203;</div>
+  <h3>No streams found</h3>
+  <p>Create a PRD with <code>ralph prd</code> to start tracking token usage.</p>
+</div>
+`);
+  }
+
+  // Find max cost for progress bar scaling
+  const maxCost = Math.max(...summary.byStream.map(s => s.totalCost), 0.01);
+
+  // Format currency
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) {
+      return `$${cost.toFixed(2)}`;
+    } else if (cost >= 0.01) {
+      return `$${cost.toFixed(3)}`;
+    } else if (cost > 0) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return '$0.00';
+  };
+
+  // Format token counts
+  const formatTokens = (tokens: number): string => {
+    if (tokens >= 1_000_000) {
+      return `${(tokens / 1_000_000).toFixed(2)}M`;
+    } else if (tokens >= 1_000) {
+      return `${(tokens / 1_000).toFixed(1)}K`;
+    }
+    return tokens.toString();
+  };
+
+  const tableRows = summary.byStream.map(stream => {
+    const costPercentage = maxCost > 0 ? Math.round((stream.totalCost / maxCost) * 100) : 0;
+
+    return `
+<tr class="token-stream-row">
+  <td>
+    <span class="stream-id">PRD-${escapeHtml(stream.streamId)}</span>
+    <span class="stream-name">${escapeHtml(stream.streamName)}</span>
+  </td>
+  <td class="token-count">${stream.storyCount}</td>
+  <td class="token-count">${stream.runCount}</td>
+  <td class="token-count" title="Input tokens">
+    <span class="token-input">&#8593;</span> ${formatTokens(stream.inputTokens)}
+  </td>
+  <td class="token-count" title="Output tokens">
+    <span class="token-output">&#8595;</span> ${formatTokens(stream.outputTokens)}
+  </td>
+  <td class="token-cost">
+    <div class="token-cost-bar">
+      <div class="token-cost-fill" style="width: ${costPercentage}%"></div>
+    </div>
+    <span class="token-cost-value">${formatCurrency(stream.totalCost)}</span>
+  </td>
+</tr>
+`;
+  }).join('');
+
+  const html = `
+<div class="token-table-container">
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>Stream</th>
+        <th class="token-count-header">Stories</th>
+        <th class="token-count-header">Runs</th>
+        <th class="token-count-header">Input</th>
+        <th class="token-count-header">Output</th>
+        <th class="token-cost-header">Cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/token-models
+ *
+ * Returns HTML fragment for the token usage by model breakdown.
+ */
+api.get('/partials/token-models', (c) => {
+  const summary = getTokenSummary();
+
+  const modelEntries = Object.entries(summary.byModel);
+
+  if (modelEntries.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <div class="empty-icon">&#129302;</div>
+  <h3>No model data yet</h3>
+  <p>Model breakdown will appear here after running builds with different Claude models.</p>
+</div>
+`);
+  }
+
+  // Format currency
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) {
+      return `$${cost.toFixed(2)}`;
+    } else if (cost >= 0.01) {
+      return `$${cost.toFixed(3)}`;
+    } else if (cost > 0) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return '$0.00';
+  };
+
+  // Format token counts
+  const formatTokens = (tokens: number): string => {
+    if (tokens >= 1_000_000) {
+      return `${(tokens / 1_000_000).toFixed(2)}M`;
+    } else if (tokens >= 1_000) {
+      return `${(tokens / 1_000).toFixed(1)}K`;
+    }
+    return tokens.toString();
+  };
+
+  // Find max cost for progress bar scaling
+  const maxCost = Math.max(...modelEntries.map(([, metrics]) => metrics.totalCost), 0.01);
+
+  const modelCards = modelEntries.map(([model, metrics]) => {
+    const costPercentage = maxCost > 0 ? Math.round((metrics.totalCost / maxCost) * 100) : 0;
+    const modelName = model || 'unknown';
+    const displayName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
+    const totalTokens = metrics.inputTokens + metrics.outputTokens;
+
+    return `
+<div class="token-model-card">
+  <div class="token-model-header">
+    <span class="token-model-name">${escapeHtml(displayName)}</span>
+    <span class="token-model-runs">${metrics.runCount || 0} runs</span>
+  </div>
+  <div class="token-model-stats">
+    <div class="token-model-stat">
+      <span class="token-model-stat-label">Tokens</span>
+      <span class="token-model-stat-value">${formatTokens(totalTokens)}</span>
+    </div>
+    <div class="token-model-stat">
+      <span class="token-model-stat-label">Cost</span>
+      <span class="token-model-stat-value">${formatCurrency(metrics.totalCost)}</span>
+    </div>
+  </div>
+  <div class="token-model-bar">
+    <div class="token-model-bar-fill" style="width: ${costPercentage}%"></div>
+  </div>
+  <div class="token-model-breakdown">
+    <span class="token-input" title="Input tokens">&#8593; ${formatTokens(metrics.inputTokens)}</span>
+    <span class="token-output" title="Output tokens">&#8595; ${formatTokens(metrics.outputTokens)}</span>
+  </div>
+</div>
+`;
+  }).join('');
+
+  return c.html(`<div class="token-models-grid">${modelCards}</div>`);
+});
+
 export { api };

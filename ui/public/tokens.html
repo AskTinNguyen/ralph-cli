@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ralph CLI - Live Logs</title>
+  <title>Ralph CLI - Token Dashboard</title>
   <link rel="stylesheet" href="/css/styles.css">
   <script src="/js/htmx.min.js"></script>
 </head>
@@ -30,69 +30,46 @@
     <nav>
       <a href="/">Dashboard</a>
       <a href="/streams.html">Streams</a>
-      <a href="/logs.html" class="active">Logs</a>
-      <a href="/tokens.html">Tokens</a>
+      <a href="/logs.html">Logs</a>
+      <a href="/tokens.html" class="active">Tokens</a>
       <a href="/editor.html">Editor</a>
     </nav>
   </header>
 
   <main>
-    <!-- Activity Logs Section -->
-    <section id="logs-section">
-      <h2>Activity Logs</h2>
-      <div class="logs-controls">
-        <select id="stream-filter"
-                hx-get="/api/partials/activity-logs"
-                hx-trigger="change"
-                hx-target="#logs-container"
-                hx-include="#stream-filter, #level-filter"
-                hx-indicator=".logs-refresh-indicator"
-                name="streamId">
-          <option value="">All Streams</option>
-        </select>
-        <select id="level-filter"
-                hx-get="/api/partials/activity-logs"
-                hx-trigger="change"
-                hx-target="#logs-container"
-                hx-include="#stream-filter, #level-filter"
-                hx-indicator=".logs-refresh-indicator"
-                name="level">
-          <option value="">All Levels</option>
-          <option value="error">Errors Only</option>
-          <option value="warning">Warnings & Errors</option>
-          <option value="info">Info & Above</option>
-        </select>
-        <span class="logs-refresh-indicator htmx-indicator"><span class="loading-spinner"></span> Refreshing...</span>
-      </div>
-
-      <!-- Terminal Commands Section -->
-      <div id="terminal-commands"
-           hx-get="/api/partials/terminal-commands"
-           hx-trigger="load, change from:#stream-filter"
+    <!-- Token Summary Section -->
+    <section id="token-summary-section">
+      <h2>Token Consumption Overview <span class="htmx-indicator" id="summary-indicator"><span class="loading-spinner"></span></span></h2>
+      <div id="token-summary-container"
+           hx-get="/api/partials/token-summary"
+           hx-trigger="load, every 10s"
            hx-swap="innerHTML"
-           hx-include="#stream-filter">
-      </div>
-
-      <div id="logs-container"
-           hx-get="/api/partials/activity-logs"
-           hx-trigger="load, every 2s"
-           hx-swap="innerHTML"
-           hx-include="#stream-filter, #level-filter"
-           hx-indicator=".logs-refresh-indicator">
-        <div class="loading"><span class="loading-spinner"></span> Loading activity logs...</div>
+           hx-indicator="#summary-indicator">
+        <div class="loading"><span class="loading-spinner"></span> Loading token summary...</div>
       </div>
     </section>
 
-    <!-- Run Logs Section -->
-    <section id="runs-section">
-      <h2>Recent Runs <span class="htmx-indicator" id="runs-indicator"><span class="loading-spinner"></span></span></h2>
-      <div id="runs-container"
-           hx-get="/api/partials/run-list"
-           hx-trigger="load, every 5s, change from:#stream-filter"
+    <!-- Token by Stream Section -->
+    <section id="token-streams-section">
+      <h2>Token Usage by Stream <span class="htmx-indicator" id="streams-indicator"><span class="loading-spinner"></span></span></h2>
+      <div id="token-streams-container"
+           hx-get="/api/partials/token-streams"
+           hx-trigger="load, every 10s"
            hx-swap="innerHTML"
-           hx-include="#stream-filter"
-           hx-indicator="#runs-indicator">
-        <div class="loading"><span class="loading-spinner"></span> Loading runs...</div>
+           hx-indicator="#streams-indicator">
+        <div class="loading"><span class="loading-spinner"></span> Loading stream token data...</div>
+      </div>
+    </section>
+
+    <!-- Token by Model Section -->
+    <section id="token-models-section">
+      <h2>Token Usage by Model <span class="htmx-indicator" id="models-indicator"><span class="loading-spinner"></span></span></h2>
+      <div id="token-models-container"
+           hx-get="/api/partials/token-models"
+           hx-trigger="load, every 10s"
+           hx-swap="innerHTML"
+           hx-indicator="#models-indicator">
+        <div class="loading"><span class="loading-spinner"></span> Loading model token data...</div>
       </div>
     </section>
   </main>
@@ -204,47 +181,6 @@
         dismissErrorToast();
       }
     }, 10000);
-
-    // ============================================
-    // Stream Selector Population
-    // ============================================
-
-    // Load available streams on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      loadStreams();
-    });
-
-    // Load streams into the stream-filter dropdown
-    async function loadStreams() {
-      try {
-        const response = await fetch('/api/streams');
-        const data = await response.json();
-
-        const selector = document.getElementById('stream-filter');
-
-        // Keep the "All Streams" option
-        selector.innerHTML = '<option value="">All Streams</option>';
-
-        if (data.streams && data.streams.length > 0) {
-          // Add each stream as an option
-          data.streams.forEach(function(stream) {
-            const option = document.createElement('option');
-            option.value = stream.id;
-            option.textContent = 'PRD-' + stream.id + ': ' + stream.name;
-            selector.appendChild(option);
-          });
-
-          // Auto-select the latest stream (last in the list)
-          const latestStream = data.streams[data.streams.length - 1];
-          selector.value = latestStream.id;
-
-          // Trigger change to load logs for the selected stream
-          htmx.trigger(selector, 'change');
-        }
-      } catch (error) {
-        console.error('Failed to load streams:', error);
-      }
-    }
   </script>
 </body>
 </html>
