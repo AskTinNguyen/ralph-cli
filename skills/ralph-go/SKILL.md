@@ -31,6 +31,7 @@ Read these files:
 - `.ralph/${TASK_ID}/plan.md` - Your task definition (REQUIRED)
 - `.ralph/${TASK_ID}/progress.md` - What's been done
 - `.ralph/${TASK_ID}/errors.log` - Recent failures
+- `.ralph/${TASK_ID}/status.json` - Machine-readable status (if exists)
 - `.ralph/guardrails.md` - Constraints (NEVER violate these)
 
 ### 2. Parse Task Config
@@ -42,7 +43,10 @@ test_command: "<project-appropriate test command>"
 completion_promise: "What signals done"
 max_iterations: 15
 visual_verification: false  # If true, capture screenshots for verification
+stream: null                # Optional: stream name if running in multi-stream mode
 ```
+
+**Stream Context:** If this task is being executed in a stream worktree, the `stream` field identifies which stream owns this task. This is set automatically by `ralph stream start`.
 
 ### 3. Execute Loop
 
@@ -88,6 +92,39 @@ If tests FAIL, append to `.ralph/${TASK_ID}/errors.log`:
 <error output, truncated to last 50 lines>
 ```
 
+**Update status.json** after every iteration (pass or fail):
+
+```json
+{
+  "id": "${TASK_ID}",
+  "title": "<task name from frontmatter>",
+  "status": "in_progress",
+  "progress": {
+    "completed": <count of checked criteria>,
+    "total": <count of all criteria>,
+    "percentage": <completed/total * 100>
+  },
+  "iterations": {
+    "current": <iteration number>,
+    "max": <max_iterations from frontmatter>,
+    "passed": <count of passed iterations>,
+    "failed": <count of failed iterations>
+  },
+  "timing": {
+    "created_at": "<preserve from existing>",
+    "started_at": "<set on first iteration if null>",
+    "last_activity": "<current ISO timestamp>"
+  },
+  "stream": "<preserve from existing or plan.md frontmatter>"
+}
+```
+
+Set `status` to:
+- `"in_progress"` - during normal execution
+- `"completed"` - when outputting COMPLETE signal
+- `"blocked"` - when outputting NEEDS_HUMAN signal
+- `"failed"` - when max_iterations reached without completion
+
 **Step E: Check Completion**
 
 All criteria met AND tests pass?
@@ -118,6 +155,7 @@ Read `.ralph/guardrails.md` and follow strictly. Typical rules:
 | `plan.md` | Task definition | Read only |
 | `progress.md` | What's done | Append after each pass |
 | `errors.log` | Failures | Append after each fail |
+| `status.json` | Machine status | Update after each iteration |
 | `guardrails.md` | Constraints | Read and obey |
 
 ## Completion Signals
@@ -187,3 +225,21 @@ When `visual_verification: true`, use Playwright MCP tools to capture UI state:
 - `browser_take_screenshot` with filename: `.ralph/${TASK_ID}/screenshots/<descriptive-name>.png`
 
 Screenshots must be saved in the task's folder (e.g., `.ralph/ralph-1/screenshots/`) for human review.
+
+## Multi-Stream Execution
+
+When running in a stream context (via `ralph stream start`):
+
+1. **Check stream lock**: Before starting, verify `.ralph/locks/stream-<name>.lock` exists with valid PID
+2. **Preserve stream field**: Maintain the `stream` value in status.json throughout execution
+3. **Branch awareness**: You're likely on a feature branch (e.g., `ralph/auth`), not main
+4. **Worktree paths**: The `.ralph/` directory is in the stream's worktree, isolated from main
+
+The stream field in status.json helps coordinate multi-stream execution:
+```json
+{
+  "stream": "auth"  // null for sequential tasks, stream name for parallel
+}
+```
+
+When task completes in a stream, the stream orchestrator will handle merging back to main.

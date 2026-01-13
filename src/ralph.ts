@@ -13,11 +13,13 @@
  *   ralph new "task"          Create task (prints ID)
  *   ralph list                List tasks
  *   ralph go <task-id>        Run task (headless)
+ *   ralph stream <cmd>        Multi-stream parallel execution
  */
 
 import { $ } from "bun"
 import { readdir, readFile, mkdir, writeFile, access, cp, rm } from "fs/promises"
 import { join, dirname } from "path"
+import { handleStreamCommand } from "./stream"
 
 // Directory where this script lives (for finding bundled skills and templates)
 const SCRIPT_DIR = dirname(import.meta.path)
@@ -97,6 +99,32 @@ async function cmdNew(taskName: string): Promise<void> {
   console.log(`  bun ralph.ts go ${taskId.replace("ralph-", "")}`)
 }
 
+interface TaskStatus {
+  id: string
+  title: string
+  status: "pending" | "in_progress" | "completed" | "blocked" | "failed"
+  progress: {
+    completed: number
+    total: number
+    percentage: number
+  }
+  iterations: {
+    current: number
+    max: number
+    passed: number
+    failed: number
+  }
+  stream?: string | null
+}
+
+const STATUS_SYMBOLS: Record<string, string> = {
+  pending: "○",
+  in_progress: "◐",
+  completed: "●",
+  blocked: "⚠",
+  failed: "✗"
+}
+
 async function cmdList(): Promise<void> {
   const workDir = process.cwd()
   const ralphDir = join(workDir, RALPH_DIR)
@@ -125,26 +153,48 @@ async function cmdList(): Promise<void> {
   for (const task of tasks) {
     const planPath = join(ralphDir, task.name, "plan.md")
     const progressPath = join(ralphDir, task.name, "progress.md")
+    const statusPath = join(ralphDir, task.name, "status.json")
 
     let taskName = task.name
     let iterations = 0
+    let status: TaskStatus | null = null
 
+    // Try to read status.json first (preferred)
     try {
-      const plan = await readFile(planPath, "utf-8")
-      const match = plan.match(/^task:\s*(.+)$/m)
-      if (match) taskName = match[1]
+      const statusContent = await readFile(statusPath, "utf-8")
+      status = JSON.parse(statusContent)
+      if (status) {
+        taskName = status.title || task.name
+        iterations = status.iterations?.current || 0
+      }
     } catch {
-      // Plan file may not exist yet
+      // Fall back to parsing plan.md and progress.md
+      try {
+        const plan = await readFile(planPath, "utf-8")
+        const match = plan.match(/^task:\s*(.+)$/m)
+        if (match) taskName = match[1]
+      } catch {
+        // Plan file may not exist yet
+      }
+
+      try {
+        const progress = await readFile(progressPath, "utf-8")
+        iterations = (progress.match(/## Iteration \d+/g) || []).length
+      } catch {
+        // Progress file may not exist yet
+      }
     }
 
-    try {
-      const progress = await readFile(progressPath, "utf-8")
-      iterations = (progress.match(/## Iteration \d+/g) || []).length
-    } catch {
-      // Progress file may not exist yet
+    // Format output based on whether we have status.json
+    if (status) {
+      const symbol = STATUS_SYMBOLS[status.status] || "?"
+      const progressStr = status.progress.total > 0
+        ? `${status.progress.completed}/${status.progress.total}`
+        : "-"
+      console.log(`  ${symbol} ${task.name}: ${taskName} [${status.status}] (${progressStr} criteria, ${iterations} iters)`)
+    } else {
+      console.log(`  ○ ${task.name}: ${taskName} (${iterations} iterations)`)
     }
-
-    console.log(`  ${task.name}: ${taskName} (${iterations} iterations)`)
   }
 }
 
@@ -204,7 +254,7 @@ async function cmdInstall(): Promise<void> {
   await mkdir(skillsTarget, { recursive: true })
 
   // Copy each skill
-  const skills = ["ralph-go", "ralph-new", "ralph-plan"]
+  const skills = ["ralph-go", "ralph-new", "ralph-plan", "ralph-stream"]
   for (const skill of skills) {
     const src = join(skillsSource, skill)
     const dest = join(skillsTarget, skill)
@@ -252,7 +302,7 @@ async function cmdUpdate(): Promise<void> {
   }
 
   // Check if skills are installed
-  const skills = ["ralph-go", "ralph-new", "ralph-plan"]
+  const skills = ["ralph-go", "ralph-new", "ralph-plan", "ralph-stream"]
   let hasExisting = false
   for (const skill of skills) {
     if (await dirExists(join(skillsTarget, skill))) {
@@ -339,6 +389,10 @@ switch (command) {
     await cmdGo(args[0])
     break
 
+  case "stream":
+    await handleStreamCommand(args[0] || "", args.slice(1))
+    break
+
   default:
     console.log(`Ralph - Autonomous Coding Loop
 
@@ -348,6 +402,14 @@ Usage:
   ralph new "task"       Create a new task
   ralph list             List all tasks
   ralph go <id>          Run task (headless)
+  ralph stream <cmd>     Multi-stream parallel execution
+
+Stream commands:
+  ralph stream init      Initialize worktrees from streams.yaml
+  ralph stream start <n> Start Ralph in a stream
+  ralph stream status    Show all streams status
+  ralph stream merge <n> Merge completed stream
+  ralph stream cleanup   Remove merged worktrees
 
 For interactive use:
   claude

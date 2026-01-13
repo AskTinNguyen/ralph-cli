@@ -119,7 +119,38 @@ touch .ralph/ralph-N/errors.log
 touch .ralph/ralph-N/activity.log
 ```
 
-### 6. Create Guardrails (if first task)
+### 6. Create status.json
+
+Create machine-readable status file:
+
+```json
+{
+  "id": "ralph-N",
+  "title": "<task name>",
+  "status": "pending",
+  "progress": {
+    "completed": 0,
+    "total": <count of success criteria>,
+    "percentage": 0
+  },
+  "iterations": {
+    "current": 0,
+    "max": 15,
+    "passed": 0,
+    "failed": 0
+  },
+  "timing": {
+    "created_at": "<ISO timestamp>",
+    "started_at": null,
+    "last_activity": null
+  },
+  "stream": null
+}
+```
+
+Write this to `.ralph/ralph-N/status.json`.
+
+### 7. Create Guardrails (if first task)
 
 If `.ralph/guardrails.md` doesn't exist, create it:
 
@@ -152,7 +183,7 @@ These constraints apply to ALL Ralph tasks.
 (Add your project's constraints here)
 ```
 
-### 7. Output Result
+### 8. Output Result
 
 ```
 Created task: ralph-N
@@ -196,5 +227,6 @@ To start: /ralph-go 1
     ├── plan.md          # Task definition
     ├── progress.md      # Empty, ready for iterations
     ├── errors.log       # Empty
-    └── activity.log     # Empty
+    ├── activity.log     # Empty
+    └── status.json      # Machine-readable status
 ```
