@@ -19,11 +19,7 @@ State lives in files, not databases. Every step is transparent and traceable.
 Install globally to use the `ralph` command directly anywhere:
 
 ```bash
-# Using bun
-bun add -g ralph-cli
-
-# Using npm
-npm install -g ralph-cli
+bun add -g github:AskTinNguyen/ralph-cli
 
 # Verify installation
 ralph --help
@@ -42,22 +38,18 @@ ralph go 1       # Run a task
 Install as a dev dependency in your project:
 
 ```bash
-# Using bun
-bun add -D ralph-cli
-
-# Using npm
-npm install -D ralph-cli
+bun add -D github:AskTinNguyen/ralph-cli
 ```
 
-Use with `bunx` or `npx`:
+Use with `bunx`:
 
 ```bash
-bunx ralph install    # or: npx ralph install
-bunx ralph new "task" # or: npx ralph new "task"
-bunx ralph go 1       # or: npx ralph go 1
+bunx ralph install
+bunx ralph new "task"
+bunx ralph go 1
 ```
 
-Or add scripts to your `package.json`:
+Or add a script to your `package.json`:
 
 ```json
 {
@@ -68,18 +60,6 @@ Or add scripts to your `package.json`:
 ```
 
 Then use `bun run ralph install`, etc.
-
-### Install from GitHub (Latest)
-
-To get the bleeding-edge version directly from GitHub:
-
-```bash
-# Global
-bun add -g github:AskTinNguyen/ralph-cli
-
-# Local
-bun add -D github:AskTinNguyen/ralph-cli
-```
 
 ### What Gets Created
 
@@ -93,10 +73,10 @@ After running `ralph install`, this creates:
 
 ```bash
 # 1. Install Ralph globally (one-time setup)
-bun add -g ralph-cli     # or: npm install -g ralph-cli
+bun add -g github:AskTinNguyen/ralph-cli
 
 # 2. Install Ralph skills to your repo
-ralph install            # or: bunx ralph install (if local)
+ralph install
 
 # 3. Start Claude Code
 claude
@@ -128,12 +108,12 @@ Update Ralph skills to the latest version.
 
 ```bash
 # Global install: update package, then update skills
-bun add -g ralph-cli    # or: npm install -g ralph-cli
+bun add -g github:AskTinNguyen/ralph-cli
 ralph update
 
 # Local install: update package, then update skills
-bun update ralph-cli    # or: npm update ralph-cli
-bunx ralph update       # or: npx ralph update
+bun add -D github:AskTinNguyen/ralph-cli
+bunx ralph update
 ```
 
 This overwrites `.claude/skills/ralph-*/` with the latest versions. Your `guardrails.md` is preserved if you've customized it.
