@@ -17,18 +17,20 @@ State lives in files, not databases. Every step is transparent and traceable.
 **Zero dependencies.** Pure bash. Works on macOS, Linux, and Windows (Git Bash/WSL).
 
 ```bash
-# Clone and install
-git clone https://github.com/AskTinNguyen/ralph-cli.git
-cd ralph-cli
-./bin/ralph.sh install
+# 1. Clone ralph-cli (one time setup)
+git clone -b feat/pure-loop https://github.com/AskTinNguyen/ralph-cli.git
+~/ralph-cli/bin/ralph.sh install   # Adds ralph.sh to PATH
+source ~/.zshrc                     # Or restart terminal
+
+# 2. Install skills to your project
+cd your-project
+ralph.sh install
 ```
 
 The installer will:
 1. Copy Ralph skills to your project's `.claude/skills/`
-2. **Ask to add `ralph.sh` to your PATH** (recommended - just press Enter)
+2. **Ask to add `ralph.sh` to your PATH** (first time only)
 3. Create `.ralph/guardrails.md` for safety constraints
-
-After install, restart your terminal or run `source ~/.zshrc` (or `.bashrc`).
 
 ## Quick Start
 
