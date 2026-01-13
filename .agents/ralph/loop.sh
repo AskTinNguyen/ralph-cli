@@ -559,6 +559,64 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
+# Enhanced error display with path highlighting and suggestions
+# Usage: show_error "message" ["log_path"]
+show_error() {
+  local message="$1"
+  local log_path="${2:-}"
+  msg_error "$message"
+  if [ -n "$log_path" ]; then
+    printf "  ${C_RED}Review logs at: ${C_BOLD}%s${C_RESET}\n" "$log_path"
+  fi
+}
+
+# Show helpful suggestions when errors occur
+show_error_suggestions() {
+  local error_type="${1:-agent}"  # agent or system
+  printf "\n${C_YELLOW}${C_BOLD}Suggested next steps:${C_RESET}\n"
+  if [ "$error_type" = "agent" ]; then
+    printf "  ${C_DIM}1)${C_RESET} Review the run log for agent output and errors\n"
+    printf "  ${C_DIM}2)${C_RESET} Check ${C_CYAN}%s${C_RESET} for repeated failures\n" "$ERRORS_LOG_PATH"
+    printf "  ${C_DIM}3)${C_RESET} Try: ${C_CYAN}ralph build 1 --no-commit${C_RESET} for a test run\n"
+  else
+    printf "  ${C_DIM}1)${C_RESET} Verify the agent CLI is installed and authenticated\n"
+    printf "  ${C_DIM}2)${C_RESET} Check system resources (disk space, memory)\n"
+    printf "  ${C_DIM}3)${C_RESET} Review ${C_CYAN}%s${C_RESET} for patterns\n" "$GUARDRAILS_PATH"
+  fi
+}
+
+# Print error summary at end of run if any iterations failed
+# Reads from FAILED_ITERATIONS (format: "iter:story:logfile,iter:story:logfile,...")
+print_error_summary() {
+  local failed_data="$1"
+  local count="$2"
+
+  if [ -z "$failed_data" ] || [ "$count" -eq 0 ]; then
+    return
+  fi
+
+  echo ""
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+  printf "${C_BOLD}${C_RED}  ERROR SUMMARY: %d iteration(s) failed${C_RESET}\n" "$count"
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+
+  # Parse and display each failed iteration
+  IFS=',' read -ra FAILURES <<< "$failed_data"
+  for failure in "${FAILURES[@]}"; do
+    IFS=':' read -r iter story logfile <<< "$failure"
+    printf "${C_RED}  ✗ Iteration %s${C_RESET}" "$iter"
+    if [ -n "$story" ] && [ "$story" != "plan" ]; then
+      printf " ${C_DIM}(%s)${C_RESET}" "$story"
+    fi
+    printf "\n"
+    printf "    ${C_RED}Log: ${C_BOLD}%s${C_RESET}\n" "$logfile"
+  done
+
+  printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
+  printf "  ${C_YELLOW}Check: ${C_CYAN}%s${C_RESET}\n" "$ERRORS_LOG_PATH"
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+}
+
 append_run_summary() {
   local line="$1"
   python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
@@ -690,6 +748,9 @@ msg_dim "Max iterations: $MAX_ITERATIONS"
 msg_dim "PRD: $PRD_PATH"
 msg_dim "Plan: $PLAN_PATH"
 HAS_ERROR="false"
+# Track failed iterations for summary at end
+FAILED_ITERATIONS=""
+FAILED_COUNT=0
 
 # Progress indicator: prints elapsed time every N seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
@@ -797,6 +858,9 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   if [ "$CMD_STATUS" -ne 0 ]; then
     log_error "ITERATION $i command failed (status=$CMD_STATUS)"
     HAS_ERROR="true"
+    # Track failed iteration details for summary
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+    FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
   CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -820,8 +884,15 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
     if [ "$CMD_STATUS" -ne 0 ]; then
-      msg_error "ITERATION $i exited non-zero; review $LOG_FILE"
-      log_error "ITERATION $i exited non-zero; review $LOG_FILE"
+      # Differentiate agent errors vs system errors
+      if [ "$CMD_STATUS" -eq 1 ]; then
+        show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
+        show_error_suggestions "agent"
+      else
+        show_error "ITERATION $i: System/command error (exit code: $CMD_STATUS)" "$LOG_FILE"
+        show_error_suggestions "system"
+      fi
+      log_error "ITERATION $i exited non-zero (code=$CMD_STATUS); review $LOG_FILE"
     fi
     if grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
       if [ "$REMAINING" = "0" ]; then
@@ -843,6 +914,18 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
       exit 0
     fi
   else
+    # Handle plan mode errors
+    if [ "$CMD_STATUS" -ne 0 ]; then
+      # Differentiate agent errors vs system errors
+      if [ "$CMD_STATUS" -eq 1 ]; then
+        show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
+        show_error_suggestions "agent"
+      else
+        show_error "ITERATION $i: System/command error (exit code: $CMD_STATUS)" "$LOG_FILE"
+        show_error_suggestions "system"
+      fi
+      log_error "ITERATION $i (plan) exited non-zero (code=$CMD_STATUS); review $LOG_FILE"
+    fi
     # Iteration completion separator (plan mode)
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
@@ -861,6 +944,10 @@ if [ "$MODE" = "plan" ]; then
   msg_dim "2) Start implementation with: ralph build"
   msg_dim "3) Test a single run without committing: ralph build 1 --no-commit"
 fi
+
+# Print error summary at end of run if any iterations failed
+print_error_summary "$FAILED_ITERATIONS" "$FAILED_COUNT"
+
 if [ "$HAS_ERROR" = "true" ]; then
   exit 1
 fi
