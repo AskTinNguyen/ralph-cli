@@ -60,6 +60,52 @@ msg_dim() {
   printf "${C_DIM}%s${C_RESET}\n" "$1"
 }
 
+# Visual hierarchy helpers
+# Symbols standardized for consistent meaning across all commands:
+#   ✓ = success/completed action
+#   ● = completed stream/item
+#   ○ = ready/pending
+#   ▶ = running/in-progress
+#   ? = unknown/error state
+#   → = pointer/reference
+SYM_SUCCESS="✓"
+SYM_COMPLETED="●"
+SYM_READY="○"
+SYM_RUNNING="▶"
+SYM_UNKNOWN="?"
+SYM_POINTER="→"
+
+# Section header with color and separator
+section_header() {
+  local title="$1"
+  printf "\n${C_BOLD}${C_CYAN}%s${C_RESET}\n" "$title"
+  printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+}
+
+# File path display (distinct from regular text)
+path_display() {
+  local path="$1"
+  printf "${C_CYAN}%s${C_RESET}" "$path"
+}
+
+# Next steps section with visual highlight
+next_steps_header() {
+  printf "\n${C_BOLD}${C_YELLOW}Next steps:${C_RESET}\n"
+}
+
+# Indented bullet point
+bullet() {
+  local text="$1"
+  printf "  ${C_DIM}•${C_RESET} %s\n" "$text"
+}
+
+# Numbered step (for next steps)
+numbered_step() {
+  local num="$1"
+  local text="$2"
+  printf "  ${C_YELLOW}%d.${C_RESET} %s\n" "$num" "$text"
+}
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -256,29 +302,27 @@ EOF
 
 EOF
 
-  echo "Created stream: $stream_id"
-  echo "  $RALPH_DIR/$stream_id/"
-  echo ""
-  echo "Next steps:"
-  echo "  1. Edit PRD: $stream_dir/prd.md"
-  echo "  2. Generate plan: ralph stream plan $stream_num"
-  echo "  3. Run build: ralph stream build $stream_num"
+  printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Created stream:${C_RESET} ${C_CYAN}%s${C_RESET}\n" "$stream_id"
+  bullet "Location: $(path_display "$RALPH_DIR/$stream_id/")"
+
+  next_steps_header
+  numbered_step 1 "Edit PRD: $(path_display "$stream_dir/prd.md")"
+  numbered_step 2 "Generate plan: ${C_DIM}ralph stream plan $stream_num${C_RESET}"
+  numbered_step 3 "Run build: ${C_DIM}ralph stream build $stream_num${C_RESET}"
 
   # Return just the number for scripting
-  echo ""
-  echo "Stream ID: $stream_num"
+  printf "\n${C_DIM}Stream ID: %s${C_RESET}\n" "$stream_num"
 }
 
 cmd_list() {
   if [[ ! -d "$RALPH_DIR" ]]; then
-    echo "No .ralph/ directory found."
+    msg_warn "No .ralph/ directory found."
     return
   fi
 
-  local found=0
-  echo "Ralph Streams:"
-  echo ""
+  section_header "Ralph Streams"
 
+  local found=0
   for dir in "$RALPH_DIR"/prd-*; do
     if [[ -d "$dir" ]]; then
       found=1
@@ -289,32 +333,43 @@ cmd_list() {
       local progress
       progress=$(count_stories "$dir/prd.md")
 
-      local symbol
+      # Use standardized symbols and colors
+      local symbol status_color
       case "$status" in
-        running)    symbol="▶" ;;
-        completed)  symbol="●" ;;
-        ready)      symbol="○" ;;
-        no_prd)     symbol="?" ;;
-        no_stories) symbol="?" ;;
-        *)          symbol="?" ;;
+        running)
+          symbol="$SYM_RUNNING"
+          status_color="${C_BOLD}${C_YELLOW}"
+          ;;
+        completed)
+          symbol="$SYM_COMPLETED"
+          status_color="${C_GREEN}"
+          ;;
+        ready)
+          symbol="$SYM_READY"
+          status_color="${C_CYAN}"
+          ;;
+        *)
+          symbol="$SYM_UNKNOWN"
+          status_color="${C_DIM}"
+          ;;
       esac
 
-      printf "  %s prd-%s  [%-10s]  %s stories\n" "$symbol" "$num" "$status" "$progress"
+      printf "  %s ${C_BOLD}prd-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
     fi
   done
 
   if [[ $found -eq 0 ]]; then
-    echo "  No streams found."
-    echo ""
-    echo "Create one with: ralph stream new"
+    msg_dim "  No streams found."
+    next_steps_header
+    numbered_step 1 "Create one with: ${C_DIM}ralph stream new${C_RESET}"
   fi
+  echo ""
 }
 
 cmd_status() {
-  echo ""
-  printf "${C_BOLD}${C_CYAN}Ralph Multi-Stream Status${C_RESET}\n"
+  section_header "Ralph Multi-Stream Status"
   echo "┌──────────┬────────────┬──────────┬──────────┬──────────┐"
-  printf "│ %-8s │ %-10s │ %-8s │ %-8s │ %-8s │\n" "STREAM" "STATUS" "PROGRESS" "MODIFIED" "WORKTREE"
+  printf "│ ${C_DIM}%-8s${C_RESET} │ ${C_DIM}%-10s${C_RESET} │ ${C_DIM}%-8s${C_RESET} │ ${C_DIM}%-8s${C_RESET} │ ${C_DIM}%-8s${C_RESET} │\n" "STREAM" "STATUS" "PROGRESS" "MODIFIED" "WORKTREE"
   echo "├──────────┼────────────┼──────────┼──────────┼──────────┤"
 
   if [[ ! -d "$RALPH_DIR" ]]; then
@@ -341,27 +396,27 @@ cmd_status() {
       local last_modified
       last_modified=$(get_human_time_diff "$dir/progress.md")
 
-      # Symbol and color based on status
+      # Use standardized symbols and color based on status
       local symbol status_color row_prefix row_suffix
       row_prefix=""
       row_suffix=""
       case "$status" in
         running)
-          symbol="▶"
+          symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           row_prefix="${C_BOLD}"
           row_suffix="${C_RESET}"
           ;;
         completed)
-          symbol="●"
+          symbol="$SYM_COMPLETED"
           status_color="${C_GREEN}"
           ;;
         ready)
-          symbol="○"
+          symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
         *)
-          symbol="?"
+          symbol="$SYM_UNKNOWN"
           status_color="${C_DIM}"
           ;;
       esac
@@ -378,7 +433,7 @@ cmd_status() {
 
   echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
   echo ""
-  msg_dim "Legend: ● completed  ▶ running  ○ ready  ? unknown"
+  msg_dim "Legend: $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready  $SYM_UNKNOWN unknown"
   echo ""
 }
 
@@ -388,18 +443,19 @@ cmd_init() {
   stream_id=$(normalize_stream_id "$input")
 
   if [[ -z "$stream_id" ]]; then
-    echo "Invalid stream ID: $input" >&2
+    msg_error "Invalid stream ID: $input" >&2
     return 1
   fi
 
   if ! stream_exists "$stream_id"; then
-    echo "Stream not found: $stream_id" >&2
-    echo "Create it first: ralph stream new"
+    msg_error "Stream not found: $stream_id" >&2
+    next_steps_header
+    numbered_step 1 "Create it first: ${C_DIM}ralph stream new${C_RESET}"
     return 1
   fi
 
   if worktree_exists "$stream_id"; then
-    echo "Worktree already exists for $stream_id"
+    msg_warn "Worktree already exists for $stream_id"
     return 0
   fi
 
@@ -409,7 +465,7 @@ cmd_init() {
   # Create branch from current HEAD if it doesn't exist
   if ! git show-ref --verify --quiet "refs/heads/$branch"; then
     git branch "$branch"
-    echo "Created branch: $branch"
+    msg_dim "Created branch: $branch"
   fi
 
   # Create worktree
@@ -427,9 +483,9 @@ cmd_init() {
     cp "$RALPH_DIR/guardrails.md" "$worktree_path/.ralph/"
   fi
 
-  echo "Initialized worktree for $stream_id"
-  echo "  Path: $worktree_path"
-  echo "  Branch: $branch"
+  printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Initialized worktree for %s${C_RESET}\n" "$stream_id"
+  bullet "Path: $(path_display "$worktree_path")"
+  bullet "Branch: ${C_CYAN}$branch${C_RESET}"
 }
 
 cmd_build() {
@@ -439,12 +495,12 @@ cmd_build() {
   stream_id=$(normalize_stream_id "$input")
 
   if [[ -z "$stream_id" ]]; then
-    echo "Invalid stream ID: $input" >&2
+    msg_error "Invalid stream ID: $input" >&2
     return 1
   fi
 
   if ! stream_exists "$stream_id"; then
-    echo "Stream not found: $stream_id" >&2
+    msg_error "Stream not found: $stream_id" >&2
     return 1
   fi
 
@@ -465,9 +521,9 @@ cmd_build() {
     stream_dir="$work_dir/.ralph/$stream_id"
   fi
 
-  echo "Running build for $stream_id"
-  echo "  Work dir: $work_dir"
-  echo "  Iterations: $iterations"
+  section_header "Running build for $stream_id"
+  bullet "Work dir: $(path_display "$work_dir")"
+  bullet "Iterations: ${C_BOLD}$iterations${C_RESET}"
   echo ""
 
   # Run loop.sh with stream-specific paths
@@ -487,20 +543,20 @@ cmd_merge() {
   stream_id=$(normalize_stream_id "$input")
 
   if [[ -z "$stream_id" ]]; then
-    echo "Invalid stream ID: $input" >&2
+    msg_error "Invalid stream ID: $input" >&2
     return 1
   fi
 
   if ! worktree_exists "$stream_id"; then
-    echo "No worktree for $stream_id" >&2
-    echo "Nothing to merge - stream ran in main worktree"
+    msg_error "No worktree for $stream_id" >&2
+    msg_dim "Nothing to merge - stream ran in main worktree"
     return 1
   fi
 
   local status
   status=$(get_stream_status "$stream_id")
   if [[ "$status" != "completed" ]]; then
-    echo "Stream $stream_id is not completed (status: $status)" >&2
+    msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
   fi
 
@@ -514,25 +570,24 @@ cmd_merge() {
     fi
   fi
 
-  echo "Merging $stream_id to $base_branch..."
+  section_header "Merging $stream_id to $base_branch"
 
   # Switch to base branch
   git checkout "$base_branch"
 
   # Merge stream branch
   if git merge --ff-only "$branch"; then
-    echo "Merged $branch to $base_branch (fast-forward)"
+    msg_dim "Merged $branch to $base_branch (fast-forward)"
   else
-    echo "Fast-forward not possible. Attempting regular merge..."
+    msg_warn "Fast-forward not possible. Attempting regular merge..."
     git merge "$branch" -m "Merge $stream_id"
   fi
 
-  echo ""
-  echo "Stream $stream_id merged successfully"
-  echo ""
-  echo "Next steps:"
-  echo "  git push origin $base_branch"
-  echo "  ralph stream cleanup $input"
+  printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Stream %s merged successfully${C_RESET}\n" "$stream_id"
+
+  next_steps_header
+  numbered_step 1 "${C_DIM}git push origin $base_branch${C_RESET}"
+  numbered_step 2 "${C_DIM}ralph stream cleanup $input${C_RESET}"
 }
 
 cmd_cleanup() {
@@ -541,21 +596,22 @@ cmd_cleanup() {
   stream_id=$(normalize_stream_id "$input")
 
   if [[ -z "$stream_id" ]]; then
-    echo "Invalid stream ID: $input" >&2
+    msg_error "Invalid stream ID: $input" >&2
     return 1
   fi
 
   if ! worktree_exists "$stream_id"; then
-    echo "No worktree for $stream_id"
+    msg_dim "No worktree for $stream_id"
     return 0
   fi
 
   local worktree_path="$WORKTREES_DIR/$stream_id"
 
-  echo "Removing worktree for $stream_id..."
+  section_header "Cleaning up $stream_id"
+  msg_dim "Removing worktree at $(path_display "$worktree_path")"
   git worktree remove "$worktree_path" --force
 
-  echo "Cleaned up $stream_id"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Cleaned up %s\n" "$stream_id"
 }
 
 # ============================================================================
@@ -604,22 +660,23 @@ case "$cmd" in
     cmd_cleanup "$1"
     ;;
   *)
-    echo "Ralph Stream - Multi-PRD parallel execution"
+    printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
+    printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
+    printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+    printf "  ${C_GREEN}ralph stream new${C_RESET}              Create new stream (prd-1, prd-2, ...)\n"
+    printf "  ${C_GREEN}ralph stream list${C_RESET}             List all streams\n"
+    printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
+    printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
+    printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n]${C_RESET}    Run n build iterations in stream\n"
+    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET}        Merge completed stream to main\n"
+    printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
+    printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
+    printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates prd-1${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream build 1 5${C_RESET}        ${C_DIM}# Run 5 iterations on prd-1${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream init 1${C_RESET}           ${C_DIM}# Create worktree for parallel work${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream build 1 &${C_RESET}        ${C_DIM}# Run in background${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream build 2 &${C_RESET}        ${C_DIM}# Run another in parallel${C_RESET}\n"
     echo ""
-    echo "Usage:"
-    echo "  ralph stream new              Create new stream (prd-1, prd-2, ...)"
-    echo "  ralph stream list             List all streams"
-    echo "  ralph stream status           Show detailed status"
-    echo "  ralph stream init <N>         Initialize worktree for parallel execution"
-    echo "  ralph stream build <N> [n]    Run n build iterations in stream"
-    echo "  ralph stream merge <N>        Merge completed stream to main"
-    echo "  ralph stream cleanup <N>      Remove stream worktree"
-    echo ""
-    echo "Examples:"
-    echo "  ralph stream new              # Creates prd-1"
-    echo "  ralph stream build 1 5        # Run 5 iterations on prd-1"
-    echo "  ralph stream init 1           # Create worktree for parallel work"
-    echo "  ralph stream build 1 &        # Run in background"
-    echo "  ralph stream build 2 &        # Run another in parallel"
     ;;
 esac
