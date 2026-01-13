@@ -104,6 +104,47 @@ AGENT_CMD="${AGENT_CMD:-$DEFAULT_AGENT_CMD}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-$DEFAULT_MAX_ITERATIONS}"
 NO_COMMIT="${NO_COMMIT:-$DEFAULT_NO_COMMIT}"
 
+# Color output support with TTY detection
+# Colors are disabled when stdout is not a TTY (pipes, redirects)
+if [ -t 1 ]; then
+  C_GREEN='\033[32m'
+  C_RED='\033[31m'
+  C_YELLOW='\033[33m'
+  C_CYAN='\033[36m'
+  C_DIM='\033[2m'
+  C_BOLD='\033[1m'
+  C_RESET='\033[0m'
+else
+  C_GREEN=''
+  C_RED=''
+  C_YELLOW=''
+  C_CYAN=''
+  C_DIM=''
+  C_BOLD=''
+  C_RESET=''
+fi
+
+# Colored output helper functions
+msg_success() {
+  printf "${C_GREEN}%s${C_RESET}\n" "$1"
+}
+
+msg_error() {
+  printf "${C_BOLD}${C_RED}%s${C_RESET}\n" "$1"
+}
+
+msg_warn() {
+  printf "${C_YELLOW}%s${C_RESET}\n" "$1"
+}
+
+msg_info() {
+  printf "${C_CYAN}%s${C_RESET}\n" "$1"
+}
+
+msg_dim() {
+  printf "${C_DIM}%s${C_RESET}\n" "$1"
+}
+
 abs_path() {
   local p="$1"
   if [[ "$p" = /* ]]; then
@@ -133,23 +174,23 @@ require_agent() {
   local agent_bin
   agent_bin="${agent_cmd%% *}"
   if [ -z "$agent_bin" ]; then
-    echo "AGENT_CMD is empty. Set it in config.sh."
+    msg_error "AGENT_CMD is empty. Set it in config.sh."
     exit 1
   fi
   if ! command -v "$agent_bin" >/dev/null 2>&1; then
-    echo "Agent command not found: $agent_bin"
+    msg_error "Agent command not found: $agent_bin"
     case "$agent_bin" in
       codex)
-        echo "Install: npm i -g @openai/codex"
+        msg_info "Install: npm i -g @openai/codex"
         ;;
       claude)
-        echo "Install: curl -fsSL https://claude.ai/install.sh | bash"
+        msg_info "Install: curl -fsSL https://claude.ai/install.sh | bash"
         ;;
       droid)
-        echo "Install: curl -fsSL https://app.factory.ai/cli | sh"
+        msg_info "Install: curl -fsSL https://app.factory.ai/cli | sh"
         ;;
     esac
-    echo "Then authenticate per the CLI's instructions."
+    msg_dim "Then authenticate per the CLI's instructions."
     exit 1
   fi
 }
@@ -203,7 +244,7 @@ while [ $# -gt 0 ]; do
         MAX_ITERATIONS="$1"
         shift
       else
-        echo "Unknown arg: $1"
+        msg_error "Unknown arg: $1"
         exit 1
       fi
       ;;
@@ -236,7 +277,7 @@ if [ "$MODE" = "prd" ]; then
   fi
 
   if [ -z "$PRD_REQUEST_PATH" ] || [ ! -f "$PRD_REQUEST_PATH" ]; then
-    echo "PRD request missing. Provide a prompt string or --prompt <file>."
+    msg_error "PRD request missing. Provide a prompt string or --prompt <file>."
     exit 1
   fi
 
@@ -276,19 +317,19 @@ if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
 fi
 
 if [ ! -f "$PROMPT_FILE" ]; then
-  echo "Prompt not found: $PROMPT_FILE"
+  msg_warn "Prompt not found: $PROMPT_FILE"
   exit 1
 fi
 
 if [ "$MODE" != "prd" ] && [ ! -f "$PRD_PATH" ]; then
-  echo "PRD not found: $PRD_PATH"
+  msg_warn "PRD not found: $PRD_PATH"
   exit 1
 fi
 
 if [ "$MODE" = "build" ] && [ ! -f "$PLAN_PATH" ]; then
-  echo "Plan not found: $PLAN_PATH"
+  msg_warn "Plan not found: $PLAN_PATH"
   echo "Create it first with:"
-  echo "  ./.agents/ralph/loop.sh plan"
+  msg_info "  ./.agents/ralph/loop.sh plan"
   exit 1
 fi
 
@@ -644,17 +685,17 @@ git_dirty_files() {
   fi
 }
 
-echo "Ralph mode: $MODE"
-echo "Max iterations: $MAX_ITERATIONS"
-echo "PRD: $PRD_PATH"
-echo "Plan: $PLAN_PATH"
+msg_info "Ralph mode: $MODE"
+msg_dim "Max iterations: $MAX_ITERATIONS"
+msg_dim "PRD: $PRD_PATH"
+msg_dim "Plan: $PLAN_PATH"
 HAS_ERROR="false"
 
 for i in $(seq 1 "$MAX_ITERATIONS"); do
   echo ""
-  echo "═══════════════════════════════════════════════════════"
-  echo "  Ralph Iteration $i of $MAX_ITERATIONS"
-  echo "═══════════════════════════════════════════════════════"
+  printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+  printf "${C_CYAN}  Ralph Iteration $i of $MAX_ITERATIONS${C_RESET}\n"
+  printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
 
   STORY_META=""
   STORY_BLOCK=""
@@ -666,11 +707,11 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
     if [ "$REMAINING" = "unknown" ]; then
-      echo "Could not parse stories from PRD: $PRD_PATH"
+      msg_error "Could not parse stories from PRD: $PRD_PATH"
       exit 1
     fi
     if [ "$REMAINING" = "0" ]; then
-      echo "No remaining stories."
+      msg_success "No remaining stories."
       exit 0
     fi
     STORY_ID="$(story_field "$STORY_META" "id")"
@@ -698,7 +739,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   fi
   set -e
   if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
-    echo "Interrupted."
+    msg_warn "Interrupted."
     exit "$CMD_STATUS"
   fi
   ITER_END=$(date +%s)
@@ -718,6 +759,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     STATUS_LABEL="error"
   fi
   if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
+    msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
   fi
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES"
@@ -731,34 +773,35 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
     if [ "$CMD_STATUS" -ne 0 ]; then
+      msg_error "ITERATION $i exited non-zero; review $LOG_FILE"
       log_error "ITERATION $i exited non-zero; review $LOG_FILE"
     fi
     if grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
       if [ "$REMAINING" = "0" ]; then
-        echo "All stories complete."
+        msg_success "All stories complete."
         exit 0
       fi
-      echo "Completion signal received; stories remaining: $REMAINING"
+      msg_info "Completion signal received; stories remaining: $REMAINING"
     fi
-    echo "Iteration $i complete. Remaining stories: $REMAINING"
+    msg_success "Iteration $i complete. Remaining stories: $REMAINING"
     if [ "$REMAINING" = "0" ]; then
-      echo "No remaining stories."
+      msg_success "No remaining stories."
       exit 0
     fi
   else
-    echo "Iteration $i complete."
+    msg_success "Iteration $i complete."
   fi
   sleep 2
 
 done
 
-echo "Reached max iterations ($MAX_ITERATIONS)."
+msg_warn "Reached max iterations ($MAX_ITERATIONS)."
 if [ "$MODE" = "plan" ]; then
   echo ""
-  echo "Next steps (if you want to proceed):"
-  echo "1) Review the plan in \"$PLAN_PATH\"."
-  echo "2) Start implementation with: ralph build"
-  echo "3) Test a single run without committing: ralph build 1 --no-commit"
+  msg_info "Next steps (if you want to proceed):"
+  msg_dim "1) Review the plan in \"$PLAN_PATH\"."
+  msg_dim "2) Start implementation with: ralph build"
+  msg_dim "3) Test a single run without committing: ralph build 1 --no-commit"
 fi
 if [ "$HAS_ERROR" = "true" ]; then
   exit 1
