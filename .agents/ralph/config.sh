@@ -2,6 +2,27 @@
 # All paths are relative to repo root unless absolute.
 # Uncomment and edit as needed.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Token Cost Pricing (per 1M tokens in USD)
+# ─────────────────────────────────────────────────────────────────────────────
+# Override default Claude pricing. Values are per 1 million tokens.
+#
+# Global override (applies when model is unknown or as fallback):
+# CLAUDE_PRICING_INPUT=3.00
+# CLAUDE_PRICING_OUTPUT=15.00
+#
+# Per-model overrides (2025 defaults shown):
+# CLAUDE_OPUS_INPUT=15.00
+# CLAUDE_OPUS_OUTPUT=75.00
+# CLAUDE_SONNET_INPUT=3.00
+# CLAUDE_SONNET_OUTPUT=15.00
+# CLAUDE_HAIKU_INPUT=0.25
+# CLAUDE_HAIKU_OUTPUT=1.25
+#
+# Default model to use for cost calculation when not detected:
+# CLAUDE_MODEL=sonnet
+# ─────────────────────────────────────────────────────────────────────────────
+
 # PRD_PATH=".agents/tasks/prd.md"
 # PLAN_PATH=".ralph/IMPLEMENTATION_PLAN.md"
 # PROGRESS_PATH=".ralph/progress.md"
