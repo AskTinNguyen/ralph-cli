@@ -23,6 +23,7 @@ let agentOverride = null;
 let installSkills = false;
 let installForce = false;
 let prdPath = null;
+let prdNumber = null;  // PRD number for folder-based storage (e.g., --prd=1 uses PRD-1)
 let planPath = null;
 let progressPath = null;
 let prdOutPath = null;
@@ -60,7 +61,7 @@ ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream cleanup")} ${pc.dim("<N>")}                  Remove stream worktree
 
 ${pc.bold(pc.cyan("Options:"))}
-  ${pc.yellow("--prd")} ${pc.dim("<path>")}                        Override PRD path
+  ${pc.yellow("--prd")} ${pc.dim("<N|path>")}                      Use PRD-N folder (e.g., --prd=1) or custom path
   ${pc.yellow("--out")} ${pc.dim("<path>")}                        Override PRD output path (prd command)
   ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
   ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
@@ -92,7 +93,13 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     continue;
   }
   if (arg.startsWith("--prd=")) {
-    prdPath = arg.split("=").slice(1).join("=");
+    const prdValue = arg.split("=").slice(1).join("=");
+    // Check if it's a number (PRD folder) or a path
+    if (/^\d+$/.test(prdValue)) {
+      prdNumber = prdValue;
+    } else {
+      prdPath = prdValue;
+    }
     continue;
   }
   if (arg.startsWith("--out=")) {
@@ -100,7 +107,13 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     continue;
   }
   if (arg === "--prd") {
-    prdPath = rawArgs[i + 1];
+    const prdValue = rawArgs[i + 1];
+    // Check if it's a number (PRD folder) or a path
+    if (/^\d+$/.test(prdValue)) {
+      prdNumber = prdValue;
+    } else {
+      prdPath = prdValue;
+    }
     i += 1;
     continue;
   }
@@ -345,6 +358,10 @@ async function main() {
   const env = { ...process.env, RALPH_ROOT: cwd };
   if (!env.ACTIVITY_CMD) {
     env.ACTIVITY_CMD = "ralph log";
+  }
+  // PRD number takes precedence - sets paths to use PRD-N folder
+  if (prdNumber) {
+    env.PRD_NUMBER = prdNumber;
   }
   const resolvedPrdPath = prdOutPath || prdPath;
   if (resolvedPrdPath) env.PRD_PATH = resolvedPrdPath;

@@ -8,70 +8,68 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 |----------|---------|
 | **Install to repo** | `ralph install` |
 | **Generate PRD** | `ralph prd` |
-| **Create plan from PRD** | `ralph plan` |
+| **Create plan from PRD** | `ralph plan` (creates PRD-N folder) |
 | **Run build iterations** | `ralph build 5` |
+| **Build specific PRD** | `ralph build 5 --prd=1` |
 | **Dry run (no commit)** | `ralph build 1 --no-commit` |
 
-## Multi-Stream (Parallel Execution)
+## Stream Commands (Parallel Execution)
 
 | Use Case | Command |
 |----------|---------|
-| **Create stream** | `ralph stream new` |
-| **List streams** | `ralph stream list` |
+| **List PRDs** | `ralph stream list` |
 | **Show status** | `ralph stream status` |
 | **Init worktree** | `ralph stream init 1` |
 | **Build in stream** | `ralph stream build 1 5` |
 | **Run parallel** | `ralph stream build 1 & ralph stream build 2 &` |
 | **Merge stream** | `ralph stream merge 1` |
 
-## Single PRD Workflow
+## Workflow
 
-1. **PRD** → Define requirements: `ralph prd`
-2. **Plan** → Break into stories: `ralph plan`
-3. **Build** → Execute stories: `ralph build N`
+Each `ralph plan` creates a new isolated folder (PRD-1, PRD-2, ...) to prevent plans from being overwritten:
 
-## Multi-Stream Workflow
+1. **PRD** → Define requirements: `ralph prd` (creates `.ralph/PRD-N/prd.md`)
+2. **Plan** → Break into stories: `ralph plan` (creates `.ralph/PRD-N/plan.md`)
+3. **Build** → Execute stories: `ralph build N` or `ralph build N --prd=1`
 
-1. **Create streams**: `ralph stream new` (creates prd-1, prd-2, ...)
-2. **Edit PRDs**: `.ralph/prd-N/prd.md`
+## Parallel Workflow
+
+1. **Create multiple PRDs**: Run `ralph prd` multiple times (creates PRD-1, PRD-2, ...)
+2. **Edit PRDs**: `.ralph/PRD-N/prd.md`
 3. **Init worktrees** (optional): `ralph stream init N`
 4. **Run in parallel**: `ralph stream build 1 & ralph stream build 2 &`
 5. **Merge completed**: `ralph stream merge N`
 
 ## File Structure
 
-**Single PRD mode:**
+Each plan is stored in its own isolated folder to prevent conflicts:
+
 ```
 project/
 ├── .agents/
-│   ├── ralph/                    # Loop templates
-│   │   ├── loop.sh               # Main execution loop
-│   │   ├── stream.sh             # Multi-stream commands
-│   │   └── config.sh             # Agent configuration
-│   └── tasks/
-│       └── prd.md                # PRD document
+│   └── ralph/                    # Loop templates
+│       ├── loop.sh               # Main execution loop
+│       ├── stream.sh             # Multi-stream commands
+│       └── config.sh             # Agent configuration
 └── .ralph/
-    ├── IMPLEMENTATION_PLAN.md    # Task plan (stories)
-    ├── progress.md               # Append-only progress log
-    └── guardrails.md             # Lessons learned
+    ├── PRD-1/                    # First plan (isolated)
+    │   ├── prd.md                # PRD document
+    │   ├── plan.md               # Implementation plan (stories)
+    │   ├── progress.md           # Progress log
+    │   └── runs/                 # Run logs
+    ├── PRD-2/                    # Second plan (isolated)
+    │   ├── prd.md
+    │   ├── plan.md
+    │   ├── progress.md
+    │   └── runs/
+    ├── guardrails.md             # Shared lessons learned
+    ├── locks/                    # Stream locks (prevent concurrent runs)
+    └── worktrees/                # Git worktrees for parallel execution
+        ├── PRD-1/                # Isolated working directory
+        └── PRD-2/
 ```
 
-**Multi-stream mode:**
-```
-.ralph/
-├── prd-1/                        # Stream 1
-│   ├── prd.md                    # PRD for this stream
-│   ├── plan.md                   # Implementation plan
-│   ├── progress.md               # Progress log
-│   └── runs/                     # Run logs
-├── prd-2/                        # Stream 2
-│   └── ...
-├── guardrails.md                 # Shared guardrails
-├── locks/                        # Stream locks (prevent concurrent runs)
-└── worktrees/                    # Git worktrees for parallel execution
-    ├── prd-1/                    # Isolated working directory
-    └── prd-2/
-```
+**Key principle**: Plans are NEVER stored in a centralized location. Each `ralph plan` auto-increments to the next available PRD-N folder.
 
 ## PRD Format
 
@@ -128,9 +126,11 @@ ralph-cli/
 
 ## How It Works
 
-1. **PRD**: `ralph prd` generates requirements document
-2. **Plan**: `ralph plan` creates `IMPLEMENTATION_PLAN.md` with ordered stories
-3. **Build**: `ralph build N` runs N iterations of `loop.sh`
+1. **PRD**: `ralph prd` generates requirements document in `.ralph/PRD-N/prd.md`
+2. **Plan**: `ralph plan` creates `plan.md` with ordered stories in the same PRD-N folder
+3. **Build**: `ralph build N` runs N iterations of `loop.sh` against the active PRD
 4. **Loop**: Each iteration picks next unchecked story, executes, commits, marks done
+
+**Isolation guarantee**: Each plan lives in its own PRD-N folder. Plans are never overwritten by subsequent `ralph plan` calls - a new PRD-N+1 folder is created instead.
 
 The loop is stateless - each iteration reads files, does work, writes results.

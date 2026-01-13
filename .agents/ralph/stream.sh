@@ -1,7 +1,7 @@
 #!/bin/bash
 # Ralph Stream Management - Multi-PRD parallel execution
 # Usage:
-#   stream.sh new ["description"]     Create new stream (prd-N)
+#   stream.sh new ["description"]     Create new stream (PRD-N)
 #   stream.sh list                    List all streams
 #   stream.sh status                  Show detailed status
 #   stream.sh init <N>                Initialize worktree for stream
@@ -113,9 +113,10 @@ numbered_step() {
 get_next_stream_id() {
   local max=0
   if [[ -d "$RALPH_DIR" ]]; then
-    for dir in "$RALPH_DIR"/prd-*; do
+    # Check both PRD-N (new) and prd-N (legacy) folders
+    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
       if [[ -d "$dir" ]]; then
-        local num="${dir##*prd-}"
+        local num="${dir##*[Pp][Rr][Dd]-}"
         if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
           max=$num
         fi
@@ -128,9 +129,11 @@ get_next_stream_id() {
 normalize_stream_id() {
   local input="$1"
   if [[ "$input" =~ ^[0-9]+$ ]]; then
-    echo "prd-$input"
-  elif [[ "$input" =~ ^prd-[0-9]+$ ]]; then
-    echo "$input"
+    echo "PRD-$input"
+  elif [[ "$input" =~ ^[Pp][Rr][Dd]-[0-9]+$ ]]; then
+    # Normalize to uppercase PRD-N
+    local num="${input##*[Pp][Rr][Dd]-}"
+    echo "PRD-$num"
   else
     echo ""
   fi
@@ -138,7 +141,21 @@ normalize_stream_id() {
 
 stream_exists() {
   local stream_id="$1"
-  [[ -d "$RALPH_DIR/$stream_id" ]]
+  # Check both uppercase and legacy lowercase
+  [[ -d "$RALPH_DIR/$stream_id" ]] || [[ -d "$RALPH_DIR/${stream_id,,}" ]]
+}
+
+get_stream_dir() {
+  local stream_id="$1"
+  # Check uppercase first (new), then legacy lowercase
+  if [[ -d "$RALPH_DIR/$stream_id" ]]; then
+    echo "$RALPH_DIR/$stream_id"
+  elif [[ -d "$RALPH_DIR/${stream_id,,}" ]]; then
+    echo "$RALPH_DIR/${stream_id,,}"
+  else
+    # Default to the given stream_id (should be uppercase for new)
+    echo "$RALPH_DIR/$stream_id"
+  fi
 }
 
 worktree_exists() {
@@ -180,7 +197,8 @@ release_lock() {
 
 get_stream_status() {
   local stream_id="$1"
-  local stream_dir="$RALPH_DIR/$stream_id"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
 
   if [[ ! -d "$stream_dir" ]]; then
     echo "not_found"
@@ -267,7 +285,7 @@ cmd_new() {
   local description="${1:-}"
   local stream_num
   stream_num=$(get_next_stream_id)
-  local stream_id="prd-$stream_num"
+  local stream_id="PRD-$stream_num"
   local stream_dir="$RALPH_DIR/$stream_id"
 
   mkdir -p "$stream_dir/runs"
@@ -327,11 +345,12 @@ cmd_list() {
   section_header "Ralph Streams"
 
   local found=0
-  for dir in "$RALPH_DIR"/prd-*; do
+  # Check both PRD-N (new) and prd-N (legacy) folders
+  for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
     if [[ -d "$dir" ]]; then
       found=1
       local stream_id="${dir##*/}"
-      local num="${stream_id##prd-}"
+      local num="${stream_id##*[Pp][Rr][Dd]-}"
       local status
       status=$(get_stream_status "$stream_id")
       local progress
@@ -358,7 +377,7 @@ cmd_list() {
           ;;
       esac
 
-      printf "  %s ${C_BOLD}prd-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
+      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
     fi
   done
 
@@ -383,7 +402,8 @@ cmd_status() {
   fi
 
   local found=0
-  for dir in "$RALPH_DIR"/prd-*; do
+  # Check both PRD-N (new) and prd-N (legacy) folders
+  for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
     if [[ -d "$dir" ]]; then
       found=1
       local stream_id="${dir##*/}"
@@ -477,7 +497,8 @@ cmd_init() {
   git worktree add "$worktree_path" "$branch"
 
   # Copy stream state to worktree
-  local stream_dir="$RALPH_DIR/$stream_id"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
   local wt_ralph_dir="$worktree_path/.ralph/$stream_id"
   mkdir -p "$wt_ralph_dir"
   cp -r "$stream_dir"/* "$wt_ralph_dir/"
@@ -516,7 +537,8 @@ cmd_build() {
   # Set up cleanup on exit
   trap "release_lock '$stream_id'" EXIT
 
-  local stream_dir="$RALPH_DIR/$stream_id"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
   local work_dir="$ROOT_DIR"
 
   # If worktree exists, use it
@@ -667,7 +689,7 @@ case "$cmd" in
     printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
     printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
-    printf "  ${C_GREEN}ralph stream new${C_RESET}              Create new stream (prd-1, prd-2, ...)\n"
+    printf "  ${C_GREEN}ralph stream new${C_RESET}              Create new stream (PRD-1, PRD-2, ...)\n"
     printf "  ${C_GREEN}ralph stream list${C_RESET}             List all streams\n"
     printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
@@ -676,8 +698,8 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
-    printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates prd-1${C_RESET}\n"
-    printf "  ${C_DIM}ralph stream build 1 5${C_RESET}        ${C_DIM}# Run 5 iterations on prd-1${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"
+    printf "  ${C_DIM}ralph stream build 1 5${C_RESET}        ${C_DIM}# Run 5 iterations on PRD-1${C_RESET}\n"
     printf "  ${C_DIM}ralph stream init 1${C_RESET}           ${C_DIM}# Create worktree for parallel work${C_RESET}\n"
     printf "  ${C_DIM}ralph stream build 1 &${C_RESET}        ${C_DIM}# Run in background${C_RESET}\n"
     printf "  ${C_DIM}ralph stream build 2 &${C_RESET}        ${C_DIM}# Run another in parallel${C_RESET}\n"

@@ -15,9 +15,82 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${RALPH_ROOT:-${SCRIPT_DIR}/../..}" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 
-DEFAULT_PRD_PATH=".agents/tasks/prd.md"
-DEFAULT_PLAN_PATH=".ralph/IMPLEMENTATION_PLAN.md"
-DEFAULT_PROGRESS_PATH=".ralph/progress.md"
+# PRD folder helpers - each plan gets its own PRD-N folder
+RALPH_DIR=".ralph"
+
+get_next_prd_number() {
+  local max=0
+  if [[ -d "$RALPH_DIR" ]]; then
+    # Check both PRD-N (new) and prd-N (legacy) folders
+    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
+      if [[ -d "$dir" ]]; then
+        local num="${dir##*[Pp][Rr][Dd]-}"
+        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
+          max=$num
+        fi
+      fi
+    done
+  fi
+  echo $((max + 1))
+}
+
+get_latest_prd_number() {
+  local max=0
+  if [[ -d "$RALPH_DIR" ]]; then
+    # Check both PRD-N (new) and prd-N (legacy) folders
+    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
+      if [[ -d "$dir" ]]; then
+        local num="${dir##*[Pp][Rr][Dd]-}"
+        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
+          max=$num
+        fi
+      fi
+    done
+  fi
+  if (( max == 0 )); then
+    echo ""
+  else
+    echo "$max"
+  fi
+}
+
+get_prd_dir() {
+  local num="$1"
+  # Check uppercase first (new), then legacy lowercase
+  if [[ -d "$RALPH_DIR/PRD-$num" ]]; then
+    echo "$RALPH_DIR/PRD-$num"
+  elif [[ -d "$RALPH_DIR/prd-$num" ]]; then
+    echo "$RALPH_DIR/prd-$num"
+  else
+    # Default to uppercase for new folders
+    echo "$RALPH_DIR/PRD-$num"
+  fi
+}
+
+# Determine active PRD number from env or auto-detect
+if [[ -n "${PRD_NUMBER:-}" ]]; then
+  ACTIVE_PRD_NUMBER="$PRD_NUMBER"
+elif [[ -n "${PRD_PATH:-}" ]]; then
+  # Extract number from path if provided (e.g., .ralph/PRD-1/prd.md -> 1)
+  # Handle both PRD-N and prd-N (legacy)
+  if [[ "$PRD_PATH" =~ [Pp][Rr][Dd]-([0-9]+) ]]; then
+    ACTIVE_PRD_NUMBER="${BASH_REMATCH[1]}"
+  else
+    ACTIVE_PRD_NUMBER=""
+  fi
+else
+  ACTIVE_PRD_NUMBER=""
+fi
+
+# Legacy default paths (used when PRD_PATH is explicitly set to old location)
+LEGACY_PRD_PATH=".agents/tasks/prd.md"
+LEGACY_PLAN_PATH=".ralph/IMPLEMENTATION_PLAN.md"
+LEGACY_PROGRESS_PATH=".ralph/progress.md"
+
+# Default paths use PRD-N folder structure
+DEFAULT_PRD_PATH=""
+DEFAULT_PLAN_PATH=""
+DEFAULT_PROGRESS_PATH=""
 DEFAULT_AGENTS_PATH="AGENTS.md"
 DEFAULT_PROMPT_PLAN=".agents/ralph/PROMPT_plan.md"
 DEFAULT_PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
@@ -86,9 +159,35 @@ resolve_agent_cmd() {
 }
 DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
-PRD_PATH="${PRD_PATH:-$DEFAULT_PRD_PATH}"
-PLAN_PATH="${PLAN_PATH:-$DEFAULT_PLAN_PATH}"
-PROGRESS_PATH="${PROGRESS_PATH:-$DEFAULT_PROGRESS_PATH}"
+# Path resolution with PRD-N folder support
+# If explicit paths are set via environment, use them
+# Otherwise, use PRD-N folder structure
+if [[ -n "${PRD_PATH:-}" ]]; then
+  # Explicit path provided - use it as-is
+  :
+elif [[ -n "$ACTIVE_PRD_NUMBER" ]]; then
+  # PRD number specified - use that folder
+  PRD_PATH="$(get_prd_dir "$ACTIVE_PRD_NUMBER")/prd.md"
+else
+  # No path or number specified - will be set per-mode below
+  PRD_PATH=""
+fi
+
+if [[ -n "${PLAN_PATH:-}" ]]; then
+  :
+elif [[ -n "$ACTIVE_PRD_NUMBER" ]]; then
+  PLAN_PATH="$(get_prd_dir "$ACTIVE_PRD_NUMBER")/plan.md"
+else
+  PLAN_PATH=""
+fi
+
+if [[ -n "${PROGRESS_PATH:-}" ]]; then
+  :
+elif [[ -n "$ACTIVE_PRD_NUMBER" ]]; then
+  PROGRESS_PATH="$(get_prd_dir "$ACTIVE_PRD_NUMBER")/progress.md"
+else
+  PROGRESS_PATH=""
+fi
 AGENTS_PATH="${AGENTS_PATH:-$DEFAULT_AGENTS_PATH}"
 PROMPT_PLAN="${PROMPT_PLAN:-$DEFAULT_PROMPT_PLAN}"
 PROMPT_BUILD="${PROMPT_BUILD:-$DEFAULT_PROMPT_BUILD}"
@@ -147,7 +246,10 @@ msg_dim() {
 
 abs_path() {
   local p="$1"
-  if [[ "$p" = /* ]]; then
+  # Return empty if input is empty
+  if [[ -z "$p" ]]; then
+    echo ""
+  elif [[ "$p" = /* ]]; then
     echo "$p"
   else
     echo "$ROOT_DIR/$p"
@@ -254,6 +356,43 @@ if [ "$MODE" = "plan" ] && [ "$MAX_ITERATIONS" = "$DEFAULT_MAX_ITERATIONS" ]; th
   MAX_ITERATIONS=1
 fi
 
+# Set up PRD-N folder paths based on mode
+if [ -z "$PRD_PATH" ]; then
+  if [ "$MODE" = "prd" ]; then
+    # PRD mode: always create a new PRD-N folder
+    NEW_PRD_NUM=$(get_next_prd_number)
+    ACTIVE_PRD_NUMBER="$NEW_PRD_NUM"
+    PRD_DIR="$(get_prd_dir "$NEW_PRD_NUM")"
+    PRD_PATH="$PRD_DIR/prd.md"
+    PLAN_PATH="$PRD_DIR/plan.md"
+    PROGRESS_PATH="$PRD_DIR/progress.md"
+    RUNS_DIR="$PRD_DIR/runs"
+    ERRORS_LOG_PATH="$PRD_DIR/errors.log"
+    ACTIVITY_LOG_PATH="$PRD_DIR/activity.log"
+    msg_info "Creating new PRD folder: PRD-$NEW_PRD_NUM"
+  else
+    # plan/build mode: use latest PRD-N folder
+    LATEST_PRD_NUM=$(get_latest_prd_number)
+    if [ -z "$LATEST_PRD_NUM" ]; then
+      msg_error "No PRD folder found. Run 'ralph prd' first to create one."
+      exit 1
+    fi
+    ACTIVE_PRD_NUMBER="$LATEST_PRD_NUM"
+    PRD_DIR="$(get_prd_dir "$LATEST_PRD_NUM")"
+    PRD_PATH="$PRD_DIR/prd.md"
+    if [ -z "$PLAN_PATH" ]; then
+      PLAN_PATH="$PRD_DIR/plan.md"
+    fi
+    if [ -z "$PROGRESS_PATH" ]; then
+      PROGRESS_PATH="$PRD_DIR/progress.md"
+    fi
+    RUNS_DIR="${RUNS_DIR:-$PRD_DIR/runs}"
+    ERRORS_LOG_PATH="${ERRORS_LOG_PATH:-$PRD_DIR/errors.log}"
+    ACTIVITY_LOG_PATH="${ACTIVITY_LOG_PATH:-$PRD_DIR/activity.log}"
+    msg_info "Using PRD folder: PRD-$LATEST_PRD_NUM"
+  fi
+fi
+
 PROMPT_FILE="$PROMPT_BUILD"
 if [ "$MODE" = "plan" ]; then
   PROMPT_FILE="$PROMPT_PLAN"
@@ -269,7 +408,9 @@ if [ "$MODE" = "prd" ]; then
     require_agent "$PRD_AGENT_CMD"
   fi
 
-  mkdir -p "$(dirname "$PRD_PATH")" "$TMP_DIR"
+  # Create full PRD-N folder structure
+  mkdir -p "$(dirname "$PRD_PATH")" "$TMP_DIR" "$RUNS_DIR"
+  touch "$PROGRESS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" 2>/dev/null || true
 
   if [ -z "$PRD_REQUEST_PATH" ] && [ -n "$PRD_INLINE" ]; then
     PRD_REQUEST_PATH="$TMP_DIR/prd-request-$(date +%Y%m%d-%H%M%S)-$$.txt"
