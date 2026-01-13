@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { api } from './routes/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,9 @@ const app = new Hono();
 
 // Logging middleware
 app.use('*', logger());
+
+// Mount API routes
+app.route('/api', api);
 
 // Serve static files from public directory
 app.use(
