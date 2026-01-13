@@ -617,6 +617,95 @@ print_error_summary() {
   printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
 }
 
+# Format duration in human-readable form (e.g., "1m 23s" or "45s")
+format_duration() {
+  local secs="$1"
+  local mins=$((secs / 60))
+  local remaining=$((secs % 60))
+  if [ "$mins" -gt 0 ]; then
+    printf "%dm %ds" "$mins" "$remaining"
+  else
+    printf "%ds" "$secs"
+  fi
+}
+
+# Print iteration summary table at end of multi-iteration run
+# Reads from ITERATION_RESULTS (format: "iter|story|duration|status,...")
+print_summary_table() {
+  local results="$1"
+  local total_time="$2"
+  local success_count="$3"
+  local total_count="$4"
+  local remaining="$5"
+
+  if [ -z "$results" ] || [ "$total_count" -eq 0 ]; then
+    return
+  fi
+
+  # Only show table for multi-iteration runs (2+)
+  if [ "$total_count" -lt 2 ]; then
+    return
+  fi
+
+  echo ""
+  printf "${C_CYAN}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_CYAN}║${C_RESET}${C_BOLD}${C_CYAN}            ITERATION SUMMARY                          ${C_RESET}${C_CYAN}║${C_RESET}\n"
+  printf "${C_CYAN}╠═════╤════════════╤════════════╤════════════════════════╣${C_RESET}\n"
+  printf "${C_CYAN}║${C_RESET}${C_BOLD} Iter│   Story    │  Duration  │         Status         ${C_RESET}${C_CYAN}║${C_RESET}\n"
+  printf "${C_CYAN}╟─────┼────────────┼────────────┼────────────────────────╢${C_RESET}\n"
+
+  # Parse and display each iteration result
+  IFS=',' read -ra RESULTS <<< "$results"
+  for result in "${RESULTS[@]}"; do
+    IFS='|' read -r iter story duration status <<< "$result"
+    local dur_str
+    dur_str=$(format_duration "$duration")
+
+    # Status symbol and color
+    local status_display
+    if [ "$status" = "success" ]; then
+      status_display="${C_GREEN}✓ success${C_RESET}"
+    else
+      status_display="${C_RED}✗ error${C_RESET}"
+    fi
+
+    # Truncate story ID if too long (max 10 chars)
+    local story_display="${story:-plan}"
+    if [ "${#story_display}" -gt 10 ]; then
+      story_display="${story_display:0:10}"
+    fi
+
+    printf "${C_CYAN}║${C_RESET} %3s │ %-10s │ %10s │ %-22b ${C_CYAN}║${C_RESET}\n" "$iter" "$story_display" "$dur_str" "$status_display"
+  done
+
+  printf "${C_CYAN}╠═════╧════════════╧════════════╧════════════════════════╣${C_RESET}\n"
+
+  # Aggregate stats
+  local total_dur_str
+  total_dur_str=$(format_duration "$total_time")
+  local success_rate
+  if [ "$total_count" -gt 0 ]; then
+    success_rate=$((success_count * 100 / total_count))
+  else
+    success_rate=0
+  fi
+
+  # Color-code success rate
+  local rate_color="$C_GREEN"
+  if [ "$success_rate" -lt 100 ]; then
+    rate_color="$C_YELLOW"
+  fi
+  if [ "$success_rate" -lt 50 ]; then
+    rate_color="$C_RED"
+  fi
+
+  printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Total time:${C_RESET} %-12s ${C_BOLD}Success rate:${C_RESET} ${rate_color}%d/%d (%d%%)${C_RESET}    ${C_CYAN}║${C_RESET}\n" "$total_dur_str" "$success_count" "$total_count" "$success_rate"
+  if [ -n "$remaining" ] && [ "$remaining" != "unknown" ] && [ "$remaining" != "0" ]; then
+    printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Stories remaining:${C_RESET} %-35s ${C_CYAN}║${C_RESET}\n" "$remaining"
+  fi
+  printf "${C_CYAN}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+}
+
 append_run_summary() {
   local line="$1"
   python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
@@ -752,6 +841,13 @@ HAS_ERROR="false"
 FAILED_ITERATIONS=""
 FAILED_COUNT=0
 
+# Iteration results tracking for summary table
+# Each entry: "iter|story_id|duration|status"
+ITERATION_RESULTS=""
+TOTAL_DURATION=0
+SUCCESS_COUNT=0
+ITERATION_COUNT=0
+
 # Progress indicator: prints elapsed time every N seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
 PROGRESS_PID=""
@@ -868,7 +964,14 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   STATUS_LABEL="success"
   if [ "$CMD_STATUS" -ne 0 ]; then
     STATUS_LABEL="error"
+  else
+    SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
   fi
+  # Track iteration result for summary table
+  ITERATION_COUNT=$((ITERATION_COUNT + 1))
+  TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
+  ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-plan}|$ITER_DURATION|$STATUS_LABEL"
+
   if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
@@ -899,6 +1002,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
         printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+        # Print summary table before exit
+        print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
         msg_success "All stories complete."
         exit 0
       fi
@@ -910,6 +1015,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete. Remaining stories: $REMAINING"
     if [ "$REMAINING" = "0" ]; then
+      # Print summary table before exit
+      print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
       msg_success "No remaining stories."
       exit 0
     fi
@@ -935,6 +1042,15 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   sleep 2
 
 done
+
+# Get final remaining count for summary
+FINAL_REMAINING="${REMAINING:-unknown}"
+if [ "$MODE" = "build" ] && [ -f "$STORY_META" ]; then
+  FINAL_REMAINING="$(remaining_stories "$STORY_META")"
+fi
+
+# Print iteration summary table
+print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "$FINAL_REMAINING"
 
 msg_warn "Reached max iterations ($MAX_ITERATIONS)."
 if [ "$MODE" = "plan" ]; then
