@@ -14,15 +14,76 @@ State lives in files, not databases. Every step is transparent and traceable.
 
 ## Installation
 
-```bash
-# Install from GitHub
-bun add github:AskTinNguyen/ralph-cli
+### Global Install (Recommended)
 
-# Install skills to your repo
-bunx ralph install
+Install globally to use the `ralph` command directly anywhere:
+
+```bash
+# Using bun
+bun add -g ralph-cli
+
+# Using npm
+npm install -g ralph-cli
+
+# Verify installation
+ralph --help
 ```
 
-This creates:
+Then in any repo:
+
+```bash
+ralph install    # Install skills to current repo
+ralph new "task" # Create a task
+ralph go 1       # Run a task
+```
+
+### Local Install (Per-Project)
+
+Install as a dev dependency in your project:
+
+```bash
+# Using bun
+bun add -D ralph-cli
+
+# Using npm
+npm install -D ralph-cli
+```
+
+Use with `bunx` or `npx`:
+
+```bash
+bunx ralph install    # or: npx ralph install
+bunx ralph new "task" # or: npx ralph new "task"
+bunx ralph go 1       # or: npx ralph go 1
+```
+
+Or add scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "ralph": "ralph"
+  }
+}
+```
+
+Then use `bun run ralph install`, etc.
+
+### Install from GitHub (Latest)
+
+To get the bleeding-edge version directly from GitHub:
+
+```bash
+# Global
+bun add -g github:AskTinNguyen/ralph-cli
+
+# Local
+bun add -D github:AskTinNguyen/ralph-cli
+```
+
+### What Gets Created
+
+After running `ralph install`, this creates:
 - `.claude/skills/ralph-go/` - Main execution skill
 - `.claude/skills/ralph-new/` - Task creation skill
 - `.claude/skills/ralph-plan/` - Interactive planning skill
@@ -31,19 +92,22 @@ This creates:
 ## Quick Start
 
 ```bash
-# 1. Install Ralph to your repo
-bunx ralph install
+# 1. Install Ralph globally (one-time setup)
+bun add -g ralph-cli     # or: npm install -g ralph-cli
 
-# 2. Start Claude Code
+# 2. Install Ralph skills to your repo
+ralph install            # or: bunx ralph install (if local)
+
+# 3. Start Claude Code
 claude
 
-# 3. Create a task interactively
+# 4. Create a task interactively
 > /ralph-plan
 
-# 4. Or create one directly
+# 5. Or create one directly
 > /ralph-new Add user authentication
 
-# 5. Run the task
+# 6. Run the task
 > /ralph-go 1
 ```
 
@@ -63,14 +127,16 @@ ralph install
 Update Ralph skills to the latest version.
 
 ```bash
-# First, update the package
-bun update ralph-cli
-
-# Then update the skills
+# Global install: update package, then update skills
+bun add -g ralph-cli    # or: npm install -g ralph-cli
 ralph update
-# Overwrites .claude/skills/ralph-*/ with latest
-# Skips guardrails.md if you've customized it
+
+# Local install: update package, then update skills
+bun update ralph-cli    # or: npm update ralph-cli
+bunx ralph update       # or: npx ralph update
 ```
+
+This overwrites `.claude/skills/ralph-*/` with the latest versions. Your `guardrails.md` is preserved if you've customized it.
 
 ### `ralph new <task>`
 
