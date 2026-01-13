@@ -800,12 +800,19 @@ cmd_go() {
         # Log file for this iteration (persisted for debugging)
         local log_file="$logs_dir/iteration-${iteration}.log"
 
-        # Simple approach from iannuttall/ralph:
-        # Run claude directly with stdio inherit via tee
-        # No stream-json parsing - just let the terminal handle streaming naturally
+        # Get the directory where ralph.sh is located
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local renderer="$script_dir/stream_renderer.py"
+
+        # Use Python stream renderer to parse stream-json for formatted output
+        # Shows tool calls, thinking traces, and text in real-time
+        # --verbose is required for stream-json in print mode
         claude -p "/ralph-go $task_id" \
+            --output-format stream-json \
+            --verbose \
             --dangerously-skip-permissions \
-            2>&1 | tee "$log_file" || true
+            2>&1 | tee "$log_file" | python3 "$renderer" || true
 
         # Check completion signals from captured output
         if grep -q '<promise>COMPLETE' "$log_file"; then
