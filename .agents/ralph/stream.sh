@@ -17,6 +17,50 @@ WORKTREES_DIR="$RALPH_DIR/worktrees"
 LOCKS_DIR="$RALPH_DIR/locks"
 
 # ============================================================================
+# Color output support with TTY detection
+# Colors are disabled when stdout is not a TTY (pipes, redirects)
+# ============================================================================
+
+if [ -t 1 ]; then
+  C_GREEN='\033[32m'
+  C_RED='\033[31m'
+  C_YELLOW='\033[33m'
+  C_CYAN='\033[36m'
+  C_DIM='\033[2m'
+  C_BOLD='\033[1m'
+  C_RESET='\033[0m'
+else
+  C_GREEN=''
+  C_RED=''
+  C_YELLOW=''
+  C_CYAN=''
+  C_DIM=''
+  C_BOLD=''
+  C_RESET=''
+fi
+
+# Colored output helper functions
+msg_success() {
+  printf "${C_GREEN}%s${C_RESET}\n" "$1"
+}
+
+msg_error() {
+  printf "${C_BOLD}${C_RED}%s${C_RESET}\n" "$1"
+}
+
+msg_warn() {
+  printf "${C_YELLOW}%s${C_RESET}\n" "$1"
+}
+
+msg_info() {
+  printf "${C_CYAN}%s${C_RESET}\n" "$1"
+}
+
+msg_dim() {
+  printf "${C_DIM}%s${C_RESET}\n" "$1"
+}
+
+# ============================================================================
 # Helpers
 # ============================================================================
 
@@ -135,6 +179,36 @@ count_stories() {
   fi
 }
 
+get_human_time_diff() {
+  # Returns human-readable time difference (e.g., "2h ago", "5m ago")
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    echo "-"
+    return
+  fi
+
+  local now file_mtime diff
+  now=$(date +%s)
+  file_mtime=$(stat -f %m "$file" 2>/dev/null || stat -c %Y "$file" 2>/dev/null || echo 0)
+
+  if [[ "$file_mtime" -eq 0 ]]; then
+    echo "-"
+    return
+  fi
+
+  diff=$((now - file_mtime))
+
+  if [[ $diff -lt 60 ]]; then
+    echo "${diff}s ago"
+  elif [[ $diff -lt 3600 ]]; then
+    echo "$((diff / 60))m ago"
+  elif [[ $diff -lt 86400 ]]; then
+    echo "$((diff / 3600))h ago"
+  else
+    echo "$((diff / 86400))d ago"
+  fi
+}
+
 # ============================================================================
 # Commands
 # ============================================================================
@@ -238,19 +312,21 @@ cmd_list() {
 
 cmd_status() {
   echo ""
-  echo "Ralph Multi-Stream Status"
-  echo "════════════════════════════════════════════════════════"
-  printf "  %-10s %-12s %-10s %-10s\n" "STREAM" "STATUS" "PROGRESS" "WORKTREE"
-  echo "────────────────────────────────────────────────────────"
+  printf "${C_BOLD}${C_CYAN}Ralph Multi-Stream Status${C_RESET}\n"
+  echo "┌──────────┬────────────┬──────────┬──────────┬──────────┐"
+  printf "│ %-8s │ %-10s │ %-8s │ %-8s │ %-8s │\n" "STREAM" "STATUS" "PROGRESS" "MODIFIED" "WORKTREE"
+  echo "├──────────┼────────────┼──────────┼──────────┼──────────┤"
 
   if [[ ! -d "$RALPH_DIR" ]]; then
-    echo "  No streams found."
-    echo "────────────────────────────────────────────────────────"
+    printf "│ %-54s │\n" "No streams found."
+    echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
     return
   fi
 
+  local found=0
   for dir in "$RALPH_DIR"/prd-*; do
     if [[ -d "$dir" ]]; then
+      found=1
       local stream_id="${dir##*/}"
       local status
       status=$(get_stream_status "$stream_id")
@@ -261,19 +337,48 @@ cmd_status() {
         has_worktree="yes"
       fi
 
-      local symbol
+      # Get last modified time for progress.md
+      local last_modified
+      last_modified=$(get_human_time_diff "$dir/progress.md")
+
+      # Symbol and color based on status
+      local symbol status_color row_prefix row_suffix
+      row_prefix=""
+      row_suffix=""
       case "$status" in
-        running)    symbol="▶" ;;
-        completed)  symbol="●" ;;
-        ready)      symbol="○" ;;
-        *)          symbol="?" ;;
+        running)
+          symbol="▶"
+          status_color="${C_BOLD}${C_YELLOW}"
+          row_prefix="${C_BOLD}"
+          row_suffix="${C_RESET}"
+          ;;
+        completed)
+          symbol="●"
+          status_color="${C_GREEN}"
+          ;;
+        ready)
+          symbol="○"
+          status_color="${C_CYAN}"
+          ;;
+        *)
+          symbol="?"
+          status_color="${C_DIM}"
+          ;;
       esac
 
-      printf "  %s %-8s %-12s %-10s %-10s\n" "$symbol" "$stream_id" "$status" "$progress" "$has_worktree"
+      # Print row with color-coded status
+      printf "${row_prefix}│ %s %-6s │ ${status_color}%-10s${C_RESET}${row_prefix} │ %-8s │ %-8s │ %-8s │${row_suffix}\n" \
+        "$symbol" "$stream_id" "$status" "$progress" "$last_modified" "$has_worktree"
     fi
   done
 
-  echo "────────────────────────────────────────────────────────"
+  if [[ $found -eq 0 ]]; then
+    printf "│ %-54s │\n" "No streams found."
+  fi
+
+  echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
+  echo ""
+  msg_dim "Legend: ● completed  ▶ running  ○ ready  ? unknown"
   echo ""
 }
 
