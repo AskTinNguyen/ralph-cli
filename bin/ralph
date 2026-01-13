@@ -54,6 +54,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
   ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
+  ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -65,6 +66,11 @@ ${pc.bold(pc.cyan("Registry commands:"))}
 ${pc.bold(pc.cyan("Import commands:"))}
   ${pc.green("import guardrails")} ${pc.dim("[--from project]")}   Import guardrails from another project
   ${pc.green("import guardrails")} ${pc.dim("--all")}              Import all guardrails from selected project
+
+${pc.bold(pc.cyan("Stats options:"))}
+  ${pc.yellow("--global")} ${pc.dim("(-g)")}                       Show metrics across all registered projects
+  ${pc.yellow("--json")}                             Output metrics as JSON for tooling
+  ${pc.yellow("--no-cache")}                         Regenerate metrics (ignore cache)
 
 ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
@@ -1453,6 +1459,213 @@ ${pc.bold(pc.cyan("Examples:"))}
     error(`Unknown import type: ${pc.bold(subCmd)}`);
     info(`Run ${pc.cyan("ralph import help")} for usage.`);
     process.exit(1);
+  }
+
+  if (cmd === "stats") {
+    const statsModule = require("../lib/stats");
+    const registryModule = require("../lib/registry");
+    const { formatDuration } = require("../lib/eval/reporter");
+
+    // Parse flags
+    let globalFlag = false;
+    let jsonFlag = false;
+    let noCache = false;
+
+    for (const arg of args.slice(1)) {
+      if (arg === "--global" || arg === "-g") {
+        globalFlag = true;
+      } else if (arg === "--json") {
+        jsonFlag = true;
+      } else if (arg === "--no-cache") {
+        noCache = true;
+      }
+    }
+
+    // Trend arrow helper with color
+    const trendArrow = (trend, positiveIsGood = true) => {
+      if (!trend || trend.direction === "stable") return pc.dim("-");
+      const isGood = (positiveIsGood && trend.direction === "up") || (!positiveIsGood && trend.direction === "down");
+      const color = isGood ? pc.green : pc.red;
+      return color(`${trend.arrow} ${trend.change}%`);
+    };
+
+    if (globalFlag) {
+      // Cross-project metrics
+      registryModule.ensureGlobalRegistry();
+      const projects = registryModule.listProjects();
+
+      if (projects.length === 0) {
+        warn("No projects registered in the global registry.");
+        info(`Use ${pc.cyan("ralph registry add")} to register projects first.`);
+        process.exit(0);
+      }
+
+      info(`Aggregating metrics across ${pc.bold(projects.length)} projects...`);
+      const metrics = statsModule.aggregateGlobalMetrics(projects);
+
+      if (jsonFlag) {
+        console.log(JSON.stringify(metrics, null, 2));
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Global Performance Metrics"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+
+      // Overview
+      console.log(pc.bold(pc.cyan("Overview")));
+      console.log(pc.dim("-".repeat(40)));
+      console.log(`Projects:        ${pc.bold(metrics.projectCount)}`);
+      console.log(`Total Runs:      ${pc.bold(metrics.totalRuns)}`);
+      console.log(`Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`);
+      console.log(`Failed:          ${pc.red(metrics.failedCount)}`);
+      console.log(`Avg Duration:    ${formatDuration(metrics.avgDuration)}`);
+      console.log(`Total Guardrails:${pc.bold(metrics.totalGuardrails)}`);
+      console.log("");
+
+      // Top projects
+      if (metrics.topProjects.length > 0) {
+        console.log(pc.bold(pc.cyan("Top Projects by Activity")));
+        console.log(pc.dim("-".repeat(60)));
+        console.log(
+          pc.dim(
+            `${"PROJECT".padEnd(25)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(8)} ${"TREND".padStart(10)}`
+          )
+        );
+        console.log(pc.dim("-".repeat(60)));
+
+        for (const proj of metrics.topProjects.slice(0, 10)) {
+          const name = proj.name.length > 23 ? proj.name.slice(0, 22) + "\u2026" : proj.name;
+          const runs = String(proj.runs).padStart(6);
+          const rate = proj.successRate !== null ? `${proj.successRate}%`.padStart(8) : "N/A".padStart(8);
+          const trend = proj.successRateTrend ? trendArrow(proj.successRateTrend, true) : pc.dim("-");
+
+          console.log(
+            `${name.padEnd(25)} ${runs} ${proj.successRate !== null ? pc.green(rate) : pc.dim(rate)} ${trend.padStart(10)}`
+          );
+        }
+        console.log("");
+      }
+
+      console.log(pc.dim("=".repeat(60)));
+      success("Global stats generated.");
+      process.exit(0);
+    }
+
+    // Single project metrics
+    const ralphDir = path.join(cwd, ".ralph");
+    const runsDir = path.join(ralphDir, "runs");
+
+    if (!exists(runsDir)) {
+      warn("No runs directory found. Run some build iterations first.");
+      process.exit(0);
+    }
+
+    // Check cache
+    let metrics;
+    const cache = statsModule.loadMetricsCache(cwd);
+    if (!noCache && cache && statsModule.isCacheValid(cwd, cache)) {
+      metrics = cache;
+      dim("Using cached metrics (use --no-cache to regenerate)");
+    } else {
+      metrics = statsModule.aggregateProjectMetrics(cwd);
+      statsModule.saveMetricsCache(metrics, cwd);
+    }
+
+    if (jsonFlag) {
+      console.log(JSON.stringify(metrics, null, 2));
+      process.exit(0);
+    }
+
+    console.log("");
+    console.log(pc.bold("Performance Metrics Dashboard"));
+    console.log(pc.dim("=".repeat(60)));
+    console.log("");
+
+    // Overview section
+    console.log(pc.bold(pc.cyan("Overview")));
+    console.log(pc.dim("-".repeat(40)));
+    console.log(`Total Runs:      ${pc.bold(metrics.totalRuns)}`);
+    console.log(`Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`);
+    console.log(`Failed:          ${pc.red(metrics.failedCount)}`);
+    console.log(`Guardrails:      ${pc.bold(metrics.guardrailCount)}`);
+    console.log("");
+
+    // Duration section
+    console.log(pc.bold(pc.cyan("Duration")));
+    console.log(pc.dim("-".repeat(40)));
+    console.log(`Average:         ${formatDuration(metrics.avgDuration)}`);
+    console.log(`Min:             ${formatDuration(metrics.minDuration)}`);
+    console.log(`Max:             ${formatDuration(metrics.maxDuration)}`);
+    console.log(`Total:           ${formatDuration(metrics.totalDuration)}`);
+    console.log("");
+
+    // Trends section
+    console.log(pc.bold(pc.cyan("Trends (Week over Week)")));
+    console.log(pc.dim("-".repeat(40)));
+    console.log(`Success Rate:    ${trendArrow(metrics.successRateTrend, true)}`);
+    console.log(`Avg Duration:    ${trendArrow(metrics.durationTrend, false)}`);
+    console.log(`Runs per Day:    ${pc.bold(metrics.runsPerDay)}`);
+    console.log("");
+
+    // Mode breakdown
+    if (metrics.modeStats && Object.keys(metrics.modeStats).length > 0) {
+      console.log(pc.bold(pc.cyan("By Mode")));
+      console.log(pc.dim("-".repeat(40)));
+      for (const [mode, stats] of Object.entries(metrics.modeStats)) {
+        const rate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
+        console.log(`${mode.padEnd(15)} ${String(stats.total).padStart(4)} runs  ${pc.green(`${rate}%`)} success`);
+      }
+      console.log("");
+    }
+
+    // Guardrail impacts
+    if (metrics.guardrailImpacts && metrics.guardrailImpacts.length > 0) {
+      console.log(pc.bold(pc.cyan("Guardrail Impact Analysis")));
+      console.log(pc.dim("-".repeat(60)));
+      for (const impact of metrics.guardrailImpacts) {
+        const arrow = impact.isPositive ? pc.green("\u2191") : pc.red("\u2193");
+        const change = impact.isPositive ? pc.green(`+${impact.improvement}%`) : pc.red(`${impact.improvement}%`);
+        const title = impact.title.length > 35 ? impact.title.slice(0, 34) + "\u2026" : impact.title;
+        console.log(`${arrow} ${title}`);
+        console.log(pc.dim(`   ${impact.rateBefore}% \u2192 ${impact.rateAfter}% (${change}) after ${impact.addedDate}`));
+      }
+      console.log("");
+    }
+
+    // Weekly activity summary (last 4 weeks)
+    if (metrics.weeklyStats && metrics.weeklyStats.length > 0) {
+      const recentWeeks = metrics.weeklyStats.slice(-4);
+      console.log(pc.bold(pc.cyan("Weekly Activity (Last 4 Weeks)")));
+      console.log(pc.dim("-".repeat(50)));
+      console.log(pc.dim(`${"WEEK".padEnd(10)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(10)} ${"AVG DUR".padStart(10)}`));
+      console.log(pc.dim("-".repeat(50)));
+      for (const week of recentWeeks) {
+        const runs = String(week.runs).padStart(6);
+        const rate = week.successRate !== null ? `${week.successRate}%`.padStart(10) : "N/A".padStart(10);
+        const dur = formatDuration(week.avgDuration).padStart(10);
+        console.log(
+          `${week.week.padEnd(10)} ${runs} ${week.successRate !== null ? pc.green(rate) : pc.dim(rate)} ${dur}`
+        );
+      }
+      console.log("");
+    }
+
+    // Time range
+    if (metrics.firstRun || metrics.lastRun) {
+      console.log(pc.dim("-".repeat(40)));
+      if (metrics.firstRun) {
+        dim(`First run: ${metrics.firstRun}`);
+      }
+      if (metrics.lastRun) {
+        dim(`Last run:  ${metrics.lastRun}`);
+      }
+    }
+
+    console.log(pc.dim("=".repeat(60)));
+    success(`Metrics cached to ${pc.cyan(".ralph/metrics/stats.json")}`);
+    process.exit(0);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
