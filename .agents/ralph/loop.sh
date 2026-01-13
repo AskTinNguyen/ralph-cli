@@ -865,6 +865,10 @@ write_run_meta() {
   local commit_list="${14}"
   local changed_files="${15}"
   local dirty_files="${16}"
+  local input_tokens="${17:-}"
+  local output_tokens="${18:-}"
+  local token_model="${19:-}"
+  local token_estimated="${20:-false}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -905,6 +909,26 @@ write_run_meta() {
       echo "- (clean)"
     fi
     echo ""
+    echo "## Token Usage"
+    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ]; then
+      echo "- Input tokens: $input_tokens"
+    else
+      echo "- Input tokens: (unavailable)"
+    fi
+    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+      echo "- Output tokens: $output_tokens"
+    else
+      echo "- Output tokens: (unavailable)"
+    fi
+    if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
+      echo "- Model: $token_model"
+    fi
+    echo "- Estimated: $token_estimated"
+    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+      local total=$((input_tokens + output_tokens))
+      echo "- Total tokens: $total"
+    fi
+    echo ""
   } > "$path"
 }
 
@@ -942,6 +966,32 @@ git_dirty_files() {
   else
     echo ""
   fi
+}
+
+# Extract token metrics from a log file using Node.js extractor
+# Returns JSON: {"inputTokens": N, "outputTokens": N, "model": "...", "estimated": bool}
+extract_tokens_from_log() {
+  local log_file="$1"
+  local extractor_path
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    extractor_path="$RALPH_ROOT/lib/tokens/extract-cli.js"
+  else
+    extractor_path="$SCRIPT_DIR/../../lib/tokens/extract-cli.js"
+  fi
+
+  # Check if extractor exists and Node.js is available
+  if [ -f "$extractor_path" ] && command -v node >/dev/null 2>&1; then
+    node "$extractor_path" "$log_file" 2>/dev/null || echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
+  else
+    echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
+  fi
+}
+
+# Parse JSON field from token extraction result
+parse_token_field() {
+  local json="$1"
+  local field="$2"
+  python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('$field',''))" "$json" 2>/dev/null || echo ""
 }
 
 msg_info "Ralph mode: $MODE"
@@ -1088,7 +1138,15 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
   fi
-  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES"
+
+  # Extract token metrics from log file
+  TOKEN_JSON="$(extract_tokens_from_log "$LOG_FILE")"
+  TOKEN_INPUT="$(parse_token_field "$TOKEN_JSON" "inputTokens")"
+  TOKEN_OUTPUT="$(parse_token_field "$TOKEN_JSON" "outputTokens")"
+  TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
+  TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
+
+  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED"
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   else
