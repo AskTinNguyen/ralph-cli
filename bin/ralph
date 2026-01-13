@@ -22,6 +22,7 @@ const skillsRoot = path.join(repoRoot, "skills");
 let agentOverride = null;
 let installSkills = false;
 let installForce = false;
+let importFromProject = null;  // For --import-from flag in install command
 let prdPath = null;
 let prdNumber = null;  // PRD number for folder-based storage (e.g., --prd=1 uses PRD-1)
 let planPath = null;
@@ -41,7 +42,7 @@ function usage() {
   console.log(`${pc.bold("ralph")} ${pc.dim("<command>")}
 
 ${pc.bold(pc.cyan("Commands:"))}
-  ${pc.green("install")} ${pc.dim("[--skills] [--force]")}        Copy .agents/ralph into the current repo
+  ${pc.green("install")} ${pc.dim("[--skills] [--import-from]")}   Copy .agents/ralph into the current repo
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
@@ -52,6 +53,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
+  ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -59,6 +61,10 @@ ${pc.bold(pc.cyan("Registry commands:"))}
   ${pc.green("registry list")} ${pc.dim("[--tags t1,t2]")}         List registered projects
   ${pc.green("registry remove")}                      Remove current project from registry
   ${pc.green("registry update")}                      Update project metadata and stats
+
+${pc.bold(pc.cyan("Import commands:"))}
+  ${pc.green("import guardrails")} ${pc.dim("[--from project]")}   Import guardrails from another project
+  ${pc.green("import guardrails")} ${pc.dim("--all")}              Import all guardrails from selected project
 
 ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
@@ -83,6 +89,7 @@ ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
   ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
   ${pc.yellow("--agent")} ${pc.dim("<codex|claude|droid>")}        Override agent runner
+  ${pc.yellow("--import-from")} ${pc.dim("<project>")}             Import guardrails during install
 
 ${pc.bold(pc.cyan("Notes:"))}
 ${pc.dim("- Uses local .agents/ralph if present; otherwise uses bundled defaults.")}
@@ -107,6 +114,15 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--force") {
     installForce = true;
+    continue;
+  }
+  if (arg.startsWith("--import-from=")) {
+    importFromProject = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--import-from") {
+    importFromProject = rawArgs[i + 1];
+    i += 1;
     continue;
   }
   if (arg.startsWith("--prd=")) {
@@ -275,17 +291,65 @@ async function main() {
     if (installSkills) {
       await runInstallSkills();
     } else {
-      const { confirm, isCancel } = await import("@clack/prompts");
-      const wantsSkills = await confirm({
-        message: "Install skills (commit + dev-browser + prd)?",
-        initialValue: true,
-      });
-      if (isCancel(wantsSkills)) {
-        dim("Skipped skills install.");
-      } else if (wantsSkills) {
-        await runInstallSkills();
+      // Try interactive prompt, skip if no TTY
+      try {
+        const { confirm, isCancel } = await import("@clack/prompts");
+        const wantsSkills = await confirm({
+          message: "Install skills (commit + dev-browser + prd)?",
+          initialValue: true,
+        });
+        if (isCancel(wantsSkills)) {
+          dim("Skipped skills install.");
+        } else if (wantsSkills) {
+          await runInstallSkills();
+        }
+      } catch {
+        dim("Skipped skills install (non-interactive).");
       }
     }
+
+    // Handle --import-from flag for guardrail import
+    if (importFromProject) {
+      const importModule = require("../lib/import");
+      const registryModule = require("../lib/registry");
+
+      // Ensure registry exists
+      registryModule.ensureGlobalRegistry();
+
+      // Find source project
+      const projects = registryModule.listProjects();
+      const sourceProject = projects.find(
+        (p) =>
+          p.name.toLowerCase() === importFromProject.toLowerCase() ||
+          p.id === importFromProject
+      );
+
+      if (!sourceProject) {
+        warn(`Project not found: ${pc.bold(importFromProject)}`);
+        if (projects.length > 0) {
+          info("Available projects:");
+          for (const p of projects.slice(0, 5)) {
+            dim(`  - ${p.name} (${p.id})`);
+          }
+        }
+      } else {
+        info(`Importing guardrails from ${pc.bold(sourceProject.name)}...`);
+        const guardrails = importModule.getProjectGuardrails(sourceProject.path);
+
+        if (guardrails.length === 0) {
+          dim(`No guardrails found in ${sourceProject.name}.`);
+        } else {
+          const result = importModule.importGuardrails(guardrails, cwd, sourceProject.name);
+          if (result.imported > 0) {
+            success(`Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(sourceProject.name)}`);
+          }
+          if (result.skipped > 0) {
+            dim(`Skipped ${result.skipped} duplicate(s).`);
+          }
+        }
+      }
+    }
+
     process.exit(0);
   }
 
@@ -1177,6 +1241,218 @@ ${pc.bold(pc.cyan("Examples:"))}
       info(`Showing ${results.returnedCount} of ${results.totalCount} results. Use ${pc.cyan("--limit")} to see more.`);
     }
     process.exit(0);
+  }
+
+  if (cmd === "import") {
+    const importModule = require("../lib/import");
+    const registryModule = require("../lib/registry");
+    const { detectTechStack } = require("../lib/registry/projects");
+
+    const subCmd = args[1];
+
+    // Parse --from flag
+    let fromProject = null;
+    let importAll = false;
+    for (let i = 0; i < rawArgs.length; i++) {
+      if (rawArgs[i].startsWith("--from=")) {
+        fromProject = rawArgs[i].split("=").slice(1).join("=");
+      } else if (rawArgs[i] === "--from" && rawArgs[i + 1]) {
+        fromProject = rawArgs[i + 1];
+        i++;
+      } else if (rawArgs[i] === "--all") {
+        importAll = true;
+      }
+    }
+
+    if (!subCmd || subCmd === "help") {
+      console.log(`${pc.bold("ralph import")} ${pc.dim("<type>")}
+
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("guardrails")} ${pc.dim("[--from project]")}   Import guardrails from another project
+
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--from")} ${pc.dim("<project>")}            Source project (name or ID)
+  ${pc.yellow("--all")}                      Import all guardrails without selection
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph import guardrails")}                 Interactive project selection
+  ${pc.dim("ralph import guardrails --from myapp")}   Import from specific project
+  ${pc.dim("ralph import guardrails --all")}          Import all without prompting
+`);
+      process.exit(0);
+    }
+
+    if (subCmd === "guardrails") {
+      // Ensure registry exists
+      registryModule.ensureGlobalRegistry();
+
+      // Get all registered projects
+      let projects = registryModule.listProjects();
+
+      if (projects.length === 0) {
+        warn("No projects registered in the global registry.");
+        info(`Use ${pc.cyan("ralph registry add")} in other projects first.`);
+        process.exit(0);
+      }
+
+      // Exclude current project
+      const currentProject = registryModule.findProjectByPath(cwd);
+      projects = projects.filter((p) => p.path !== cwd);
+
+      if (projects.length === 0) {
+        warn("No other projects available to import from.");
+        info("Register other projects with Ralph first.");
+        process.exit(0);
+      }
+
+      // Sort by tech stack relevance
+      const targetStack = detectTechStack(cwd);
+      const suggestedProjects = importModule.getSuggestedProjects(projects, targetStack);
+
+      let selectedProject = null;
+
+      // If --from specified, find that project
+      if (fromProject) {
+        selectedProject = suggestedProjects.find(
+          (p) =>
+            p.name.toLowerCase() === fromProject.toLowerCase() ||
+            p.id === fromProject
+        );
+        if (!selectedProject) {
+          error(`Project not found: ${pc.bold(fromProject)}`);
+          info("Available projects:");
+          for (const p of suggestedProjects.slice(0, 5)) {
+            dim(`  - ${p.name} (${p.id})`);
+          }
+          process.exit(1);
+        }
+      } else {
+        // Interactive project selection
+        const { intro, outro, select, multiselect, confirm, isCancel } = await import("@clack/prompts");
+        intro("Ralph Guardrails Import");
+
+        console.log("");
+        if (targetStack.length > 0) {
+          info(`Detected tech stack: ${pc.cyan(targetStack.join(", "))}`);
+          console.log("");
+        }
+
+        // Show suggested projects first
+        const hasSuggested = suggestedProjects.some((p) => p.relevanceScore > 0);
+
+        const projectOptions = suggestedProjects.map((p) => {
+          const guardrailCount = p.stats?.guardrailCount || 0;
+          const matchInfo = p.matchingTags?.length > 0 ? ` (${p.matchingTags.join(", ")})` : "";
+          const recommended = p.relevanceScore > 0 ? pc.green(" [Recommended]") : "";
+          return {
+            value: p.id,
+            label: `${p.name}${recommended}`,
+            hint: `${guardrailCount} guardrails${matchInfo}`,
+          };
+        });
+
+        if (projectOptions.length === 0) {
+          outro("No projects with guardrails available.");
+          process.exit(0);
+        }
+
+        const selectedId = await select({
+          message: "Select a project to import guardrails from:",
+          options: projectOptions,
+        });
+
+        if (isCancel(selectedId)) {
+          outro("Cancelled.");
+          process.exit(0);
+        }
+
+        selectedProject = suggestedProjects.find((p) => p.id === selectedId);
+      }
+
+      if (!selectedProject) {
+        error("No project selected.");
+        process.exit(1);
+      }
+
+      info(`Loading guardrails from ${pc.bold(selectedProject.name)}...`);
+
+      // Get guardrails from selected project
+      const guardrails = importModule.getProjectGuardrails(selectedProject.path);
+
+      if (guardrails.length === 0) {
+        warn(`No guardrails found in ${selectedProject.name}.`);
+        process.exit(0);
+      }
+
+      let selectedGuardrails = guardrails;
+
+      // If not --all, show preview and selection UI
+      if (!importAll) {
+        const { multiselect, isCancel, outro } = await import("@clack/prompts");
+
+        console.log("");
+        console.log(pc.bold(`Found ${guardrails.length} guardrail(s) in ${selectedProject.name}:`));
+        console.log(pc.dim("─".repeat(60)));
+
+        // Show preview of each guardrail
+        for (const g of guardrails) {
+          console.log(`  ${pc.cyan("•")} ${pc.bold(g.title)}`);
+          if (g.trigger) {
+            console.log(`    ${pc.dim("Trigger:")} ${g.trigger}`);
+          }
+          if (g.instruction) {
+            console.log(`    ${pc.dim("Instruction:")} ${g.instruction}`);
+          }
+          console.log("");
+        }
+        console.log(pc.dim("─".repeat(60)));
+        console.log("");
+
+        const guardrailOptions = guardrails.map((g, idx) => ({
+          value: idx,
+          label: g.title,
+          hint: g.trigger || g.instruction || "",
+        }));
+
+        const selectedIndices = await multiselect({
+          message: "Select guardrails to import:",
+          options: guardrailOptions,
+          required: false,
+        });
+
+        if (isCancel(selectedIndices)) {
+          outro("Cancelled.");
+          process.exit(0);
+        }
+
+        if (!selectedIndices || selectedIndices.length === 0) {
+          outro("No guardrails selected.");
+          process.exit(0);
+        }
+
+        selectedGuardrails = selectedIndices.map((idx) => guardrails[idx]);
+      }
+
+      // Import the selected guardrails
+      const result = importModule.importGuardrails(selectedGuardrails, cwd, selectedProject.name);
+
+      console.log("");
+      if (result.imported > 0) {
+        success(`Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(selectedProject.name)}`);
+        info(`Guardrails saved to ${pc.cyan(".ralph/guardrails.md")}`);
+      }
+      if (result.skipped > 0) {
+        dim(`Skipped ${result.skipped} duplicate(s).`);
+      }
+
+      const { outro } = await import("@clack/prompts");
+      outro("Done.");
+      process.exit(0);
+    }
+
+    error(`Unknown import type: ${pc.bold(subCmd)}`);
+    info(`Run ${pc.cyan("ralph import help")} for usage.`);
+    process.exit(1);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
