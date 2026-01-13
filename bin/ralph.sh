@@ -315,8 +315,12 @@ cmd_go() {
         local tmpfile
         tmpfile=$(mktemp)
 
-        # Run claude and tee output to both terminal and temp file
-        claude -p "/ralph-go $task_id" --output-format text 2>&1 | tee "$tmpfile" || true
+        # Run claude with permissions for autonomous execution
+        # --dangerously-skip-permissions allows file writes without prompts
+        claude -p "/ralph-go $task_id" \
+            --output-format text \
+            --dangerously-skip-permissions \
+            2>&1 | tee "$tmpfile" || true
 
         # Check completion signals from captured output
         if grep -q '<promise>COMPLETE' "$tmpfile"; then
