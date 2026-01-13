@@ -12,15 +12,6 @@ while :; do cat prompt.md | agent ; done
 
 ## Quick Reference
 
-Two implementations available - **identical functionality**:
-
-| Implementation | Use When |
-|----------------|----------|
-| `ralph.sh` (Bash) | C++, Rust, Go, Python, or any non-JS project |
-| `ralph` (Bun/TS) | JavaScript/TypeScript projects with Bun |
-
-### Commands (Bash version)
-
 | Use Case | Command |
 |----------|---------|
 | **Install to repo** | `ralph.sh install` |
@@ -29,17 +20,6 @@ Two implementations available - **identical functionality**:
 | **Headless task creation** | `ralph.sh new "task description"` |
 | **Headless execution** | `ralph.sh go 1` |
 | **List tasks** | `ralph.sh list` |
-
-### Commands (Bun version)
-
-| Use Case | Command |
-|----------|---------|
-| **Install to repo** | `ralph install` |
-| **Interactive task creation** | `claude` then `/ralph-new` or `/ralph-plan` |
-| **Interactive execution** | `claude` then `/ralph-go 1` |
-| **Headless task creation** | `ralph new "task description"` |
-| **Headless execution** | `ralph go 1` |
-| **List tasks** | `ralph list` |
 
 ## File Structure
 
@@ -60,7 +40,7 @@ project/
 
 ## How It Works
 
-**External loop (ralph.sh or ralph.ts):**
+**External loop (ralph.sh):**
 1. For each iteration up to max_iterations
 2. Invoke Claude fresh with `/ralph-go <id>`
 3. Check output for COMPLETE or NEEDS_HUMAN
@@ -80,7 +60,7 @@ Claude has no memory of previous iterations. Each invocation starts fresh. The f
 ```markdown
 ---
 task: Add user authentication
-test_command: bun run verify
+test_command: make test
 completion_promise: "User authentication works and all tests pass"
 max_iterations: 15
 ---
@@ -124,13 +104,12 @@ What needs to be done and why.
 
 ```
 ralph-cli/
-├── bin/ralph.sh      # Bash CLI (zero dependencies)
-├── src/ralph.ts      # TypeScript CLI (requires Bun)
+├── bin/ralph.sh      # CLI (pure bash, zero dependencies)
 ├── skills/           # Bundled Claude Code skills
 │   ├── ralph-go/     # Single iteration executor
 │   ├── ralph-new/
 │   └── ralph-plan/
+├── templates/        # Task templates
 ├── decisions/        # Architecture Decision Records
-├── package.json
 └── README.md
 ```

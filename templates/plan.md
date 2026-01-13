@@ -1,6 +1,6 @@
 ---
 task: {{TASK_NAME}}
-test_command: bun run verify
+test_command: make test
 completion_promise: "All tests pass and {{TASK_NAME}} is complete"
 max_iterations: 15
 ---

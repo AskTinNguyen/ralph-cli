@@ -26,7 +26,7 @@ CLAUDE_SKILLS_DIR=".claude/skills"
 # Find the script's directory (for bundled skills/templates)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SOURCE="${SCRIPT_DIR}/../skills"
-TEMPLATES_SOURCE="${SCRIPT_DIR}/../src/templates"
+TEMPLATES_SOURCE="${SCRIPT_DIR}/../templates"
 
 # Colors (if terminal supports it)
 if [[ -t 1 ]]; then

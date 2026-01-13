@@ -14,17 +14,14 @@ State lives in files, not databases. Every step is transparent and traceable.
 
 ## Installation
 
-### Option A: Bash (Universal - Recommended for non-JS projects)
-
-**Zero dependencies.** Works on any Unix system (macOS, Linux, WSL).
+**Zero dependencies.** Pure bash. Works on macOS, Linux, and Windows (Git Bash/WSL).
 
 ```bash
 # Clone the repo
 git clone https://github.com/AskTinNguyen/ralph-cli.git
-cd ralph-cli
 
 # Add to your PATH (add to ~/.bashrc or ~/.zshrc)
-export PATH="$PATH:$(pwd)/bin"
+export PATH="$PATH:$HOME/ralph-cli/bin"
 
 # Verify
 ralph.sh --help
@@ -33,131 +30,46 @@ ralph.sh --help
 Or copy directly to your project:
 
 ```bash
-# Copy just the bash script and skills to your project
 curl -O https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/bin/ralph.sh
 chmod +x ralph.sh
-./ralph.sh install
 ```
-
-Then use:
-
-```bash
-./ralph.sh install    # Install skills to current repo
-./ralph.sh new "task" # Create a task
-./ralph.sh go 1       # Run a task
-```
-
-### Option B: Bun/npm (For JavaScript/TypeScript projects)
-
-If you're already using Bun or npm:
-
-```bash
-# Global install
-bun add -g github:AskTinNguyen/ralph-cli
-
-# Verify
-ralph --help
-```
-
-Then in any repo:
-
-```bash
-ralph install    # Install skills to current repo
-ralph new "task" # Create a task
-ralph go 1       # Run a task
-```
-
-#### Local Install (Per-Project)
-
-```bash
-bun add -D github:AskTinNguyen/ralph-cli
-bunx ralph install
-```
-
-### What Gets Created
-
-After running `ralph install`, this creates:
-- `.claude/skills/ralph-go/` - Main execution skill
-- `.claude/skills/ralph-new/` - Task creation skill
-- `.claude/skills/ralph-plan/` - Interactive planning skill
-- `.ralph/guardrails.md` - Safety constraints
 
 ## Quick Start
 
 ```bash
-# 1. Install Ralph globally (one-time setup)
-bun add -g github:AskTinNguyen/ralph-cli
+# 1. Install Ralph skills to your repo
+ralph.sh install
 
-# 2. Install Ralph skills to your repo
-ralph install
-
-# 3. Start Claude Code
+# 2. Start Claude Code
 claude
 
-# 4. Create a task interactively
+# 3. Create a task interactively
 > /ralph-plan
 
-# 5. Or create one directly
+# 4. Or create one directly
 > /ralph-new Add user authentication
 
-# 6. Run the task
+# 5. Run the task
 > /ralph-go 1
 ```
 
 ## Commands
 
-### `ralph install`
+| Command | Description |
+|---------|-------------|
+| `ralph.sh install` | Install skills to current repo |
+| `ralph.sh new "task"` | Create a new task |
+| `ralph.sh list` | List all tasks |
+| `ralph.sh go <id>` | Run task headlessly (pure loop) |
+| `ralph.sh update` | Update skills to latest version |
 
-Install Ralph skills to the current repository.
+### What Gets Created
 
-```bash
-ralph install
-# Creates .claude/skills/ralph-*/ and .ralph/guardrails.md
-```
-
-### `ralph update`
-
-Update Ralph skills to the latest version.
-
-```bash
-# Global install: update package, then update skills
-bun add -g github:AskTinNguyen/ralph-cli
-ralph update
-
-# Local install: update package, then update skills
-bun add -D github:AskTinNguyen/ralph-cli
-bunx ralph update
-```
-
-This overwrites `.claude/skills/ralph-*/` with the latest versions. Your `guardrails.md` is preserved if you've customized it.
-
-### `ralph new <task>`
-
-Create a new task.
-
-```bash
-ralph new "Add dark mode toggle"
-# Creates .ralph/ralph-1/plan.md
-```
-
-### `ralph list`
-
-List all tasks.
-
-```bash
-ralph list
-# ralph-1: Add dark mode toggle (0 iterations)
-# ralph-2: Fix login bug (3 iterations)
-```
-
-### `ralph go <id>`
-
-Run a task headlessly (for scripts/automation).
-
-```bash
-ralph go 1
-# Runs until COMPLETE or NEEDS_HUMAN
-```
+After running `ralph.sh install`:
+- `.claude/skills/ralph-go/` - Main execution skill
+- `.claude/skills/ralph-new/` - Task creation skill
+- `.claude/skills/ralph-plan/` - Interactive planning skill
+- `.ralph/guardrails.md` - Safety constraints
 
 ## Interactive Usage (Recommended)
 
@@ -180,11 +92,11 @@ your-repo/
 │       ├── ralph-new/SKILL.md     # Task creation
 │       └── ralph-plan/SKILL.md    # Planning
 └── .ralph/
-    ├── guardrails.md              # Safety constraints (shared, READ FIRST)
+    ├── guardrails.md              # Safety constraints (shared)
     └── ralph-1/                   # Task 1
         ├── plan.md                # Task definition
-        ├── progress.md            # Iteration history (smart append)
-        └── errors.log             # Test failures (rolling, max 3)
+        ├── progress.md            # Iteration history
+        └── errors.log             # Test failures
 ```
 
 ## Task Definition
@@ -194,10 +106,9 @@ your-repo/
 ```markdown
 ---
 task: Add health endpoint
-test_command: npm test              # Or: cargo test, go test, pytest, make test, etc.
+test_command: make test
 completion_promise: "Health endpoint returns 200 and all tests pass"
 max_iterations: 15
-visual_verification: false          # Set true for web UI tasks
 ---
 
 # Task: Add health endpoint
@@ -213,30 +124,16 @@ We need a health check endpoint for load balancer probes.
 
 ### Language-Agnostic Testing
 
-Ralph works with any project type. During task creation, Claude detects your project and suggests appropriate test commands:
+Ralph works with any project type:
 
-| Project Type | Detection | Example Test Command |
-|--------------|-----------|---------------------|
-| JavaScript/TypeScript | `package.json` | `npm test`, `bun test` |
-| Rust | `Cargo.toml` | `cargo test` |
-| Go | `go.mod` | `go test ./...` |
-| Python | `pyproject.toml` | `pytest` |
-| C++ (CMake) | `CMakeLists.txt` | `cmake --build . && ctest` |
-| C++ (Make) | `Makefile` | `make && make test` |
-
-### Visual Verification (Web UI)
-
-For frontend tasks, enable visual verification to capture screenshots:
-
-```markdown
----
-task: Add dark mode toggle
-test_command: npm test
-visual_verification: true
----
-```
-
-When enabled, Ralph uses Playwright MCP tools to capture screenshots at `.ralph/ralph-N/screenshots/` for human review.
+| Project Type | Example Test Command |
+|--------------|---------------------|
+| JavaScript/TypeScript | `npm test`, `bun test` |
+| Rust | `cargo test` |
+| Go | `go test ./...` |
+| Python | `pytest` |
+| C++ (CMake) | `cmake --build . && ctest` |
+| C++ (Make) | `make && make test` |
 
 ## Completion Signals
 
@@ -255,177 +152,32 @@ Ralph outputs these markers to control the loop:
 | Code | Meaning |
 |------|---------|
 | 0 | SUCCESS - Task completed |
-| 1 | ERROR - Unexpected error |
+| 1 | ERROR - Max iterations or unexpected error |
 | 2 | NEEDS_HUMAN - Claude escalated |
 
-## State Files (Critical for Agents)
+## Architecture
 
-Ralph uses state files as the memory and harness for continuation. **Agents MUST read these files at the start of each iteration and manage them to avoid context bloat.**
+Ralph uses a **pure loop** architecture:
 
-### Context Management Strategy
-
-To prevent unbounded log growth that wastes context:
-
-| File | Strategy | Max Size |
-|------|----------|----------|
-| `guardrails.md` | Read-only, never modify | N/A |
-| `progress.md` | Keep last 5 iterations, summarize older | ~50 lines |
-| `errors.log` | Keep last 3 unique errors only | ~30 lines |
-| `activity.log` | Optional, for debugging only | Remove if not needed |
-
-### guardrails.md (Read Before Every Action)
-
-**Purpose**: Safety constraints that apply to ALL tasks. Violations are unacceptable.
-
-**When to read**: Before starting any work, before every iteration.
-
-**Template**:
-```markdown
-# Guardrails
-
-## Safety Constraints (NEVER do these)
-- Never push directly to main/master branch
-- Never delete production data
-- Never commit secrets/credentials
-- Never skip tests
-
-## Project-Specific Rules
-- (Add your project's constraints)
+```bash
+# The core philosophy
+while :; do cat prompt.md | agent ; done
 ```
 
-### progress.md (Smart Append)
+- **Same task, new brain each iteration**
+- **Memory is filesystem + git, not chat**
+- **Fresh context window every iteration** (no exhaustion)
+- **All state visible in files** (easy debugging)
 
-**Purpose**: Iteration history that enables continuation.
-
-**Management rules**:
-1. After iteration 5, summarize iterations 1-N into a "Summary" section
-2. Keep only last 5 iterations in detail
-3. This prevents unbounded growth while preserving context
-
-**Template**:
-```markdown
-## Summary (Iterations 1-5)
-- Set up project structure
-- Added authentication module
-- Fixed 2 test failures
-- Integrated with database
-
-## Iteration 6 - YYYY-MM-DD HH:MM:SS
-- **Attempted**: What you tried to do
-- **Result**: PASSED | FAILED
-- **Files changed**: List of files modified
-- **Criteria met**: Which checkboxes can now be checked
-- **Next**: What to try next (if not complete)
-```
-
-### errors.log (Deduplicated, Rolling)
-
-**Purpose**: Record of recent, unique test failures. Prevents repeating the same mistakes.
-
-**Management rules**:
-1. Before appending, check if same error already exists → skip if duplicate
-2. Keep only last 3 unique errors
-3. Remove oldest when adding new (rolling window)
-
-**Template**:
-```markdown
-## Error 1 (Iteration 8)
-Command: bun test
-Exit code: 1
-Output:
-  FAIL src/components/Button.test.ts
-    ✕ should render correctly
-      Expected: true
-      Received: false
-
-## Error 2 (Iteration 10)
-...
-```
-
-### activity.log (Optional)
-
-**Purpose**: Detailed log for debugging. **Not required for normal operation.**
-
-**When to use**: Only when debugging issues or when human requests detailed audit trail.
-
-**Recommendation**: Skip this file in normal loops to save context. Use only if stuck.
-
-### Agent Loop (Context-Aware)
-
-**READ (start of iteration):**
-1. guardrails.md → Know constraints
-2. plan.md → Know the goal
-3. progress.md → Know what's done
-4. errors.log → Know what failed (last 3)
-
-**WORK:**
-5. Do work toward next criterion
-6. Run test_command → Verify work
-
-**WRITE (end of iteration):**
-7. Update progress.md → Summarize if > 5 iterations
-8. Update errors.log → Only if new unique error
-
-**CONTEXT MANAGEMENT:**
-- progress.md > 5 iterations? Summarize older ones
-- errors.log has duplicate? Don't append
-- errors.log > 3 entries? Remove oldest
-
-**CHECK:**
-9. All criteria met? → COMPLETE
-10. Otherwise → next iteration
-
-## Custom Testing Skills
-
-For specialized projects (Unreal Engine, Unity, Godot, embedded systems, etc.), you can add custom testing skills that Ralph will discover and use.
-
-### How It Works
-
-1. During planning, Ralph checks `.claude/skills/` for testing skills
-2. If found, incorporates their guidance into verification proposals
-3. If not found for a specialized project, **Ralph offers to create one**
-
-### Creating a Custom Testing Skill
-
-Add a skill to your project:
-
-```
-.claude/skills/
-└── unreal-testing/
-    └── SKILL.md
-```
-
-Example `SKILL.md`:
-
-```markdown
----
-name: unreal-testing
-description: Testing patterns for Unreal Engine projects
----
-
-# Unreal Engine Testing
-
-## Build Command
-UnrealEditor-Cmd.exe MyProject -build
-
-## Test Command
-UnrealEditor-Cmd.exe MyProject -ExecCmds="Automation RunTests MyProject"
-
-## Common Patterns
-- Use Automation Framework for unit tests
-- PIE testing for gameplay verification
-- Gauntlet for performance tests
-```
-
-Ralph will use this skill to propose appropriate test commands and acceptance criteria for all tasks in this project.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
 
 ## Philosophy
 
-- **State lives in files** - Human-readable, no database needed
-- **Minimal tooling** - ~200 lines of code, no server
+- **Zero dependencies** - Pure bash, runs anywhere
+- **State lives in files** - Human-readable, no database
+- **Minimal tooling** - ~300 lines of bash
 - **Transparent execution** - Read any file to understand what's happening
-- **Portable** - Works in any repo with Claude Code
-- **Language-agnostic** - Defers to Claude's knowledge of your ecosystem
+- **Language-agnostic** - Works with any project type
 
 ## License
 
