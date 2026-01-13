@@ -3,6 +3,24 @@
 # Uncomment and edit as needed.
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Budget Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Set spending limits to control costs. Budget alerts are shown at 80%, 90%, 100%.
+#
+# Daily budget limit in USD (resets at midnight):
+# RALPH_BUDGET_DAILY=10.00
+#
+# Monthly budget limit in USD (resets on 1st of month):
+# RALPH_BUDGET_MONTHLY=100.00
+#
+# Alert threshold percentages (comma-separated):
+# RALPH_BUDGET_ALERT_THRESHOLDS=80,90,100
+#
+# Pause builds when budget exceeded (true/false):
+# RALPH_BUDGET_PAUSE_ON_EXCEEDED=false
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Token Cost Pricing (per 1M tokens in USD)
 # ─────────────────────────────────────────────────────────────────────────────
 # Override default Claude pricing. Values are per 1 million tokens.

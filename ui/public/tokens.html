@@ -38,6 +38,18 @@
   </header>
 
   <main>
+    <!-- Budget Tracking Section -->
+    <section id="token-budget-section">
+      <h2>Budget Tracking <span class="htmx-indicator" id="budget-indicator"><span class="loading-spinner"></span></span></h2>
+      <div id="token-budget-container"
+           hx-get="/api/partials/token-budget"
+           hx-trigger="load, every 10s"
+           hx-swap="innerHTML"
+           hx-indicator="#budget-indicator">
+        <div class="loading"><span class="loading-spinner"></span> Loading budget status...</div>
+      </div>
+    </section>
+
     <!-- Token Summary Section -->
     <section id="token-summary-section">
       <h2>Token Consumption Overview <span class="htmx-indicator" id="summary-indicator"><span class="loading-spinner"></span></span></h2>

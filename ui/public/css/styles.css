@@ -3127,3 +3127,284 @@ footer {
     gap: var(--spacing-xs);
   }
 }
+
+/* ========================================
+   Budget Tracking Styles
+   ======================================== */
+
+#token-budget-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.budget-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.budget-not-configured {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+}
+
+.budget-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
+.budget-hint-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.budget-hint-text {
+  flex: 1;
+}
+
+.budget-hint-text strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.budget-hint-text p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.budget-hint-text code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--link-color);
+}
+
+/* Budget Items Grid */
+.budget-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.budget-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+.budget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.budget-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+}
+
+.budget-values {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Budget Progress Bar */
+.budget-progress-container {
+  height: 8px;
+  background: var(--progress-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+.budget-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.budget-progress-bar.budget-ok {
+  background: var(--status-completed);
+}
+
+.budget-progress-bar.budget-warning {
+  background: #f0883e;
+}
+
+.budget-progress-bar.budget-critical {
+  background: #db6d28;
+}
+
+.budget-progress-bar.budget-exceeded {
+  background: var(--status-error);
+}
+
+/* Budget Footer */
+.budget-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+}
+
+.budget-percentage {
+  font-weight: 600;
+}
+
+.budget-percentage.budget-ok {
+  color: var(--status-completed);
+}
+
+.budget-percentage.budget-warning {
+  color: #f0883e;
+}
+
+.budget-percentage.budget-critical {
+  color: #db6d28;
+}
+
+.budget-percentage.budget-exceeded {
+  color: var(--status-error);
+}
+
+.budget-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.budget-status.budget-ok {
+  color: var(--status-completed);
+}
+
+.budget-status.budget-warning {
+  color: #f0883e;
+}
+
+.budget-status.budget-critical {
+  color: #db6d28;
+}
+
+.budget-status.budget-exceeded {
+  color: var(--status-error);
+}
+
+.budget-status-icon {
+  font-size: 0.875rem;
+}
+
+.budget-remaining {
+  color: var(--text-muted);
+}
+
+/* Budget Pause Warning */
+.budget-pause-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.budget-pause-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.budget-pause-text {
+  flex: 1;
+}
+
+.budget-pause-text strong {
+  display: block;
+  color: var(--status-error);
+  margin-bottom: var(--spacing-xs);
+}
+
+.budget-pause-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.budget-pause-text code {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+}
+
+/* Budget Alerts */
+.budget-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.budget-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.budget-alert.alert-warning {
+  background: rgba(240, 136, 62, 0.15);
+  border: 1px solid rgba(240, 136, 62, 0.5);
+  color: #f0883e;
+}
+
+.budget-alert.alert-critical {
+  background: rgba(219, 109, 40, 0.15);
+  border: 1px solid rgba(219, 109, 40, 0.5);
+  color: #db6d28;
+}
+
+.budget-alert.alert-error {
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+}
+
+.budget-alert-icon {
+  font-size: 1rem;
+}
+
+/* Responsive Budget Styles */
+@media (max-width: 768px) {
+  .budget-items {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-footer {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .budget-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+  }
+
+  .budget-hint {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

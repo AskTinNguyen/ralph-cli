@@ -10,7 +10,7 @@ import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, Bui
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
-import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends } from '../services/token-reader.js';
+import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus } from '../services/token-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -583,6 +583,36 @@ api.post('/build/start', async (c) => {
   }
   if (body.noCommit !== undefined) {
     options.noCommit = body.noCommit;
+  }
+
+  // Check budget before starting build
+  const budgetStatus = getBudgetStatus();
+  if (budgetStatus.shouldPause) {
+    let reason = 'Budget exceeded';
+    if (budgetStatus.daily.exceeded && budgetStatus.daily.limit !== null) {
+      reason = `Daily budget exceeded ($${budgetStatus.daily.spent.toFixed(2)}/$${budgetStatus.daily.limit.toFixed(2)})`;
+    } else if (budgetStatus.monthly.exceeded && budgetStatus.monthly.limit !== null) {
+      reason = `Monthly budget exceeded ($${budgetStatus.monthly.spent.toFixed(2)}/$${budgetStatus.monthly.limit.toFixed(2)})`;
+    }
+    return c.json(
+      {
+        error: 'budget_exceeded',
+        message: `${reason}. Set RALPH_BUDGET_PAUSE_ON_EXCEEDED=false in config.sh to override.`,
+        budgetStatus: {
+          daily: {
+            spent: budgetStatus.daily.spent,
+            limit: budgetStatus.daily.limit,
+            exceeded: budgetStatus.daily.exceeded,
+          },
+          monthly: {
+            spent: budgetStatus.monthly.spent,
+            limit: budgetStatus.monthly.limit,
+            exceeded: budgetStatus.monthly.exceeded,
+          },
+        },
+      },
+      403
+    );
   }
 
   // Start the build
@@ -2190,6 +2220,24 @@ api.post('/stream/:id/build', async (c) => {
     noCommit: body.noCommit,
   };
 
+  // Check budget before starting build
+  const budgetStatus = getBudgetStatus();
+  if (budgetStatus.shouldPause) {
+    let reason = 'Budget exceeded';
+    if (budgetStatus.daily.exceeded && budgetStatus.daily.limit !== null) {
+      reason = `Daily budget exceeded ($${budgetStatus.daily.spent.toFixed(2)}/$${budgetStatus.daily.limit.toFixed(2)})`;
+    } else if (budgetStatus.monthly.exceeded && budgetStatus.monthly.limit !== null) {
+      reason = `Monthly budget exceeded ($${budgetStatus.monthly.spent.toFixed(2)}/$${budgetStatus.monthly.limit.toFixed(2)})`;
+    }
+    return c.json(
+      {
+        error: 'budget_exceeded',
+        message: `${reason}. Set RALPH_BUDGET_PAUSE_ON_EXCEEDED=false in config.sh to override.`,
+      },
+      403
+    );
+  }
+
   // Start the build using process manager
   const status = processManager.startBuild(iterations, options);
 
@@ -3066,6 +3114,174 @@ function collapseAllTokenStories() {
   });
 }
 </script>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/tokens/budget
+ *
+ * Returns budget status including daily/monthly limits and current spending.
+ */
+api.get('/tokens/budget', (c) => {
+  const status = getBudgetStatus();
+  return c.json(status);
+});
+
+/**
+ * GET /api/partials/token-budget
+ *
+ * Returns HTML fragment for budget progress bars.
+ * Shows daily and monthly budget consumption with color-coded progress bars.
+ */
+api.get('/partials/token-budget', (c) => {
+  const status = getBudgetStatus();
+
+  // If no budgets are configured, show configuration hint
+  if (!status.daily.hasLimit && !status.monthly.hasLimit) {
+    return c.html(`
+<div class="budget-section budget-not-configured">
+  <div class="budget-hint">
+    <span class="budget-hint-icon">&#128176;</span>
+    <div class="budget-hint-text">
+      <strong>Budget tracking not configured</strong>
+      <p>Set <code>RALPH_BUDGET_DAILY</code> and/or <code>RALPH_BUDGET_MONTHLY</code> in <code>.agents/ralph/config.sh</code> to enable budget tracking.</p>
+    </div>
+  </div>
+</div>
+`);
+  }
+
+  // Format currency
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) {
+      return `$${cost.toFixed(2)}`;
+    } else if (cost >= 0.01) {
+      return `$${cost.toFixed(3)}`;
+    } else if (cost > 0) {
+      return `$${cost.toFixed(4)}`;
+    }
+    return '$0.00';
+  };
+
+  // Get color class based on percentage
+  const getColorClass = (percentage: number): string => {
+    if (percentage >= 100) return 'budget-exceeded';
+    if (percentage >= 90) return 'budget-critical';
+    if (percentage >= 80) return 'budget-warning';
+    return 'budget-ok';
+  };
+
+  // Build daily budget HTML
+  let dailyHtml = '';
+  if (status.daily.hasLimit && status.daily.limit !== null) {
+    const dailyColorClass = getColorClass(status.daily.percentage);
+    const dailyBarWidth = Math.min(status.daily.percentage, 100);
+    const dailyStatusIcon = status.daily.exceeded ? '&#9888;' : '&#10003;';
+    const dailyStatusText = status.daily.exceeded ? 'Exceeded' : 'OK';
+
+    dailyHtml = `
+<div class="budget-item">
+  <div class="budget-header">
+    <span class="budget-label">Daily Budget</span>
+    <span class="budget-values">
+      ${formatCurrency(status.daily.spent)} / ${formatCurrency(status.daily.limit)}
+    </span>
+  </div>
+  <div class="budget-progress-container">
+    <div class="budget-progress-bar ${dailyColorClass}" style="width: ${dailyBarWidth}%"></div>
+  </div>
+  <div class="budget-footer">
+    <span class="budget-percentage ${dailyColorClass}">${status.daily.percentage}%</span>
+    <span class="budget-status ${dailyColorClass}">
+      <span class="budget-status-icon">${dailyStatusIcon}</span>
+      ${dailyStatusText}
+    </span>
+    ${status.daily.remaining !== null && !status.daily.exceeded ? `<span class="budget-remaining">${formatCurrency(status.daily.remaining)} remaining</span>` : ''}
+  </div>
+</div>
+`;
+  }
+
+  // Build monthly budget HTML
+  let monthlyHtml = '';
+  if (status.monthly.hasLimit && status.monthly.limit !== null) {
+    const monthlyColorClass = getColorClass(status.monthly.percentage);
+    const monthlyBarWidth = Math.min(status.monthly.percentage, 100);
+    const monthlyStatusIcon = status.monthly.exceeded ? '&#9888;' : '&#10003;';
+    const monthlyStatusText = status.monthly.exceeded ? 'Exceeded' : 'OK';
+
+    monthlyHtml = `
+<div class="budget-item">
+  <div class="budget-header">
+    <span class="budget-label">Monthly Budget</span>
+    <span class="budget-values">
+      ${formatCurrency(status.monthly.spent)} / ${formatCurrency(status.monthly.limit)}
+    </span>
+  </div>
+  <div class="budget-progress-container">
+    <div class="budget-progress-bar ${monthlyColorClass}" style="width: ${monthlyBarWidth}%"></div>
+  </div>
+  <div class="budget-footer">
+    <span class="budget-percentage ${monthlyColorClass}">${status.monthly.percentage}%</span>
+    <span class="budget-status ${monthlyColorClass}">
+      <span class="budget-status-icon">${monthlyStatusIcon}</span>
+      ${monthlyStatusText}
+    </span>
+    ${status.monthly.remaining !== null && !status.monthly.exceeded ? `<span class="budget-remaining">${formatCurrency(status.monthly.remaining)} remaining</span>` : ''}
+  </div>
+</div>
+`;
+  }
+
+  // Show warning banner if build pause is enabled and budget exceeded
+  let pauseWarningHtml = '';
+  if (status.pauseOnExceeded && status.shouldPause) {
+    pauseWarningHtml = `
+<div class="budget-pause-warning">
+  <span class="budget-pause-icon">&#128721;</span>
+  <div class="budget-pause-text">
+    <strong>Builds Paused</strong>
+    <p>Budget exceeded and <code>RALPH_BUDGET_PAUSE_ON_EXCEEDED=true</code> is set. New builds will be blocked until budget resets.</p>
+  </div>
+</div>
+`;
+  }
+
+  // Show alerts if any thresholds were crossed
+  let alertsHtml = '';
+  const allAlerts = [
+    ...status.daily.alerts.map(a => ({ ...a, period: 'daily' })),
+    ...status.monthly.alerts.map(a => ({ ...a, period: 'monthly' })),
+  ];
+
+  // Only show the highest alert for each period
+  const highestDailyAlert = status.daily.alerts[status.daily.alerts.length - 1];
+  const highestMonthlyAlert = status.monthly.alerts[status.monthly.alerts.length - 1];
+
+  if (highestDailyAlert || highestMonthlyAlert) {
+    const alertItems = [];
+    if (highestDailyAlert) {
+      const alertClass = highestDailyAlert.threshold >= 100 ? 'alert-error' : highestDailyAlert.threshold >= 90 ? 'alert-critical' : 'alert-warning';
+      alertItems.push(`<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestDailyAlert.message)}</div>`);
+    }
+    if (highestMonthlyAlert) {
+      const alertClass = highestMonthlyAlert.threshold >= 100 ? 'alert-error' : highestMonthlyAlert.threshold >= 90 ? 'alert-critical' : 'alert-warning';
+      alertItems.push(`<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestMonthlyAlert.message)}</div>`);
+    }
+    alertsHtml = `<div class="budget-alerts">${alertItems.join('')}</div>`;
+  }
+
+  const html = `
+<div class="budget-section">
+  ${pauseWarningHtml}
+  ${alertsHtml}
+  <div class="budget-items">
+    ${dailyHtml}
+    ${monthlyHtml}
+  </div>
+</div>
 `;
 
   return c.html(html);

@@ -506,3 +506,243 @@ export function getTokenTrends(
 
   return { period, dataPoints, streamId };
 }
+
+/**
+ * Budget status structure
+ */
+interface BudgetPeriodStatus {
+  spent: number;
+  limit: number | null;
+  hasLimit: boolean;
+  percentage: number;
+  remaining: number | null;
+  exceeded: boolean;
+  alerts: Array<{
+    threshold: number;
+    message: string;
+  }>;
+}
+
+export interface BudgetStatus {
+  daily: BudgetPeriodStatus;
+  monthly: BudgetPeriodStatus;
+  pauseOnExceeded: boolean;
+  shouldPause: boolean;
+  alertThresholds: number[];
+}
+
+/**
+ * Load budget configuration from config.sh
+ */
+function loadBudgetConfig(): {
+  dailyBudget: number | null;
+  monthlyBudget: number | null;
+  alertThresholds: number[];
+  pauseOnExceeded: boolean;
+} {
+  const defaultConfig = {
+    dailyBudget: null as number | null,
+    monthlyBudget: null as number | null,
+    alertThresholds: [80, 90, 100],
+    pauseOnExceeded: false,
+  };
+
+  // Find config file in repo root
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return defaultConfig;
+  }
+
+  // Navigate up from .ralph to find repo root
+  const repoRoot = path.dirname(ralphRoot);
+  const configPath = path.join(repoRoot, '.agents', 'ralph', 'config.sh');
+
+  if (!fs.existsSync(configPath)) {
+    return defaultConfig;
+  }
+
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const config = { ...defaultConfig };
+
+    // Parse budget variables from config.sh
+    const patterns = [
+      { pattern: /^RALPH_BUDGET_DAILY\s*=\s*"?([0-9.]+)"?/m, key: 'dailyBudget', type: 'float' },
+      { pattern: /^RALPH_BUDGET_MONTHLY\s*=\s*"?([0-9.]+)"?/m, key: 'monthlyBudget', type: 'float' },
+      { pattern: /^RALPH_BUDGET_ALERT_THRESHOLDS\s*=\s*"?([0-9,]+)"?/m, key: 'alertThresholds', type: 'array' },
+      { pattern: /^RALPH_BUDGET_PAUSE_ON_EXCEEDED\s*=\s*"?(\w+)"?/m, key: 'pauseOnExceeded', type: 'bool' },
+    ] as const;
+
+    for (const { pattern, key, type } of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        if (type === 'float') {
+          (config as Record<string, unknown>)[key] = parseFloat(match[1]);
+        } else if (type === 'array') {
+          (config as Record<string, unknown>)[key] = match[1]
+            .split(',')
+            .map((n: string) => parseInt(n.trim(), 10))
+            .filter((n: number) => !isNaN(n));
+        } else if (type === 'bool') {
+          (config as Record<string, unknown>)[key] = match[1].toLowerCase() === 'true';
+        }
+      }
+    }
+
+    return config;
+  } catch {
+    return defaultConfig;
+  }
+}
+
+/**
+ * Get start of today (midnight) as a Date
+ */
+function getStartOfDay(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+}
+
+/**
+ * Get start of current month as a Date
+ */
+function getStartOfMonth(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+}
+
+/**
+ * Get all runs from all streams
+ */
+function getAllRuns(): Array<{
+  runId: string;
+  timestamp: string;
+  cost: number;
+}> {
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return [];
+  }
+
+  const streams = getStreams();
+  const allRuns: Array<{ runId: string; timestamp: string; cost: number }> = [];
+
+  for (const stream of streams) {
+    const cache = loadTokenCache(stream.path);
+    if (cache?.runs) {
+      for (const run of cache.runs) {
+        allRuns.push({
+          runId: run.runId,
+          timestamp: run.timestamp,
+          cost: run.cost,
+        });
+      }
+    }
+  }
+
+  return allRuns;
+}
+
+/**
+ * Calculate spending for a time period from runs
+ */
+function calculateSpendingForPeriod(
+  runs: Array<{ timestamp: string; cost: number }>,
+  startDate: Date,
+  endDate: Date = new Date()
+): number {
+  if (!runs || runs.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const run of runs) {
+    if (!run.timestamp) continue;
+
+    const runDate = new Date(run.timestamp);
+    if (runDate >= startDate && runDate <= endDate) {
+      total += run.cost || 0;
+    }
+  }
+
+  return roundCost(total);
+}
+
+/**
+ * Get budget status - checks current spending against configured limits
+ */
+export function getBudgetStatus(): BudgetStatus {
+  const config = loadBudgetConfig();
+  const runs = getAllRuns();
+
+  const startOfDay = getStartOfDay();
+  const startOfMonth = getStartOfMonth();
+
+  const dailySpending = calculateSpendingForPeriod(runs, startOfDay);
+  const monthlySpending = calculateSpendingForPeriod(runs, startOfMonth);
+
+  const status: BudgetStatus = {
+    daily: {
+      spent: dailySpending,
+      limit: config.dailyBudget,
+      hasLimit: config.dailyBudget !== null && config.dailyBudget > 0,
+      percentage: 0,
+      remaining: null,
+      exceeded: false,
+      alerts: [],
+    },
+    monthly: {
+      spent: monthlySpending,
+      limit: config.monthlyBudget,
+      hasLimit: config.monthlyBudget !== null && config.monthlyBudget > 0,
+      percentage: 0,
+      remaining: null,
+      exceeded: false,
+      alerts: [],
+    },
+    pauseOnExceeded: config.pauseOnExceeded,
+    shouldPause: false,
+    alertThresholds: config.alertThresholds,
+  };
+
+  // Calculate daily budget status
+  if (status.daily.hasLimit && config.dailyBudget) {
+    status.daily.percentage = Math.round((dailySpending / config.dailyBudget) * 100);
+    status.daily.remaining = Math.max(0, config.dailyBudget - dailySpending);
+    status.daily.exceeded = dailySpending >= config.dailyBudget;
+
+    // Check which alert thresholds have been crossed
+    for (const threshold of config.alertThresholds) {
+      if (status.daily.percentage >= threshold) {
+        status.daily.alerts.push({
+          threshold,
+          message: `${threshold}% of daily budget consumed ($${dailySpending.toFixed(2)}/$${config.dailyBudget.toFixed(2)})`,
+        });
+      }
+    }
+  }
+
+  // Calculate monthly budget status
+  if (status.monthly.hasLimit && config.monthlyBudget) {
+    status.monthly.percentage = Math.round((monthlySpending / config.monthlyBudget) * 100);
+    status.monthly.remaining = Math.max(0, config.monthlyBudget - monthlySpending);
+    status.monthly.exceeded = monthlySpending >= config.monthlyBudget;
+
+    // Check which alert thresholds have been crossed
+    for (const threshold of config.alertThresholds) {
+      if (status.monthly.percentage >= threshold) {
+        status.monthly.alerts.push({
+          threshold,
+          message: `${threshold}% of monthly budget consumed ($${monthlySpending.toFixed(2)}/$${config.monthlyBudget.toFixed(2)})`,
+        });
+      }
+    }
+  }
+
+  // Determine if builds should pause
+  if (config.pauseOnExceeded) {
+    status.shouldPause = status.daily.exceeded || status.monthly.exceeded;
+  }
+
+  return status;
+}
