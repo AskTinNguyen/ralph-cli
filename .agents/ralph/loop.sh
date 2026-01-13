@@ -691,10 +691,49 @@ msg_dim "PRD: $PRD_PATH"
 msg_dim "Plan: $PLAN_PATH"
 HAS_ERROR="false"
 
+# Progress indicator: prints elapsed time every N seconds (TTY only)
+# Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
+PROGRESS_PID=""
+start_progress_indicator() {
+  # Only show progress in TTY mode
+  if [ ! -t 1 ]; then
+    return
+  fi
+  local start_time="$1"
+  local story_info="${2:-}"
+  (
+    while true; do
+      sleep 5
+      local now=$(date +%s)
+      local elapsed=$((now - start_time))
+      local mins=$((elapsed / 60))
+      local secs=$((elapsed % 60))
+      if [ "$mins" -gt 0 ]; then
+        printf "${C_DIM}  ⏱ Elapsed: %dm %ds${C_RESET}\n" "$mins" "$secs"
+      else
+        printf "${C_DIM}  ⏱ Elapsed: %ds${C_RESET}\n" "$secs"
+      fi
+    done
+  ) &
+  PROGRESS_PID=$!
+}
+
+stop_progress_indicator() {
+  if [ -n "$PROGRESS_PID" ]; then
+    kill "$PROGRESS_PID" 2>/dev/null || true
+    wait "$PROGRESS_PID" 2>/dev/null || true
+    PROGRESS_PID=""
+  fi
+}
+
+# Ensure progress indicator is stopped on exit/interrupt
+trap 'stop_progress_indicator' EXIT INT TERM
+
 for i in $(seq 1 "$MAX_ITERATIONS"); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
-  printf "${C_CYAN}  Ralph Iteration $i of $MAX_ITERATIONS${C_RESET}\n"
+  printf "${C_BOLD}${C_CYAN}  Running iteration $i/$MAX_ITERATIONS${C_RESET}\n"
+  printf "${C_DIM}  Started: $(date '+%Y-%m-%d %H:%M:%S')${C_RESET}\n"
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
 
   STORY_META=""
@@ -716,6 +755,10 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     fi
     STORY_ID="$(story_field "$STORY_META" "id")"
     STORY_TITLE="$(story_field "$STORY_META" "title")"
+    # Print current story being worked on
+    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_CYAN}  Working on: ${C_BOLD}$STORY_ID${C_RESET}${C_CYAN} - $STORY_TITLE${C_RESET}\n"
+    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
   fi
 
   HEAD_BEFORE="$(git_head)"
@@ -730,6 +773,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
   set +e
+  # Start progress indicator before agent execution
+  start_progress_indicator "$ITER_START"
   if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
@@ -737,6 +782,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     run_agent "$PROMPT_RENDERED" 2>&1 | tee "$LOG_FILE"
     CMD_STATUS=$?
   fi
+  # Stop progress indicator after agent execution
+  stop_progress_indicator
   set -e
   if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
     msg_warn "Interrupted."
@@ -778,17 +825,28 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     fi
     if grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
       if [ "$REMAINING" = "0" ]; then
+        printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+        printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
+        printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
         msg_success "All stories complete."
         exit 0
       fi
       msg_info "Completion signal received; stories remaining: $REMAINING"
     fi
+    # Iteration completion separator
+    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
+    printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete. Remaining stories: $REMAINING"
     if [ "$REMAINING" = "0" ]; then
       msg_success "No remaining stories."
       exit 0
     fi
   else
+    # Iteration completion separator (plan mode)
+    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
+    printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete."
   fi
   sleep 2
