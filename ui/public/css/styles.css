@@ -2479,6 +2479,64 @@ footer {
   font-weight: 500;
 }
 
+/* Clickable stream rows */
+.token-stream-clickable {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.token-stream-clickable:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Token Efficiency Column */
+.token-efficiency-header {
+  text-align: center;
+  min-width: 100px;
+}
+
+.token-efficiency {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-weight: 500;
+}
+
+/* Sortable Table Styles */
+.token-table-sortable th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.token-table-sortable th.sortable:hover {
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.token-table-sortable th.sortable .sort-icon {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: var(--spacing-xs);
+  vertical-align: middle;
+  opacity: 0.3;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid currentColor;
+}
+
+.token-table-sortable th.sortable.sort-asc .sort-icon {
+  opacity: 1;
+  border-bottom: 5px solid var(--link-color);
+  border-top: none;
+}
+
+.token-table-sortable th.sortable.sort-desc .sort-icon {
+  opacity: 1;
+  border-top: 5px solid var(--link-color);
+  border-bottom: none;
+}
+
 /* Token Model Cards */
 .token-models-grid {
   display: grid;

@@ -2603,9 +2603,11 @@ api.get('/partials/token-summary', (c) => {
  * GET /api/partials/token-streams
  *
  * Returns HTML fragment for the token usage by stream table.
+ * Includes sortable headers, clickable rows for stream detail, and efficiency score.
  */
 api.get('/partials/token-streams', (c) => {
   const summary = getTokenSummary();
+  const streams = getStreams();
 
   if (summary.byStream.length === 0) {
     return c.html(`
@@ -2642,11 +2644,42 @@ api.get('/partials/token-streams', (c) => {
     return tokens.toString();
   };
 
-  const tableRows = summary.byStream.map(stream => {
+  // Build enriched stream data with completed stories count
+  const enrichedStreams = summary.byStream.map(stream => {
+    // Find matching stream to get completedStories
+    const fullStream = streams.find(s => s.id === stream.streamId);
+    const completedStories = fullStream?.completedStories || 0;
+
+    // Calculate efficiency score (cost per completed story)
+    // Lower is better, N/A if no completed stories
+    const efficiencyScore = completedStories > 0 ? stream.totalCost / completedStories : null;
+
+    return {
+      ...stream,
+      completedStories,
+      efficiencyScore,
+    };
+  });
+
+  const tableRows = enrichedStreams.map(stream => {
     const costPercentage = maxCost > 0 ? Math.round((stream.totalCost / maxCost) * 100) : 0;
+    const efficiencyDisplay = stream.efficiencyScore !== null
+      ? formatCurrency(stream.efficiencyScore)
+      : '<span class="token-muted">N/A</span>';
+    // For sorting, use a high number for N/A so they sort to the end
+    const efficiencySortValue = stream.efficiencyScore !== null ? stream.efficiencyScore : 999999;
 
     return `
-<tr class="token-stream-row">
+<tr class="token-stream-row token-stream-clickable"
+    data-stream-id="${escapeHtml(stream.streamId)}"
+    data-stream-name="${escapeHtml(stream.streamName)}"
+    data-stories="${stream.storyCount}"
+    data-runs="${stream.runCount}"
+    data-input="${stream.inputTokens}"
+    data-output="${stream.outputTokens}"
+    data-cost="${stream.totalCost}"
+    data-efficiency="${efficiencySortValue}"
+    onclick="showTokenStreamDetail('${escapeHtml(stream.streamId)}', '${escapeHtml(stream.streamName).replace(/'/g, "\\'")}')">
   <td>
     <span class="stream-id">PRD-${escapeHtml(stream.streamId)}</span>
     <span class="stream-name">${escapeHtml(stream.streamName)}</span>
@@ -2665,21 +2698,37 @@ api.get('/partials/token-streams', (c) => {
     </div>
     <span class="token-cost-value">${formatCurrency(stream.totalCost)}</span>
   </td>
+  <td class="token-efficiency" title="Cost per completed story">${efficiencyDisplay}</td>
 </tr>
 `;
   }).join('');
 
   const html = `
 <div class="token-table-container">
-  <table class="token-table">
+  <table class="token-table token-table-sortable" id="token-streams-table">
     <thead>
       <tr>
-        <th>Stream</th>
-        <th class="token-count-header">Stories</th>
-        <th class="token-count-header">Runs</th>
-        <th class="token-count-header">Input</th>
-        <th class="token-count-header">Output</th>
-        <th class="token-cost-header">Cost</th>
+        <th class="sortable" data-sort="stream" data-sort-type="string">
+          Stream <span class="sort-icon"></span>
+        </th>
+        <th class="token-count-header sortable" data-sort="stories" data-sort-type="number">
+          Stories <span class="sort-icon"></span>
+        </th>
+        <th class="token-count-header sortable" data-sort="runs" data-sort-type="number">
+          Runs <span class="sort-icon"></span>
+        </th>
+        <th class="token-count-header sortable" data-sort="input" data-sort-type="number">
+          Input <span class="sort-icon"></span>
+        </th>
+        <th class="token-count-header sortable" data-sort="output" data-sort-type="number">
+          Output <span class="sort-icon"></span>
+        </th>
+        <th class="token-cost-header sortable" data-sort="cost" data-sort-type="number">
+          Cost <span class="sort-icon"></span>
+        </th>
+        <th class="token-efficiency-header sortable" data-sort="efficiency" data-sort-type="number" title="Cost per completed story">
+          Efficiency <span class="sort-icon"></span>
+        </th>
       </tr>
     </thead>
     <tbody>

@@ -80,6 +80,100 @@
 
   <script>
     // ============================================
+    // Table Sorting
+    // ============================================
+
+    var currentSort = { column: null, direction: 'asc' };
+
+    // Sort table by column
+    function sortTable(table, column, type, direction) {
+      var tbody = table.querySelector('tbody');
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+
+      rows.sort(function(a, b) {
+        var aValue, bValue;
+
+        if (column === 'stream') {
+          aValue = a.querySelector('.stream-name').textContent.toLowerCase();
+          bValue = b.querySelector('.stream-name').textContent.toLowerCase();
+        } else {
+          aValue = parseFloat(a.dataset[column]) || 0;
+          bValue = parseFloat(b.dataset[column]) || 0;
+        }
+
+        if (type === 'string') {
+          return direction === 'asc'
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        } else {
+          return direction === 'asc'
+            ? aValue - bValue
+            : bValue - aValue;
+        }
+      });
+
+      // Reorder rows in DOM
+      rows.forEach(function(row) {
+        tbody.appendChild(row);
+      });
+    }
+
+    // Initialize sortable table headers
+    function initSortableTable() {
+      var table = document.getElementById('token-streams-table');
+      if (!table) return;
+
+      var headers = table.querySelectorAll('th.sortable');
+      headers.forEach(function(header) {
+        header.addEventListener('click', function() {
+          var column = this.dataset.sort;
+          var type = this.dataset.sortType;
+
+          // Determine new direction
+          var newDirection = 'asc';
+          if (currentSort.column === column && currentSort.direction === 'asc') {
+            newDirection = 'desc';
+          }
+
+          // Update current sort state
+          currentSort.column = column;
+          currentSort.direction = newDirection;
+
+          // Update header classes
+          headers.forEach(function(h) {
+            h.classList.remove('sort-asc', 'sort-desc');
+          });
+          this.classList.add('sort-' + newDirection);
+
+          // Sort the table
+          sortTable(table, column, type, newDirection);
+        });
+      });
+    }
+
+    // Re-initialize sorting after HTMX swaps
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+      if (event.detail.target.id === 'token-streams-container') {
+        initSortableTable();
+      }
+    });
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Will be initialized after HTMX loads content
+    });
+
+    // ============================================
+    // Stream Detail Navigation
+    // ============================================
+
+    // Navigate to stream detail view
+    function showTokenStreamDetail(streamId, streamName) {
+      // Navigate to streams page with the specific stream focused
+      window.location.href = '/streams.html?stream=' + encodeURIComponent(streamId);
+    }
+
+    // ============================================
     // Error Handling
     // ============================================
 
