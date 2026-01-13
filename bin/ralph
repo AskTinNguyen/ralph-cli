@@ -1,0 +1,431 @@
+#!/usr/bin/env node
+const { spawnSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+
+const rawArgs = process.argv.slice(2);
+const args = [];
+const cwd = process.cwd();
+const repoRoot = path.resolve(__dirname, "..");
+const globalDir = path.join(repoRoot, ".agents", "ralph");
+const localDir = path.join(cwd, ".agents", "ralph");
+const skillsRoot = path.join(repoRoot, "skills");
+let agentOverride = null;
+let installSkills = false;
+let installForce = false;
+let prdPath = null;
+let planPath = null;
+let progressPath = null;
+let prdOutPath = null;
+
+function exists(p) {
+  try {
+    fs.accessSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function usage() {
+  console.log(`ralph <command>
+
+Commands:
+  install [--skills] [--force]        Copy .agents/ralph into the current repo
+  prd ["<request>"] [--out path]      Generate a PRD via agent
+  ping                                Minimal agent health check
+  log "<message>"                     Append to .ralph/activity.log
+  build [n] [--no-commit]             Run build loop (default)
+  plan [n]                            Run planning loop
+  help                                Show this message
+
+Options:
+  --prd <path>                        Override PRD path
+  --out <path>                        Override PRD output path (prd command)
+  --plan <path>                       Override plan path
+  --progress <path>                   Override progress log path
+  --agent <codex|claude|droid>        Override agent runner
+
+Notes:
+- Uses local .agents/ralph if present; otherwise uses bundled defaults.
+- State and logs are written to .ralph/ in the project.
+`);
+}
+
+for (let i = 0; i < rawArgs.length; i += 1) {
+  const arg = rawArgs[i];
+  if (arg.startsWith("--agent=")) {
+    agentOverride = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--agent") {
+    agentOverride = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg === "--skills") {
+    installSkills = true;
+    continue;
+  }
+  if (arg === "--force") {
+    installForce = true;
+    continue;
+  }
+  if (arg.startsWith("--prd=")) {
+    prdPath = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg.startsWith("--out=")) {
+    prdOutPath = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--prd") {
+    prdPath = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg === "--out") {
+    prdOutPath = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith("--plan=")) {
+    planPath = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--plan") {
+    planPath = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith("--progress=")) {
+    progressPath = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--progress") {
+    progressPath = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  args.push(arg);
+}
+
+const cmd = args[0];
+if (cmd === "help" || cmd === "-h" || cmd === "--help") {
+  usage();
+  process.exit(0);
+}
+
+async function runInstallSkills() {
+  const { intro, outro, select, isCancel } = await import("@clack/prompts");
+  intro("Ralph skills install");
+
+  const agent = await select({
+    message: "Which agent are you using?",
+    options: [
+      { value: "codex", label: "codex" },
+      { value: "claude", label: "claude" },
+      { value: "droid", label: "droid" },
+    ],
+    initialValue: agentOverride || "codex",
+  });
+  if (isCancel(agent)) {
+    outro("Cancelled.");
+    process.exit(0);
+  }
+
+  const scope = await select({
+    message: "Where should skills be installed?",
+    options: [
+      { value: "local", label: "Local (project)" },
+      { value: "global", label: "Global (home directory)" },
+    ],
+    initialValue: "local",
+  });
+  if (isCancel(scope)) {
+    outro("Cancelled.");
+    process.exit(0);
+  }
+
+  const home = os.homedir();
+  const targetRoot =
+    agent === "codex"
+      ? scope === "global"
+        ? path.join(home, ".codex", "skills")
+        : path.join(cwd, ".codex", "skills")
+      : agent === "claude"
+        ? scope === "global"
+          ? path.join(home, ".claude", "skills")
+          : path.join(cwd, ".claude", "skills")
+        : scope === "global"
+          ? path.join(home, ".factory", "skills")
+          : path.join(cwd, ".factory", "skills");
+
+  const skillsToInstall = ["commit", "dev-browser", "prd"];
+  fs.mkdirSync(targetRoot, { recursive: true });
+  const installed = [];
+  const skipped = [];
+
+  for (const skill of skillsToInstall) {
+    const source = path.join(skillsRoot, skill);
+    const target = path.join(targetRoot, skill);
+    if (!exists(source)) {
+      skipped.push(`${skill} (missing in repo)`);
+      continue;
+    }
+    if (exists(target) && !installForce) {
+      skipped.push(`${skill} (already exists)`);
+      continue;
+    }
+    fs.cpSync(source, target, { recursive: true, force: true });
+    installed.push(skill);
+  }
+
+  if (installed.length) {
+    console.log(`Installed skills to ${targetRoot}: ${installed.join(", ")}`);
+  }
+  if (skipped.length) {
+    console.log(`Skipped: ${skipped.join(", ")}`);
+  }
+  outro("Done.");
+}
+
+async function main() {
+  if (cmd === "install") {
+    if (exists(localDir) && !installForce) {
+      console.log(`.agents/ralph already exists at ${localDir}. Skipping templates.`);
+    } else {
+      if (!exists(globalDir)) {
+        console.error(`Bundled templates not found at ${globalDir}.`);
+        process.exit(1);
+      }
+      fs.mkdirSync(path.dirname(localDir), { recursive: true });
+      fs.cpSync(globalDir, localDir, { recursive: true, force: true });
+      console.log(`Installed .agents/ralph to ${localDir}`);
+    }
+    const readmeSrc = path.join(repoRoot, "README.md");
+    const diagramSrc = path.join(repoRoot, "diagram.svg");
+    const imageSrc = path.join(repoRoot, "ralph.webp");
+    if (exists(localDir)) {
+      const readmeDst = path.join(localDir, "README.md");
+      const diagramDst = path.join(localDir, "diagram.svg");
+      const imageDst = path.join(localDir, "ralph.webp");
+      if (exists(readmeSrc)) fs.copyFileSync(readmeSrc, readmeDst);
+      if (exists(diagramSrc)) fs.copyFileSync(diagramSrc, diagramDst);
+      if (exists(imageSrc)) fs.copyFileSync(imageSrc, imageDst);
+    }
+    if (installSkills) {
+      await runInstallSkills();
+    } else {
+      const { confirm, isCancel } = await import("@clack/prompts");
+      const wantsSkills = await confirm({
+        message: "Install skills (commit + dev-browser + prd)?",
+        initialValue: true,
+      });
+      if (isCancel(wantsSkills)) {
+        console.log("Skipped skills install.");
+      } else if (wantsSkills) {
+        await runInstallSkills();
+      }
+    }
+    process.exit(0);
+  }
+
+  const templateDir = exists(localDir) ? localDir : globalDir;
+  if (!exists(templateDir)) {
+    console.error("No .agents/ralph found locally and no bundled defaults available.");
+    process.exit(1);
+  }
+  if (templateDir === localDir) {
+    console.log(`Using local templates: ${localDir}`);
+  } else {
+    console.log(`Using bundled templates: ${globalDir}`);
+  }
+
+  const loopPath = path.join(templateDir, "loop.sh");
+  if (!exists(loopPath)) {
+    console.error(`loop.sh not found at ${loopPath}`);
+    process.exit(1);
+  }
+
+  const loopArgs = args.length ? args : ["build"];
+  const loadAgentMap = () => {
+    const defaults = {
+      codex: "codex exec --yolo --skip-git-repo-check -",
+      claude: "claude -p --dangerously-skip-permissions \"$(cat {prompt})\"",
+      droid: "droid exec --skip-permissions-unsafe -f {prompt}",
+    };
+    const interactiveDefaults = {
+      codex: "codex --yolo {prompt}",
+      claude: "claude --dangerously-skip-permissions {prompt}",
+      droid: "droid --skip-permissions-unsafe {prompt}",
+    };
+    const agentsPath = path.join(templateDir, "agents.sh");
+    if (!exists(agentsPath)) {
+      return {
+        headless: defaults,
+        interactive: interactiveDefaults,
+        defaultAgent: "codex",
+      };
+    }
+    const safePath = agentsPath.replace(/'/g, "'\\''");
+    const bashCmd = [
+      `source '${safePath}'`,
+      'printf "DEFAULT_AGENT=%s\\n" "${DEFAULT_AGENT:-}"',
+      'printf "AGENT_CODEX_CMD=%s\\n" "${AGENT_CODEX_CMD:-}"',
+      'printf "AGENT_CLAUDE_CMD=%s\\n" "${AGENT_CLAUDE_CMD:-}"',
+      'printf "AGENT_DROID_CMD=%s\\n" "${AGENT_DROID_CMD:-}"',
+      'printf "AGENT_CODEX_INTERACTIVE_CMD=%s\\n" "${AGENT_CODEX_INTERACTIVE_CMD:-}"',
+      'printf "AGENT_CLAUDE_INTERACTIVE_CMD=%s\\n" "${AGENT_CLAUDE_INTERACTIVE_CMD:-}"',
+      'printf "AGENT_DROID_INTERACTIVE_CMD=%s\\n" "${AGENT_DROID_INTERACTIVE_CMD:-}"',
+    ].join("; ");
+    const result = spawnSync("bash", ["-lc", bashCmd], { encoding: "utf-8" });
+    if (result.status !== 0) {
+      return {
+        headless: defaults,
+        interactive: interactiveDefaults,
+        defaultAgent: "codex",
+      };
+    }
+    const parsed = new Map();
+    for (const line of String(result.stdout || "").split("\n")) {
+      if (!line) continue;
+      const idx = line.indexOf("=");
+      if (idx === -1) continue;
+      parsed.set(line.slice(0, idx), line.slice(idx + 1));
+    }
+    const readVar = (name) => parsed.get(name) || null;
+    return {
+      headless: {
+        codex: readVar("AGENT_CODEX_CMD") || defaults.codex,
+        claude: readVar("AGENT_CLAUDE_CMD") || defaults.claude,
+        droid: readVar("AGENT_DROID_CMD") || defaults.droid,
+      },
+      interactive: {
+        codex: readVar("AGENT_CODEX_INTERACTIVE_CMD") || interactiveDefaults.codex,
+        claude: readVar("AGENT_CLAUDE_INTERACTIVE_CMD") || interactiveDefaults.claude,
+        droid: readVar("AGENT_DROID_INTERACTIVE_CMD") || interactiveDefaults.droid,
+      },
+      defaultAgent: readVar("DEFAULT_AGENT") || "codex",
+    };
+  };
+  const agentDefs = loadAgentMap();
+  const agentMap = agentDefs.headless;
+  const agentInteractiveMap = agentDefs.interactive;
+  const defaultAgent = agentDefs.defaultAgent || "codex";
+  if (agentOverride) {
+    const mapped = agentMap[agentOverride];
+    if (!mapped) {
+      console.error(`Unknown agent: ${agentOverride}`);
+      console.error("Valid values: codex, claude, droid");
+      process.exit(1);
+    }
+    process.env.AGENT_CMD = mapped;
+  }
+  const env = { ...process.env, RALPH_ROOT: cwd };
+  if (!env.ACTIVITY_CMD) {
+    env.ACTIVITY_CMD = "ralph log";
+  }
+  const resolvedPrdPath = prdOutPath || prdPath;
+  if (resolvedPrdPath) env.PRD_PATH = resolvedPrdPath;
+  if (planPath) env.PLAN_PATH = planPath;
+  if (progressPath) env.PROGRESS_PATH = progressPath;
+  if (templateDir === globalDir) {
+    env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
+    env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
+    env.GUARDRAILS_REF = path.join(templateDir, "references", "GUARDRAILS.md");
+    env.CONTEXT_REF = path.join(templateDir, "references", "CONTEXT_ENGINEERING.md");
+  }
+
+  if (cmd === "ping") {
+    const agentName = agentOverride || defaultAgent;
+    const agentCmd = agentMap[agentName];
+    if (!agentCmd) {
+      console.error("Unknown agent for ping.");
+      process.exit(1);
+    }
+    const agentBin = agentCmd.split(" ")[0];
+    const existsResult = spawnSync(`command -v ${agentBin}`, { shell: true, stdio: "ignore" });
+    if (existsResult.status !== 0) {
+      console.error(`Agent command not found: ${agentBin}`);
+      process.exit(1);
+    }
+    const promptFile = path.join(os.tmpdir(), `ralph-ping-${Date.now()}.txt`);
+    fs.writeFileSync(promptFile, "Reply with <end>pong</end> only.");
+    const escapePath = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
+    const rendered = agentCmd.includes("{prompt}")
+      ? agentCmd.replace(/\{prompt\}/g, escapePath(promptFile))
+      : `cat ${escapePath(promptFile)} | ${agentCmd}`;
+    const result = spawnSync(rendered, { shell: true, encoding: "utf-8" });
+    const output = `${result.stdout || ""}${result.stderr || ""}`;
+    if (!output.includes("<end>pong</end>")) {
+      console.error("Ping failed: missing <end>pong</end>.");
+      process.exit(1);
+    }
+    console.log("Ping OK.");
+    process.exit(0);
+  }
+
+  if (cmd === "log") {
+    const message = args.slice(1).join(" ").trim();
+    if (!message) {
+      console.error('Usage: ralph log "message"');
+      process.exit(1);
+    }
+    const activityLog = path.join(cwd, ".ralph", "activity.log");
+    fs.mkdirSync(path.dirname(activityLog), { recursive: true });
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    fs.appendFileSync(activityLog, `[${stamp}] ${message}\n`);
+    process.exit(0);
+  }
+
+  if (cmd === "prd") {
+    let request = args.slice(1).join(" ").trim();
+    if (!request) {
+      const { intro, outro, text, isCancel } = await import("@clack/prompts");
+      intro("Ralph PRD");
+      const response = await text({
+        message: "Describe the feature you want a PRD for",
+        placeholder: "Example: A lightweight uptime monitor with email alerts",
+      });
+      if (isCancel(response)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+      request = String(response || "").trim();
+      if (!request) {
+        outro("No description provided.");
+        process.exit(1);
+      }
+      outro("Generating PRD...");
+    }
+    const requestFile = path.join(os.tmpdir(), `ralph-prd-${Date.now()}.md`);
+    fs.writeFileSync(requestFile, `${request}\n`);
+    const agentName = agentOverride || defaultAgent;
+    const prdAgent = agentInteractiveMap[agentName] || agentMap[agentName];
+    if (prdAgent) {
+      env.PRD_AGENT_CMD = prdAgent;
+    }
+    const prdArgs = ["prd", "--prompt", requestFile];
+    const result = spawnSync(loopPath, prdArgs, {
+      stdio: "inherit",
+      env,
+    });
+    process.exit(result.status ?? 1);
+  }
+
+  const result = spawnSync(loopPath, loopArgs, {
+    stdio: "inherit",
+    env,
+  });
+
+  process.exit(result.status ?? 1);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

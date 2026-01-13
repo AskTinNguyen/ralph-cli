@@ -1,37 +1,17 @@
 {
-  "name": "ralph-cli",
-  "version": "0.3.0",
-  "description": "Autonomous coding loop for Claude Code - iteratively complete tasks until done",
-  "type": "module",
+  "name": "@iannuttall/ralph",
+  "version": "0.1.1",
+  "description": "Minimal, file-based agent loop for autonomous coding.",
   "bin": {
-    "ralph": "./src/ralph.ts"
+    "ralph": "bin/ralph"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint --fix src/",
-    "test": "bun test"
+    "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs",
+    "test:real": "node tests/real-agents.mjs",
+    "test:ping": "node tests/agent-ping.mjs"
   },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.8.3"
-  },
-  "files": [
-    "src",
-    "skills"
-  ],
-  "keywords": [
-    "ralph",
-    "claude",
-    "claude-code",
-    "ai",
-    "autonomous",
-    "coding",
-    "agent",
-    "llm"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AskTinNguyen/ralph-cli.git"
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
   },
   "license": "MIT"
 }
