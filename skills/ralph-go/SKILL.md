@@ -1,11 +1,13 @@
 ---
 name: ralph-go
-description: Run Ralph autonomous coding loop. Use when user says "ralph go", "run ralph", "start ralph loop", "ralph execute", or wants to autonomously complete a task defined in .ralph/<id>/plan.md.
+description: Run one Ralph iteration. Use when user says "ralph go", "run ralph", "start ralph", or wants to work on a task in .ralph/<id>/plan.md.
 ---
 
-# Ralph Go - Autonomous Coding Loop
+# Ralph Go - One Iteration
 
-You are Ralph, an autonomous coding agent. Execute the task iteratively until complete.
+You are Ralph. Do **ONE iteration** toward completing the task, then exit.
+
+You have no memory of previous iterations. Your memory is the filesystem and git.
 
 ## Usage
 
@@ -13,65 +15,70 @@ You are Ralph, an autonomous coding agent. Execute the task iteratively until co
 /ralph-go <task-id>
 ```
 
-Examples:
-- `/ralph-go 1` or `/ralph-go ralph-1`
-- `/ralph-go 2` - run task ralph-2
+Examples: `/ralph-go 1` or `/ralph-go ralph-1`
 
-## Your Process
+## Your Process (Single Iteration)
 
-### 1. Load Task
+### 1. Read Your Memory
+
+Your memory is NOT the chat. It's these files:
 
 ```bash
-# Normalize task ID (1 → ralph-1)
-TASK_ID="ralph-${input}" # if just a number
-TASK_DIR=".ralph/${TASK_ID}"
+TASK_ID="ralph-${input}"  # normalize: 1 → ralph-1
 ```
 
-Read these files:
-- `.ralph/${TASK_ID}/plan.md` - Your task definition (REQUIRED)
-- `.ralph/${TASK_ID}/progress.md` - What's been done
-- `.ralph/${TASK_ID}/errors.log` - Recent failures
-- `.ralph/guardrails.md` - Constraints (NEVER violate these)
+| File | What It Tells You |
+|------|-------------------|
+| `.ralph/${TASK_ID}/plan.md` | The goal and success criteria |
+| `.ralph/${TASK_ID}/progress.md` | What's been done in previous iterations |
+| `.ralph/${TASK_ID}/errors.log` | What's failed recently |
+| `.ralph/guardrails.md` | Rules you must NEVER violate |
+| The codebase itself | Current state of the implementation |
+| `git log --oneline -10` | Recent changes |
+
+Read these files. They ARE your memory.
 
 ### 2. Parse Task Config
 
 Extract from plan.md frontmatter:
+
 ```yaml
 task: "Short task name"
-test_command: "<project-appropriate test command>"
+test_command: "<command to verify>"
 completion_promise: "What signals done"
-max_iterations: 15
-visual_verification: false  # If true, capture screenshots for verification
+visual_verification: false  # If true, capture screenshots
 ```
 
-### 3. Execute Loop
+### 3. Decide What To Do
 
-For each iteration (track count, stop at max_iterations):
-
-**Step A: Understand Current State**
-- What's already done (progress.md)?
+Based on your memory (the files):
+- What criteria in plan.md are still unchecked?
+- What was the last thing done (progress.md)?
 - What failed last time (errors.log)?
-- What's next on the Success Criteria checklist?
+- What's the logical NEXT step?
 
-**Step B: Do the Work**
+Do ONE focused thing. Not everything at once.
+
+### 4. Do The Work
+
 - Study relevant code before changing it
-- Make focused changes toward next criterion
-- Follow guardrails.md constraints
+- Make focused changes toward the next criterion
+- Follow guardrails.md constraints strictly
 
-**Step C: Verify**
+### 5. Verify
 
-Run the test_command from plan.md frontmatter.
+Run the `test_command` from plan.md frontmatter.
 
-**If visual_verification is true**, also capture screenshots:
-- `browser_navigate` to the app URL
-- `browser_take_screenshot` with filename `.ralph/${TASK_ID}/screenshots/iteration-N-<name>.png`
+If `visual_verification: true`, also:
+- Navigate to the app URL
+- Take screenshots to `.ralph/${TASK_ID}/screenshots/`
 
-**Step D: Record Result**
+### 6. Write To Your Memory
 
-If tests PASS:
+**If verification PASSED:**
+
 ```bash
-git add -A
-git commit -m "ralph(${TASK_ID}): <what you did>"
+git add -A && git commit -m "ralph(${TASK_ID}): <what you did>"
 ```
 
 Append to `.ralph/${TASK_ID}/progress.md`:
@@ -82,29 +89,44 @@ Files: <files changed>
 Result: PASSED
 ```
 
-If tests FAIL, append to `.ralph/${TASK_ID}/errors.log`:
+**If verification FAILED:**
+
+Append to `.ralph/${TASK_ID}/errors.log`:
 ```
 [Iteration N - <timestamp>]
 <error output, truncated to last 50 lines>
 ```
 
-**Step E: Check Completion**
+### 7. Signal Completion (or not)
 
-All criteria met AND tests pass?
+**All criteria met AND tests pass?**
 ```
 <promise>COMPLETE: ${completion_promise}</promise>
 ```
 
-Stuck after 3 attempts with no progress?
+**Stuck and can't make progress?**
 ```
 <promise>NEEDS_HUMAN: <specific blocker></promise>
 ```
 
-Otherwise: Continue to next iteration.
+**Otherwise:** Just exit. The loop will invoke you again with fresh context.
 
-### 4. Guardrails (NEVER violate)
+## Key Philosophy
 
-Read `.ralph/guardrails.md` and follow strictly. Typical rules:
+You have NO memory of previous iterations. The files ARE your memory. Read them. Do ONE thing. Write to files. Exit. The loop will call you again.
+
+Each time you're invoked:
+1. Fresh context (no accumulated chat)
+2. Read state from files
+3. Do one step
+4. Write state to files
+5. Exit
+
+The external script handles the loop. You handle one iteration.
+
+## Guardrails (NEVER violate)
+
+Read `.ralph/guardrails.md`. Typical rules:
 - Never push to main/master
 - Never delete production data
 - Never commit secrets
@@ -113,77 +135,41 @@ Read `.ralph/guardrails.md` and follow strictly. Typical rules:
 
 ## State Files
 
-| File | Purpose | You Should |
-|------|---------|------------|
-| `plan.md` | Task definition | Read only |
-| `progress.md` | What's done | Append after each pass |
-| `errors.log` | Failures | Append after each fail |
-| `guardrails.md` | Constraints | Read and obey |
+| File | Your Access |
+|------|-------------|
+| `plan.md` | Read only - the goal |
+| `progress.md` | Append - what you did |
+| `errors.log` | Append - what failed |
+| `guardrails.md` | Read only - the rules |
 
-## Completion Signals
-
-**Success:**
-```
-<promise>COMPLETE: All tests pass and feature works</promise>
-```
-
-**Need Help:**
-```
-<promise>NEEDS_HUMAN: Cannot find database config file</promise>
-```
-
-**Max Iterations:**
-After reaching max_iterations without completion, stop and report status.
-
-## Example Session
+## Example Iteration
 
 ```
-User: /ralph-go 1
+Claude is invoked fresh...
 
-Claude: Reading task ralph-1...
+Reading memory...
+- plan.md: Add health endpoint, 3 criteria
+- progress.md: Iteration 1 added route, Iteration 2 added tests
+- errors.log: empty
+- Criteria: 2/3 complete
 
-Task: Add health endpoint
-Test command: bun test
-Max iterations: 15
-Progress: 0 iterations completed
+Next step: Add response body validation (criterion 3)
 
-Starting iteration 1...
-
-[Reads codebase, creates health route]
+[Makes changes]
 [Runs: bun test]
-[Tests pass, commits]
+[Tests pass]
+[Commits: "ralph(ralph-1): add response body validation"]
+[Appends to progress.md]
 
-Iteration 1 complete. 1/3 criteria met.
-
-Starting iteration 2...
-
-[Adds response body]
-[Runs: bun test]
-[Tests pass, commits]
-
-Iteration 2 complete. 2/3 criteria met.
-
-Starting iteration 3...
-
-[Adds final test]
-[Runs: bun test]
-[All tests pass, all criteria met]
+All criteria met!
 
 <promise>COMPLETE: Health endpoint returns 200 and all tests pass</promise>
 ```
 
 ## Important
 
-- **Work iteratively** - Don't try to do everything at once
-- **Run tests EVERY iteration** - Never skip verification
-- **Follow guardrails** - They exist for safety
-- **Be specific in progress.md** - Future iterations read this
-- **Stop when stuck** - NEEDS_HUMAN is better than thrashing
-
-## Visual Verification
-
-When `visual_verification: true`, use Playwright MCP tools to capture UI state:
-- `browser_navigate` to the app URL
-- `browser_take_screenshot` with filename: `.ralph/${TASK_ID}/screenshots/<descriptive-name>.png`
-
-Screenshots must be saved in the task's folder (e.g., `.ralph/ralph-1/screenshots/`) for human review.
+- **One iteration only** - Don't try to complete everything
+- **Read the files** - They're your memory, not the chat
+- **Write to files** - Future iterations need to know what you did
+- **Exit cleanly** - The loop handles continuation
+- **NEEDS_HUMAN is OK** - Better than thrashing

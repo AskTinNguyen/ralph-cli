@@ -2,6 +2,14 @@
 
 Autonomous coding loop for Claude Code.
 
+## Core Philosophy
+
+```bash
+while :; do cat prompt.md | agent ; done
+```
+
+**Same task. New brain each iteration. Memory is filesystem + git, not chat.**
+
 ## Quick Reference
 
 | Use Case | Command |
@@ -19,16 +27,33 @@ Autonomous coding loop for Claude Code.
 project/
 ├── .claude/
 │   └── skills/
-│       ├── ralph-go/SKILL.md     # Main execution loop
+│       ├── ralph-go/SKILL.md     # Single iteration executor
 │       ├── ralph-new/SKILL.md    # Task creation
 │       └── ralph-plan/SKILL.md   # Interactive planning
 └── .ralph/
     ├── guardrails.md             # SHARED constraints for ALL tasks
     └── ralph-1/                  # Task 1
-        ├── plan.md               # Task definition with frontmatter
-        ├── progress.md           # Iteration history (append-only)
-        └── errors.log            # Verification failures
+        ├── plan.md               # Task definition (read-only)
+        ├── progress.md           # What's done (append-only) ← MEMORY
+        └── errors.log            # What failed (append-only) ← MEMORY
 ```
+
+## How It Works
+
+**External loop (ralph.ts):**
+1. For each iteration up to max_iterations
+2. Invoke Claude fresh with `/ralph-go <id>`
+3. Check output for COMPLETE or NEEDS_HUMAN
+4. If done, exit. Otherwise loop continues.
+
+**Single iteration (Claude + SKILL.md):**
+1. Read memory (files, not chat)
+2. Decide next step
+3. Do ONE thing
+4. Write to memory (progress.md/errors.log)
+5. Exit (COMPLETE, NEEDS_HUMAN, or just exit)
+
+Claude has no memory of previous iterations. Each invocation starts fresh. The filesystem IS the memory.
 
 ## plan.md Format
 
@@ -63,27 +88,27 @@ What needs to be done and why.
 | Code | Meaning |
 |------|---------|
 | 0 | `COMPLETE` - Task finished |
-| 1 | Error or failure |
+| 1 | Error or max iterations |
 | 2 | `NEEDS_HUMAN` - Blocked |
+
+## Why This Architecture?
+
+| Problem | Solution |
+|---------|----------|
+| Context window exhaustion | Fresh context each iteration |
+| Hallucinated history | Must read actual files |
+| Crash = lost state | State persists in filesystem |
+| Debugging difficulty | All state visible in files |
 
 ## Package Structure
 
 ```
 ralph-cli/
-├── src/ralph.ts      # CLI (~200 lines)
+├── src/ralph.ts      # CLI with external loop
 ├── skills/           # Bundled Claude Code skills
-│   ├── ralph-go/
+│   ├── ralph-go/     # Single iteration executor
 │   ├── ralph-new/
 │   └── ralph-plan/
 ├── package.json
 └── README.md
 ```
-
-## How It Works
-
-1. **Install**: `ralph install` copies skills to `.claude/skills/` and creates `.ralph/guardrails.md`
-2. **Create**: Use `/ralph-new` or `/ralph-plan` in Claude Code to define a task
-3. **Execute**: `/ralph-go <id>` runs the loop - Claude reads the task, does work, verifies, repeats
-4. **Complete**: Claude outputs `<promise>COMPLETE</promise>` when done or `NEEDS_HUMAN` if stuck
-
-The "loop" is Claude following skill instructions, not code managing iterations.

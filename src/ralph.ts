@@ -159,31 +159,50 @@ async function cmdGo(taskIdArg: string): Promise<void> {
     process.exit(1)
   }
 
+  // Read max_iterations from plan.md
+  const planPath = join(taskDir, "plan.md")
+  const plan = await readFile(planPath, "utf-8")
+  const maxIterMatch = plan.match(/max_iterations:\s*(\d+)/)
+  const maxIterations = maxIterMatch ? parseInt(maxIterMatch[1], 10) : 15
+
   console.log(`Running Ralph on ${taskId}...`)
+  console.log(`Max iterations: ${maxIterations}`)
   console.log("")
 
-  // Call Claude Code with the skill
-  // The skill will handle the iteration loop
-  const prompt = `/ralph-go ${taskId}`
+  // Pure loop: fresh brain each iteration, memory is filesystem + git
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    console.log(`\n${"=".repeat(50)}`)
+    console.log(`Iteration ${iteration}/${maxIterations}`)
+    console.log(`${"=".repeat(50)}\n`)
 
-  const result = await $`claude -p ${prompt} --output-format text`.quiet().nothrow()
+    // Fresh Claude invocation each time - no accumulated context
+    const prompt = `/ralph-go ${taskId}`
+    const result = await $`claude -p ${prompt} --output-format text`.quiet().nothrow()
 
-  // Output the result
-  console.log(result.stdout.toString())
+    const output = result.stdout.toString()
+    console.log(output)
 
-  // Check exit conditions from output
-  const output = result.stdout.toString()
+    // Check completion signals
+    if (output.includes("<promise>COMPLETE")) {
+      console.log("\n✓ Task completed successfully")
+      process.exit(0)
+    }
 
-  if (output.includes("<promise>COMPLETE")) {
-    console.log("\n✓ Task completed successfully")
-    process.exit(0)
-  } else if (output.includes("NEEDS_HUMAN")) {
-    console.log("\n⚠ Task needs human intervention")
-    process.exit(2)
-  } else if (result.exitCode !== 0) {
-    console.log("\n✗ Task failed")
-    process.exit(1)
+    if (output.includes("NEEDS_HUMAN")) {
+      console.log("\n⚠ Task needs human intervention")
+      process.exit(2)
+    }
+
+    // If Claude crashed or errored, log it but continue the loop
+    if (result.exitCode !== 0) {
+      console.log(`\n⚠ Iteration ${iteration} exited with code ${result.exitCode}, continuing...`)
+    }
+
+    // Loop continues: new brain, same task, updated filesystem
   }
+
+  console.log(`\n✗ Max iterations (${maxIterations}) reached without completion`)
+  process.exit(1)
 }
 
 async function cmdInstall(): Promise<void> {
