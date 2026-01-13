@@ -585,10 +585,11 @@ cmd_go() {
         tmpfile=$(mktemp)
 
         # Run claude with stream-json for real-time events
-        # script -q /dev/null creates pseudo-TTY to force unbuffered output
+        # --verbose is required for stream-json in print mode
         # --include-partial-messages shows chunks as they arrive
-        script -q /dev/null claude -p "/ralph-go $task_id" \
+        claude -p "/ralph-go $task_id" \
             --output-format stream-json \
+            --verbose \
             --include-partial-messages \
             --dangerously-skip-permissions \
             2>&1 | tee "$tmpfile" | process_stream
