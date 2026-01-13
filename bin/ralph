@@ -3,6 +3,14 @@ const { spawnSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const pc = require("picocolors");
+
+// Color helper functions for consistent output
+const success = (msg) => console.log(pc.green(msg));
+const error = (msg) => console.error(pc.red(msg));
+const info = (msg) => console.log(pc.cyan(msg));
+const dim = (msg) => console.log(pc.dim(msg));
+const warn = (msg) => console.log(pc.yellow(msg));
 
 const rawArgs = process.argv.slice(2);
 const args = [];
@@ -29,37 +37,37 @@ function exists(p) {
 }
 
 function usage() {
-  console.log(`ralph <command>
+  console.log(`${pc.bold("ralph")} ${pc.dim("<command>")}
 
-Commands:
-  install [--skills] [--force]        Copy .agents/ralph into the current repo
-  prd ["<request>"] [--out path]      Generate a PRD via agent
-  ping                                Minimal agent health check
-  log "<message>"                     Append to .ralph/activity.log
-  build [n] [--no-commit]             Run build loop (default)
-  plan [n]                            Run planning loop
-  stream <subcmd>                     Multi-stream parallel execution
-  help                                Show this message
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("install")} ${pc.dim("[--skills] [--force]")}        Copy .agents/ralph into the current repo
+  ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
+  ${pc.green("ping")}                                Minimal agent health check
+  ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit]")}             Run build loop (default)
+  ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
+  ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
+  ${pc.green("help")}                                Show this message
 
-Stream commands:
-  stream new                          Create new stream (prd-1, prd-2, ...)
-  stream list                         List all streams
-  stream status                       Show detailed status
-  stream init <N>                     Initialize worktree for parallel execution
-  stream build <N> [n]                Run n build iterations in stream
-  stream merge <N>                    Merge completed stream to main
-  stream cleanup <N>                  Remove stream worktree
+${pc.bold(pc.cyan("Stream commands:"))}
+  ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
+  ${pc.green("stream list")}                         List all streams
+  ${pc.green("stream status")}                       Show detailed status
+  ${pc.green("stream init")} ${pc.dim("<N>")}                     Initialize worktree for parallel execution
+  ${pc.green("stream build")} ${pc.dim("<N> [n]")}                Run n build iterations in stream
+  ${pc.green("stream merge")} ${pc.dim("<N>")}                    Merge completed stream to main
+  ${pc.green("stream cleanup")} ${pc.dim("<N>")}                  Remove stream worktree
 
-Options:
-  --prd <path>                        Override PRD path
-  --out <path>                        Override PRD output path (prd command)
-  --plan <path>                       Override plan path
-  --progress <path>                   Override progress log path
-  --agent <codex|claude|droid>        Override agent runner
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--prd")} ${pc.dim("<path>")}                        Override PRD path
+  ${pc.yellow("--out")} ${pc.dim("<path>")}                        Override PRD output path (prd command)
+  ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
+  ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
+  ${pc.yellow("--agent")} ${pc.dim("<codex|claude|droid>")}        Override agent runner
 
-Notes:
-- Uses local .agents/ralph if present; otherwise uses bundled defaults.
-- State and logs are written to .ralph/ in the project.
+${pc.bold(pc.cyan("Notes:"))}
+${pc.dim("- Uses local .agents/ralph if present; otherwise uses bundled defaults.")}
+${pc.dim("- State and logs are written to .ralph/ in the project.")}
 `);
 }
 
@@ -193,10 +201,10 @@ async function runInstallSkills() {
   }
 
   if (installed.length) {
-    console.log(`Installed skills to ${targetRoot}: ${installed.join(", ")}`);
+    success(`Installed skills to ${pc.cyan(targetRoot)}: ${installed.join(", ")}`);
   }
   if (skipped.length) {
-    console.log(`Skipped: ${skipped.join(", ")}`);
+    dim(`Skipped: ${skipped.join(", ")}`);
   }
   outro("Done.");
 }
@@ -204,15 +212,15 @@ async function runInstallSkills() {
 async function main() {
   if (cmd === "install") {
     if (exists(localDir) && !installForce) {
-      console.log(`.agents/ralph already exists at ${localDir}. Skipping templates.`);
+      dim(`.agents/ralph already exists at ${pc.cyan(localDir)}. Skipping templates.`);
     } else {
       if (!exists(globalDir)) {
-        console.error(`Bundled templates not found at ${globalDir}.`);
+        error(`Bundled templates not found at ${pc.cyan(globalDir)}.`);
         process.exit(1);
       }
       fs.mkdirSync(path.dirname(localDir), { recursive: true });
       fs.cpSync(globalDir, localDir, { recursive: true, force: true });
-      console.log(`Installed .agents/ralph to ${localDir}`);
+      success(`Installed .agents/ralph to ${pc.cyan(localDir)}`);
     }
     const readmeSrc = path.join(repoRoot, "README.md");
     const diagramSrc = path.join(repoRoot, "diagram.svg");
@@ -234,7 +242,7 @@ async function main() {
         initialValue: true,
       });
       if (isCancel(wantsSkills)) {
-        console.log("Skipped skills install.");
+        dim("Skipped skills install.");
       } else if (wantsSkills) {
         await runInstallSkills();
       }
@@ -244,18 +252,18 @@ async function main() {
 
   const templateDir = exists(localDir) ? localDir : globalDir;
   if (!exists(templateDir)) {
-    console.error("No .agents/ralph found locally and no bundled defaults available.");
+    error("No .agents/ralph found locally and no bundled defaults available.");
     process.exit(1);
   }
   if (templateDir === localDir) {
-    console.log(`Using local templates: ${localDir}`);
+    info(`Using local templates: ${pc.dim(localDir)}`);
   } else {
-    console.log(`Using bundled templates: ${globalDir}`);
+    info(`Using bundled templates: ${pc.dim(globalDir)}`);
   }
 
   const loopPath = path.join(templateDir, "loop.sh");
   if (!exists(loopPath)) {
-    console.error(`loop.sh not found at ${loopPath}`);
+    error(`loop.sh not found at ${pc.cyan(loopPath)}`);
     process.exit(1);
   }
 
@@ -327,8 +335,8 @@ async function main() {
   if (agentOverride) {
     const mapped = agentMap[agentOverride];
     if (!mapped) {
-      console.error(`Unknown agent: ${agentOverride}`);
-      console.error("Valid values: codex, claude, droid");
+      error(`Unknown agent: ${pc.bold(agentOverride)}`);
+      error(`Valid values: ${pc.cyan("codex")}, ${pc.cyan("claude")}, ${pc.cyan("droid")}`);
       process.exit(1);
     }
     process.env.AGENT_CMD = mapped;
@@ -352,13 +360,13 @@ async function main() {
     const agentName = agentOverride || defaultAgent;
     const agentCmd = agentMap[agentName];
     if (!agentCmd) {
-      console.error("Unknown agent for ping.");
+      error("Unknown agent for ping.");
       process.exit(1);
     }
     const agentBin = agentCmd.split(" ")[0];
     const existsResult = spawnSync(`command -v ${agentBin}`, { shell: true, stdio: "ignore" });
     if (existsResult.status !== 0) {
-      console.error(`Agent command not found: ${agentBin}`);
+      error(`Agent command not found: ${pc.bold(agentBin)}`);
       process.exit(1);
     }
     const promptFile = path.join(os.tmpdir(), `ralph-ping-${Date.now()}.txt`);
@@ -370,17 +378,17 @@ async function main() {
     const result = spawnSync(rendered, { shell: true, encoding: "utf-8" });
     const output = `${result.stdout || ""}${result.stderr || ""}`;
     if (!output.includes("<end>pong</end>")) {
-      console.error("Ping failed: missing <end>pong</end>.");
+      error(`Ping failed: missing ${pc.bold("<end>pong</end>")}.`);
       process.exit(1);
     }
-    console.log("Ping OK.");
+    success("Ping OK.");
     process.exit(0);
   }
 
   if (cmd === "log") {
     const message = args.slice(1).join(" ").trim();
     if (!message) {
-      console.error('Usage: ralph log "message"');
+      error(`Usage: ${pc.cyan('ralph log "message"')}`);
       process.exit(1);
     }
     const activityLog = path.join(cwd, ".ralph", "activity.log");
@@ -430,7 +438,7 @@ async function main() {
   if (cmd === "stream") {
     const streamPath = path.join(templateDir, "stream.sh");
     if (!exists(streamPath)) {
-      console.error("stream.sh not found. Make sure Ralph is up to date.");
+      error("stream.sh not found. Make sure Ralph is up to date.");
       process.exit(1);
     }
     const streamArgs = args.slice(1);
@@ -450,6 +458,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  error(err.message || err);
   process.exit(1);
 });
