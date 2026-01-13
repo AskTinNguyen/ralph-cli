@@ -40,18 +40,45 @@ chmod +x ralph.sh
 # 1. Install Ralph skills to your repo
 ralph.sh install
 
-# 2. Start Claude Code
-claude
+# 2. Create a task
+ralph.sh new "Add user authentication"
 
-# 3. Create a task interactively
-> /ralph-plan
-
-# 4. Or create one directly
-> /ralph-new Add user authentication
-
-# 5. Run the task
-> /ralph-go 1
+# 3. Run the task (FULL LOOP until complete)
+ralph.sh go 1
 ```
+
+## ⚠️ Two Execution Modes - READ THIS!
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│  🔁 HEADLESS MODE (Recommended for autonomous work)                │
+│  ═══════════════════════════════════════════════════                │
+│                                                                     │
+│  $ ralph.sh go 1                                                    │
+│                                                                     │
+│  ✅ Runs FULL LOOP until task is COMPLETE                          │
+│  ✅ Fresh Claude instance each iteration                            │
+│  ✅ Autonomous - no manual intervention needed                      │
+│  ✅ Use this for "set it and forget it" execution                   │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  👤 INTERACTIVE MODE (For debugging / watching)                    │
+│  ═══════════════════════════════════════════════                    │
+│                                                                     │
+│  $ claude                                                           │
+│  > /ralph-go 1                                                      │
+│                                                                     │
+│  ⚠️  Runs ONE iteration only, then STOPS                           │
+│  ⚠️  You must manually run /ralph-go again to continue             │
+│  ✅ Good for watching each step                                     │
+│  ✅ Good for debugging                                               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**TL;DR:** Want Ralph to work autonomously until done? Run `ralph.sh go <id>` in your terminal.
 
 ## Commands
 
@@ -71,16 +98,15 @@ After running `ralph.sh install`:
 - `.claude/skills/ralph-plan/` - Interactive planning skill
 - `.ralph/guardrails.md` - Safety constraints
 
-## Interactive Usage (Recommended)
+## Interactive Commands (Inside Claude Code)
 
-For the best experience, use Ralph through Claude Code directly:
+These commands work inside Claude Code (`claude`):
 
-```bash
-claude
-> /ralph-plan          # Interactive task planning
-> /ralph-new Fix bug   # Quick task creation
-> /ralph-go 1          # Run task with full UI
-```
+| Command | What it does |
+|---------|--------------|
+| `/ralph-plan` | Interactive task planning with Claude |
+| `/ralph-new Fix bug` | Quick task creation |
+| `/ralph-go 1` | Run ONE iteration (see warning above!) |
 
 ## File Structure
 

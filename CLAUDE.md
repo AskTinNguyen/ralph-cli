@@ -15,11 +15,22 @@ while :; do cat prompt.md | agent ; done
 | Use Case | Command |
 |----------|---------|
 | **Install to repo** | `ralph.sh install` |
-| **Interactive task creation** | `claude` then `/ralph-new` or `/ralph-plan` |
-| **Interactive execution** | `claude` then `/ralph-go 1` |
-| **Headless task creation** | `ralph.sh new "task description"` |
-| **Headless execution** | `ralph.sh go 1` |
+| **Create task** | `ralph.sh new "task description"` |
+| **🔁 Run FULL LOOP** | `ralph.sh go 1` ← **Use this for autonomous execution** |
 | **List tasks** | `ralph.sh list` |
+
+## ⚠️ Two Execution Modes
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔁 ralph.sh go 1    →  FULL LOOP until COMPLETE (headless)    │
+│  👤 /ralph-go 1      →  ONE iteration only (interactive)       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**For autonomous work:** Always use `ralph.sh go <id>` in terminal.
+
+**For debugging:** Use `/ralph-go <id>` inside Claude Code to watch one step at a time.
 
 ## File Structure
 
