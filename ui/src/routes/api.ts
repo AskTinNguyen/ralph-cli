@@ -6,9 +6,10 @@
  */
 
 import { Hono } from 'hono';
-import type { RalphStatus, ProgressStats, Stream, Story } from '../types.js';
+import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel } from '../types.js';
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
+import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -254,6 +255,199 @@ api.get('/streams/:id', (c) => {
           status: stream.lastRun.status,
         }
       : null,
+  });
+});
+
+/**
+ * Log API Endpoints
+ *
+ * REST API endpoints for activity and run logs.
+ */
+
+/**
+ * GET /api/logs/activity
+ *
+ * Returns parsed activity log entries with optional filtering.
+ * Query params:
+ *   - streamId: Filter to specific stream (e.g., "3" for PRD-3)
+ *   - limit: Maximum number of entries to return (default: 50)
+ *   - offset: Number of entries to skip (default: 0)
+ *   - level: Filter by minimum log level (error, warning, info, debug)
+ *
+ * Returns entries in reverse chronological order (newest first).
+ */
+api.get('/logs/activity', (c) => {
+  // Parse query parameters
+  const streamId = c.req.query('streamId');
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const levelFilter = c.req.query('level') as LogLevel | undefined;
+
+  // Validate limit and offset
+  const validLimit = Math.min(Math.max(1, limit), 500); // Cap at 500
+  const validOffset = Math.max(0, offset);
+
+  // Parse activity logs
+  let entries = parseActivityLog(streamId);
+
+  // Filter by log level if specified
+  if (levelFilter) {
+    const levelPriority: Record<LogLevel, number> = {
+      error: 4,
+      warning: 3,
+      info: 2,
+      debug: 1,
+    };
+
+    const minPriority = levelPriority[levelFilter] || 0;
+    entries = entries.filter((entry) => levelPriority[entry.level] >= minPriority);
+  }
+
+  // Apply pagination
+  const totalCount = entries.length;
+  const paginatedEntries = entries.slice(validOffset, validOffset + validLimit);
+
+  // Transform entries for JSON response (convert Date to ISO string)
+  const responseEntries = paginatedEntries.map((entry) => ({
+    timestamp: entry.timestamp.toISOString(),
+    level: entry.level,
+    message: entry.message,
+    source: entry.source,
+    runId: entry.runId,
+  }));
+
+  return c.json({
+    entries: responseEntries,
+    pagination: {
+      total: totalCount,
+      limit: validLimit,
+      offset: validOffset,
+      hasMore: validOffset + validLimit < totalCount,
+    },
+  });
+});
+
+/**
+ * GET /api/logs/run/:runId
+ *
+ * Returns specific run log content with parsed verification results.
+ * Query params:
+ *   - streamId: Optional stream ID (searches all streams if not provided)
+ *   - iteration: Optional iteration number
+ *   - limit: Maximum number of log lines to return (default: 200)
+ *   - offset: Number of lines to skip (default: 0)
+ *   - level: Filter by minimum log level (error, warning, info, debug)
+ *
+ * Returns run log data including entries and summary if available.
+ */
+api.get('/logs/run/:runId', (c) => {
+  const runId = c.req.param('runId');
+  const streamId = c.req.query('streamId');
+  const iterationStr = c.req.query('iteration');
+  const limit = parseInt(c.req.query('limit') || '200', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const levelFilter = c.req.query('level') as LogLevel | undefined;
+
+  // Validate limit and offset
+  const validLimit = Math.min(Math.max(1, limit), 1000); // Cap at 1000 for run logs
+  const validOffset = Math.max(0, offset);
+
+  // Parse iteration if provided
+  const iteration = iterationStr ? parseInt(iterationStr, 10) : undefined;
+
+  // Parse run log
+  let entries = parseRunLog(runId, streamId, iteration);
+
+  if (entries.length === 0) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `Run log for ${runId} not found`,
+      },
+      404
+    );
+  }
+
+  // Filter by log level if specified
+  if (levelFilter) {
+    const levelPriority: Record<LogLevel, number> = {
+      error: 4,
+      warning: 3,
+      info: 2,
+      debug: 1,
+    };
+
+    const minPriority = levelPriority[levelFilter] || 0;
+    entries = entries.filter((entry) => levelPriority[entry.level] >= minPriority);
+  }
+
+  // Apply pagination
+  const totalCount = entries.length;
+  const paginatedEntries = entries.slice(validOffset, validOffset + validLimit);
+
+  // Transform entries for JSON response
+  const responseEntries = paginatedEntries.map((entry) => ({
+    timestamp: entry.timestamp.toISOString(),
+    level: entry.level,
+    message: entry.message,
+    source: entry.source,
+    runId: entry.runId,
+  }));
+
+  // Try to get summary if streamId and iteration are available
+  let summary = null;
+  if (streamId && iteration !== undefined) {
+    summary = getRunSummary(runId, streamId, iteration);
+  }
+
+  return c.json({
+    runId,
+    streamId: streamId || null,
+    iteration: iteration ?? null,
+    entries: responseEntries,
+    summary,
+    pagination: {
+      total: totalCount,
+      limit: validLimit,
+      offset: validOffset,
+      hasMore: validOffset + validLimit < totalCount,
+    },
+  });
+});
+
+/**
+ * GET /api/logs/runs
+ *
+ * Lists all available run logs for a stream.
+ * Query params:
+ *   - streamId: Stream ID (required)
+ *
+ * Returns array of run info objects.
+ */
+api.get('/logs/runs', (c) => {
+  const streamId = c.req.query('streamId');
+
+  if (!streamId) {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'streamId query parameter is required',
+      },
+      400
+    );
+  }
+
+  const runs = listRunLogs(streamId);
+
+  return c.json({
+    streamId,
+    runs: runs.map((run) => ({
+      runId: run.runId,
+      iteration: run.iteration,
+      logPath: run.logPath,
+      hasSummary: run.hasSummary,
+    })),
+    count: runs.length,
   });
 });
 
