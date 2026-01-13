@@ -15,6 +15,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${RALPH_ROOT:-${SCRIPT_DIR}/../..}" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 
+# Source shared output utilities (colors and msg_* functions)
+# shellcheck source=lib/output.sh
+source "$SCRIPT_DIR/lib/output.sh"
+
 # PRD folder helpers - each plan gets its own PRD-N folder
 RALPH_DIR=".ralph"
 
@@ -202,47 +206,6 @@ ACTIVITY_CMD="${ACTIVITY_CMD:-$DEFAULT_ACTIVITY_CMD}"
 AGENT_CMD="${AGENT_CMD:-$DEFAULT_AGENT_CMD}"
 MAX_ITERATIONS="${MAX_ITERATIONS:-$DEFAULT_MAX_ITERATIONS}"
 NO_COMMIT="${NO_COMMIT:-$DEFAULT_NO_COMMIT}"
-
-# Color output support with TTY detection
-# Colors are disabled when stdout is not a TTY (pipes, redirects)
-if [ -t 1 ]; then
-  C_GREEN='\033[32m'
-  C_RED='\033[31m'
-  C_YELLOW='\033[33m'
-  C_CYAN='\033[36m'
-  C_DIM='\033[2m'
-  C_BOLD='\033[1m'
-  C_RESET='\033[0m'
-else
-  C_GREEN=''
-  C_RED=''
-  C_YELLOW=''
-  C_CYAN=''
-  C_DIM=''
-  C_BOLD=''
-  C_RESET=''
-fi
-
-# Colored output helper functions
-msg_success() {
-  printf "${C_GREEN}%s${C_RESET}\n" "$1"
-}
-
-msg_error() {
-  printf "${C_BOLD}${C_RED}%s${C_RESET}\n" "$1"
-}
-
-msg_warn() {
-  printf "${C_YELLOW}%s${C_RESET}\n" "$1"
-}
-
-msg_info() {
-  printf "${C_CYAN}%s${C_RESET}\n" "$1"
-}
-
-msg_dim() {
-  printf "${C_DIM}%s${C_RESET}\n" "$1"
-}
 
 abs_path() {
   local p="$1"
