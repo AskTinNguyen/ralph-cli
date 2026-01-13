@@ -181,26 +181,19 @@ All criteria met!
 After completing your iteration work, ALWAYS end with this message:
 
 ```
-═══════════════════════════════════════════════════════════════════
 📍 ITERATION COMPLETE
-═══════════════════════════════════════════════════════════════════
 
 ✅ What I did: <brief summary>
 📊 Progress: <X/Y criteria complete>
 
-┌─────────────────────────────────────────────────────────────────┐
-│  🔄 TO CONTINUE UNTIL TASK IS COMPLETE:                        │
-│                                                                 │
-│  Run this command in your terminal (outside Claude Code):      │
-│                                                                 │
-│     ralph.sh go <task-id>                                       │
-│                                                                 │
-│  This runs the FULL LOOP automatically until done.              │
-│                                                                 │
-│  ⚠️  Running /ralph-go interactively = ONE iteration only      │
-│  ✅  Running ralph.sh go = LOOPS until COMPLETE                 │
-└─────────────────────────────────────────────────────────────────┘
-═══════════════════════════════════════════════════════════════════
+🔄 To continue until task is COMPLETE, run:
+
+   ! ralph.sh go <task-id>
+
+   (The "!" prefix runs bash commands inside Claude Code)
+
+⚠️  /ralph-go = ONE iteration only
+✅  ralph.sh go = LOOPS until COMPLETE
 ```
 
 This helps users understand they need to use `ralph.sh go` for autonomous looping.

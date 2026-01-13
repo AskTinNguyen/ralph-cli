@@ -21,16 +21,12 @@ while :; do cat prompt.md | agent ; done
 
 ## ⚠️ Two Execution Modes
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  🔁 ralph.sh go 1    →  FULL LOOP until COMPLETE (headless)    │
-│  👤 /ralph-go 1      →  ONE iteration only (interactive)       │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Mode | Command | Behavior |
+|------|---------|----------|
+| 🔁 **Headless** | `ralph.sh go 1` | Loops until COMPLETE (autonomous) |
+| 👤 **Interactive** | `/ralph-go 1` | ONE iteration only (for debugging) |
 
-**For autonomous work:** Always use `ralph.sh go <id>` in terminal.
-
-**For debugging:** Use `/ralph-go <id>` inside Claude Code to watch one step at a time.
+**For autonomous work:** Use `ralph.sh go <id>` in terminal (or `! ralph.sh go <id>` inside Claude Code).
 
 ## File Structure
 

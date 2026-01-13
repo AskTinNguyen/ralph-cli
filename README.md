@@ -47,38 +47,14 @@ ralph.sh new "Add user authentication"
 ralph.sh go 1
 ```
 
-## ⚠️ Two Execution Modes - READ THIS!
+## ⚠️ Two Execution Modes
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│  🔁 HEADLESS MODE (Recommended for autonomous work)                │
-│  ═══════════════════════════════════════════════════                │
-│                                                                     │
-│  $ ralph.sh go 1                                                    │
-│                                                                     │
-│  ✅ Runs FULL LOOP until task is COMPLETE                          │
-│  ✅ Fresh Claude instance each iteration                            │
-│  ✅ Autonomous - no manual intervention needed                      │
-│  ✅ Use this for "set it and forget it" execution                   │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  👤 INTERACTIVE MODE (For debugging / watching)                    │
-│  ═══════════════════════════════════════════════                    │
-│                                                                     │
-│  $ claude                                                           │
-│  > /ralph-go 1                                                      │
-│                                                                     │
-│  ⚠️  Runs ONE iteration only, then STOPS                           │
-│  ⚠️  You must manually run /ralph-go again to continue             │
-│  ✅ Good for watching each step                                     │
-│  ✅ Good for debugging                                               │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+| Mode | Command | Behavior |
+|------|---------|----------|
+| 🔁 **Headless** | `ralph.sh go 1` | Loops until COMPLETE (autonomous) |
+| 👤 **Interactive** | `/ralph-go 1` | ONE iteration only (for debugging) |
 
-**TL;DR:** Want Ralph to work autonomously until done? Run `ralph.sh go <id>` in your terminal.
+**Want autonomous execution?** Use `ralph.sh go <id>` in your terminal.
 
 ## Commands
 
