@@ -527,9 +527,10 @@ process_stream() {
         [[ "$line" != "{"* ]] && continue
 
         # Extract and print text from content_block_delta events
+        # JSON structure: {"type":"stream_event","event":{"type":"content_block_delta","delta":{"text":"..."}}}
         if [[ "$line" == *'"content_block_delta"'* ]]; then
             if command -v jq &>/dev/null; then
-                printf '%s' "$(echo "$line" | jq -j '.delta.text // empty' 2>/dev/null)"
+                printf '%s' "$(echo "$line" | jq -j '.event.delta.text // .delta.text // empty' 2>/dev/null)"
             else
                 # Fallback sed parsing
                 printf '%s' "$(echo "$line" | sed -n 's/.*"text":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g' 2>/dev/null)" || true
