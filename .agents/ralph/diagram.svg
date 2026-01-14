@@ -15,7 +15,7 @@
   <text class="text" x="500" y="58" text-anchor="middle">ralph CLI</text>
 
   <rect class="box" x="240" y="114" width="520" height="48" rx="0" />
-  <text class="text small muted" x="500" y="144" text-anchor="middle">agent CLI: claude | codex | droid</text>
+  <text class="text small muted" x="500" y="144" text-anchor="middle">agent CLI: codex | claude | droid</text>
 
   <!-- Arrow from top to agent (gap matches lower arrows) -->
   <line class="line" x1="500" y1="74" x2="500" y2="96" />
