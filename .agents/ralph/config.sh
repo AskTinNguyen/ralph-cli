@@ -21,6 +21,25 @@ RALPH_BUDGET_MONTHLY=500.00
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Retry Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic retry behavior for transient agent failures.
+# When an agent call fails, Ralph will automatically retry with exponential backoff.
+#
+# Maximum number of retry attempts (default: 3):
+# RETRY_MAX_ATTEMPTS=3
+#
+# Base delay in milliseconds for exponential backoff (default: 1000ms):
+# RETRY_BASE_DELAY_MS=1000
+#
+# Maximum delay cap in milliseconds (default: 16000ms):
+# RETRY_MAX_DELAY_MS=16000
+#
+# Disable retries entirely (set via --no-retry flag or env var):
+# NO_RETRY=false
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Token Cost Pricing (per 1M tokens in USD)
 # ─────────────────────────────────────────────────────────────────────────────
 # Override default Claude pricing. Values are per 1 million tokens.
