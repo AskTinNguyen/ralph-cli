@@ -401,6 +401,10 @@ LAST_SWITCH_FROM=""
 LAST_SWITCH_TO=""
 LAST_SWITCH_REASON=""
 
+# Global variable to track agents tried during this iteration (US-004)
+# Comma-separated list of agent names (e.g., "claude,codex,droid")
+AGENTS_TRIED_THIS_ITERATION=""
+
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
@@ -1621,12 +1625,16 @@ append_metrics() {
   local iteration="${11}"
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
-local complexity_score="${14:-}"
+  local complexity_score="${14:-}"
   local routing_reason="${15:-}"
   local estimated_cost="${16:-}"
   local exp_name="${17:-}"
   local exp_variant="${18:-}"
   local exp_excluded="${19:-}"
+  # Switch tracking fields (US-004)
+  local switch_count="${20:-0}"
+  local agents_tried="${21:-}"  # Comma-separated list of agents tried
+  local failure_type="${22:-}"  # timeout, error, quality, or empty
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1681,8 +1689,27 @@ local escaped_reason="null"
         "$excluded_bool")
     fi
 
+    # Build switch tracking fields (US-004)
+    local switch_fields=""
+    if [ -n "$switch_count" ] && [ "$switch_count" != "0" ]; then
+      # Convert comma-separated agents to JSON array
+      local agents_json="null"
+      if [ -n "$agents_tried" ]; then
+        # Convert "claude,codex" to ["claude","codex"]
+        agents_json="[$(echo "$agents_tried" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/' )]"
+      fi
+      local failure_type_json="null"
+      if [ -n "$failure_type" ]; then
+        failure_type_json="\"$failure_type\""
+      fi
+      switch_fields=$(printf ',"switchCount":%s,"agents":%s,"failureType":%s' \
+        "$switch_count" \
+        "$agents_json" \
+        "$failure_type_json")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s%s}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1695,11 +1722,12 @@ local escaped_reason="null"
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
-"$complexity_val" \
+      "$complexity_val" \
       "$escaped_reason" \
       "$estimated_cost_val" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "$exp_fields")
+      "$exp_fields" \
+      "$switch_fields")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
   fi
@@ -2013,6 +2041,12 @@ switch_to_next_agent() {
       LAST_SWITCH_FROM="$old_agent"
       LAST_SWITCH_TO="$CURRENT_AGENT"
       LAST_SWITCH_REASON="$LAST_FAILURE_TYPE"
+      # Track agents tried for metrics (US-004)
+      if [ -z "$AGENTS_TRIED_THIS_ITERATION" ]; then
+        AGENTS_TRIED_THIS_ITERATION="$old_agent,$CURRENT_AGENT"
+      elif [[ ",$AGENTS_TRIED_THIS_ITERATION," != *",$CURRENT_AGENT,"* ]]; then
+        AGENTS_TRIED_THIS_ITERATION="$AGENTS_TRIED_THIS_ITERATION,$CURRENT_AGENT"
+      fi
       return 0
     fi
   done
@@ -2138,11 +2172,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   STORY_BLOCK=""
   ITER_START=$(date +%s)
   ITER_START_FMT=$(date '+%Y-%m-%d %H:%M:%S')
-  # Reset switch tracking for this iteration (US-003)
+  # Reset switch tracking for this iteration (US-003, US-004)
   LAST_SWITCH_COUNT=0
   LAST_SWITCH_FROM=""
   LAST_SWITCH_TO=""
   LAST_SWITCH_REASON=""
+  # Initialize with current agent for metrics tracking (US-004)
+  AGENTS_TRIED_THIS_ITERATION="$CURRENT_AGENT"
   if [ "$MODE" = "build" ]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
@@ -2326,7 +2362,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}"
+append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_SWITCH_COUNT" "$AGENTS_TRIED_THIS_ITERATION" "$LAST_FAILURE_TYPE"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
