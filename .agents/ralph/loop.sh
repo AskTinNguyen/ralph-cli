@@ -23,6 +23,38 @@ source "$SCRIPT_DIR/lib/output.sh"
 # shellcheck source=lib/agent.sh
 source "$SCRIPT_DIR/lib/agent.sh"
 
+# Source atomic write utilities (prevents race conditions)
+# shellcheck source=lib/atomic-write.sh
+source "$SCRIPT_DIR/lib/atomic-write.sh"
+
+# Source git utilities (SHA validation, git operations)
+# shellcheck source=lib/git-utils.sh
+source "$SCRIPT_DIR/lib/git-utils.sh"
+
+# Source telemetry utilities for tracking silent failures (P3.2)
+# shellcheck source=lib/telemetry.sh
+source "$SCRIPT_DIR/lib/telemetry.sh"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependency availability checks for graceful degradation (P2.5)
+# These flags allow features to degrade gracefully when deps are missing
+# ─────────────────────────────────────────────────────────────────────────────
+PYTHON3_AVAILABLE=false
+NODE_AVAILABLE=false
+GIT_AVAILABLE=false
+
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON3_AVAILABLE=true
+fi
+
+if command -v node >/dev/null 2>&1; then
+  NODE_AVAILABLE=true
+fi
+
+if command -v git >/dev/null 2>&1; then
+  GIT_AVAILABLE=true
+fi
+
 # PRD folder helpers - each plan gets its own PRD-N folder
 RALPH_DIR=".ralph"
 
@@ -294,6 +326,28 @@ LAST_SWITCH_REASON=""
 # Comma-separated list of agent names (e.g., "claude,codex,droid")
 AGENTS_TRIED_THIS_ITERATION=""
 
+# Global variable to track retry history for this iteration (P1.4)
+# Format: "attempt=N status=S duration=Ds|attempt=N status=S duration=Ds|..."
+RETRY_HISTORY_THIS_ITERATION=""
+
+# Global array to track temp files for cleanup (P2.1)
+# Using a simple string (space-separated) for bash compatibility
+TEMP_FILES_TO_CLEANUP=""
+
+# Function to register a temp file for cleanup (P2.1)
+register_temp_file() {
+  local file="$1"
+  TEMP_FILES_TO_CLEANUP="$TEMP_FILES_TO_CLEANUP $file"
+}
+
+# Function to cleanup all registered temp files (P2.1)
+cleanup_temp_files() {
+  for file in $TEMP_FILES_TO_CLEANUP; do
+    rm -f "$file" 2>/dev/null || true
+  done
+  TEMP_FILES_TO_CLEANUP=""
+}
+
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
@@ -556,16 +610,29 @@ if [ ! -f "$PROMPT_FILE" ]; then
   exit 1
 fi
 
-if [ "$MODE" != "prd" ] && [ ! -f "$PRD_PATH" ]; then
-  msg_warn "PRD not found: $PRD_PATH"
-  exit 1
+# Enhanced file validation with better error messages (P3.1)
+if [ "$MODE" != "prd" ]; then
+  if [ ! -f "$PRD_PATH" ]; then
+    msg_error "PRD not found: $PRD_PATH"
+    msg_dim "Create it first with: ralph prd"
+    exit 1
+  elif [ ! -s "$PRD_PATH" ]; then
+    msg_error "PRD file is empty: $PRD_PATH"
+    msg_dim "Edit the file to add your requirements, then run: ralph plan"
+    exit 1
+  fi
 fi
 
-if [ "$MODE" = "build" ] && [ ! -f "$PLAN_PATH" ]; then
-  msg_warn "Plan not found: $PLAN_PATH"
-  echo "Create it first with:"
-  msg_info "  ./.agents/ralph/loop.sh plan"
-  exit 1
+if [ "$MODE" = "build" ]; then
+  if [ ! -f "$PLAN_PATH" ]; then
+    msg_error "Plan not found: $PLAN_PATH"
+    msg_dim "Create it first with: ralph plan"
+    exit 1
+  elif [ ! -s "$PLAN_PATH" ]; then
+    msg_error "Plan file is empty: $PLAN_PATH"
+    msg_dim "Run 'ralph plan' to generate user stories from the PRD"
+    exit 1
+  fi
 fi
 
 mkdir -p "$(dirname "$PROGRESS_PATH")" "$TMP_DIR" "$RUNS_DIR"
@@ -943,6 +1010,71 @@ print(data.get(field, ""))
 PY
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Story Selection Locking (P1.3)
+# Prevents parallel builds from picking the same story
+# ─────────────────────────────────────────────────────────────────────────────
+
+acquire_story_lock() {
+  # Acquire lock for story selection to prevent parallel builds picking same story
+  # Usage: if acquire_story_lock "$prd_folder"; then select_story; release_story_lock; fi
+  # Returns: 0 on success, 1 on timeout
+  local prd_folder="$1"
+  local lock_dir="$prd_folder/.story-selection.lock"
+  local max_wait="${2:-30}"
+  local waited=0
+
+  while [ $waited -lt $max_wait ]; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      echo $$ > "$lock_dir/pid"
+      return 0
+    fi
+
+    # Check if lock is stale (holding process died)
+    if [ -f "$lock_dir/pid" ]; then
+      local pid
+      pid=$(cat "$lock_dir/pid" 2>/dev/null || echo "")
+      if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+        # Process died, clean up stale lock
+        rm -rf "$lock_dir" 2>/dev/null || true
+        continue
+      fi
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  msg_error "Timeout waiting for story selection lock after ${max_wait}s"
+  return 1
+}
+
+release_story_lock() {
+  # Release story selection lock
+  # Usage: release_story_lock "$prd_folder"
+  local prd_folder="$1"
+  local lock_dir="$prd_folder/.story-selection.lock"
+
+  rm -rf "$lock_dir" 2>/dev/null || true
+}
+
+# Wrapper for select_story with locking (P1.3)
+select_story_locked() {
+  # Thread-safe story selection for parallel builds
+  # Usage: select_story_locked "$prd_folder" "$meta_out" "$block_out"
+  local prd_folder="$1"
+  local meta_out="$2"
+  local block_out="$3"
+
+  if acquire_story_lock "$prd_folder"; then
+    select_story "$meta_out" "$block_out"
+    release_story_lock "$prd_folder"
+    return 0
+  else
+    return 1
+  fi
+}
+
 log_activity() {
   local message="$1"
   local timestamp
@@ -1252,6 +1384,17 @@ rollback_to_checkpoint() {
     return 1
   fi
 
+  # Fix P0.4: Validate SHA format and existence before attempting rollback
+  if ! is_valid_sha "$target_sha"; then
+    log_error "ROLLBACK failed: invalid SHA format: $target_sha"
+    return 1
+  fi
+
+  if ! git_sha_exists "$target_sha"; then
+    log_error "ROLLBACK failed: SHA does not exist in repository: $target_sha"
+    return 1
+  fi
+
   local current_sha
   current_sha=$(git_head)
 
@@ -1265,8 +1408,11 @@ rollback_to_checkpoint() {
   local stash_output
   stash_output=$(git stash push -m "ralph-rollback-$story_id-$(date +%s)" 2>&1)
   local has_stash=false
+  local stash_ref=""
   if ! echo "$stash_output" | grep -q "No local changes"; then
     has_stash=true
+    # Fix P1.1: Track specific stash ref for cleanup
+    stash_ref=$(git rev-parse stash@{0} 2>/dev/null || echo "")
     msg_dim "Stashed uncommitted changes before rollback"
   fi
 
@@ -1278,6 +1424,15 @@ rollback_to_checkpoint() {
       git stash pop >/dev/null 2>&1 || true
     fi
     return 1
+  fi
+
+  # Fix P1.1: Clean up stash after successful rollback
+  if [ "$has_stash" = "true" ] && [ -n "$stash_ref" ]; then
+    # Drop the specific stash we created
+    if git stash drop "$stash_ref" >/dev/null 2>&1; then
+      log_activity "ROLLBACK_STASH_CLEANED ref=${stash_ref:0:8}"
+      msg_dim "Cleaned up rollback stash"
+    fi
   fi
 
   # Log the rollback
@@ -1894,6 +2049,7 @@ write_run_meta() {
   # Create temporary JSON file
   local json_tmp
   json_tmp="$(mktemp)"
+  register_temp_file "$json_tmp"  # P2.1: register for cleanup
   echo "$json_data" > "$json_tmp"
 
   # Call Python script to generate markdown
@@ -1955,6 +2111,7 @@ generate_context_summary() {
   # Write story to temp file to handle multi-line content
   local story_tmp
   story_tmp="$(mktemp)"
+  register_temp_file "$story_tmp"  # P2.1: register for cleanup
   echo "$story_block" > "$story_tmp"
 
   local summary
@@ -2046,6 +2203,19 @@ parse_token_field() {
   local json="$1"
   local field="$2"
   local result
+
+  # Graceful degradation: if Python3 not available, return empty (P2.5)
+  if [ "$PYTHON3_AVAILABLE" = "false" ]; then
+    # Simple bash fallback for common JSON patterns
+    result=$(echo "$json" | sed -n "s/.*\"$field\"[[:space:]]*:[[:space:]]*\([^,}]*\).*/\1/p" | tr -d ' "')
+    if [ "$result" = "null" ]; then
+      echo ""
+    else
+      echo "$result"
+    fi
+    return
+  fi
+
   result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty - return empty string to prevent arithmetic errors
   if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
@@ -2085,6 +2255,8 @@ append_metrics() {
   local switch_count="${23:-0}"
   local agents_tried="${24:-}"  # Comma-separated list of agents tried
   local failure_type="${25:-}"  # timeout, error, quality, or empty
+  # Retry history for this iteration (P1.4)
+  local retry_history="${26:-}"  # Format: "attempt=N status=S duration=Ds|..."
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -2177,8 +2349,17 @@ local escaped_reason="null"
         "$failure_type_json")
     fi
 
+    # Build retry history field (P1.4)
+    local retry_history_field=""
+    if [ -n "$retry_history" ]; then
+      # Escape the retry history string for JSON
+      local escaped_retry_history
+      escaped_retry_history=$(printf '%s' "$retry_history" | sed 's/"/\\"/g')
+      retry_history_field=$(printf ',"retryHistory":"%s"' "$escaped_retry_history")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s%s}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s%s%s%s}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -2197,9 +2378,12 @@ local escaped_reason="null"
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       "$exp_fields" \
       "$rollback_fields" \
-      "$switch_fields")
+      "$switch_fields" \
+      "$retry_history_field")
 
-    node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
+    if ! node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null; then
+      log_silent_failure "metrics" "append_metrics" "story=$story_id iteration=$iteration"
+    fi
   fi
 }
 
@@ -2250,6 +2434,7 @@ FAILED_COUNT=0
 ITERATION_RESULTS=""
 TOTAL_DURATION=0
 SUCCESS_COUNT=0
+RETRY_SUCCESS_COUNT=0  # Track retry successes separately (fix P0.2)
 ITERATION_COUNT=0
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2375,7 +2560,8 @@ save_switch_state() {
   local timestamp
   timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  cat > "$state_file" <<EOF
+  local json_content
+  json_content=$(cat <<EOF
 {
   "agent": "$CURRENT_AGENT",
   "failures": $CONSECUTIVE_FAILURES,
@@ -2385,6 +2571,8 @@ save_switch_state() {
   "updatedAt": "$timestamp"
 }
 EOF
+)
+  atomic_write "$state_file" "$json_content"  # Fix P0.3: atomic write
   msg_dim "Switch state saved: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT (chain position $CHAIN_POSITION)"
 }
 
@@ -2682,15 +2870,31 @@ start_progress_indicator() {
 }
 
 stop_progress_indicator() {
-  if [ -n "$PROGRESS_PID" ]; then
-    kill "$PROGRESS_PID" 2>/dev/null || true
-    wait "$PROGRESS_PID" 2>/dev/null || true
-    PROGRESS_PID=""
+  # Safety check to avoid killing wrong process due to PID reuse (P1.5)
+  if [ -z "$PROGRESS_PID" ]; then
+    return
   fi
+
+  # Verify PID still exists before killing
+  if kill -0 "$PROGRESS_PID" 2>/dev/null; then
+    # Extra safety: check it's actually our bash process (not a reused PID)
+    local cmd
+    cmd=$(ps -p "$PROGRESS_PID" -o args= 2>/dev/null || echo "")
+    if [[ "$cmd" =~ bash.*sleep ]] || [[ "$cmd" =~ "sleep 5" ]] || [ -z "$cmd" ]; then
+      # It's our progress indicator or process already gone - safe to kill
+      kill "$PROGRESS_PID" 2>/dev/null || true
+      wait "$PROGRESS_PID" 2>/dev/null || true
+    else
+      # PID was reused by another process - log but don't kill
+      msg_dim "Progress PID $PROGRESS_PID reused by another process, skipping kill"
+    fi
+  fi
+
+  PROGRESS_PID=""
 }
 
-# Ensure progress indicator is stopped on exit/interrupt
-trap 'stop_progress_indicator' EXIT INT TERM
+# Ensure progress indicator is stopped and temp files cleaned on exit/interrupt (P2.1)
+trap 'stop_progress_indicator; cleanup_temp_files' EXIT INT TERM
 
 # Resume mode handling
 START_ITERATION=1
@@ -2701,6 +2905,12 @@ if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
     # Validate git state matches checkpoint
     if ! validate_git_state "$CHECKPOINT_GIT_SHA"; then
       msg_error "Resume cancelled due to git state mismatch."
+      exit 1
+    fi
+
+    # Validate plan.md hasn't changed since checkpoint (P1.2)
+    if ! validate_plan_hash "$CHECKPOINT_PLAN_HASH" "$PLAN_PATH"; then
+      msg_error "Resume cancelled due to plan change."
       exit 1
     fi
 
@@ -2751,10 +2961,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   LAST_SWITCH_REASON=""
   # Initialize with current agent for metrics tracking (US-004)
   AGENTS_TRIED_THIS_ITERATION="$CURRENT_AGENT"
+  # Initialize retry history for this iteration (P1.4)
+  RETRY_HISTORY_THIS_ITERATION=""
   if [ "$MODE" = "build" ]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
-    select_story "$STORY_META" "$STORY_BLOCK"
+    # Use locked story selection to prevent parallel builds picking same story (P1.3)
+    select_story_locked "$(dirname "$PRD_PATH")" "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
     if [ "$REMAINING" = "unknown" ]; then
       msg_error "Could not parse stories from PRD: $PRD_PATH"
@@ -2899,7 +3112,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       save_switch_state "$PRD_FOLDER"
       # Check if we should switch agents (US-002)
       if switch_threshold_reached; then
-        if switch_to_next_agent; then
+        if ! switch_to_next_agent; then
+          # Fix P0.5: Agent fallback chain exhausted - all agents failed
+          msg_error "Agent fallback chain exhausted - all agents failed for story $STORY_ID"
+          log_error "CHAIN_EXHAUSTED story=$STORY_ID - manual intervention required"
+          # Continue to next iteration rather than infinite loop
+          # Story remains unchecked and can be retried manually later
+        else
           # Reset failure count after successful switch
           CONSECUTIVE_FAILURES=0
           save_switch_state "$PRD_FOLDER"
@@ -2994,7 +3213,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   fi
 
   if [ "$MODE" = "build" ]; then
-    select_story "$STORY_META" "$STORY_BLOCK"
+    # Use locked story selection to prevent parallel builds picking same story (P1.3)
+    select_story_locked "$(dirname "$PRD_PATH")" "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -3057,7 +3277,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
             fi
 
             CURRENT_RETRY_COUNT=$((CURRENT_RETRY_COUNT + 1))
-            echo "$CURRENT_RETRY_COUNT" > "$RETRY_TRACKING_FILE"
+            atomic_write "$RETRY_TRACKING_FILE" "$CURRENT_RETRY_COUNT"  # Fix P0.3: atomic write
 
             if [ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]; then
               printf "\n"
@@ -3093,6 +3313,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
               RETRY_END=$(date +%s)
               RETRY_DURATION=$((RETRY_END - RETRY_START))
 
+              # Track retry attempt in history (P1.4)
+              if [ -n "$RETRY_HISTORY_THIS_ITERATION" ]; then
+                RETRY_HISTORY_THIS_ITERATION="${RETRY_HISTORY_THIS_ITERATION}|attempt=$CURRENT_RETRY_COUNT status=$RETRY_STATUS duration=${RETRY_DURATION}s"
+              else
+                RETRY_HISTORY_THIS_ITERATION="attempt=$CURRENT_RETRY_COUNT status=$RETRY_STATUS duration=${RETRY_DURATION}s"
+              fi
+
               if [ "$RETRY_STATUS" -eq 0 ]; then
                 # Retry succeeded! Log success for rollback history (US-004)
                 log_rollback "${STORY_ID:-unknown}" "retry_success" "$HEAD_BEFORE" "$(git_head)" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
@@ -3105,12 +3332,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
                 LAST_ROLLBACK_SUCCESS="true"
 
                 # Clear retry tracking file on success
-                rm -f "$RETRY_TRACKING_FILE"
+                atomic_delete "$RETRY_TRACKING_FILE"  # Fix P0.3: atomic delete
 
                 # Update metrics with successful retry
                 CMD_STATUS=0
                 STATUS_LABEL="success"
-                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                RETRY_SUCCESS_COUNT=$((RETRY_SUCCESS_COUNT + 1))  # Fix P0.2: separate retry counter
                 HEAD_AFTER="$(git_head)"
                 COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
                 CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -3191,7 +3418,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
               LAST_ROLLBACK_SUCCESS="false"
 
               # Clear retry tracking file
-              rm -f "$RETRY_TRACKING_FILE"
+              atomic_delete "$RETRY_TRACKING_FILE"  # Fix P0.3: atomic delete
             fi
           fi
         else
@@ -3214,7 +3441,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Use routing decision model (ROUTED_MODEL) instead of log-extracted model (TOKEN_MODEL)
     # TOKEN_MODEL is unreliable as it pattern-matches log content, not actual model used
     FINAL_MODEL="${ROUTED_MODEL:-${TOKEN_MODEL:-unknown}}"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$FINAL_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$FINAL_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS" "$LAST_SWITCH_COUNT" "$AGENTS_TRIED_THIS_ITERATION" "" "$RETRY_HISTORY_THIS_ITERATION"
 
     if [ "$CMD_STATUS" -ne 0 ]; then
       # Differentiate agent errors vs system errors

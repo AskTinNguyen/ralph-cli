@@ -31,6 +31,7 @@ CHECKPOINT_ITERATION=""
 CHECKPOINT_STORY_ID=""
 CHECKPOINT_GIT_SHA=""
 CHECKPOINT_AGENT=""
+CHECKPOINT_PLAN_HASH=""
 
 # ============================================================================
 # Helper: Get checkpoint CLI path
@@ -44,11 +45,25 @@ _get_checkpoint_cli() {
 }
 
 # ============================================================================
+# Helper: Compute plan.md hash for validation (P1.2)
+# ============================================================================
+_get_plan_hash() {
+  local plan_path="$1"
+
+  if [[ -f "$plan_path" ]] && [[ -s "$plan_path" ]]; then
+    # Use shasum for portability (available on macOS and Linux)
+    shasum -a 256 "$plan_path" 2>/dev/null | awk '{print $1}'
+  else
+    echo ""
+  fi
+}
+
+# ============================================================================
 # Checkpoint Functions
 # ============================================================================
 
 # Save checkpoint before story execution for resumable builds
-# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent]
+# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent] [plan-path]
 # Returns: 0 on success, 1 on failure (non-fatal)
 save_checkpoint() {
   local prd_folder="$1"
@@ -57,6 +72,7 @@ save_checkpoint() {
   local story_id="$4"
   local git_sha="$5"
   local agent="${6:-codex}"
+  local plan_path="${7:-$prd_folder/plan.md}"
 
   local checkpoint_cli
   checkpoint_cli=$(_get_checkpoint_cli)
@@ -67,10 +83,14 @@ save_checkpoint() {
     return 0
   fi
 
-  # Build JSON data
+  # Compute plan.md hash for validation on resume (P1.2)
+  local plan_hash=""
+  plan_hash=$(_get_plan_hash "$plan_path")
+
+  # Build JSON data with plan_hash
   local json_data
-  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s"}}' \
-    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent")
+  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","plan_hash":"%s","loop_state":{"agent":"%s"}}' \
+    "$prd_id" "$iteration" "$story_id" "$git_sha" "$plan_hash" "$agent")
 
   # Save checkpoint via CLI
   if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
@@ -106,7 +126,7 @@ clear_checkpoint() {
 }
 
 # Load checkpoint from PRD folder for resumable builds
-# Sets global variables: CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA, CHECKPOINT_AGENT
+# Sets global variables: CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA, CHECKPOINT_AGENT, CHECKPOINT_PLAN_HASH
 # Usage: if load_checkpoint "$prd_folder"; then ... fi
 # Returns: 0 if checkpoint loaded successfully, 1 if not found or error
 load_checkpoint() {
@@ -134,6 +154,7 @@ load_checkpoint() {
   CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
   CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
   CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
+  CHECKPOINT_PLAN_HASH=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('plan_hash', ''))" 2>/dev/null)
 
   if [[ -n "$CHECKPOINT_ITERATION" ]]; then
     return 0
@@ -181,6 +202,58 @@ validate_git_state() {
   else
     # Non-interactive mode - fail safe
     msg_error "Git state diverged. Use --resume in interactive mode to override."
+    return 1
+  fi
+}
+
+# Validate plan.md hasn't changed since checkpoint was created (P1.2)
+# Usage: if ! validate_plan_hash "$CHECKPOINT_PLAN_HASH" "$plan_path"; then exit 1; fi
+# Returns: 0 if match or user confirms, 1 if user declines
+validate_plan_hash() {
+  local expected_hash="$1"
+  local plan_path="$2"
+
+  # No hash to validate (old checkpoint without plan_hash)
+  if [[ -z "$expected_hash" ]]; then
+    return 0
+  fi
+
+  # Compute current plan hash
+  local current_hash=""
+  current_hash=$(_get_plan_hash "$plan_path")
+
+  if [[ -z "$current_hash" ]]; then
+    # Plan file missing or empty
+    msg_warn "Plan file missing or empty: $plan_path"
+    return 0
+  fi
+
+  if [[ "$current_hash" = "$expected_hash" ]]; then
+    return 0
+  fi
+
+  # Plan has changed - warn user
+  printf "\n${C_YELLOW}${C_BOLD}Warning: Plan has changed since checkpoint was created${C_RESET}\n"
+  printf "  ${C_DIM}Checkpoint plan: ${C_RESET}${expected_hash:0:8}...\n"
+  printf "  ${C_DIM}Current plan:    ${C_RESET}${current_hash:0:8}...\n"
+  printf "\n"
+
+  # Prompt user if in TTY mode
+  if [[ -t 0 ]]; then
+    printf "${C_YELLOW}Resume with modified plan? [y/N]: ${C_RESET}"
+    read -r response
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        msg_warn "Resuming with modified plan. Story progress may be inconsistent."
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  else
+    # Non-interactive mode - fail safe
+    msg_error "Plan changed since checkpoint. Use --resume in interactive mode to override."
     return 1
   fi
 }
