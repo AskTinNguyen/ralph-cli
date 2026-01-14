@@ -408,3 +408,31 @@ export interface FixStats {
   totalDuration: number;
   records: FixRecord[];
 }
+
+/**
+ * Failure type that can trigger an agent switch
+ */
+export type FailureType = 'timeout' | 'error' | 'quality';
+
+/**
+ * Agent switch event from activity log
+ * Records when the system switches from one agent to another due to failures
+ */
+export interface SwitchEvent {
+  /** Timestamp when the switch occurred */
+  timestamp: Date;
+  /** Iteration number when switch occurred */
+  iteration?: number;
+  /** Agent that was switched from */
+  fromAgent: string;
+  /** Agent that was switched to */
+  toAgent: string;
+  /** Reason for the switch (failure type that triggered it) */
+  reason: FailureType | string;
+  /** Story ID being worked on when switch occurred */
+  storyId?: string;
+  /** Number of consecutive failures that triggered the switch */
+  consecutiveFailures?: number;
+  /** Type of switch event */
+  eventType: 'switch' | 'failed' | 'skip';
+}

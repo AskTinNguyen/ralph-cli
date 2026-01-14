@@ -7,7 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { RalphMode, Stream, StreamStatus, Story, Run, VerificationResult } from "../types.js";
+import type { RalphMode, Stream, StreamStatus, Story, Run, VerificationResult, SwitchEvent } from "../types.js";
 
 // Cache the ralph root to avoid repeated lookups
 let cachedRalphRoot: string | null = null;
@@ -551,6 +551,77 @@ export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
           delay: 0,
           exitCode: parseInt(exhaustedMatch[3], 10),
           eventType: "exhausted",
+        });
+      }
+    }
+  } catch {
+    // Return empty array on error
+  }
+
+  return events;
+}
+
+/**
+ * Parse agent switch events from activity log content
+ * Returns array of switch events for analysis
+ */
+export function parseSwitchEvents(activityLogPath: string): SwitchEvent[] {
+  const events: SwitchEvent[] = [];
+
+  if (!fs.existsSync(activityLogPath)) {
+    return events;
+  }
+
+  try {
+    const content = fs.readFileSync(activityLogPath, 'utf-8');
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+      // Match timestamp: [2026-01-14 10:30:45]
+      const timestampMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
+      if (!timestampMatch) continue;
+
+      const timestamp = new Date(timestampMatch[1].replace(' ', 'T'));
+
+      // Match AGENT_SWITCH event: AGENT_SWITCH from=X to=Y reason=Z story=S failures=N
+      const switchMatch = line.match(/AGENT_SWITCH\s+from=(\w+)\s+to=(\w+)\s+reason=(\w+)\s+story=(\S+)(?:\s+failures=(\d+))?/);
+      if (switchMatch) {
+        events.push({
+          timestamp,
+          fromAgent: switchMatch[1],
+          toAgent: switchMatch[2],
+          reason: switchMatch[3],
+          storyId: switchMatch[4] !== 'unknown' ? switchMatch[4] : undefined,
+          consecutiveFailures: switchMatch[5] ? parseInt(switchMatch[5], 10) : undefined,
+          eventType: 'switch',
+        });
+        continue;
+      }
+
+      // Match SWITCH_FAILED event: SWITCH_FAILED reason=chain_exhausted tried=N story=S
+      const failedMatch = line.match(/SWITCH_FAILED\s+reason=(\w+)(?:\s+tried=(\d+))?(?:\s+story=(\S+))?/);
+      if (failedMatch) {
+        events.push({
+          timestamp,
+          fromAgent: '',
+          toAgent: '',
+          reason: failedMatch[1],
+          storyId: failedMatch[3] !== 'unknown' ? failedMatch[3] : undefined,
+          eventType: 'failed',
+        });
+        continue;
+      }
+
+      // Match AGENT_SKIP event: AGENT_SKIP agent=X reason=unavailable story=S
+      const skipMatch = line.match(/AGENT_SKIP\s+agent=(\w+)\s+reason=(\w+)(?:\s+story=(\S+))?/);
+      if (skipMatch) {
+        events.push({
+          timestamp,
+          fromAgent: '',
+          toAgent: skipMatch[1],
+          reason: skipMatch[2],
+          storyId: skipMatch[3] !== 'unknown' ? skipMatch[3] : undefined,
+          eventType: 'skip',
         });
       }
     }

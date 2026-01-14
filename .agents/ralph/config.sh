@@ -61,6 +61,30 @@ RALPH_BUDGET_MONTHLY=500.00
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Agent Switching Configuration (Failure Pattern Detection)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic agent switching when failure patterns are detected.
+# When an agent fails consecutively, Ralph can suggest or auto-switch to alternatives.
+#
+# Fallback chain order when switching agents (space-separated):
+# Default chain: claude → codex → droid
+AGENT_FALLBACK_CHAIN="claude codex droid"
+#
+# Number of consecutive failures before triggering switch suggestion (default: 2):
+AGENT_SWITCH_THRESHOLD=2
+#
+# Enable switching on timeout failures (exit code 124/137) (default: true):
+AGENT_SWITCH_ON_TIMEOUT=true
+#
+# Enable switching on general errors (exit code 1) (default: true):
+AGENT_SWITCH_ON_ERROR=true
+#
+# Enable switching on quality failures (test/lint/type errors) (default: false):
+# Note: Quality failures are more conservative - they may be code issues not agent issues
+AGENT_SWITCH_ON_QUALITY=false
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Token Cost Pricing (per 1M tokens in USD)
 # ─────────────────────────────────────────────────────────────────────────────
 # Override default Claude pricing. Values are per 1 million tokens.
