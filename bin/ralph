@@ -62,6 +62,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
   ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
+  ${pc.green("watch")} ${pc.dim("[--prd=N]")}                       Watch files for changes
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -2497,6 +2498,118 @@ ${pc.bold(pc.cyan("Examples:"))}
     success(`Full report saved to ${pc.cyan(reportPath)}`);
 
     process.exit(0);
+  }
+
+  if (cmd === "watch") {
+    const watchModule = require("../lib/watch");
+    const ralphDir = path.join(cwd, ".ralph");
+
+    // Determine which PRD to watch
+    let prdFolder = null;
+
+    if (prdNumber) {
+      // --prd=N flag specified
+      prdFolder = path.join(ralphDir, `PRD-${prdNumber}`);
+      if (!exists(prdFolder)) {
+        error(`PRD-${prdNumber} not found at ${pc.cyan(prdFolder)}`);
+        process.exit(1);
+      }
+    } else {
+      // Auto-detect: find most recent PRD with pending stories
+      const prdFolders = [];
+      if (exists(ralphDir)) {
+        for (const item of fs.readdirSync(ralphDir)) {
+          if (item.match(/^PRD-\d+$/i)) {
+            const folder = path.join(ralphDir, item);
+            const planPath = path.join(folder, "plan.md");
+            if (exists(planPath)) {
+              const stat = fs.statSync(folder);
+              prdFolders.push({ folder, mtime: stat.mtime, number: item.match(/\d+/)[0] });
+            }
+          }
+        }
+      }
+
+      if (prdFolders.length === 0) {
+        error(`No PRD found with plan.md. Run ${pc.cyan("ralph plan")} first.`);
+        process.exit(1);
+      }
+
+      // Sort by modification time (most recent first)
+      prdFolders.sort((a, b) => b.mtime - a.mtime);
+      prdFolder = prdFolders[0].folder;
+      prdNumber = prdFolders[0].number;
+    }
+
+    info(`Watching PRD-${prdNumber}: ${pc.dim(prdFolder)}`);
+
+    // Create watcher
+    const watcher = new watchModule.FileWatcher({
+      debounceMs: 500,
+    });
+
+    // Event handlers
+    watcher.on("started", (event) => {
+      console.log("");
+      console.log(pc.bold("Ralph Watch Mode"));
+      console.log(pc.dim("-".repeat(50)));
+      console.log(`Watching: ${pc.cyan(event.paths.join(", "))}`);
+      console.log(`Debounce: ${pc.dim("500ms")}`);
+      console.log(pc.dim("-".repeat(50)));
+      console.log("");
+      console.log(pc.dim("Press Ctrl+C to stop watching."));
+      console.log("");
+    });
+
+    watcher.on("prd_changed", (event) => {
+      const time = event.timestamp.toLocaleTimeString();
+      console.log(`${pc.dim(time)} ${pc.yellow("prd.md")} ${pc.dim(event.changeType)}`);
+    });
+
+    watcher.on("plan_changed", (event) => {
+      const time = event.timestamp.toLocaleTimeString();
+      console.log(`${pc.dim(time)} ${pc.cyan("plan.md")} ${pc.dim(event.changeType)}`);
+    });
+
+    watcher.on("config_changed", (event) => {
+      const time = event.timestamp.toLocaleTimeString();
+      const filename = path.basename(event.configPath);
+      console.log(`${pc.dim(time)} ${pc.magenta(filename)} ${pc.dim(event.changeType + " (config)")}`);
+    });
+
+    watcher.on("file_changed", (event) => {
+      // Only log other files if not already logged by specific handlers
+      const filename = event.filename;
+      if (!filename.endsWith("prd.md") && !filename.endsWith("plan.md")) {
+        const time = event.timestamp.toLocaleTimeString();
+        console.log(`${pc.dim(time)} ${pc.dim(filename)} ${pc.dim(event.changeType)}`);
+      }
+    });
+
+    watcher.on("error", (err) => {
+      error(`Watch error: ${err.message}`);
+    });
+
+    // Start watching
+    const started = watcher.start(prdFolder);
+    if (!started) {
+      error("Failed to start file watcher.");
+      process.exit(1);
+    }
+
+    // Handle graceful shutdown
+    const cleanup = () => {
+      console.log("");
+      dim("Stopping watch...");
+      watcher.stop();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+
+    // Keep the process running
+    return;
   }
 
   if (cmd === "ui") {
