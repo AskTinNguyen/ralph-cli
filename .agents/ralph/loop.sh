@@ -822,6 +822,46 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
+# Get model routing decision for a story
+# Usage: get_routing_decision <story_block_file> [override_model]
+# Returns JSON: {"model": "sonnet", "score": 5.2, "reason": "...", "override": false}
+get_routing_decision() {
+  local story_file="$1"
+  local override="${2:-}"
+  local router_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    router_cli="$RALPH_ROOT/lib/tokens/router-cli.js"
+  else
+    router_cli="$SCRIPT_DIR/../../lib/tokens/router-cli.js"
+  fi
+
+  # Check if router CLI exists and Node.js is available
+  if [ -f "$router_cli" ] && command -v node >/dev/null 2>&1; then
+    local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
+    if [ -n "$override" ]; then
+      args+=("--override" "$override")
+    fi
+    node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
+  else
+    # Fallback when router not available
+    echo '{"model":"sonnet","score":null,"reason":"router not installed","override":false}'
+  fi
+}
+
+# Parse JSON field from routing decision
+parse_routing_field() {
+  local json="$1"
+  local field="$2"
+  local result
+  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  # Handle None, null, and empty
+  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
+    echo ""
+  else
+    echo "$result"
+  fi
+}
+
 # Enhanced error display with path highlighting and suggestions
 # Usage: show_error "message" ["log_path"]
 show_error() {
@@ -1173,7 +1213,14 @@ extract_tokens_from_log() {
 parse_token_field() {
   local json="$1"
   local field="$2"
-  python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('$field',''))" "$json" 2>/dev/null || echo ""
+  local result
+  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  # Handle None, null, and empty - return empty string to prevent arithmetic errors
+  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
+    echo ""
+  else
+    echo "$result"
+  fi
 }
 
 # Append metrics to metrics.jsonl for historical tracking
@@ -1352,6 +1399,22 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     # Print current story being worked on
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_CYAN}  Working on: ${C_BOLD}$STORY_ID${C_RESET}${C_CYAN} - $STORY_TITLE${C_RESET}\n"
+
+    # Get model routing decision
+    ROUTING_JSON="$(get_routing_decision "$STORY_BLOCK" "${RALPH_MODEL_OVERRIDE:-}")"
+    ROUTED_MODEL="$(parse_routing_field "$ROUTING_JSON" "model")"
+    ROUTED_SCORE="$(parse_routing_field "$ROUTING_JSON" "score")"
+    ROUTED_REASON="$(parse_routing_field "$ROUTING_JSON" "reason")"
+    ROUTED_OVERRIDE="$(parse_routing_field "$ROUTING_JSON" "override")"
+
+    # Display routing decision
+    if [ "$ROUTED_OVERRIDE" = "true" ]; then
+      printf "${C_YELLOW}  Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (override)${C_RESET}\n"
+    elif [ -n "$ROUTED_SCORE" ]; then
+      printf "${C_DIM}  Complexity: ${ROUTED_SCORE}/10 → ${C_RESET}${C_BOLD}$ROUTED_MODEL${C_RESET}\n"
+    else
+      printf "${C_DIM}  Model: ${C_RESET}${C_BOLD}$ROUTED_MODEL${C_RESET}${C_DIM} (default)${C_RESET}\n"
+    fi
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
   fi
 

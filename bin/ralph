@@ -30,7 +30,7 @@ let progressPath = null;
 let prdOutPath = null;
 let uiOpenBrowser = false;  // For --open flag in ui command
 let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
-let estimateModel = null;  // For --model flag in estimate command
+let modelOverride = null;  // For --model flag (estimate and build commands)
 let noRetry = false;  // For --no-retry flag to disable automatic retries
 
 function exists(p) {
@@ -51,7 +51,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry]")} Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--model]")}   Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -244,13 +244,13 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     i += 1;
     continue;
   }
-  // Parse --model flag for estimate command
+  // Parse --model flag for estimate and build commands
   if (arg.startsWith("--model=")) {
-    estimateModel = arg.split("=").slice(1).join("=");
+    modelOverride = arg.split("=").slice(1).join("=");
     continue;
   }
   if (arg === "--model") {
-    estimateModel = rawArgs[i + 1];
+    modelOverride = rawArgs[i + 1];
     i += 1;
     continue;
   }
@@ -556,6 +556,8 @@ async function main() {
   if (progressPath) env.PROGRESS_PATH = progressPath;
   // Pass --no-retry flag to disable automatic retries
   if (noRetry) env.NO_RETRY = "true";
+  // Pass --model flag to override automatic model selection
+  if (modelOverride) env.RALPH_MODEL_OVERRIDE = modelOverride;
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
@@ -903,7 +905,7 @@ async function main() {
     }
 
     // Determine model to use for pricing (default: sonnet)
-    const model = estimateModel || "sonnet";
+    const model = modelOverride || "sonnet";
 
     // Determine which PRD to analyze
     let prdFolder = null;
