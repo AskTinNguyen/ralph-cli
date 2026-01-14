@@ -139,6 +139,39 @@ ralph-cli/
 
 The loop is stateless - each iteration reads files, does work, writes results.
 
+## Status Validation & Troubleshooting
+
+### Stream Status Verification
+
+**IMPORTANT**: `ralph stream status` now cross-checks git history as the source of truth.
+
+**How it works:**
+1. **Git is the source of truth**: Status is verified via `git merge-base --is-ancestor` and merge commit history
+2. **Auto-correction**: If git shows a PRD is merged but `.merged` marker is missing, it's auto-created
+3. **Stale detection**: PRDs showing "ready" or "completed" but already merged in git are auto-corrected to "merged"
+
+**Why this matters:**
+- Prevents attempting to build already-merged PRDs
+- Catches discrepancies between file markers and git reality
+- Ensures accurate status across team members and CI/CD
+
+**Manual verification:**
+```bash
+# Check if PRD-N branch was actually merged
+git branch --merged main | grep "ralph/PRD-N"
+
+# View merge commits for a specific PRD
+git log --oneline --grep="PRD-N" --merges
+
+# Manually mark as merged (if git shows it but status doesn't)
+ralph stream mark-merged N
+```
+
+**Common issues:**
+- **"Ready" but already merged**: Git history checked, status auto-updated to "merged"
+- **"Completed" but no merge**: Verify with `git branch --merged main`, then run `ralph stream merge N`
+- **Stale progress.md**: Status now ignores stale markers when git history conflicts
+
 ## MCP Servers
 
 Ralph agents have access to MCP (Model Context Protocol) servers for external integrations. Configuration is in `.mcp.json`.

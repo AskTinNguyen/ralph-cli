@@ -84,8 +84,52 @@ is_stream_merged() {
   local stream_dir
   stream_dir="$(get_stream_dir "$stream_id")"
 
-  # Check for .merged marker file
+  # First check git history for actual merge (source of truth)
+  if is_branch_merged_in_git "$stream_id"; then
+    # Auto-create .merged marker if git shows it's merged but marker is missing
+    if [[ ! -f "$stream_dir/.merged" ]]; then
+      mark_stream_merged "$stream_id"
+    fi
+    return 0
+  fi
+
+  # Fallback: Check for .merged marker file (legacy or manual marking)
   [[ -f "$stream_dir/.merged" ]]
+}
+
+is_branch_merged_in_git() {
+  # Verify if a stream's branch has been merged to main/master via git
+  # Returns: 0 if merged, 1 if not merged or branch doesn't exist
+  local stream_id="$1"
+  local branch="ralph/$stream_id"
+  local base_branch="main"
+
+  # Check if main exists, otherwise use master
+  if ! git show-ref --verify --quiet "refs/heads/main"; then
+    if git show-ref --verify --quiet "refs/heads/master"; then
+      base_branch="master"
+    else
+      # No main or master branch - can't verify
+      return 1
+    fi
+  fi
+
+  # Check if the branch exists in git
+  if ! git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    # Branch doesn't exist locally - check if there's a merge commit in history
+    # Look for merge commits mentioning this stream
+    if git log --all --oneline --grep="$stream_id" --merges | grep -qi "merge"; then
+      return 0
+    fi
+    return 1
+  fi
+
+  # Branch exists - check if it's been merged to base branch
+  if git merge-base --is-ancestor "$branch" "$base_branch" 2>/dev/null; then
+    return 0
+  fi
+
+  return 1
 }
 
 mark_stream_merged() {
@@ -457,6 +501,13 @@ get_stream_status() {
     return
   fi
 
+  # IMPORTANT: Check git history FIRST (source of truth)
+  # This catches cases where PRD was merged but checkboxes weren't updated
+  if is_stream_merged "$stream_id"; then
+    echo "merged"
+    return
+  fi
+
   # Check if all stories are done by looking at PRD
   local prd_file="$stream_dir/prd.md"
   if [[ ! -f "$prd_file" ]]; then
@@ -473,13 +524,10 @@ get_stream_status() {
   if [[ "$total" -eq 0 ]]; then
     echo "no_stories"
   elif [[ "$remaining" -eq 0 ]]; then
-    # All stories completed - check if merged
-    if is_stream_merged "$stream_id"; then
-      echo "merged"
-    else
-      echo "completed"
-    fi
+    # All stories completed in prd.md but not merged yet
+    echo "completed"
   else
+    # Stories remain unchecked
     echo "ready"
   fi
 }
