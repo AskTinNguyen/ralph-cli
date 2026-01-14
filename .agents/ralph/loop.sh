@@ -318,6 +318,10 @@ CHAIN_POSITION=0
 # Switch tracking for run summary (format: "from:to:reason:story,from:to:reason:story,...")
 SWITCHES_THIS_RUN=""
 SWITCH_COUNT=0
+# Track agents tried during current iteration for metrics (US-004)
+# Format: "agent1,agent2,agent3" (comma-separated)
+AGENTS_TRIED_THIS_ITER=""
+ITER_SWITCH_COUNT=0
 
 # Classify failure type from exit code and log content
 # Usage: classify_failure <exit_code> <log_file> -> "timeout" | "error" | "quality" | "success"
@@ -459,7 +463,7 @@ agent_available() {
 # Notify about an agent switch with terminal output and activity logging
 # Usage: notify_switch <from_agent> <to_agent> <reason> <story_id> <consecutive_failures>
 # Displays a colored banner and logs to activity.log
-# Tracks switch for run summary
+# Tracks switch for run summary and iteration metrics (US-004)
 notify_switch() {
   local from_agent="$1"
   local to_agent="$2"
@@ -473,6 +477,15 @@ notify_switch() {
   # Track switch for run summary
   SWITCHES_THIS_RUN="${SWITCHES_THIS_RUN}${SWITCHES_THIS_RUN:+,}$from_agent:$to_agent:$reason:$story_id"
   SWITCH_COUNT=$((SWITCH_COUNT + 1))
+
+  # Track for iteration metrics (US-004)
+  ITER_SWITCH_COUNT=$((ITER_SWITCH_COUNT + 1))
+  # Add to_agent to the list of agents tried this iteration
+  if [ -n "$AGENTS_TRIED_THIS_ITER" ]; then
+    AGENTS_TRIED_THIS_ITER="${AGENTS_TRIED_THIS_ITER},$to_agent"
+  else
+    AGENTS_TRIED_THIS_ITER="$to_agent"
+  fi
 
   # Terminal output with colored banner
   printf "\n${C_YELLOW}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
@@ -1570,6 +1583,7 @@ parse_token_field() {
 
 # Append metrics to metrics.jsonl for historical tracking
 # Called after each build iteration
+# Extended with switch tracking for US-004
 append_metrics() {
   local prd_folder="$1"
   local story_id="$2"
@@ -1585,6 +1599,8 @@ append_metrics() {
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
   local failure_type="${14:-}"
+  local switch_count="${15:-0}"
+  local agents_tried="${16:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1615,8 +1631,16 @@ append_metrics() {
       failure_type_val="\"$failure_type\""
     fi
 
+    # Build agents array for metrics (US-004)
+    # Format: "agent1,agent2,agent3" -> ["agent1","agent2","agent3"]
+    local agents_json="null"
+    if [ -n "$agents_tried" ] && [ "$agents_tried" != "" ]; then
+      # Convert comma-separated list to JSON array
+      agents_json="[$(echo "$agents_tried" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/')]"
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"failureType":%s,"timestamp":"%s"}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"failureType":%s,"switchCount":%s,"agents":%s,"timestamp":"%s"}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1630,6 +1654,8 @@ append_metrics() {
       "$retry_count" \
       "$retry_time" \
       "$failure_type_val" \
+      "$switch_count" \
+      "$agents_json" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
@@ -1738,6 +1764,10 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   printf "${C_BOLD}${C_CYAN}  Running iteration $i/$MAX_ITERATIONS${C_RESET}\n"
   printf "${C_DIM}  Started: $(date '+%Y-%m-%d %H:%M:%S')${C_RESET}\n"
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+
+  # Reset iteration-specific switch tracking (US-004)
+  AGENTS_TRIED_THIS_ITER="$CURRENT_AGENT"
+  ITER_SWITCH_COUNT=0
 
   STORY_META=""
   STORY_BLOCK=""
@@ -1862,10 +1892,11 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "$FAILURE_TYPE" "$CURRENT_AGENT" "$CONSECUTIVE_FAILURES"
 
   # Append metrics to metrics.jsonl for historical tracking (build mode only)
+  # Extended with switch tracking for US-004
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$CURRENT_AGENT" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "$FAILURE_TYPE"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$CURRENT_AGENT" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "$FAILURE_TYPE" "$ITER_SWITCH_COUNT" "$AGENTS_TRIED_THIS_ITER"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then

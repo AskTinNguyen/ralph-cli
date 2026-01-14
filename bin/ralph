@@ -82,6 +82,10 @@ ${pc.bold(pc.cyan("Optimize commands:"))}
   ${pc.green("optimize prompts")} ${pc.dim("--apply")}           Apply selected suggestions to templates
   ${pc.green("optimize prompts")} ${pc.dim("--versions")}        Show prompt version effectiveness comparison
 
+${pc.bold(pc.cyan("Stats commands:"))}
+  ${pc.green("stats")}                               Show performance metrics dashboard
+  ${pc.green("stats switches")} ${pc.dim("[--json]")}             Show agent switch analytics and recommendations
+
 ${pc.bold(pc.cyan("Stats options:"))}
   ${pc.yellow("--global")} ${pc.dim("(-g)")}                       Show metrics across all registered projects
   ${pc.yellow("--json")}                             Output metrics as JSON for tooling
@@ -1752,8 +1756,15 @@ ${pc.bold(pc.cyan("Examples:"))}
     let jsonFlag = false;
     let noCache = false;
     let tokensFlag = false;
+    let switchesFlag = false;
 
-    for (const arg of args.slice(1)) {
+    // Check for subcommand
+    const subCmd = args[1];
+    if (subCmd === "switches") {
+      switchesFlag = true;
+    }
+
+    for (const arg of args.slice(switchesFlag ? 2 : 1)) {
       if (arg === "--global" || arg === "-g") {
         globalFlag = true;
       } else if (arg === "--json") {
@@ -1935,6 +1946,156 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       console.log(pc.dim("=".repeat(60)));
       success("Token stats generated.");
+      process.exit(0);
+    }
+
+    // Handle switches subcommand - show agent switch analytics (US-004)
+    if (switchesFlag) {
+      const metricsModule = require("../lib/estimate/metrics");
+      const switcherModule = require("../lib/agents/switcher");
+      const ralphDir = path.join(cwd, ".ralph");
+
+      if (!exists(ralphDir)) {
+        warn("No .ralph directory found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Collect metrics from all PRD-N folders
+      const prdDirs = fs.readdirSync(ralphDir)
+        .filter((dir) => /^PRD-\d+$/.test(dir))
+        .map((dir) => path.join(ralphDir, dir));
+
+      if (prdDirs.length === 0) {
+        warn("No PRD directories found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Aggregate metrics across all streams
+      let allMetrics = [];
+      for (const prdDir of prdDirs) {
+        const result = metricsModule.loadMetrics(prdDir);
+        if (result.success && result.metrics.length > 0) {
+          allMetrics = allMetrics.concat(result.metrics);
+        }
+      }
+
+      if (allMetrics.length === 0) {
+        warn("No metrics data found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Get analytics
+      const agentRates = metricsModule.getAgentSuccessRates(allMetrics);
+      const switchAnalytics = metricsModule.getSwitchAnalytics(allMetrics);
+      const optimalAgents = metricsModule.getOptimalAgentsByStoryType(allMetrics);
+      const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "codex");
+
+      if (jsonFlag) {
+        console.log(JSON.stringify({
+          agentRates,
+          switchAnalytics,
+          optimalAgents,
+          defaultSuggestion,
+        }, null, 2));
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Agent Switch Analytics"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+
+      // Overview
+      console.log(pc.bold(pc.cyan("Overview")));
+      console.log(pc.dim("-".repeat(40)));
+      console.log(`Total Iterations:       ${pc.bold(switchAnalytics.totalIterations)}`);
+      console.log(`Iterations w/ Switches: ${pc.bold(switchAnalytics.iterationsWithSwitches)}`);
+      console.log(`Total Switches:         ${pc.bold(switchAnalytics.totalSwitches)}`);
+      console.log(`Avg Switches/Iteration: ${pc.bold(switchAnalytics.avgSwitchesPerIteration)}`);
+      console.log("");
+
+      // Agent Success Rates
+      const agents = Object.keys(agentRates);
+      if (agents.length > 0) {
+        console.log(pc.bold(pc.cyan("Agent Success Rates")));
+        console.log(pc.dim("-".repeat(60)));
+        console.log(
+          pc.dim(
+            `${"AGENT".padEnd(12)} ${"TOTAL".padStart(6)} ${"SUCCESS".padStart(8)} ${"RATE".padStart(8)} ${"AVG DUR".padStart(10)}`
+          )
+        );
+        console.log(pc.dim("-".repeat(60)));
+
+        const sortedAgents = agents.sort((a, b) => agentRates[b].successRate - agentRates[a].successRate);
+        for (const agent of sortedAgents) {
+          const stats = agentRates[agent];
+          const total = String(stats.total).padStart(6);
+          const successStr = String(stats.success).padStart(8);
+          const rateStr = `${stats.successRate}%`.padStart(8);
+          const durStr = `${stats.avgDuration}s`.padStart(10);
+          const rateColor = stats.successRate >= 80 ? pc.green : stats.successRate >= 50 ? pc.yellow : pc.red;
+
+          console.log(
+            `${agent.padEnd(12)} ${total} ${successStr} ${rateColor(rateStr)} ${durStr}`
+          );
+        }
+        console.log("");
+      }
+
+      // Switches by Failure Type
+      const failureTypes = Object.keys(switchAnalytics.switchesByFailureType);
+      if (failureTypes.length > 0) {
+        console.log(pc.bold(pc.cyan("Switches by Failure Type")));
+        console.log(pc.dim("-".repeat(40)));
+        for (const [type, count] of Object.entries(switchAnalytics.switchesByFailureType)) {
+          console.log(`  ${type.padEnd(15)} ${pc.yellow(count)}`);
+        }
+        console.log("");
+      }
+
+      // Optimal Agent by Story Type
+      const storyTypes = Object.keys(optimalAgents);
+      if (storyTypes.length > 0) {
+        console.log(pc.bold(pc.cyan("Optimal Agent by Story Type")));
+        console.log(pc.dim("-".repeat(60)));
+        console.log(
+          pc.dim(
+            `${"TYPE".padEnd(10)} ${"BEST AGENT".padEnd(12)} ${"RATE".padStart(8)} ${"CONFIDENCE".padStart(12)} ${"SAMPLES".padStart(8)}`
+          )
+        );
+        console.log(pc.dim("-".repeat(60)));
+
+        for (const [storyType, data] of Object.entries(optimalAgents)) {
+          const typeStr = storyType.padEnd(10);
+          const agentStr = (data.bestAgent || "N/A").padEnd(12);
+          const rateStr = `${data.bestSuccessRate}%`.padStart(8);
+          const confStr = `${data.confidence}%`.padStart(12);
+          const samplesStr = String(data.sampleSize).padStart(8);
+          const confColor = data.confidence >= 80 ? pc.green : data.confidence >= 40 ? pc.yellow : pc.dim;
+
+          console.log(
+            `${typeStr} ${pc.cyan(agentStr)} ${rateStr} ${confColor(confStr)} ${samplesStr}`
+          );
+        }
+        console.log("");
+      }
+
+      // Default Agent Suggestion
+      console.log(pc.bold(pc.cyan("Default Agent Recommendation")));
+      console.log(pc.dim("-".repeat(40)));
+      if (defaultSuggestion.shouldChange) {
+        console.log(`${pc.yellow("⚠")} Recommend changing default agent:`);
+        console.log(`  Current: ${pc.dim(defaultSuggestion.currentDefault)}`);
+        console.log(`  Suggested: ${pc.green(defaultSuggestion.suggestedDefault)}`);
+        console.log(`  Improvement: ${pc.green(`+${defaultSuggestion.improvement}%`)}`);
+        console.log(`  Confidence: ${defaultSuggestion.confidence}%`);
+      } else {
+        console.log(`${pc.green("✓")} ${defaultSuggestion.reason}`);
+      }
+      console.log("");
+
+      console.log(pc.dim("=".repeat(60)));
+      success("Switch analytics generated.");
       process.exit(0);
     }
 
