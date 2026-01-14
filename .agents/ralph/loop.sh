@@ -25,6 +25,11 @@ RALPH_DIR=".ralph"
 # shellcheck source=lib/prd-utils.sh
 source "$SCRIPT_DIR/lib/prd-utils.sh"
 
+# Git helper functions - sourced from shared library
+# Provides: git_head, git_commit_list, git_changed_files, git_dirty_files
+# shellcheck source=lib/git-utils.sh
+source "$SCRIPT_DIR/lib/git-utils.sh"
+
 # Determine active PRD number from env or auto-detect
 if [[ -n "${PRD_NUMBER:-}" ]]; then
   ACTIVE_PRD_NUMBER="$PRD_NUMBER"
@@ -1885,41 +1890,8 @@ append_context_to_run_meta() {
   } >> "$run_meta_path"
 }
 
-git_head() {
-  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || true
-  else
-    echo ""
-  fi
-}
-
-git_commit_list() {
-  local before="$1"
-  local after="$2"
-  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
-    git -C "$ROOT_DIR" log --oneline "$before..$after" | sed 's/^/- /'
-  else
-    echo ""
-  fi
-}
-
-git_changed_files() {
-  local before="$1"
-  local after="$2"
-  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
-    git -C "$ROOT_DIR" diff --name-only "$before" "$after" | sed 's/^/- /'
-  else
-    echo ""
-  fi
-}
-
-git_dirty_files() {
-  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$ROOT_DIR" status --porcelain | awk '{print "- " $2}'
-  else
-    echo ""
-  fi
-}
+# Git helper functions are now sourced from lib/git-utils.sh
+# Provides: git_head, git_commit_list, git_changed_files, git_dirty_files
 
 # Extract token metrics from a log file using Node.js extractor
 # Returns JSON: {"inputTokens": N, "outputTokens": N, "model": "...", "estimated": bool}

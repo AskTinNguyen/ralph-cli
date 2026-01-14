@@ -69,17 +69,17 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test prompt rendering, story selection work correctly
 - [x] Verify ~140 lines removed from loop.sh
 
-### [ ] US-004: Extract git utilities to shared library
+### [x] US-004: Extract git utilities to shared library
 **As a** ralph-cli maintainer
 **I want** git helper functions centralized
 **So that** git operations are consistent and reusable across scripts
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/git-utils.sh`
-- [ ] Extract from loop.sh:1517-1551: `git_head()`, `git_commit_list()`, `git_changed_files()`, `git_dirty_files()`
-- [ ] Add ROOT_DIR parameter support for worktree contexts
-- [ ] Update loop.sh and stream.sh to source the library
-- [ ] Test git operations work correctly in both main repo and worktrees
+- [x] Create `.agents/ralph/lib/git-utils.sh`
+- [x] Extract from loop.sh:1517-1551: `git_head()`, `git_commit_list()`, `git_changed_files()`, `git_dirty_files()`
+- [x] Add ROOT_DIR parameter support for worktree contexts
+- [x] Update loop.sh and stream.sh to source the library
+- [x] Test git operations work correctly in both main repo and worktrees
 
 ### [ ] US-005: Remove dead code and consolidate duplicates
 **As a** ralph-cli maintainer

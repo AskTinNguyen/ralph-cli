@@ -26,6 +26,10 @@ source "$SCRIPT_DIR/lib/output.sh"
 # shellcheck source=lib/prd-utils.sh
 source "$SCRIPT_DIR/lib/prd-utils.sh"
 
+# Git helper functions (git_head, git_commit_list, git_changed_files, git_dirty_files)
+# shellcheck source=lib/git-utils.sh
+source "$SCRIPT_DIR/lib/git-utils.sh"
+
 # ============================================================================
 # Helpers
 # ============================================================================
