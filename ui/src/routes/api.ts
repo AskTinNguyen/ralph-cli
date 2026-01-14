@@ -13,6 +13,8 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
+import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart, getExportData, exportToCsv } from '../services/trends.js';
+import type { ExportOptions } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
 // Import CommonJS accuracy and estimate modules
@@ -21,8 +23,6 @@ const { generateAccuracyReport, loadEstimates, saveEstimate } = require('../../.
 const { estimate } = require('../../../lib/estimate/index.js');
 // Rollback analytics (US-004)
 const { getRollbackAnalytics, getRollbackStats, loadMetrics } = require('../../../lib/estimate/metrics.js');
-// Risk analysis (US-003: Risk Visualization)
-const { analyzeStoryRisk, formatRiskDisplay, getRiskThreshold, getRiskColorClass, getRiskLabel } = require('../../../lib/risk/index.js');
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1492,7 +1492,6 @@ api.get("/partials/stories", (c) => {
 `);
   }
 
-  const threshold = getRiskThreshold();
   const storyCards = stories
     .map((story) => {
       const statusClass = story.status;
@@ -1500,14 +1499,6 @@ api.get("/partials/stories", (c) => {
         story.status === "in-progress"
           ? "In Progress"
           : story.status.charAt(0).toUpperCase() + story.status.slice(1);
-
-      // Analyze risk for the story
-      const storyText = story.title + " " + (story.description || "");
-      const riskResult = analyzeStoryRisk(storyText);
-      const riskScore = riskResult.score;
-      const riskColorClass = getRiskColorClass(riskScore, threshold);
-      const riskLabel = getRiskLabel(riskScore, threshold);
-      const isHighRisk = riskScore >= threshold;
 
       const criteriaHtml =
         story.acceptanceCriteria.length > 0
@@ -1526,19 +1517,11 @@ api.get("/partials/stories", (c) => {
 `
           : "";
 
-      // Risk badge with tooltip showing factors
-      const riskFactorsTooltip = riskResult.factors.length > 0
-        ? riskResult.factors.slice(0, 3).map((f: any) => f.description).join("; ")
-        : "No significant risk factors";
-
       return `
-<div class="story-card${isHighRisk ? " high-risk" : ""}">
+<div class="story-card">
   <div class="story-header">
     <span class="story-id">${escapeHtml(story.id)}</span>
-    <div class="story-badges">
-      <span class="risk-badge ${riskColorClass}" title="${escapeHtml(riskFactorsTooltip)}">${riskScore}/10</span>
-      <span class="status-badge ${statusClass}">${statusLabel}</span>
-    </div>
+    <span class="status-badge ${statusClass}">${statusLabel}</span>
   </div>
   <div class="story-title">${escapeHtml(story.title)}</div>
   ${criteriaHtml}
@@ -5871,148 +5854,720 @@ api.get('/rollback-stats', (c) => {
   });
 });
 
+// ============================================
+// SUCCESS RATE TRENDS ENDPOINTS (US-001)
+// ============================================
+
 /**
- * GET /api/risk
+ * GET /api/trends/success-rate
  *
- * Returns risk overview for all stories across streams.
+ * Returns success rate trend data for visualization.
  * Query params:
- *   - streamId: Optional stream ID to filter by
- *   - sortByRisk: Sort stories by risk score (default: true)
+ *   - period: '7d' or '30d' (default: '7d')
+ *   - prd: PRD ID to filter by (optional)
+ *   - agent: Agent name to filter by (optional)
+ *   - developer: Developer to filter by (optional)
  */
-api.get("/risk", (c) => {
-  const rootPath = getRalphRoot();
-  const streamId = c.req.query("streamId");
-  const sortByRisk = c.req.query("sortByRisk") !== "false";
+api.get("/trends/success-rate", (c) => {
+  const periodParam = c.req.query("period") || "7d";
+  const period = periodParam === "30d" ? "30d" : "7d";
+  const prd = c.req.query("prd");
+  const agent = c.req.query("agent");
+  const developer = c.req.query("developer");
 
-  if (!rootPath) {
-    return c.json({
-      success: false,
-      error: "Ralph not initialized",
-    });
-  }
-
-  const threshold = getRiskThreshold();
-  let allStories: Array<{
-    id: string;
-    title: string;
-    status: string;
-    streamId: string;
-    risk: { score: number; level: string; factors: any[] };
-  }> = [];
-
-  if (streamId) {
-    // Get stories for specific stream
-    const details = getStreamDetails(streamId);
-    if (details && details.stories) {
-      for (const story of details.stories) {
-        const storyText = story.title + " " + (story.description || "");
-        const riskResult = analyzeStoryRisk(storyText);
-        allStories.push({
-          id: story.id,
-          title: story.title,
-          status: story.status,
-          streamId: streamId,
-          risk: {
-            score: riskResult.score,
-            level: riskResult.riskLevel,
-            factors: riskResult.factors,
-          },
-        });
-      }
-    }
-  } else {
-    // Get stories from all streams
-    const streams = getStreams();
-    for (const stream of streams) {
-      const details = getStreamDetails(stream.id);
-      if (details && details.stories) {
-        for (const story of details.stories) {
-          const storyText = story.title + " " + (story.description || "");
-          const riskResult = analyzeStoryRisk(storyText);
-          allStories.push({
-            id: story.id,
-            title: story.title,
-            status: story.status,
-            streamId: stream.id,
-            risk: {
-              score: riskResult.score,
-              level: riskResult.riskLevel,
-              factors: riskResult.factors,
-            },
-          });
-        }
-      }
-    }
-  }
-
-  // Sort by risk if requested
-  if (sortByRisk) {
-    allStories.sort((a, b) => b.risk.score - a.risk.score);
-  }
-
-  // Calculate summary
-  const summary = {
-    total: allStories.length,
-    highRisk: allStories.filter((s) => s.risk.score >= threshold).length,
-    mediumRisk: allStories.filter((s) => s.risk.score >= 4 && s.risk.score < threshold).length,
-    lowRisk: allStories.filter((s) => s.risk.score < 4).length,
-    avgScore: allStories.length > 0
-      ? Math.round(allStories.reduce((sum, s) => sum + s.risk.score, 0) / allStories.length)
-      : 0,
-  };
+  const trends = getSuccessRateTrends(period, { prd, agent, developer });
+  const chartData = formatForChart(trends);
+  const weekOverWeek = getWeekOverWeek({ prd, agent, developer });
 
   return c.json({
-    success: true,
-    threshold,
-    summary,
-    stories: allStories,
+    trends,
+    chartData,
+    weekOverWeek,
   });
 });
 
 /**
- * GET /api/risk/:streamId/:storyId
+ * GET /api/trends/filters
  *
- * Returns detailed risk analysis for a specific story.
+ * Returns available filter options for success rate trends.
  */
-api.get("/risk/:streamId/:storyId", (c) => {
-  const { streamId, storyId } = c.req.param();
-  const details = getStreamDetails(streamId);
+api.get("/trends/filters", (c) => {
+  const options = getFilterOptions();
+  return c.json(options);
+});
 
-  if (!details) {
+/**
+ * GET /api/trends/cost
+ *
+ * Returns cost trend data for visualization.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - groupBy: 'day' or 'week' (default: 'day')
+ *   - prd: PRD ID to filter by (optional)
+ *   - model: Model name to filter by (optional)
+ *   - budget: Daily budget in dollars for comparison (optional)
+ */
+api.get("/trends/cost", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const groupBy = (c.req.query("groupBy") || "day") as "day" | "week";
+  const prd = c.req.query("prd");
+  const model = c.req.query("model");
+  const budgetParam = c.req.query("budget");
+
+  const filters = { prd, model, groupBy };
+
+  // If budget is provided, return data with budget comparison
+  if (budgetParam) {
+    const dailyBudget = parseFloat(budgetParam);
+    if (isNaN(dailyBudget) || dailyBudget <= 0) {
+      return c.json(
+        {
+          error: "bad_request",
+          message: "Invalid budget parameter. Must be a positive number.",
+        },
+        400
+      );
+    }
+
+    const trends = getCostTrendsWithBudget(period, dailyBudget, filters);
+    const chartData = formatCostForChart(trends, {
+      showBudget: true,
+      dailyBudget,
+    });
+    const modelBreakdownChart = formatModelBreakdownForChart(trends.byModel);
+
     return c.json({
-      success: false,
-      error: `Stream PRD-${streamId} not found`,
+      trends,
+      chartData,
+      modelBreakdownChart,
+      period,
+      filters: trends.filters,
     });
   }
 
-  const story = details.stories?.find((s) => s.id.toUpperCase() === storyId.toUpperCase());
-  if (!story) {
-    return c.json({
-      success: false,
-      error: `Story ${storyId} not found in PRD-${streamId}`,
-    });
-  }
-
-  const storyText = story.title + " " + (story.description || "");
-  const riskResult = analyzeStoryRisk(storyText);
+  // Return standard cost trends
+  const trends = getCostTrends(period, filters);
+  const chartData = formatCostForChart(trends);
+  const modelBreakdownChart = formatModelBreakdownForChart(trends.byModel);
 
   return c.json({
-    success: true,
-    story: {
-      id: story.id,
-      title: story.title,
-      status: story.status,
-      streamId,
-    },
-    risk: {
-      score: riskResult.score,
-      level: riskResult.riskLevel,
-      threshold: getRiskThreshold(),
-      isHighRisk: riskResult.score >= getRiskThreshold(),
-      factors: riskResult.factors,
-      breakdown: riskResult.breakdown,
+    trends,
+    chartData,
+    modelBreakdownChart,
+    period,
+    filters: trends.filters,
+  });
+});
+
+/**
+ * GET /api/trends/cost/filters
+ *
+ * Returns available filter options for cost trends.
+ */
+api.get("/trends/cost/filters", (c) => {
+  const options = getCostFilterOptions();
+  return c.json(options);
+});
+
+/**
+ * GET /api/partials/cost-chart
+ *
+ * Returns HTML fragment for the cost trend summary section.
+ */
+api.get("/partials/cost-chart", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+  const model = c.req.query("model");
+  const budgetParam = c.req.query("budget");
+
+  const filters = { prd, model };
+  let trends;
+
+  if (budgetParam) {
+    const dailyBudget = parseFloat(budgetParam);
+    if (!isNaN(dailyBudget) && dailyBudget > 0) {
+      trends = getCostTrendsWithBudget(period, dailyBudget, filters);
+    } else {
+      trends = getCostTrends(period, filters);
+    }
+  } else {
+    trends = getCostTrends(period, filters);
+  }
+
+  // Format variance for display
+  const hasBudget = "totalVariance" in trends;
+  const totalVariance = hasBudget ? (trends as unknown as { totalVariance: number }).totalVariance : 0;
+  const varianceClass = hasBudget && totalVariance >= 0 ? "positive" : "negative";
+  const varianceSign = hasBudget && totalVariance >= 0 ? "+" : "";
+
+  const html = `
+    <div class="trend-summary-grid">
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.totalCost.toFixed(2)}</span>
+        <span class="trend-stat-label">Total Cost</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalRuns}</span>
+        <span class="trend-stat-label">Total Runs</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalStories}</span>
+        <span class="trend-stat-label">Stories</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.avgCostPerStory.toFixed(4)}</span>
+        <span class="trend-stat-label">Avg Cost/Story</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.avgCostPerRun.toFixed(4)}</span>
+        <span class="trend-stat-label">Avg Cost/Run</span>
+      </div>
+      ${hasBudget ? `
+      <div class="trend-stat ${varianceClass}">
+        <span class="trend-stat-value">${varianceSign}$${Math.abs(totalVariance).toFixed(2)}</span>
+        <span class="trend-stat-label">vs Budget</span>
+      </div>
+      ` : ""}
+    </div>
+    <div class="trend-period-info">
+      Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.dailyMetrics.length} data points
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/cost-filters
+ *
+ * Returns HTML fragment for cost trend filter dropdowns.
+ */
+api.get("/partials/cost-filters", (c) => {
+  const options = getCostFilterOptions();
+
+  const prdOptions = options.prds
+    .map((prd) => `<option value="${prd}">PRD-${prd}</option>`)
+    .join("");
+
+  const modelOptions = options.models
+    .map((model) => `<option value="${model}">${model}</option>`)
+    .join("");
+
+  const html = `
+    <div class="control-group">
+      <label for="cost-prd-filter">PRD:</label>
+      <select id="cost-prd-filter" onchange="updateCostChart()">
+        <option value="all" selected>All PRDs</option>
+        ${prdOptions}
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="cost-model-filter">Model:</label>
+      <select id="cost-model-filter" onchange="updateCostChart()">
+        <option value="all" selected>All Models</option>
+        ${modelOptions}
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="cost-budget-input">Budget ($/day):</label>
+      <input type="number" id="cost-budget-input" min="0" step="0.01" placeholder="Optional" onchange="updateCostChart()" style="width: 80px;">
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/success-rate-chart
+ *
+ * Returns HTML fragment for the success rate trend chart section.
+ */
+api.get("/partials/success-rate-chart", (c) => {
+  const periodParam = c.req.query("period") || "7d";
+  const period = periodParam === "30d" ? "30d" : "7d";
+  const prd = c.req.query("prd");
+  const agent = c.req.query("agent");
+
+  const trends = getSuccessRateTrends(period, { prd, agent });
+  const weekOverWeek = getWeekOverWeek({ prd, agent });
+
+  // Calculate trend arrow and color
+  let trendArrow = "→";
+  let trendClass = "stable";
+  if (weekOverWeek.delta !== null && weekOverWeek.delta !== 0) {
+    if (weekOverWeek.delta > 0) {
+      trendArrow = "↑";
+      trendClass = "improved";
+    } else {
+      trendArrow = "↓";
+      trendClass = "declined";
+    }
+  }
+
+  const deltaText = weekOverWeek.delta !== null
+    ? `${weekOverWeek.delta > 0 ? "+" : ""}${weekOverWeek.delta}%`
+    : "N/A";
+
+  // Build significant changes HTML
+  let changesHtml = "";
+  if (trends.significantChanges.length > 0) {
+    const changeItems = trends.significantChanges
+      .slice(0, 3) // Show max 3
+      .map((change) => {
+        const icon = change.direction === "improved" ? "↑" : "↓";
+        const changeClass = change.direction;
+        const formattedDate = new Date(change.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        return `<div class="significant-change ${changeClass}">
+          <span class="change-icon">${icon}</span>
+          <span class="change-date">${formattedDate}</span>
+          <span class="change-delta">${change.delta > 0 ? "+" : ""}${change.delta}%</span>
+        </div>`;
+      })
+      .join("");
+    changesHtml = `<div class="significant-changes">
+      <h4>Significant Changes</h4>
+      ${changeItems}
+    </div>`;
+  }
+
+  // Build summary card
+  const html = `
+    <div class="success-rate-summary">
+      <div class="summary-card">
+        <div class="summary-value">${trends.overallSuccessRate !== null ? trends.overallSuccessRate + "%" : "N/A"}</div>
+        <div class="summary-label">Success Rate</div>
+        <div class="summary-trend ${trendClass}">
+          <span class="trend-arrow">${trendArrow}</span>
+          <span class="trend-delta">${deltaText}</span>
+          <span class="trend-label">vs last week</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-value">${trends.totalRuns}</div>
+        <div class="summary-label">Total Runs</div>
+        <div class="summary-detail">${trends.totalPassed} passed, ${trends.totalFailed} failed</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-value">${trends.dailyMetrics.length}</div>
+        <div class="summary-label">Active Days</div>
+        <div class="summary-detail">${period === "7d" ? "Last 7 days" : "Last 30 days"}</div>
+      </div>
+    </div>
+    ${changesHtml}
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/success-rate-filters
+ *
+ * Returns HTML fragment for the filter dropdown options.
+ */
+api.get("/partials/success-rate-filters", (c) => {
+  const options = getFilterOptions();
+
+  // Build PRD options
+  let prdOptions = '<option value="all">All PRDs</option>';
+  for (const prd of options.prds) {
+    prdOptions += `<option value="${prd}">PRD-${prd}</option>`;
+  }
+
+  // Build agent options
+  let agentOptions = '<option value="all">All Agents</option>';
+  for (const agent of options.agents) {
+    const displayName = agent.charAt(0).toUpperCase() + agent.slice(1);
+    agentOptions += `<option value="${agent}">${displayName}</option>`;
+  }
+
+  const html = `
+    <div class="filter-group">
+      <label for="trend-prd-filter">PRD:</label>
+      <select id="trend-prd-filter" onchange="updateSuccessRateChart()">
+        ${prdOptions}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="trend-agent-filter">Agent:</label>
+      <select id="trend-agent-filter" onchange="updateSuccessRateChart()">
+        ${agentOptions}
+      </select>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+// ============================================
+// VELOCITY METRICS ENDPOINTS (US-003)
+// ============================================
+
+/**
+ * GET /api/trends/velocity
+ *
+ * Returns velocity trend data for visualization.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - prd: PRD ID to filter by (optional)
+ *   - groupBy: 'day' or 'week' (default: 'day')
+ */
+api.get("/trends/velocity", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+  const groupBy = (c.req.query("groupBy") || "day") as "day" | "week";
+
+  const filters = { prd, groupBy };
+  const trends = getVelocityTrends(period, filters);
+  const chartData = formatVelocityForChart(trends);
+
+  return c.json({
+    trends,
+    chartData,
+    period,
+    filters: trends.filters,
+  });
+});
+
+/**
+ * GET /api/trends/burndown/:prdId
+ *
+ * Returns burndown chart data for a specific PRD.
+ */
+api.get("/trends/burndown/:prdId", (c) => {
+  const prdId = c.req.param("prdId");
+
+  const burndown = getBurndown(prdId);
+
+  if (!burndown) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const chartData = formatBurndownForChart(burndown);
+
+  return c.json({
+    burndown,
+    chartData,
+  });
+});
+
+/**
+ * GET /api/trends/streams
+ *
+ * Returns velocity comparison across all streams.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ */
+api.get("/trends/streams", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+
+  const comparison = getStreamVelocityComparison(period);
+  const chartData = formatStreamComparisonForChart(comparison);
+
+  return c.json({
+    comparison,
+    chartData,
+  });
+});
+
+/**
+ * GET /api/partials/velocity-chart
+ *
+ * Returns HTML fragment for the velocity summary section.
+ */
+api.get("/partials/velocity-chart", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+
+  const trends = getVelocityTrends(period, { prd });
+
+  const html = `
+    <div class="trend-summary-grid">
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalStories}</span>
+        <span class="trend-stat-label">Stories Completed</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.storiesPerDay}</span>
+        <span class="trend-stat-label">Stories/Day</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.storiesPerWeek}</span>
+        <span class="trend-stat-label">Stories/Week</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.avgTimePerStoryMinutes} min</span>
+        <span class="trend-stat-label">Avg Time/Story</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalRuns}</span>
+        <span class="trend-stat-label">Total Runs</span>
+      </div>
+    </div>
+    <div class="trend-period-info">
+      Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.velocityMetrics.length} data points
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/burndown-chart/:prdId
+ *
+ * Returns HTML fragment for burndown chart summary.
+ */
+api.get("/partials/burndown-chart/:prdId", (c) => {
+  const prdId = c.req.param("prdId");
+
+  const burndown = getBurndown(prdId);
+
+  if (!burndown) {
+    return c.html(`<div class="no-data-message">PRD-${prdId} not found</div>`);
+  }
+
+  // Calculate status
+  let statusClass = "on-track";
+  let statusText = "On Track";
+  if (burndown.remainingStories === 0) {
+    statusClass = "complete";
+    statusText = "Complete";
+  } else if (burndown.velocity < 0.5 && burndown.remainingStories > 0) {
+    statusClass = "at-risk";
+    statusText = "At Risk";
+  }
+
+  const html = `
+    <div class="burndown-summary">
+      <div class="burndown-header">
+        <h3>PRD-${prdId} Burndown</h3>
+        <span class="burndown-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="burndown-stats">
+        <div class="stat">
+          <span class="stat-value">${burndown.completedStories}/${burndown.totalStories}</span>
+          <span class="stat-label">Stories Done</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.percentComplete}%</span>
+          <span class="stat-label">Complete</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.velocity}</span>
+          <span class="stat-label">Velocity (stories/day)</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.estimatedCompletion || "N/A"}</span>
+          <span class="stat-label">Est. Completion</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/stream-comparison
+ *
+ * Returns HTML fragment for stream velocity comparison.
+ */
+api.get("/partials/stream-comparison", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+
+  const comparison = getStreamVelocityComparison(period);
+
+  if (comparison.streams.length === 0) {
+    return c.html(`<div class="no-data-message">No streams with velocity data found.</div>`);
+  }
+
+  const streamRows = comparison.streams
+    .map((stream) => `
+      <tr>
+        <td>${stream.name}</td>
+        <td>${stream.totalStories}</td>
+        <td>${stream.storiesPerDay}</td>
+        <td>${stream.avgTimePerStoryMinutes} min</td>
+        <td>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${stream.percentComplete}%"></div>
+            <span class="progress-text">${stream.percentComplete}%</span>
+          </div>
+        </td>
+        <td>${stream.estimatedCompletion || "N/A"}</td>
+      </tr>
+    `)
+    .join("");
+
+  const html = `
+    <div class="stream-comparison-summary">
+      <div class="comparison-header">
+        <span>Overall: ${comparison.overall.avgStoriesPerDay} stories/day across ${comparison.streamCount} streams</span>
+      </div>
+    </div>
+    <table class="stream-comparison-table">
+      <thead>
+        <tr>
+          <th>Stream</th>
+          <th>Stories</th>
+          <th>Velocity</th>
+          <th>Avg Time</th>
+          <th>Progress</th>
+          <th>Est. Completion</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${streamRows}
+      </tbody>
+    </table>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/velocity-filters
+ *
+ * Returns HTML fragment for velocity trend filter dropdowns.
+ */
+api.get("/partials/velocity-filters", (c) => {
+  const options = getFilterOptions();
+
+  const prdOptions = options.prds
+    .map((prd) => `<option value="${prd}">PRD-${prd}</option>`)
+    .join("");
+
+  const html = `
+    <div class="control-group">
+      <label for="velocity-prd-filter">PRD:</label>
+      <select id="velocity-prd-filter" onchange="updateVelocityChart()">
+        <option value="all" selected>All PRDs</option>
+        ${prdOptions}
+      </select>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+// ============================================
+// EXPORT ENDPOINTS (US-004)
+// ============================================
+
+/**
+ * GET /api/trends/export
+ *
+ * Export trend data in CSV or JSON format.
+ * Query params:
+ *   - format: 'csv' or 'json' (default: 'json')
+ *   - metrics: 'all', 'success-rate', 'cost', or 'velocity' (default: 'all')
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - prd: PRD ID to filter by (optional)
+ */
+api.get("/trends/export", (c) => {
+  const format = (c.req.query("format") || "json") as "csv" | "json";
+  const metrics = (c.req.query("metrics") || "all") as "all" | "success-rate" | "cost" | "velocity";
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+
+  const options: ExportOptions = {
+    format,
+    metrics,
+    period,
+    prd,
+  };
+
+  const exportData = getExportData(options);
+
+  if (format === "csv") {
+    const csv = exportToCsv(exportData, metrics);
+    const filename = `ralph-trends-${metrics}-${period}-${new Date().toISOString().split("T")[0]}.csv`;
+
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
+
+  // JSON format
+  const filename = `ralph-trends-${metrics}-${period}-${new Date().toISOString().split("T")[0]}.json`;
+
+  return new Response(JSON.stringify(exportData, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+});
+
+/**
+ * GET /api/partials/export-controls
+ *
+ * Returns HTML fragment for export controls.
+ */
+api.get("/partials/export-controls", (c) => {
+  const html = `
+    <div class="export-controls">
+      <div class="export-header">
+        <h3>Export Reports</h3>
+        <p class="export-description">Download trend data for sharing with stakeholders.</p>
+      </div>
+      <div class="export-options">
+        <div class="control-group">
+          <label for="export-format">Format:</label>
+          <select id="export-format">
+            <option value="csv" selected>CSV (Spreadsheet)</option>
+            <option value="json">JSON (Data)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="export-metrics">Metrics:</label>
+          <select id="export-metrics">
+            <option value="all" selected>All Metrics</option>
+            <option value="success-rate">Success Rate Only</option>
+            <option value="cost">Cost Only</option>
+            <option value="velocity">Velocity Only</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="export-period">Period:</label>
+          <select id="export-period">
+            <option value="7d">Last 7 days</option>
+            <option value="30d" selected>Last 30 days</option>
+          </select>
+        </div>
+      </div>
+      <div class="export-actions">
+        <button class="export-button export-csv" onclick="exportData('csv')">
+          <span class="export-icon">&#8615;</span> Download CSV
+        </button>
+        <button class="export-button export-json" onclick="exportData('json')">
+          <span class="export-icon">&#123;&#125;</span> Download JSON
+        </button>
+      </div>
+    </div>
+  `;
+
+  return c.html(html);
 });
 
 export { api };

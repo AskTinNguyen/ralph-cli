@@ -1,0 +1,1870 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ralph CLI - Success Rate Trends</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/js/htmx.min.js"></script>
+    <script src="/js/chart.min.js"></script>
+  </head>
+  <body>
+    <!-- Error Toast Container -->
+    <div id="error-toast" class="error-toast hidden">
+      <div class="error-toast-header">
+        <span class="error-toast-title">Error</span>
+        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
+      </div>
+      <div class="error-toast-message" id="error-toast-message"></div>
+      <div class="error-toast-actions">
+        <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
+          <span class="retry-icon">&#8635;</span> Retry
+        </button>
+      </div>
+    </div>
+
+    <header>
+      <div class="header-content">
+        <h1>Ralph CLI</h1>
+        <span class="subtitle">Autonomous Coding Loop</span>
+      </div>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/streams.html">Streams</a>
+        <a href="/logs.html">Logs</a>
+        <a href="/tokens.html">Tokens</a>
+        <a href="/trends.html" class="active">Trends</a>
+        <a href="/editor.html">Editor</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Success Rate Summary Section -->
+      <section id="success-rate-summary-section">
+        <h2>
+          Success Rate Overview
+          <span class="htmx-indicator" id="summary-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="success-rate-summary-container"
+          hx-get="/api/partials/success-rate-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#summary-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading success rate data...</div>
+        </div>
+      </section>
+
+      <!-- Success Rate Chart Section -->
+      <section id="success-rate-chart-section">
+        <div class="trend-chart-header">
+          <h2>Success Rate Timeline</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="trend-period">Period:</label>
+              <select id="trend-period" onchange="updateSuccessRateChart()">
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+              </select>
+            </div>
+            <div
+              id="trend-filters-container"
+              hx-get="/api/partials/success-rate-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="success-rate-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #10b981"></span>
+            <span>Success Rate (%)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Passed Runs</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #ef4444"></span>
+            <span>Failed Runs</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Week-over-Week Comparison Section -->
+      <section id="week-comparison-section">
+        <h2>Week-over-Week Comparison</h2>
+        <div id="week-comparison-container">
+          <div class="comparison-cards">
+            <div class="comparison-card" id="this-week-card">
+              <h3>This Week</h3>
+              <div class="comparison-value" id="this-week-value">--</div>
+              <div class="comparison-runs" id="this-week-runs">-- runs</div>
+            </div>
+            <div class="comparison-card" id="comparison-delta-card">
+              <h3>Change</h3>
+              <div class="comparison-delta" id="comparison-delta">--</div>
+              <div class="comparison-direction" id="comparison-direction">vs last week</div>
+            </div>
+            <div class="comparison-card" id="last-week-card">
+              <h3>Last Week</h3>
+              <div class="comparison-value" id="last-week-value">--</div>
+              <div class="comparison-runs" id="last-week-runs">-- runs</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Significant Changes Section -->
+      <section id="significant-changes-section">
+        <h2>Significant Changes</h2>
+        <p class="section-description">
+          Days with 10%+ change in success rate are highlighted to help identify patterns.
+        </p>
+        <div id="significant-changes-container">
+          <div class="no-data-message">No significant changes detected in the selected period.</div>
+        </div>
+      </section>
+
+      <!-- Cost Trends Section -->
+      <section id="cost-trends-section">
+        <h2>
+          Cost Trends
+          <span class="htmx-indicator" id="cost-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="cost-summary-container"
+          hx-get="/api/partials/cost-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#cost-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading cost data...</div>
+        </div>
+      </section>
+
+      <!-- Cost Chart Section -->
+      <section id="cost-chart-section">
+        <div class="trend-chart-header">
+          <h2>Cost Timeline</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="cost-period">Period:</label>
+              <select id="cost-period" onchange="updateCostChart()">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="cost-group-by">Group by:</label>
+              <select id="cost-group-by" onchange="updateCostChart()">
+                <option value="day" selected>Day</option>
+                <option value="week">Week</option>
+              </select>
+            </div>
+            <div
+              id="cost-filters-container"
+              hx-get="/api/partials/cost-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="cost-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #8b5cf6"></span>
+            <span>Daily Cost ($)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #f59e0b"></span>
+            <span>Cumulative Cost ($)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #06b6d4"></span>
+            <span>Cost per Story ($)</span>
+          </div>
+          <div class="legend-item legend-budget hidden" id="budget-legend">
+            <span class="legend-color" style="background: #ef4444; border-style: dashed"></span>
+            <span>Daily Budget ($)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Cost Breakdown Section -->
+      <section id="model-breakdown-section">
+        <h2>Cost by Model</h2>
+        <p class="section-description">
+          Breakdown of costs by AI model to understand spending patterns.
+        </p>
+        <div class="model-breakdown-container">
+          <div class="model-chart-wrapper">
+            <canvas id="model-breakdown-chart"></canvas>
+          </div>
+          <div id="model-breakdown-stats">
+            <div class="no-data-message">Loading model breakdown...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cost per Story Section -->
+      <section id="story-cost-section">
+        <h2>Cost per Story</h2>
+        <p class="section-description">
+          Track how much each story costs over time.
+        </p>
+        <div id="story-cost-container">
+          <div class="no-data-message">Loading story costs...</div>
+        </div>
+      </section>
+
+      <!-- Velocity Trends Section -->
+      <section id="velocity-trends-section">
+        <h2>
+          Velocity Metrics
+          <span class="htmx-indicator" id="velocity-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="velocity-summary-container"
+          hx-get="/api/partials/velocity-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#velocity-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading velocity data...</div>
+        </div>
+      </section>
+
+      <!-- Velocity Chart Section -->
+      <section id="velocity-chart-section">
+        <div class="trend-chart-header">
+          <h2>Stories Completed Over Time</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="velocity-period">Period:</label>
+              <select id="velocity-period" onchange="updateVelocityChart()">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="velocity-group-by">Group by:</label>
+              <select id="velocity-group-by" onchange="updateVelocityChart()">
+                <option value="day" selected>Day</option>
+                <option value="week">Week</option>
+              </select>
+            </div>
+            <div
+              id="velocity-filters-container"
+              hx-get="/api/partials/velocity-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="velocity-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Stories Completed</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #10b981"></span>
+            <span>Cumulative Stories</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #f97316"></span>
+            <span>Avg Duration (min)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Burndown Chart Section -->
+      <section id="burndown-section">
+        <h2>PRD Burndown</h2>
+        <p class="section-description">
+          Track remaining stories over time for each PRD.
+        </p>
+        <div class="burndown-controls">
+          <label for="burndown-prd-select">Select PRD:</label>
+          <select id="burndown-prd-select" onchange="updateBurndownChart()">
+            <option value="">Select a PRD...</option>
+          </select>
+        </div>
+        <div id="burndown-summary-container">
+          <div class="no-data-message">Select a PRD to view burndown chart.</div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="burndown-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend" id="burndown-legend" style="display: none;">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Remaining Stories</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #9ca3af; border-style: dashed"></span>
+            <span>Ideal Burndown</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stream Comparison Section -->
+      <section id="stream-comparison-section">
+        <h2>Velocity Across Streams</h2>
+        <p class="section-description">
+          Compare velocity and progress across all active PRD streams.
+        </p>
+        <div class="stream-comparison-controls">
+          <div class="control-group">
+            <label for="stream-comparison-period">Period:</label>
+            <select id="stream-comparison-period" onchange="updateStreamComparison()">
+              <option value="7d">Last 7 days</option>
+              <option value="30d" selected>Last 30 days</option>
+            </select>
+          </div>
+        </div>
+        <div
+          id="stream-comparison-container"
+          hx-get="/api/partials/stream-comparison"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading stream comparison...</div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="stream-comparison-chart"></canvas>
+        </div>
+      </section>
+
+      <!-- Export Reports Section -->
+      <section id="export-section">
+        <h2>Export Reports</h2>
+        <p class="section-description">
+          Download trend data for sharing with stakeholders or embedding in external dashboards.
+        </p>
+        <div class="export-container">
+          <div class="export-options-row">
+            <div class="control-group">
+              <label for="export-format">Format:</label>
+              <select id="export-format">
+                <option value="csv" selected>CSV (Spreadsheet)</option>
+                <option value="json">JSON (Data)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="export-metrics">Metrics:</label>
+              <select id="export-metrics">
+                <option value="all" selected>All Metrics</option>
+                <option value="success-rate">Success Rate Only</option>
+                <option value="cost">Cost Only</option>
+                <option value="velocity">Velocity Only</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="export-period">Period:</label>
+              <select id="export-period">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+          </div>
+          <div class="export-actions-row">
+            <button class="export-button export-data-btn" onclick="exportData()">
+              <span class="export-icon">&#8615;</span> Download Data
+            </button>
+            <button class="export-button export-image-btn" onclick="exportChartImages()">
+              <span class="export-icon">&#128247;</span> Export Charts as PNG
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Export Options (hidden by default, shown when exporting) -->
+        <div id="image-export-options" class="image-export-options hidden">
+          <h4>Select Charts to Export:</h4>
+          <div class="chart-export-list">
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-success-rate-chart" checked />
+              <span>Success Rate Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-cost-chart" checked />
+              <span>Cost Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-model-chart" checked />
+              <span>Model Breakdown Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-velocity-chart" checked />
+              <span>Velocity Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-burndown-chart" />
+              <span>Burndown Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-stream-chart" checked />
+              <span>Stream Comparison Chart</span>
+            </label>
+          </div>
+          <div class="image-export-actions">
+            <button class="export-button" onclick="downloadSelectedCharts()">
+              <span class="export-icon">&#8615;</span> Download Selected
+            </button>
+            <button class="export-button secondary" onclick="hideImageExportOptions()">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Ralph CLI Web UI &mdash;
+        <span
+          id="status-indicator"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          >checking...</span
+        >
+      </p>
+    </footer>
+
+    <script>
+      // ============================================
+      // Error Handling
+      // ============================================
+
+      var lastFailedRequest = null;
+
+      function showErrorToast(message, endpoint) {
+        console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
+        var toast = document.getElementById("error-toast");
+        var messageEl = document.getElementById("error-toast-message");
+        var retryBtn = document.getElementById("error-toast-retry");
+
+        messageEl.textContent = message;
+
+        if (lastFailedRequest) {
+          retryBtn.style.display = "inline-flex";
+        } else {
+          retryBtn.style.display = "none";
+        }
+
+        toast.classList.remove("hidden", "dismissing");
+      }
+
+      function dismissErrorToast() {
+        var toast = document.getElementById("error-toast");
+        toast.classList.add("dismissing");
+        setTimeout(function () {
+          toast.classList.add("hidden");
+          toast.classList.remove("dismissing");
+        }, 300);
+      }
+
+      function retryLastRequest() {
+        if (lastFailedRequest) {
+          var retryBtn = document.getElementById("error-toast-retry");
+          retryBtn.classList.add("loading");
+          retryBtn.disabled = true;
+
+          var element = lastFailedRequest.element;
+          htmx.trigger(element, "load");
+
+          setTimeout(function () {
+            retryBtn.classList.remove("loading");
+            retryBtn.disabled = false;
+            lastFailedRequest = null;
+            dismissErrorToast();
+          }, 1000);
+        }
+      }
+
+      document.body.addEventListener("htmx:responseError", function (event) {
+        var xhr = event.detail.xhr;
+        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+
+        var message = "Request failed";
+        if (xhr && xhr.status) {
+          if (xhr.status === 0) {
+            message = "Unable to connect to server. Check if the server is running.";
+          } else if (xhr.status === 404) {
+            message = "Resource not found: " + path;
+          } else if (xhr.status === 500) {
+            message = "Server error occurred. Please try again.";
+            try {
+              var response = JSON.parse(xhr.responseText);
+              if (response.message) {
+                message = response.message;
+              }
+            } catch (e) {}
+          } else {
+            message = "Request failed with status " + xhr.status;
+          }
+        }
+
+        lastFailedRequest = { element: event.target };
+        showErrorToast(message, path);
+      });
+
+      setInterval(function () {
+        var toast = document.getElementById("error-toast");
+        if (!toast.classList.contains("hidden") && !lastFailedRequest) {
+          dismissErrorToast();
+        }
+      }, 10000);
+
+      // ============================================
+      // Success Rate Chart
+      // ============================================
+
+      var successRateChart = null;
+      var chartData = null;
+
+      function initSuccessRateChart() {
+        var ctx = document.getElementById("success-rate-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        successRateChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Success Rate (%)",
+                data: [],
+                borderColor: "#10b981",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                fill: true,
+                tension: 0.3,
+                yAxisID: "y",
+                pointRadius: 5,
+                pointHoverRadius: 7,
+              },
+              {
+                label: "Passed",
+                data: [],
+                borderColor: "#3b82f6",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+                pointRadius: 4,
+                pointHoverRadius: 6,
+              },
+              {
+                label: "Failed",
+                data: [],
+                borderColor: "#ef4444",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+                pointRadius: 4,
+                pointHoverRadius: 6,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                  label: function (context) {
+                    var label = context.dataset.label || "";
+                    var value = context.parsed.y;
+                    if (label === "Success Rate (%)") {
+                      return label + ": " + value + "%";
+                    }
+                    return label + ": " + value;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                max: 100,
+                title: {
+                  display: true,
+                  text: "Success Rate (%)",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return value + "%";
+                  },
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Run Count",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateSuccessRateChart() {
+        var period = document.getElementById("trend-period").value;
+        var prdFilter = document.getElementById("trend-prd-filter");
+        var agentFilter = document.getElementById("trend-agent-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var agent = agentFilter ? agentFilter.value : "all";
+
+        var url = "/api/trends/success-rate?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (agent && agent !== "all") {
+          url += "&agent=" + encodeURIComponent(agent);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch trend data");
+            return response.json();
+          })
+          .then(function (data) {
+            chartData = data;
+            renderChart(data);
+            updateComparison(data.weekOverWeek);
+            updateSignificantChanges(data.trends.significantChanges);
+            updateSummary(data.trends);
+          })
+          .catch(function (error) {
+            console.error("Error fetching chart data:", error);
+          });
+      }
+
+      function renderChart(data) {
+        if (!successRateChart || !data.chartData) return;
+
+        successRateChart.data.labels = data.chartData.labels;
+        successRateChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        successRateChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        successRateChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        // Add annotations for significant changes
+        if (data.chartData.significantChanges && data.chartData.significantChanges.length > 0) {
+          // Highlight points with significant changes
+          var pointBackgroundColors = data.chartData.datasets[0].data.map(function (_, i) {
+            var change = data.chartData.significantChanges.find(function (c) {
+              return c.x === i;
+            });
+            if (change) {
+              return change.direction === "improved" ? "#10b981" : "#ef4444";
+            }
+            return "#10b981";
+          });
+
+          var pointRadii = data.chartData.datasets[0].data.map(function (_, i) {
+            var change = data.chartData.significantChanges.find(function (c) {
+              return c.x === i;
+            });
+            return change ? 8 : 5;
+          });
+
+          successRateChart.data.datasets[0].pointBackgroundColor = pointBackgroundColors;
+          successRateChart.data.datasets[0].pointRadius = pointRadii;
+        }
+
+        successRateChart.update("active");
+      }
+
+      function updateComparison(weekOverWeek) {
+        if (!weekOverWeek) return;
+
+        var thisWeekValue = document.getElementById("this-week-value");
+        var thisWeekRuns = document.getElementById("this-week-runs");
+        var lastWeekValue = document.getElementById("last-week-value");
+        var lastWeekRuns = document.getElementById("last-week-runs");
+        var deltaEl = document.getElementById("comparison-delta");
+        var deltaCard = document.getElementById("comparison-delta-card");
+
+        thisWeekValue.textContent =
+          weekOverWeek.thisWeek.successRate !== null
+            ? weekOverWeek.thisWeek.successRate + "%"
+            : "N/A";
+        thisWeekRuns.textContent = weekOverWeek.thisWeek.totalRuns + " runs";
+
+        lastWeekValue.textContent =
+          weekOverWeek.lastWeek.successRate !== null
+            ? weekOverWeek.lastWeek.successRate + "%"
+            : "N/A";
+        lastWeekRuns.textContent = weekOverWeek.lastWeek.totalRuns + " runs";
+
+        if (weekOverWeek.delta !== null) {
+          var sign = weekOverWeek.delta > 0 ? "+" : "";
+          deltaEl.textContent = sign + weekOverWeek.delta + "%";
+          deltaCard.className = "comparison-card " + weekOverWeek.direction;
+        } else {
+          deltaEl.textContent = "N/A";
+          deltaCard.className = "comparison-card stable";
+        }
+      }
+
+      function updateSignificantChanges(changes) {
+        var container = document.getElementById("significant-changes-container");
+
+        if (!changes || changes.length === 0) {
+          container.innerHTML =
+            '<div class="no-data-message">No significant changes detected in the selected period.</div>';
+          return;
+        }
+
+        var html = '<div class="changes-list">';
+        changes.forEach(function (change) {
+          var icon = change.direction === "improved" ? "&#8593;" : "&#8595;";
+          var changeClass = change.direction;
+          var date = new Date(change.date);
+          var formattedDate = date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          });
+
+          html +=
+            '<div class="change-item ' +
+            changeClass +
+            '">' +
+            '<span class="change-icon">' +
+            icon +
+            "</span>" +
+            '<div class="change-details">' +
+            '<span class="change-date">' +
+            formattedDate +
+            "</span>" +
+            '<span class="change-rates">' +
+            change.previousRate +
+            "% &rarr; " +
+            change.currentRate +
+            "%" +
+            "</span>" +
+            "</div>" +
+            '<span class="change-delta ' +
+            changeClass +
+            '">' +
+            (change.delta > 0 ? "+" : "") +
+            change.delta +
+            "%" +
+            "</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        container.innerHTML = html;
+      }
+
+      function updateSummary(trends) {
+        // Update HTMX partial with current filters
+        var period = document.getElementById("trend-period").value;
+        var prdFilter = document.getElementById("trend-prd-filter");
+        var agentFilter = document.getElementById("trend-agent-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var agent = agentFilter ? agentFilter.value : "all";
+
+        var url = "/api/partials/success-rate-chart?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (agent && agent !== "all") {
+          url += "&agent=" + encodeURIComponent(agent);
+        }
+
+        htmx.ajax("GET", url, "#success-rate-summary-container");
+      }
+
+      // Initialize on page load
+      document.addEventListener("DOMContentLoaded", function () {
+        initSuccessRateChart();
+        updateSuccessRateChart();
+        initCostChart();
+        initModelBreakdownChart();
+        updateCostChart();
+        initVelocityChart();
+        initBurndownChart();
+        initStreamComparisonChart();
+        updateVelocityChart();
+        loadBurndownPrdOptions();
+        updateStreamComparison();
+      });
+
+      // ============================================
+      // Cost Chart
+      // ============================================
+
+      var costChart = null;
+      var modelBreakdownChart = null;
+      var costData = null;
+
+      function initCostChart() {
+        var ctx = document.getElementById("cost-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        costChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Daily Cost ($)",
+                data: [],
+                borderColor: "#8b5cf6",
+                backgroundColor: "rgba(139, 92, 246, 0.1)",
+                fill: true,
+                tension: 0.3,
+                yAxisID: "y",
+              },
+              {
+                label: "Cumulative Cost ($)",
+                data: [],
+                borderColor: "#f59e0b",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+              },
+              {
+                label: "Cost per Story ($)",
+                data: [],
+                borderColor: "#06b6d4",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                  label: function (context) {
+                    var label = context.dataset.label || "";
+                    var value = context.parsed.y;
+                    return label + ": $" + value.toFixed(4);
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Daily Cost ($)",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return "$" + value.toFixed(2);
+                  },
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Cumulative Cost ($)",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return "$" + value.toFixed(2);
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function initModelBreakdownChart() {
+        var ctx = document.getElementById("model-breakdown-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        modelBreakdownChart = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                data: [],
+                backgroundColor: ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+                borderColor: ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: "right",
+                labels: {
+                  color: textColor,
+                  padding: 15,
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    var label = context.label || "";
+                    var value = context.parsed;
+                    return label + ": $" + value.toFixed(4);
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateCostChart() {
+        var period = document.getElementById("cost-period").value;
+        var groupBy = document.getElementById("cost-group-by").value;
+        var prdFilter = document.getElementById("cost-prd-filter");
+        var modelFilter = document.getElementById("cost-model-filter");
+        var budgetInput = document.getElementById("cost-budget-input");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var model = modelFilter ? modelFilter.value : "all";
+        var budget = budgetInput ? budgetInput.value : "";
+
+        var url =
+          "/api/trends/cost?period=" +
+          encodeURIComponent(period) +
+          "&groupBy=" +
+          encodeURIComponent(groupBy);
+
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (model && model !== "all") {
+          url += "&model=" + encodeURIComponent(model);
+        }
+        if (budget && parseFloat(budget) > 0) {
+          url += "&budget=" + encodeURIComponent(budget);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch cost data");
+            return response.json();
+          })
+          .then(function (data) {
+            costData = data;
+            renderCostChart(data);
+            renderModelBreakdown(data);
+            renderStoryCosts(data.trends.storyTrends);
+            updateCostSummary(data.trends, period);
+
+            // Show/hide budget legend
+            var budgetLegend = document.getElementById("budget-legend");
+            if (budgetLegend) {
+              if (budget && parseFloat(budget) > 0) {
+                budgetLegend.classList.remove("hidden");
+              } else {
+                budgetLegend.classList.add("hidden");
+              }
+            }
+          })
+          .catch(function (error) {
+            console.error("Error fetching cost data:", error);
+          });
+      }
+
+      function renderCostChart(data) {
+        if (!costChart || !data.chartData) return;
+
+        costChart.data.labels = data.chartData.labels;
+        costChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        costChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        costChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        // Handle budget line (4th dataset if present)
+        if (data.chartData.datasets.length > 3) {
+          if (costChart.data.datasets.length < 4) {
+            costChart.data.datasets.push({
+              label: "Daily Budget ($)",
+              data: data.chartData.datasets[3].data,
+              borderColor: "#ef4444",
+              backgroundColor: "transparent",
+              fill: false,
+              tension: 0,
+              borderDash: [5, 5],
+              yAxisID: "y",
+            });
+          } else {
+            costChart.data.datasets[3].data = data.chartData.datasets[3].data;
+          }
+        } else if (costChart.data.datasets.length > 3) {
+          costChart.data.datasets.splice(3, 1);
+        }
+
+        costChart.update("active");
+      }
+
+      function renderModelBreakdown(data) {
+        if (!modelBreakdownChart || !data.modelBreakdownChart) return;
+
+        modelBreakdownChart.data.labels = data.modelBreakdownChart.labels;
+        modelBreakdownChart.data.datasets[0].data = data.modelBreakdownChart.datasets[0].data;
+        modelBreakdownChart.data.datasets[0].backgroundColor =
+          data.modelBreakdownChart.datasets[0].backgroundColor;
+        modelBreakdownChart.data.datasets[0].borderColor =
+          data.modelBreakdownChart.datasets[0].borderColor;
+
+        modelBreakdownChart.update("active");
+
+        // Update model stats
+        var statsContainer = document.getElementById("model-breakdown-stats");
+        if (!statsContainer || !data.trends.byModel) return;
+
+        var models = Object.entries(data.trends.byModel);
+        if (models.length === 0) {
+          statsContainer.innerHTML =
+            '<div class="no-data-message">No model data available.</div>';
+          return;
+        }
+
+        var html = '<div class="model-stats-list">';
+        models.forEach(function (entry) {
+          var model = entry[0];
+          var stats = entry[1];
+          html +=
+            '<div class="model-stat-item">' +
+            '<span class="model-name">' +
+            model +
+            "</span>" +
+            '<span class="model-cost">$' +
+            stats.cost.toFixed(4) +
+            "</span>" +
+            '<span class="model-runs">' +
+            stats.runs +
+            " runs</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        statsContainer.innerHTML = html;
+      }
+
+      function renderStoryCosts(storyTrends) {
+        var container = document.getElementById("story-cost-container");
+
+        if (!storyTrends || storyTrends.length === 0) {
+          container.innerHTML =
+            '<div class="no-data-message">No story cost data available.</div>';
+          return;
+        }
+
+        // Sort by cost descending
+        var sorted = storyTrends.slice().sort(function (a, b) {
+          return b.cost - a.cost;
+        });
+
+        var html = '<div class="story-cost-list">';
+        sorted.slice(0, 10).forEach(function (story) {
+          html +=
+            '<div class="story-cost-item">' +
+            '<span class="story-id">' +
+            story.storyId +
+            "</span>" +
+            '<span class="story-date">' +
+            story.date +
+            "</span>" +
+            '<span class="story-cost">$' +
+            story.cost.toFixed(4) +
+            "</span>" +
+            '<span class="story-runs">' +
+            story.runs +
+            " runs</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        if (sorted.length > 10) {
+          html +=
+            '<div class="story-cost-more">Showing top 10 of ' +
+            sorted.length +
+            " stories</div>";
+        }
+
+        container.innerHTML = html;
+      }
+
+      function updateCostSummary(trends, period) {
+        var url = "/api/partials/cost-chart?period=" + encodeURIComponent(period);
+
+        var prdFilter = document.getElementById("cost-prd-filter");
+        var modelFilter = document.getElementById("cost-model-filter");
+        var budgetInput = document.getElementById("cost-budget-input");
+
+        if (prdFilter && prdFilter.value !== "all") {
+          url += "&prd=" + encodeURIComponent(prdFilter.value);
+        }
+        if (modelFilter && modelFilter.value !== "all") {
+          url += "&model=" + encodeURIComponent(modelFilter.value);
+        }
+        if (budgetInput && budgetInput.value) {
+          url += "&budget=" + encodeURIComponent(budgetInput.value);
+        }
+
+        htmx.ajax("GET", url, "#cost-summary-container");
+      }
+
+      // ============================================
+      // Velocity Chart
+      // ============================================
+
+      var velocityChart = null;
+      var velocityData = null;
+
+      function initVelocityChart() {
+        var ctx = document.getElementById("velocity-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        velocityChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Stories Completed",
+                data: [],
+                backgroundColor: "#3b82f6",
+                borderColor: "#2563eb",
+                borderWidth: 1,
+                yAxisID: "y",
+              },
+              {
+                label: "Cumulative Stories",
+                data: [],
+                type: "line",
+                borderColor: "#10b981",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+              },
+              {
+                label: "Avg Duration (min)",
+                data: [],
+                backgroundColor: "rgba(249, 115, 22, 0.6)",
+                borderColor: "#f97316",
+                borderWidth: 1,
+                yAxisID: "y2",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Stories/Day",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  stepSize: 1,
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Cumulative",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y2: {
+                display: false,
+              },
+            },
+          },
+        });
+      }
+
+      function updateVelocityChart() {
+        var period = document.getElementById("velocity-period").value;
+        var groupBy = document.getElementById("velocity-group-by").value;
+        var prdFilter = document.getElementById("velocity-prd-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+
+        var url =
+          "/api/trends/velocity?period=" +
+          encodeURIComponent(period) +
+          "&groupBy=" +
+          encodeURIComponent(groupBy);
+
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch velocity data");
+            return response.json();
+          })
+          .then(function (data) {
+            velocityData = data;
+            renderVelocityChart(data);
+            updateVelocitySummary(period, prd);
+          })
+          .catch(function (error) {
+            console.error("Error fetching velocity data:", error);
+          });
+      }
+
+      function renderVelocityChart(data) {
+        if (!velocityChart || !data.chartData) return;
+
+        velocityChart.data.labels = data.chartData.labels;
+        velocityChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        velocityChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        velocityChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        velocityChart.update("active");
+      }
+
+      function updateVelocitySummary(period, prd) {
+        var url = "/api/partials/velocity-chart?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        htmx.ajax("GET", url, "#velocity-summary-container");
+      }
+
+      // ============================================
+      // Burndown Chart
+      // ============================================
+
+      var burndownChart = null;
+
+      function initBurndownChart() {
+        var ctx = document.getElementById("burndown-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        burndownChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Remaining Stories",
+                data: [],
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                fill: true,
+                tension: 0.3,
+              },
+              {
+                label: "Ideal Burndown",
+                data: [],
+                borderColor: "#9ca3af",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0,
+                borderDash: [5, 5],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Remaining Stories",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  stepSize: 1,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function loadBurndownPrdOptions() {
+        fetch("/api/trends/filters")
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch filters");
+            return response.json();
+          })
+          .then(function (data) {
+            var select = document.getElementById("burndown-prd-select");
+            if (!select) return;
+
+            data.prds.forEach(function (prd) {
+              var option = document.createElement("option");
+              option.value = prd;
+              option.textContent = "PRD-" + prd;
+              select.appendChild(option);
+            });
+          })
+          .catch(function (error) {
+            console.error("Error loading burndown options:", error);
+          });
+      }
+
+      function updateBurndownChart() {
+        var select = document.getElementById("burndown-prd-select");
+        var prdId = select ? select.value : "";
+
+        if (!prdId) {
+          document.getElementById("burndown-summary-container").innerHTML =
+            '<div class="no-data-message">Select a PRD to view burndown chart.</div>';
+          document.getElementById("burndown-legend").style.display = "none";
+          if (burndownChart) {
+            burndownChart.data.labels = [];
+            burndownChart.data.datasets[0].data = [];
+            burndownChart.data.datasets[1].data = [];
+            burndownChart.update("active");
+          }
+          return;
+        }
+
+        fetch("/api/trends/burndown/" + encodeURIComponent(prdId))
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch burndown data");
+            return response.json();
+          })
+          .then(function (data) {
+            renderBurndownChart(data);
+            htmx.ajax("GET", "/api/partials/burndown-chart/" + encodeURIComponent(prdId), "#burndown-summary-container");
+            document.getElementById("burndown-legend").style.display = "flex";
+          })
+          .catch(function (error) {
+            console.error("Error fetching burndown data:", error);
+            document.getElementById("burndown-summary-container").innerHTML =
+              '<div class="no-data-message">Error loading burndown data.</div>';
+          });
+      }
+
+      function renderBurndownChart(data) {
+        if (!burndownChart || !data.chartData) return;
+
+        burndownChart.data.labels = data.chartData.labels;
+        burndownChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        burndownChart.data.datasets[1].data = data.chartData.datasets[1].data;
+
+        burndownChart.update("active");
+      }
+
+      // ============================================
+      // Stream Comparison Chart
+      // ============================================
+
+      var streamComparisonChart = null;
+
+      function initStreamComparisonChart() {
+        var ctx = document.getElementById("stream-comparison-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        streamComparisonChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Velocity (stories/day)",
+                data: [],
+                backgroundColor: "#3b82f6",
+                borderColor: "#2563eb",
+                borderWidth: 1,
+              },
+              {
+                label: "% Complete",
+                data: [],
+                backgroundColor: "rgba(16, 185, 129, 0.6)",
+                borderColor: "#10b981",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: {
+                  color: textColor,
+                },
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y: {
+                display: true,
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateStreamComparison() {
+        var period = document.getElementById("stream-comparison-period").value;
+
+        fetch("/api/trends/streams?period=" + encodeURIComponent(period))
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch stream comparison data");
+            return response.json();
+          })
+          .then(function (data) {
+            renderStreamComparisonChart(data);
+            htmx.ajax("GET", "/api/partials/stream-comparison?period=" + encodeURIComponent(period), "#stream-comparison-container");
+          })
+          .catch(function (error) {
+            console.error("Error fetching stream comparison data:", error);
+          });
+      }
+
+      function renderStreamComparisonChart(data) {
+        if (!streamComparisonChart || !data.chartData) return;
+
+        streamComparisonChart.data.labels = data.chartData.labels;
+        streamComparisonChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        streamComparisonChart.data.datasets[1].data = data.chartData.datasets[1].data;
+
+        streamComparisonChart.update("active");
+      }
+
+      // ============================================
+      // Export Functions (US-004)
+      // ============================================
+
+      /**
+       * Export data in selected format (CSV or JSON)
+       */
+      function exportData() {
+        var format = document.getElementById("export-format").value;
+        var metrics = document.getElementById("export-metrics").value;
+        var period = document.getElementById("export-period").value;
+
+        var url =
+          "/api/trends/export?format=" +
+          encodeURIComponent(format) +
+          "&metrics=" +
+          encodeURIComponent(metrics) +
+          "&period=" +
+          encodeURIComponent(period);
+
+        // Trigger download
+        window.location.href = url;
+      }
+
+      /**
+       * Show image export options
+       */
+      function exportChartImages() {
+        var options = document.getElementById("image-export-options");
+        options.classList.remove("hidden");
+      }
+
+      /**
+       * Hide image export options
+       */
+      function hideImageExportOptions() {
+        var options = document.getElementById("image-export-options");
+        options.classList.add("hidden");
+      }
+
+      /**
+       * Download selected charts as PNG images
+       */
+      function downloadSelectedCharts() {
+        var chartsToExport = [];
+
+        // Gather selected charts
+        if (
+          document.getElementById("export-success-rate-chart").checked &&
+          successRateChart
+        ) {
+          chartsToExport.push({
+            chart: successRateChart,
+            name: "success-rate-chart",
+            title: "Success Rate Trends",
+          });
+        }
+
+        if (document.getElementById("export-cost-chart").checked && costChart) {
+          chartsToExport.push({
+            chart: costChart,
+            name: "cost-chart",
+            title: "Cost Trends",
+          });
+        }
+
+        if (
+          document.getElementById("export-model-chart").checked &&
+          modelBreakdownChart
+        ) {
+          chartsToExport.push({
+            chart: modelBreakdownChart,
+            name: "model-breakdown-chart",
+            title: "Cost by Model",
+          });
+        }
+
+        if (
+          document.getElementById("export-velocity-chart").checked &&
+          velocityChart
+        ) {
+          chartsToExport.push({
+            chart: velocityChart,
+            name: "velocity-chart",
+            title: "Velocity Trends",
+          });
+        }
+
+        if (
+          document.getElementById("export-burndown-chart").checked &&
+          burndownChart
+        ) {
+          chartsToExport.push({
+            chart: burndownChart,
+            name: "burndown-chart",
+            title: "PRD Burndown",
+          });
+        }
+
+        if (
+          document.getElementById("export-stream-chart").checked &&
+          streamComparisonChart
+        ) {
+          chartsToExport.push({
+            chart: streamComparisonChart,
+            name: "stream-comparison-chart",
+            title: "Stream Velocity Comparison",
+          });
+        }
+
+        if (chartsToExport.length === 0) {
+          alert("Please select at least one chart to export.");
+          return;
+        }
+
+        // Download each chart
+        var dateStr = new Date().toISOString().split("T")[0];
+
+        chartsToExport.forEach(function (item) {
+          downloadChartAsPng(item.chart, item.name + "-" + dateStr + ".png");
+        });
+
+        // Hide options after export
+        hideImageExportOptions();
+      }
+
+      /**
+       * Download a single chart as PNG
+       * @param {Chart} chart - Chart.js instance
+       * @param {string} filename - Download filename
+       */
+      function downloadChartAsPng(chart, filename) {
+        if (!chart) return;
+
+        // Get the image data URL from Chart.js
+        var imageUrl = chart.toBase64Image("image/png", 1);
+
+        // Create download link
+        var link = document.createElement("a");
+        link.href = imageUrl;
+        link.download = filename;
+        link.style.display = "none";
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      /**
+       * Export a single chart by its ID
+       * @param {string} chartId - ID of the chart canvas
+       * @param {string} chartName - Name for the file
+       */
+      function exportSingleChart(chartId, chartName) {
+        var chartMap = {
+          "success-rate-chart": successRateChart,
+          "cost-chart": costChart,
+          "model-breakdown-chart": modelBreakdownChart,
+          "velocity-chart": velocityChart,
+          "burndown-chart": burndownChart,
+          "stream-comparison-chart": streamComparisonChart,
+        };
+
+        var chart = chartMap[chartId];
+        if (chart) {
+          var dateStr = new Date().toISOString().split("T")[0];
+          downloadChartAsPng(chart, chartName + "-" + dateStr + ".png");
+        }
+      }
+    </script>
+  </body>
+</html>

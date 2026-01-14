@@ -436,3 +436,63 @@ export interface SwitchEvent {
   /** Type of switch event */
   eventType: 'switch' | 'failed' | 'skip';
 }
+
+/**
+ * Data point for success rate time series
+ */
+export interface SuccessRateDataPoint {
+  date: string;
+  total: number;
+  passed: number;
+  failed: number;
+  successRate: number | null;
+}
+
+/**
+ * Significant change event in success rate
+ */
+export interface SignificantChange {
+  date: string;
+  previousRate: number;
+  currentRate: number;
+  delta: number;
+  direction: "improved" | "declined";
+  magnitude: number;
+}
+
+/**
+ * Success rate trend data
+ */
+export interface SuccessRateTrend {
+  period: string;
+  startDate: string;
+  endDate: string;
+  totalRuns: number;
+  totalPassed: number;
+  totalFailed: number;
+  overallSuccessRate: number | null;
+  dailyMetrics: SuccessRateDataPoint[];
+  significantChanges: SignificantChange[];
+  filters: {
+    prd: string;
+    agent: string;
+    developer: string;
+  };
+}
+
+/**
+ * Week-over-week comparison data
+ */
+export interface WeekOverWeekComparison {
+  thisWeek: {
+    successRate: number | null;
+    totalRuns: number;
+  };
+  lastWeek: {
+    successRate: number | null;
+    totalRuns: number;
+  };
+  delta: number | null;
+  direction: "improved" | "declined" | "stable";
+  percentChange: number | null;
+}
