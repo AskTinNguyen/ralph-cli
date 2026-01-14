@@ -70,11 +70,13 @@ fi
 
 DEFAULT_MAX_ITERATIONS=25
 DEFAULT_NO_COMMIT=false
+DEFAULT_ITERATION_DELAY=0
+DEFAULT_PROGRESS_INTERVAL=30
 PRD_REQUEST_PATH=""
 PRD_INLINE=""
 
 # Optional config overrides (simple shell vars)
-if [ -f "$CONFIG_FILE" ]; then
+if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck source=/dev/null
   . "$CONFIG_FILE"
 fi
@@ -136,7 +138,7 @@ get_experiment_assignment() {
   EXPERIMENT_EXCLUDED=""
 
   # Check if assignment module exists and Node.js is available
-  if [ ! -f "$assignment_script" ] || ! command -v node >/dev/null 2>&1; then
+  if [[ ! -f "$assignment_script" ]] || ! command -v node >/dev/null 2>&1; then
     return 0
   fi
 
@@ -148,7 +150,7 @@ get_experiment_assignment() {
     process.stdout.write(result);
   " 2>/dev/null) || true
 
-  if [ -z "$assignment" ]; then
+  if [[ -z "$assignment" ]]; then
     return 0
   fi
 
@@ -161,7 +163,7 @@ get_experiment_assignment() {
   EXPERIMENT_EXCLUDED="$exp_excluded"
 
   # Override AGENT_CMD if experiment assigns a different agent
-  if [ -n "$exp_agent" ] && [ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]; then
+  if [[ -n "$exp_agent" ]] && [[ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]]; then
     AGENT_CMD="$(resolve_agent_cmd "$exp_agent")"
     msg_dim "Experiment '$exp_name' assigned variant '$exp_variant' (agent: $exp_agent)"
   fi
@@ -221,6 +223,9 @@ fi
 
 TMP_DIR="${TMP_DIR:-$DEFAULT_TMP_DIR}"
 
+# Timing configuration (US-007)
+ITERATION_DELAY="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
+
 if [[ -n "${RUNS_DIR:-}" ]]; then
   :
 elif [[ -n "$ACTIVE_PRD_NUMBER" ]]; then
@@ -267,7 +272,7 @@ require_agent() {
   local agent_cmd="${1:-$AGENT_CMD}"
   local agent_bin
   agent_bin="${agent_cmd%% *}"
-  if [ -z "$agent_bin" ]; then
+  if [[ -z "$agent_bin" ]]; then
     msg_error "AGENT_CMD is empty. Set it in config.sh."
     exit 1
   fi
@@ -388,7 +393,7 @@ calculate_backoff_delay() {
   local delay_ms=$((base_ms * multiplier))
 
   # Cap at max delay
-  if [ "$delay_ms" -gt "$max_ms" ]; then
+  if [[ "$delay_ms" -gt "$max_ms" ]]; then
     delay_ms="$max_ms"
   fi
 
@@ -443,14 +448,14 @@ run_agent_with_retry() {
   LAST_RETRY_TOTAL_TIME=0
 
   # If retry is disabled, just run once
-  if [ "$NO_RETRY" = "true" ]; then
+  if [[ "$NO_RETRY" = "true" ]]; then
     run_agent "$prompt_file" 2>&1 | tee "$log_file"
     return "${PIPESTATUS[0]}"
   fi
 
   while [ "$attempt" -le "$max_attempts" ]; do
     # Run the agent with tee for logging
-    if [ "$attempt" -eq 1 ]; then
+    if [[ "$attempt" -eq 1 ]]; then
       # First attempt: create/overwrite log file
       run_agent "$prompt_file" 2>&1 | tee "$log_file"
       exit_status="${PIPESTATUS[0]}"
@@ -466,8 +471,8 @@ run_agent_with_retry() {
     fi
 
     # Success - no retry needed
-    if [ "$exit_status" -eq 0 ]; then
-      if [ "$retry_count" -gt 0 ]; then
+    if [[ "$exit_status" -eq 0 ]]; then
+      if [[ "$retry_count" -gt 0 ]]; then
         log_activity "RETRY_SUCCESS iteration=$iteration succeeded_after=$retry_count retries total_retry_time=${total_retry_time}s"
         printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_GREEN}  Succeeded after %d retries (total retry wait: %ds)${C_RESET}\n" "$retry_count" "$total_retry_time"
@@ -480,14 +485,14 @@ run_agent_with_retry() {
     fi
 
     # User interruption (SIGINT=130, SIGTERM=143) - don't retry
-    if [ "$exit_status" -eq 130 ] || [ "$exit_status" -eq 143 ]; then
+    if [[ "$exit_status" -eq 130 ]] || [[ "$exit_status" -eq 143 ]]; then
       return "$exit_status"
     fi
 
     retry_count=$((retry_count + 1))
 
     # Check if we have more attempts
-    if [ "$attempt" -lt "$max_attempts" ]; then
+    if [[ "$attempt" -lt "$max_attempts" ]]; then
       local delay
       delay=$(calculate_backoff_delay "$attempt")
       local delay_int="${delay%.*}"  # Integer part for accumulation
@@ -563,7 +568,7 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     *)
-      if [ "$MODE" = "prd" ]; then
+      if [[ "$MODE" = "prd" ]]; then
         PRD_INLINE="${PRD_INLINE:+$PRD_INLINE }$1"
         shift
       elif [[ "$1" =~ ^[0-9]+$ ]]; then
@@ -576,13 +581,13 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
-if [ "$MODE" = "plan" ] && [ "$MAX_ITERATIONS" = "$DEFAULT_MAX_ITERATIONS" ]; then
+if [[ "$MODE" = "plan" ]] && [[ "$MAX_ITERATIONS" = "$DEFAULT_MAX_ITERATIONS" ]]; then
   MAX_ITERATIONS=1
 fi
 
 # Set up PRD-N folder paths based on mode
-if [ -z "$PRD_PATH" ]; then
-  if [ "$MODE" = "prd" ]; then
+if [[ -z "$PRD_PATH" ]]; then
+  if [[ "$MODE" = "prd" ]]; then
     # PRD mode: always create a new PRD-N folder
     NEW_PRD_NUM=$(get_next_prd_number)
     ACTIVE_PRD_NUMBER="$NEW_PRD_NUM"
@@ -597,17 +602,17 @@ if [ -z "$PRD_PATH" ]; then
   else
     # plan/build mode: use latest PRD-N folder
     LATEST_PRD_NUM=$(get_latest_prd_number)
-    if [ -z "$LATEST_PRD_NUM" ]; then
+    if [[ -z "$LATEST_PRD_NUM" ]]; then
       msg_error "No PRD folder found. Run 'ralph prd' first to create one."
       exit 1
     fi
     ACTIVE_PRD_NUMBER="$LATEST_PRD_NUM"
     PRD_DIR="$(get_prd_dir "$LATEST_PRD_NUM")"
     PRD_PATH="$PRD_DIR/prd.md"
-    if [ -z "$PLAN_PATH" ]; then
+    if [[ -z "$PLAN_PATH" ]]; then
       PLAN_PATH="$PRD_DIR/plan.md"
     fi
-    if [ -z "$PROGRESS_PATH" ]; then
+    if [[ -z "$PROGRESS_PATH" ]]; then
       PROGRESS_PATH="$PRD_DIR/progress.md"
     fi
     RUNS_DIR="${RUNS_DIR:-$PRD_DIR/runs}"
@@ -618,17 +623,17 @@ if [ -z "$PRD_PATH" ]; then
 fi
 
 PROMPT_FILE="$PROMPT_BUILD"
-if [ "$MODE" = "plan" ]; then
+if [[ "$MODE" = "plan" ]]; then
   PROMPT_FILE="$PROMPT_PLAN"
 fi
 
-if [ "$MODE" = "prd" ]; then
+if [[ "$MODE" = "prd" ]]; then
   PRD_USE_INLINE=1
-  if [ -z "$PRD_AGENT_CMD" ]; then
+  if [[ -z "$PRD_AGENT_CMD" ]]; then
     PRD_AGENT_CMD="$AGENT_CMD"
     PRD_USE_INLINE=0
   fi
-  if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" != "1" ]]; then
     require_agent "$PRD_AGENT_CMD"
   fi
 
@@ -636,18 +641,18 @@ if [ "$MODE" = "prd" ]; then
   mkdir -p "$(dirname "$PRD_PATH")" "$TMP_DIR" "$RUNS_DIR"
   touch "$PROGRESS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" 2>/dev/null || true
 
-  if [ -z "$PRD_REQUEST_PATH" ] && [ -n "$PRD_INLINE" ]; then
+  if [[ -z "$PRD_REQUEST_PATH" ]] && [[ -n "$PRD_INLINE" ]]; then
     PRD_REQUEST_PATH="$TMP_DIR/prd-request-$(date +%Y%m%d-%H%M%S)-$$.txt"
     printf '%s\n' "$PRD_INLINE" > "$PRD_REQUEST_PATH"
   fi
 
-  if [ -z "$PRD_REQUEST_PATH" ] || [ ! -f "$PRD_REQUEST_PATH" ]; then
+  if [[ -z "$PRD_REQUEST_PATH" ]] || [[ ! -f "$PRD_REQUEST_PATH" ]]; then
     msg_error "PRD request missing. Provide a prompt string or --prompt <file>."
     exit 1
   fi
 
-  if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
-    if [ ! -f "$PRD_PATH" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" = "1" ]]; then
+    if [[ ! -f "$PRD_PATH" ]]; then
       {
         echo "# PRD (dry run)"
         echo ""
@@ -669,7 +674,7 @@ if [ "$MODE" = "prd" ]; then
     cat "$PRD_REQUEST_PATH"
   } > "$PRD_PROMPT_FILE"
 
-  if [ "$PRD_USE_INLINE" -eq 1 ]; then
+  if [[ "$PRD_USE_INLINE" -eq 1 ]]; then
     run_agent_inline "$PRD_PROMPT_FILE"
   else
     run_agent "$PRD_PROMPT_FILE"
@@ -677,21 +682,21 @@ if [ "$MODE" = "prd" ]; then
   exit 0
 fi
 
-if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
+if [[ "${RALPH_DRY_RUN:-}" != "1" ]]; then
   require_agent
 fi
 
-if [ ! -f "$PROMPT_FILE" ]; then
+if [[ ! -f "$PROMPT_FILE" ]]; then
   msg_warn "Prompt not found: $PROMPT_FILE"
   exit 1
 fi
 
-if [ "$MODE" != "prd" ] && [ ! -f "$PRD_PATH" ]; then
+if [[ "$MODE" != "prd" ]] && [[ ! -f "$PRD_PATH" ]]; then
   msg_warn "PRD not found: $PRD_PATH"
   exit 1
 fi
 
-if [ "$MODE" = "build" ] && [ ! -f "$PLAN_PATH" ]; then
+if [[ "$MODE" = "build" ]] && [[ ! -f "$PLAN_PATH" ]]; then
   msg_warn "Plan not found: $PLAN_PATH"
   echo "Create it first with:"
   msg_info "  ./.agents/ralph/loop.sh plan"
@@ -700,7 +705,7 @@ fi
 
 mkdir -p "$(dirname "$PROGRESS_PATH")" "$TMP_DIR" "$RUNS_DIR"
 
-if [ ! -f "$PROGRESS_PATH" ]; then
+if [[ ! -f "$PROGRESS_PATH" ]]; then
   {
     echo "# Progress Log"
     echo "Started: $(date)"
@@ -712,7 +717,7 @@ if [ ! -f "$PROGRESS_PATH" ]; then
   } > "$PROGRESS_PATH"
 fi
 
-if [ ! -f "$GUARDRAILS_PATH" ]; then
+if [[ ! -f "$GUARDRAILS_PATH" ]]; then
   {
     echo "# Guardrails (Signs)"
     echo ""
@@ -737,7 +742,7 @@ if [ ! -f "$GUARDRAILS_PATH" ]; then
   } > "$GUARDRAILS_PATH"
 fi
 
-if [ ! -f "$ERRORS_LOG_PATH" ]; then
+if [[ ! -f "$ERRORS_LOG_PATH" ]]; then
   {
     echo "# Error Log"
     echo ""
@@ -746,7 +751,7 @@ if [ ! -f "$ERRORS_LOG_PATH" ]; then
   } > "$ERRORS_LOG_PATH"
 fi
 
-if [ ! -f "$ACTIVITY_LOG_PATH" ]; then
+if [[ ! -f "$ACTIVITY_LOG_PATH" ]]; then
   {
     echo "# Activity Log"
     echo ""
@@ -887,7 +892,7 @@ save_checkpoint() {
   fi
 
   # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
     msg_dim "Checkpoint CLI not available, skipping checkpoint save"
     return 0
   fi
@@ -920,7 +925,7 @@ clear_checkpoint() {
   fi
 
   # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
     return 0
   fi
 
@@ -947,7 +952,7 @@ load_checkpoint() {
   fi
 
   # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
     return 1
   fi
 
@@ -956,7 +961,7 @@ load_checkpoint() {
   output=$(node "$checkpoint_cli" load "$prd_folder" 2>/dev/null)
   local status=$?
 
-  if [ $status -ne 0 ]; then
+  if [[ $status -ne 0 ]]; then
     return 1
   fi
 
@@ -966,7 +971,7 @@ load_checkpoint() {
   CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
   CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
 
-  if [ -n "$CHECKPOINT_ITERATION" ]; then
+  if [[ -n "$CHECKPOINT_ITERATION" ]]; then
     return 0
   else
     return 1
@@ -983,7 +988,7 @@ load_checkpoint() {
 detect_test_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1027,7 +1032,7 @@ detect_test_failure() {
 detect_lint_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1064,7 +1069,7 @@ detect_lint_failure() {
 detect_type_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1099,7 +1104,7 @@ detect_failure() {
   local log_file="$1"
   local trigger_policy="${2:-test-fail}"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1135,11 +1140,11 @@ detect_failure() {
 story_has_no_rollback() {
   local story_block_file="$1"
 
-  if [ -z "$story_block_file" ]; then
+  if [[ -z "$story_block_file" ]]; then
     return 1  # No file, allow rollback
   fi
 
-  if [ ! -f "$story_block_file" ]; then
+  if [[ ! -f "$story_block_file" ]]; then
     return 1  # File doesn't exist, allow rollback
   fi
 
@@ -1159,7 +1164,7 @@ rollback_to_checkpoint() {
   local story_id="$2"
   local reason="${3:-test_failure}"
 
-  if [ -z "$target_sha" ]; then
+  if [[ -z "$target_sha" ]]; then
     log_error "ROLLBACK failed: no target SHA provided"
     return 1
   fi
@@ -1168,7 +1173,7 @@ rollback_to_checkpoint() {
   current_sha=$(git_head)
 
   # Check if we're already at target SHA
-  if [ "$current_sha" = "$target_sha" ]; then
+  if [[ "$current_sha" = "$target_sha" ]]; then
     msg_dim "Already at target SHA, no rollback needed"
     return 0
   fi
@@ -1186,7 +1191,7 @@ rollback_to_checkpoint() {
   if ! git reset --hard "$target_sha" >/dev/null 2>&1; then
     log_error "ROLLBACK failed: git reset --hard $target_sha failed"
     # Attempt to restore stash if we made one
-    if [ "$has_stash" = "true" ]; then
+    if [[ "$has_stash" = "true" ]]; then
       git stash pop >/dev/null 2>&1 || true
     fi
     return 1
@@ -1218,7 +1223,7 @@ save_failure_context() {
     echo "## Test Output"
     echo ""
 
-    if [ -f "$log_file" ]; then
+    if [[ -f "$log_file" ]]; then
       # Extract relevant error/test failure sections
       # Look for test output, assertion failures, stack traces
       grep -iE "(FAIL|ERROR|test.*fail|AssertionError|expect|✗|failing|failed)" "$log_file" 2>/dev/null | head -100 || true
@@ -1250,7 +1255,7 @@ notify_rollback() {
   printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "$story_id"
   printf "  ${C_BOLD}Reason:${C_RESET} %s\n" "$reason"
   printf "  ${C_BOLD}Rolled back to:${C_RESET} %s\n" "${target_sha:0:8}"
-  if [ -n "$context_file" ] && [ -f "$context_file" ]; then
+  if [[ -n "$context_file" ]] && [[ -f "$context_file" ]]; then
     printf "  ${C_BOLD}Error context:${C_RESET} %s\n" "$context_file"
   fi
   printf "\n"
@@ -1283,7 +1288,7 @@ log_rollback() {
   runs_dir="$(dirname "$rollback_log")"
 
   # Create runs directory if needed
-  if [ ! -d "$runs_dir" ]; then
+  if [[ ! -d "$runs_dir" ]]; then
     mkdir -p "$runs_dir"
   fi
 
@@ -1313,7 +1318,7 @@ get_rollback_stats() {
   local prd_folder="${1:-$PRD_FOLDER}"
   local rollback_log="$prd_folder/runs/rollback-history.jsonl"
 
-  if [ ! -f "$rollback_log" ]; then
+  if [[ ! -f "$rollback_log" ]]; then
     echo '{"total":0,"successful":0,"failed":0,"successRate":0,"byReason":{},"byStory":{}}'
     return 0
   fi
@@ -1367,7 +1372,7 @@ console.log(JSON.stringify(stats));
     successful=$(grep -c '"success":true' "$rollback_log" 2>/dev/null || echo 0)
     local failed=$((total - successful))
     local rate=0
-    if [ "$total" -gt 0 ]; then
+    if [[ "$total" -gt 0 ]]; then
       rate=$((successful * 100 / total))
     fi
     printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
@@ -1383,12 +1388,12 @@ validate_git_state() {
 
   current_sha=$(git_head)
 
-  if [ -z "$expected_sha" ]; then
+  if [[ -z "$expected_sha" ]]; then
     # No checkpoint SHA to validate
     return 0
   fi
 
-  if [ "$current_sha" = "$expected_sha" ]; then
+  if [[ "$current_sha" = "$expected_sha" ]]; then
     return 0
   fi
 
@@ -1399,7 +1404,7 @@ validate_git_state() {
   printf "\n"
 
   # Prompt user if in TTY mode
-  if [ -t 0 ]; then
+  if [[ -t 0 ]]; then
     printf "${C_YELLOW}Resume anyway? [y/N]: ${C_RESET}"
     read -r response
     case "$response" in
@@ -1429,7 +1434,7 @@ prompt_resume_confirmation() {
   printf "\n"
 
   # Prompt user if in TTY mode
-  if [ -t 0 ]; then
+  if [[ -t 0 ]]; then
     printf "${C_CYAN}Resume from iteration $iteration? [Y/n]: ${C_RESET}"
     read -r response
     case "$response" in
@@ -1460,9 +1465,9 @@ get_routing_decision() {
   fi
 
   # Check if router CLI exists and Node.js is available
-  if [ -f "$router_cli" ] && command -v node >/dev/null 2>&1; then
+  if [[ -f "$router_cli" ]] && command -v node >/dev/null 2>&1; then
     local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
-    if [ -n "$override" ]; then
+    if [[ -n "$override" ]]; then
       args+=("--override" "$override")
     fi
     node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
@@ -1481,7 +1486,7 @@ parse_json_field() {
   local result
   result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty - return empty string to prevent arithmetic errors
-  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
+  if [[ -z "$result" ]] || [[ "$result" = "None" ]] || [[ "$result" = "null" ]]; then
     echo ""
   else
     echo "$result"
@@ -1502,9 +1507,9 @@ estimate_execution_cost() {
   fi
 
   # Check if estimator CLI exists and Node.js is available
-  if [ -f "$estimator_cli" ] && command -v node >/dev/null 2>&1; then
+  if [[ -f "$estimator_cli" ]] && command -v node >/dev/null 2>&1; then
     local args=("--model" "$model" "--repo-root" "$ROOT_DIR")
-    if [ -n "$score" ]; then
+    if [[ -n "$score" ]]; then
       args+=("--complexity" "$score")
     fi
     node "$estimator_cli" "${args[@]}" 2>/dev/null || echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
@@ -1531,7 +1536,7 @@ calculate_actual_cost() {
       calculator_path="$SCRIPT_DIR/../../lib/tokens/calculator.js"
     fi
 
-    if [ -f "$calculator_path" ]; then
+    if [[ -f "$calculator_path" ]]; then
       node -e "
         const calc = require('$calculator_path');
         const result = calc.calculateCost(
@@ -1554,7 +1559,7 @@ show_error() {
   local message="$1"
   local log_path="${2:-}"
   msg_error "$message"
-  if [ -n "$log_path" ]; then
+  if [[ -n "$log_path" ]]; then
     printf "  ${C_RED}Review logs at: ${C_BOLD}%s${C_RESET}\n" "$log_path"
   fi
 }
@@ -1563,7 +1568,7 @@ show_error() {
 show_error_suggestions() {
   local error_type="${1:-agent}"  # agent or system
   printf "\n${C_YELLOW}${C_BOLD}Suggested next steps:${C_RESET}\n"
-  if [ "$error_type" = "agent" ]; then
+  if [[ "$error_type" = "agent" ]]; then
     printf "  ${C_DIM}1)${C_RESET} Review the run log for agent output and errors\n"
     printf "  ${C_DIM}2)${C_RESET} Check ${C_CYAN}%s${C_RESET} for repeated failures\n" "$ERRORS_LOG_PATH"
     printf "  ${C_DIM}3)${C_RESET} Try: ${C_CYAN}ralph build 1 --no-commit${C_RESET} for a test run\n"
@@ -1580,7 +1585,7 @@ print_error_summary() {
   local failed_data="$1"
   local count="$2"
 
-  if [ -z "$failed_data" ] || [ "$count" -eq 0 ]; then
+  if [[ -z "$failed_data" ]] || [[ "$count" -eq 0 ]]; then
     return
   fi
 
@@ -1594,7 +1599,7 @@ print_error_summary() {
   for failure in "${FAILURES[@]}"; do
     IFS=':' read -r iter story logfile <<< "$failure"
     printf "${C_RED}  ✗ Iteration %s${C_RESET}" "$iter"
-    if [ -n "$story" ] && [ "$story" != "plan" ]; then
+    if [[ -n "$story" ]] && [[ "$story" != "plan" ]]; then
       printf " ${C_DIM}(%s)${C_RESET}" "$story"
     fi
     printf "\n"
@@ -1611,7 +1616,7 @@ format_duration() {
   local secs="$1"
   local mins=$((secs / 60))
   local remaining=$((secs % 60))
-  if [ "$mins" -gt 0 ]; then
+  if [[ "$mins" -gt 0 ]]; then
     printf "%dm %ds" "$mins" "$remaining"
   else
     printf "%ds" "$secs"
@@ -1627,12 +1632,12 @@ print_summary_table() {
   local total_count="$4"
   local remaining="$5"
 
-  if [ -z "$results" ] || [ "$total_count" -eq 0 ]; then
+  if [[ -z "$results" ]] || [[ "$total_count" -eq 0 ]]; then
     return
   fi
 
   # Only show table for multi-iteration runs (2+)
-  if [ "$total_count" -lt 2 ]; then
+  if [[ "$total_count" -lt 2 ]]; then
     return
   fi
 
@@ -1654,14 +1659,14 @@ print_summary_table() {
     dur_str=$(format_duration "$duration")
     # Handle missing/empty retries field gracefully (backwards compatibility)
     local retries=0
-    if [ -n "$retries_field" ] && [ "$retries_field" != "" ]; then
+    if [[ -n "$retries_field" ]] && [[ "$retries_field" != "" ]]; then
       retries="$retries_field"
     fi
     total_retries=$((total_retries + retries))
 
     # Status symbol and color
     local status_display
-    if [ "$status" = "success" ]; then
+    if [[ "$status" = "success" ]]; then
       status_display="${C_GREEN}✓ success${C_RESET}"
     else
       status_display="${C_RED}✗ error${C_RESET}"
@@ -1669,7 +1674,7 @@ print_summary_table() {
 
     # Retry display with color
     local retry_display
-    if [ "$retries" -gt 0 ]; then
+    if [[ "$retries" -gt 0 ]]; then
       retry_display="${C_YELLOW}${retries}${C_RESET}"
     else
       retry_display="${C_DIM}0${C_RESET}"
@@ -1677,7 +1682,7 @@ print_summary_table() {
 
     # Truncate story ID if too long (max 10 chars)
     local story_display="${story:-plan}"
-    if [ "${#story_display}" -gt 10 ]; then
+    if [[ "${#story_display}" -gt 10 ]]; then
       story_display="${story_display:0:10}"
     fi
 
@@ -1690,7 +1695,7 @@ print_summary_table() {
   local total_dur_str
   total_dur_str=$(format_duration "$total_time")
   local success_rate
-  if [ "$total_count" -gt 0 ]; then
+  if [[ "$total_count" -gt 0 ]]; then
     success_rate=$((success_count * 100 / total_count))
   else
     success_rate=0
@@ -1698,19 +1703,19 @@ print_summary_table() {
 
   # Color-code success rate
   local rate_color="$C_GREEN"
-  if [ "$success_rate" -lt 100 ]; then
+  if [[ "$success_rate" -lt 100 ]]; then
     rate_color="$C_YELLOW"
   fi
-  if [ "$success_rate" -lt 50 ]; then
+  if [[ "$success_rate" -lt 50 ]]; then
     rate_color="$C_RED"
   fi
 
   printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Total time:${C_RESET} %-10s ${C_BOLD}Success:${C_RESET} ${rate_color}%d/%d (%d%%)${C_RESET}  " "$total_dur_str" "$success_count" "$total_count" "$success_rate"
-  if [ "$total_retries" -gt 0 ]; then
+  if [[ "$total_retries" -gt 0 ]]; then
     printf "${C_BOLD}Retries:${C_RESET} ${C_YELLOW}%d${C_RESET}  " "$total_retries"
   fi
   printf "${C_CYAN}║${C_RESET}\n"
-  if [ -n "$remaining" ] && [ "$remaining" != "unknown" ] && [ "$remaining" != "0" ]; then
+  if [[ -n "$remaining" ]] && [[ "$remaining" != "unknown" ]] && [[ "$remaining" != "0" ]]; then
     printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Stories remaining:${C_RESET} %-41s ${C_CYAN}║${C_RESET}\n" "$remaining"
   fi
   printf "${C_CYAN}╚═══════════════════════════════════════════════════════════════╝${C_RESET}\n"
@@ -1763,7 +1768,7 @@ write_run_meta() {
     echo "- Run ID: $run_id"
     echo "- Iteration: $iter"
     echo "- Mode: $mode"
-    if [ -n "$story_id" ]; then
+    if [[ -n "$story_id" ]]; then
       echo "- Story: $story_id: $story_title"
     fi
     echo "- Started: $started"
@@ -1777,48 +1782,48 @@ write_run_meta() {
     echo "- Head (after): ${head_after:-unknown}"
     echo ""
     echo "### Commits"
-    if [ -n "$commit_list" ]; then
+    if [[ -n "$commit_list" ]]; then
       echo "$commit_list"
     else
       echo "- (none)"
     fi
     echo ""
     echo "### Changed Files (commits)"
-    if [ -n "$changed_files" ]; then
+    if [[ -n "$changed_files" ]]; then
       echo "$changed_files"
     else
       echo "- (none)"
     fi
     echo ""
     echo "### Uncommitted Changes"
-    if [ -n "$dirty_files" ]; then
+    if [[ -n "$dirty_files" ]]; then
       echo "$dirty_files"
     else
       echo "- (clean)"
     fi
     echo ""
     echo "## Token Usage"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ]; then
+    if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]]; then
       echo "- Input tokens: $input_tokens"
     else
       echo "- Input tokens: (unavailable)"
     fi
-    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+    if [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
       echo "- Output tokens: $output_tokens"
     else
       echo "- Output tokens: (unavailable)"
     fi
-    if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
+    if [[ -n "$token_model" ]] && [[ "$token_model" != "null" ]]; then
       echo "- Model: $token_model"
     fi
     echo "- Estimated: $token_estimated"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+    if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
       local total=$((input_tokens + output_tokens))
       echo "- Total tokens: $total"
     fi
     echo ""
     echo "## Retry Statistics"
-    if [ "$retry_count" -gt 0 ]; then
+    if [[ "$retry_count" -gt 0 ]]; then
       echo "- Retry count: $retry_count"
       echo "- Total retry wait time: ${retry_time}s"
     else
@@ -1826,7 +1831,7 @@ write_run_meta() {
     fi
     echo ""
     echo "## Agent Switches"
-    if [ "$switch_count" -gt 0 ]; then
+    if [[ "$switch_count" -gt 0 ]]; then
       echo "- Switch count: $switch_count"
       echo "- From: $switch_from"
       echo "- To: $switch_to"
@@ -1836,12 +1841,12 @@ write_run_meta() {
     fi
     echo ""
     echo "## Routing Decision"
-    if [ -n "$routed_model" ]; then
+    if [[ -n "$routed_model" ]]; then
       echo "- Model: $routed_model"
-      if [ -n "$complexity_score" ] && [ "$complexity_score" != "n/a" ]; then
+      if [[ -n "$complexity_score" ]] && [[ "$complexity_score" != "n/a" ]]; then
         echo "- Complexity score: ${complexity_score}/10"
       fi
-      if [ -n "$routing_reason" ] && [ "$routing_reason" != "n/a" ]; then
+      if [[ -n "$routing_reason" ]] && [[ "$routing_reason" != "n/a" ]]; then
         echo "- Reason: $routing_reason"
       fi
     else
@@ -1849,10 +1854,10 @@ write_run_meta() {
     fi
     echo ""
     echo "## Cost Estimate vs Actual"
-    if [ -n "$est_cost" ] && [ "$est_cost" != "n/a" ] && [ "$est_cost" != "null" ]; then
+    if [[ -n "$est_cost" ]] && [[ "$est_cost" != "n/a" ]] && [[ "$est_cost" != "null" ]]; then
       echo "### Pre-execution Estimate"
       echo "- Estimated cost: \$${est_cost}"
-      if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ]; then
+      if [[ -n "$est_tokens" ]] && [[ "$est_tokens" != "null" ]]; then
         echo "- Estimated tokens: $est_tokens"
       fi
     else
@@ -1861,16 +1866,16 @@ write_run_meta() {
     fi
     echo ""
     echo "### Actual Usage"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+    if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
       local actual_total=$((input_tokens + output_tokens))
       echo "- Actual tokens: $actual_total (input: $input_tokens, output: $output_tokens)"
       # Calculate actual cost if model available
-      if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
+      if [[ -n "$token_model" ]] && [[ "$token_model" != "null" ]]; then
         local actual_cost_json
         actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$token_model" 2>/dev/null || echo "")"
         local actual_cost
         actual_cost="$(parse_json_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
-        if [ -n "$actual_cost" ] && [ "$actual_cost" != "null" ]; then
+        if [[ -n "$actual_cost" ]] && [[ "$actual_cost" != "null" ]]; then
           echo "- Actual cost: \$$actual_cost"
         fi
       fi
@@ -1879,9 +1884,9 @@ write_run_meta() {
     fi
     echo ""
     echo "### Estimate Accuracy"
-    if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ] && [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+    if [[ -n "$est_tokens" ]] && [[ "$est_tokens" != "null" ]] && [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
       local actual_total=$((input_tokens + output_tokens))
-      if [ "$est_tokens" -gt 0 ]; then
+      if [[ "$est_tokens" -gt 0 ]]; then
         local variance_pct
         variance_pct=$(python3 -c "print(round((($actual_total - $est_tokens) / $est_tokens) * 100, 1))" 2>/dev/null || echo "n/a")
         echo "- Token variance: ${variance_pct}% (estimated: $est_tokens, actual: $actual_total)"
@@ -1903,7 +1908,7 @@ generate_context_summary() {
 
   # Check if context CLI is available
   local context_cli="$SCRIPT_DIR/../../lib/context/cli.js"
-  if [ ! -f "$context_cli" ]; then
+  if [[ ! -f "$context_cli" ]]; then
     echo ""
     return 0
   fi
@@ -1931,7 +1936,7 @@ append_context_to_run_meta() {
   local run_meta_path="$1"
   local context_summary="$2"
 
-  if [ -z "$context_summary" ]; then
+  if [[ -z "$context_summary" ]]; then
     return 0
   fi
 
@@ -1958,7 +1963,7 @@ extract_tokens_from_log() {
   fi
 
   # Check if extractor exists and Node.js is available
-  if [ -f "$extractor_path" ] && command -v node >/dev/null 2>&1; then
+  if [[ -f "$extractor_path" ]] && command -v node >/dev/null 2>&1; then
     node "$extractor_path" "$log_file" 2>/dev/null || echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
   else
     echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
@@ -2004,26 +2009,26 @@ append_metrics() {
   fi
 
   # Check if metrics CLI exists and Node.js is available
-  if [ -f "$metrics_cli" ] && command -v node >/dev/null 2>&1; then
+  if [[ -f "$metrics_cli" ]] && command -v node >/dev/null 2>&1; then
     # Build JSON data - handle null tokens gracefully
     local input_val="null"
     local output_val="null"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ "$input_tokens" != "" ]; then
+    if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ "$input_tokens" != "" ]]; then
       input_val="$input_tokens"
     fi
-    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ] && [ "$output_tokens" != "" ]; then
+    if [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]] && [[ "$output_tokens" != "" ]]; then
       output_val="$output_tokens"
     fi
 
     # Handle complexity score
     local complexity_val="null"
-    if [ -n "$complexity_score" ] && [ "$complexity_score" != "null" ] && [ "$complexity_score" != "" ] && [ "$complexity_score" != "n/a" ]; then
+    if [[ -n "$complexity_score" ]] && [[ "$complexity_score" != "null" ]] && [[ "$complexity_score" != "" ]] && [[ "$complexity_score" != "n/a" ]]; then
       complexity_val="$complexity_score"
     fi
 
     # Handle estimated cost
     local estimated_cost_val="null"
-    if [ -n "$estimated_cost" ] && [ "$estimated_cost" != "null" ] && [ "$estimated_cost" != "" ] && [ "$estimated_cost" != "n/a" ]; then
+    if [[ -n "$estimated_cost" ]] && [[ "$estimated_cost" != "null" ]] && [[ "$estimated_cost" != "" ]] && [[ "$estimated_cost" != "n/a" ]]; then
       estimated_cost_val="$estimated_cost"
     fi
 
@@ -2032,15 +2037,15 @@ append_metrics() {
     escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
 
 local escaped_reason="null"
-    if [ -n "$routing_reason" ] && [ "$routing_reason" != "null" ] && [ "$routing_reason" != "" ]; then
+    if [[ -n "$routing_reason" ]] && [[ "$routing_reason" != "null" ]] && [[ "$routing_reason" != "" ]]; then
       escaped_reason=$(printf '"%s"' "$(printf '%s' "$routing_reason" | sed 's/"/\\"/g')")
     fi
 
     # Build experiment fields if present
     local exp_fields=""
-    if [ -n "$exp_name" ]; then
+    if [[ -n "$exp_name" ]]; then
       local excluded_bool="false"
-      if [ "$exp_excluded" = "1" ]; then
+      if [[ "$exp_excluded" = "1" ]]; then
         excluded_bool="true"
       fi
       exp_fields=$(printf ',"experimentName":"%s","experimentVariant":"%s","experimentExcluded":%s' \
@@ -2051,15 +2056,15 @@ local escaped_reason="null"
 
     # Build rollback fields if present (US-004)
     local rollback_fields=""
-    if [ -n "$rollback_count" ] && [ "$rollback_count" != "0" ]; then
+    if [[ -n "$rollback_count" ]] && [[ "$rollback_count" != "0" ]]; then
       local rollback_success_bool="null"
-      if [ "$rollback_success" = "true" ]; then
+      if [[ "$rollback_success" = "true" ]]; then
         rollback_success_bool="true"
-      elif [ "$rollback_success" = "false" ]; then
+      elif [[ "$rollback_success" = "false" ]]; then
         rollback_success_bool="false"
       fi
       local escaped_rollback_reason="null"
-      if [ -n "$rollback_reason" ]; then
+      if [[ -n "$rollback_reason" ]]; then
         escaped_rollback_reason=$(printf '"%s"' "$(printf '%s' "$rollback_reason" | sed 's/"/\\"/g')")
       fi
       rollback_fields=$(printf ',"rollbackCount":%s,"rollbackReason":%s,"rollbackSuccess":%s' \
@@ -2070,15 +2075,15 @@ local escaped_reason="null"
 
     # Build switch tracking fields (US-004)
     local switch_fields=""
-    if [ -n "$switch_count" ] && [ "$switch_count" != "0" ]; then
+    if [[ -n "$switch_count" ]] && [[ "$switch_count" != "0" ]]; then
       # Convert comma-separated agents to JSON array
       local agents_json="null"
-      if [ -n "$agents_tried" ]; then
+      if [[ -n "$agents_tried" ]]; then
         # Convert "claude,codex" to ["claude","codex"]
         agents_json="[$(echo "$agents_tried" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/' )]"
       fi
       local failure_type_json="null"
-      if [ -n "$failure_type" ]; then
+      if [[ -n "$failure_type" ]]; then
         failure_type_json="\"$failure_type\""
       fi
       switch_fields=$(printf ',"switchCount":%s,"agents":%s,"failureType":%s' \
@@ -2116,12 +2121,12 @@ local escaped_reason="null"
 # Rebuild token cache for the current stream
 # Called at end of build to ensure dashboard has fresh data
 rebuild_token_cache() {
-  if [ "$MODE" != "build" ]; then
+  if [[ "$MODE" != "build" ]]; then
     return 0
   fi
 
   local cache_script
-  if [ -n "$RALPH_ROOT" ]; then
+  if [[ -n "$RALPH_ROOT" ]]; then
     cache_script="$RALPH_ROOT/lib/tokens/index.js"
   else
     cache_script="$SCRIPT_DIR/../../lib/tokens/index.js"
@@ -2131,7 +2136,7 @@ rebuild_token_cache() {
   local stream_path
   stream_path="$(dirname "$PRD_PATH")"
 
-  if [ -f "$cache_script" ] && command -v node >/dev/null 2>&1; then
+  if [[ -f "$cache_script" ]] && command -v node >/dev/null 2>&1; then
     node -e "
       const tokens = require('$cache_script');
       const streamPath = '$stream_path';
@@ -2179,13 +2184,13 @@ classify_failure_type() {
   local log_file="$2"
 
   # Timeout failures (SIGALRM=124, SIGKILL=137)
-  if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
+  if [[ "$exit_code" -eq 124 ]] || [[ "$exit_code" -eq 137 ]]; then
     echo "timeout"
     return
   fi
 
   # Quality failures - check log for test/lint/type errors
-  if [ -f "$log_file" ]; then
+  if [[ -f "$log_file" ]]; then
     # Check for test failures
     if grep -qiE "(test(s)? (failed|failing)|FAIL |✗ |AssertionError|expect\(.*\)\.to)" "$log_file" 2>/dev/null; then
       echo "quality"
@@ -2215,13 +2220,13 @@ should_trigger_switch() {
 
   case "$failure_type" in
     timeout)
-      [ "${AGENT_SWITCH_ON_TIMEOUT:-true}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_TIMEOUT:-true}" = "true" ]] && return 0
       ;;
     error)
-      [ "${AGENT_SWITCH_ON_ERROR:-true}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_ERROR:-true}" = "true" ]] && return 0
       ;;
     quality)
-      [ "${AGENT_SWITCH_ON_QUALITY:-false}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_QUALITY:-false}" = "true" ]] && return 0
       ;;
   esac
   return 1
@@ -2251,7 +2256,7 @@ track_failure() {
 # Reset consecutive failure tracking (called on success)
 # Usage: reset_failure_tracking
 reset_failure_tracking() {
-  if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+  if [[ "$CONSECUTIVE_FAILURES" -gt 0 ]]; then
     log_activity "FAILURE_RESET agent=$CURRENT_AGENT previous_consecutive=$CONSECUTIVE_FAILURES (story completed successfully)"
   fi
   CONSECUTIVE_FAILURES=0
@@ -2264,7 +2269,7 @@ reset_failure_tracking() {
 # Returns: 0 if threshold reached, 1 otherwise
 switch_threshold_reached() {
   local threshold="${AGENT_SWITCH_THRESHOLD:-2}"
-  [ "$CONSECUTIVE_FAILURES" -ge "$threshold" ]
+  [ "$CONSECUTIVE_FAILURES" -ge "$threshold" ]]
 }
 
 # Get switch state file path for the current PRD
@@ -2306,7 +2311,7 @@ load_switch_state() {
   local state_file
   state_file="$(get_switch_state_file "$prd_folder")"
 
-  if [ ! -f "$state_file" ]; then
+  if [[ ! -f "$state_file" ]]; then
     return 1
   fi
 
@@ -2335,13 +2340,13 @@ except Exception:
   CHAIN_POSITION=$(echo "$parsed" | sed -n '5p')
 
   # Validate
-  if [ -z "$CURRENT_AGENT" ]; then
+  if [[ -z "$CURRENT_AGENT" ]]; then
     CURRENT_AGENT="$DEFAULT_AGENT_NAME"
   fi
-  if [ -z "$CONSECUTIVE_FAILURES" ] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
+  if [[ -z "$CONSECUTIVE_FAILURES" ]] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
     CONSECUTIVE_FAILURES=0
   fi
-  if [ -z "$CHAIN_POSITION" ] || ! [[ "$CHAIN_POSITION" =~ ^[0-9]+$ ]]; then
+  if [[ -z "$CHAIN_POSITION" ]] || ! [[ "$CHAIN_POSITION" =~ ^[0-9]+$ ]]; then
     CHAIN_POSITION=0
   fi
   # Update AGENT_CMD to match loaded agent
@@ -2358,7 +2363,7 @@ clear_switch_state() {
   local state_file
   state_file="$(get_switch_state_file "$prd_folder")"
 
-  if [ -f "$state_file" ]; then
+  if [[ -f "$state_file" ]]; then
     rm -f "$state_file"
     msg_dim "Switch state cleared (build complete)"
   fi
@@ -2375,7 +2380,7 @@ CHAIN_POSITION=0
 # Returns: 0 (true) if available, 1 (false) otherwise
 agent_available() {
   local agent_name="$1"
-  if [ -z "$agent_name" ]; then
+  if [[ -z "$agent_name" ]]; then
     return 1
   fi
   command -v "$agent_name" >/dev/null 2>&1
@@ -2405,7 +2410,7 @@ switch_to_next_agent() {
     local candidate="${chain[$next_pos]}"
 
     # Skip if we're back at the current agent (full loop)
-    if [ "$candidate" = "$old_agent" ]; then
+    if [[ "$candidate" = "$old_agent" ]]; then
       continue
     fi
 
@@ -2422,7 +2427,7 @@ switch_to_next_agent() {
       LAST_SWITCH_TO="$CURRENT_AGENT"
       LAST_SWITCH_REASON="$LAST_FAILURE_TYPE"
       # Track agents tried for metrics (US-004)
-      if [ -z "$AGENTS_TRIED_THIS_ITERATION" ]; then
+      if [[ -z "$AGENTS_TRIED_THIS_ITERATION" ]]; then
         AGENTS_TRIED_THIS_ITERATION="$old_agent,$CURRENT_AGENT"
       elif [[ ",$AGENTS_TRIED_THIS_ITERATION," != *",$CURRENT_AGENT,"* ]]; then
         AGENTS_TRIED_THIS_ITERATION="$AGENTS_TRIED_THIS_ITERATION,$CURRENT_AGENT"
@@ -2455,7 +2460,7 @@ reset_chain_position() {
       CHAIN_POSITION=$i
       CURRENT_AGENT="$candidate"
       AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      if [ "$old_position" -ne "$i" ] || [ "$old_agent" != "$candidate" ]; then
+      if [[ "$old_position" -ne "$i" ]] || [[ "$old_agent" != "$candidate" ]]; then
         log_activity "CHAIN_RESET from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION (story completed successfully)"
         msg_dim "Chain reset: using primary agent $CURRENT_AGENT"
       fi
@@ -2468,24 +2473,27 @@ reset_chain_position() {
   return 1
 }
 
-# Progress indicator: prints elapsed time every N seconds (TTY only)
+# Progress indicator: prints elapsed time every PROGRESS_INTERVAL seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
+# Configure via PROGRESS_INTERVAL in config.sh (default: 30 seconds)
 PROGRESS_PID=""
+PROGRESS_INTERVAL="${PROGRESS_INTERVAL:-$DEFAULT_PROGRESS_INTERVAL}"
 start_progress_indicator() {
   # Only show progress in TTY mode
-  if [ ! -t 1 ]; then
+  if [[ ! -t 1 ]]; then
     return
   fi
   local start_time="$1"
   local story_info="${2:-}"
+  local interval="${PROGRESS_INTERVAL:-30}"
   (
     while true; do
-      sleep 5
+      sleep "$interval"
       local now=$(date +%s)
       local elapsed=$((now - start_time))
       local mins=$((elapsed / 60))
       local secs=$((elapsed % 60))
-      if [ "$mins" -gt 0 ]; then
+      if [[ "$mins" -gt 0 ]]; then
         printf "${C_DIM}  ⏱ Elapsed: %dm %ds${C_RESET}\n" "$mins" "$secs"
       else
         printf "${C_DIM}  ⏱ Elapsed: %ds${C_RESET}\n" "$secs"
@@ -2496,7 +2504,7 @@ start_progress_indicator() {
 }
 
 stop_progress_indicator() {
-  if [ -n "$PROGRESS_PID" ]; then
+  if [[ -n "$PROGRESS_PID" ]]; then
     kill "$PROGRESS_PID" 2>/dev/null || true
     wait "$PROGRESS_PID" 2>/dev/null || true
     PROGRESS_PID=""
@@ -2508,7 +2516,7 @@ trap 'stop_progress_indicator' EXIT INT TERM
 
 # Resume mode handling
 START_ITERATION=1
-if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
+if [[ "$MODE" = "build" ]] && [[ -n "$RESUME_MODE" ]]; then
   PRD_FOLDER="$(dirname "$PRD_PATH")"
 
   if load_checkpoint "$PRD_FOLDER"; then
@@ -2531,17 +2539,17 @@ if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
 
   # Load switch state for failure tracking persistence (US-001)
   if load_switch_state "$PRD_FOLDER"; then
-    if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+    if [[ "$CONSECUTIVE_FAILURES" -gt 0 ]]; then
       msg_info "Previous run had $CONSECUTIVE_FAILURES consecutive failure(s) for agent $CURRENT_AGENT"
     fi
   fi
-elif [ "$MODE" = "build" ]; then
+elif [[ "$MODE" = "build" ]]; then
   # Non-resume build mode - load switch state to continue tracking
   PRD_FOLDER="$(dirname "$PRD_PATH")"
   load_switch_state "$PRD_FOLDER" 2>/dev/null || true
 fi
 
-for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
+for ((i = START_ITERATION; i <= MAX_ITERATIONS; i++)); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
   printf "${C_BOLD}${C_CYAN}  Running iteration $i/$MAX_ITERATIONS${C_RESET}\n"
@@ -2565,16 +2573,16 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   LAST_SWITCH_REASON=""
   # Initialize with current agent for metrics tracking (US-004)
   AGENTS_TRIED_THIS_ITERATION="$CURRENT_AGENT"
-  if [ "$MODE" = "build" ]; then
+  if [[ "$MODE" = "build" ]]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
-    if [ "$REMAINING" = "unknown" ]; then
+    if [[ "$REMAINING" = "unknown" ]]; then
       msg_error "Could not parse stories from PRD: $PRD_PATH"
       exit 1
     fi
-    if [ "$REMAINING" = "0" ]; then
+    if [[ "$REMAINING" = "0" ]]; then
       # Clear checkpoint and switch state on successful completion
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
@@ -2604,17 +2612,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
     # Display routing decision with enhanced visualization
     printf "${C_DIM}  ┌─ Routing Decision ────────────────────────────────${C_RESET}\n"
-    if [ "$ROUTED_OVERRIDE" = "true" ]; then
+    if [[ "$ROUTED_OVERRIDE" = "true" ]]; then
       printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
-    elif [ -n "$ROUTED_SCORE" ]; then
+    elif [[ -n "$ROUTED_SCORE" ]]; then
       # Determine complexity level and color
       level_color="$C_GREEN"
       level_label="low"
-      if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+      if [[ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]]; then
         level_color="$C_YELLOW"
         level_label="medium"
       fi
-      if [ "$(echo "$ROUTED_SCORE > 7" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+      if [[ "$(echo "$ROUTED_SCORE > 7" | bc -l 2>/dev/null || echo "0")" = "1" ]]; then
         level_color="$C_RED"
         level_label="high"
       fi
@@ -2631,13 +2639,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     ESTIMATED_COST_RANGE="$(parse_json_field "$ESTIMATED_COST_JSON" "costRange")"
     ESTIMATED_TOKENS="$(parse_json_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
     ESTIMATED_COMPARISON="$(parse_json_field "$ESTIMATED_COST_JSON" "comparison")"
-    if [ -n "$ESTIMATED_COST" ] && [ "$ESTIMATED_COST" != "null" ]; then
+    if [[ -n "$ESTIMATED_COST" ]] && [[ "$ESTIMATED_COST" != "null" ]]; then
       printf "${C_DIM}  │${C_RESET} Est. cost: ${C_CYAN}\$${ESTIMATED_COST}${C_RESET}"
-      if [ -n "$ESTIMATED_COST_RANGE" ] && [ "$ESTIMATED_COST_RANGE" != "null" ]; then
+      if [[ -n "$ESTIMATED_COST_RANGE" ]] && [[ "$ESTIMATED_COST_RANGE" != "null" ]]; then
         printf " ${C_DIM}($ESTIMATED_COST_RANGE)${C_RESET}"
       fi
       printf "\n"
-      if [ -n "$ESTIMATED_COMPARISON" ] && [ "$ESTIMATED_COMPARISON" != "null" ]; then
+      if [[ -n "$ESTIMATED_COMPARISON" ]] && [[ "$ESTIMATED_COMPARISON" != "null" ]]; then
         printf "${C_DIM}  │${C_RESET} ${C_DIM}$ESTIMATED_COMPARISON${C_RESET}\n"
       fi
     fi
@@ -2653,14 +2661,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   RUN_META="$RUNS_DIR/run-$RUN_TAG-iter-$i.md"
   render_prompt "$PROMPT_FILE" "$PROMPT_RENDERED" "$STORY_META" "$STORY_BLOCK" "$RUN_TAG" "$i" "$LOG_FILE" "$RUN_META"
 
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     log_activity "ITERATION $i start (mode=$MODE story=$STORY_ID)"
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
 
   # Save checkpoint before story execution (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     PRD_FOLDER="$(dirname "$PRD_PATH")"
     save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME"
   fi
@@ -2668,7 +2676,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   set +e
   # Start progress indicator before agent execution
   start_progress_indicator "$ITER_START"
-  if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" = "1" ]]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
   else
@@ -2679,7 +2687,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Stop progress indicator after agent execution
   stop_progress_indicator
   set -e
-  if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
+  if [[ "$CMD_STATUS" -eq 130 ]] || [[ "$CMD_STATUS" -eq 143 ]]; then
     msg_warn "Interrupted."
     exit "$CMD_STATUS"
   fi
@@ -2688,14 +2696,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   ITER_DURATION=$((ITER_END - ITER_START))
   HEAD_AFTER="$(git_head)"
   log_activity "ITERATION $i end (duration=${ITER_DURATION}s)"
-  if [ "$CMD_STATUS" -ne 0 ]; then
+  if [[ "$CMD_STATUS" -ne 0 ]]; then
     log_error "ITERATION $i command failed (status=$CMD_STATUS)"
     HAS_ERROR="true"
     # Track failed iteration details for summary
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
     # Track failure for agent switching (US-001)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
       track_failure "$CMD_STATUS" "$LOG_FILE" "$STORY_ID"
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       save_switch_state "$PRD_FOLDER"
@@ -2714,12 +2722,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
   DIRTY_FILES="$(git_dirty_files)"
   STATUS_LABEL="success"
-  if [ "$CMD_STATUS" -ne 0 ]; then
+  if [[ "$CMD_STATUS" -ne 0 ]]; then
     STATUS_LABEL="error"
   else
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     # Reset failure tracking on success (US-001)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
       reset_failure_tracking
       # Reset chain position to primary agent on success (US-002)
       reset_chain_position
@@ -2730,7 +2738,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
   ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-plan}|$ITER_DURATION|$STATUS_LABEL|$LAST_RETRY_COUNT"
 
-  if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
+  if [[ "$MODE" = "build" ]] && [[ "$NO_COMMIT" = "false" ]] && [[ -n "$DIRTY_FILES" ]]; then
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
   fi
@@ -2745,9 +2753,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}" "$LAST_SWITCH_COUNT" "$LAST_SWITCH_FROM" "$LAST_SWITCH_TO" "$LAST_SWITCH_REASON"
 
   # Append context summary to run meta (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_BLOCK:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_BLOCK:-}" ]]; then
     CONTEXT_SUMMARY="$(generate_context_summary "$STORY_BLOCK" "${ROUTED_MODEL:-sonnet}" 15 "$ROOT_DIR")"
-    if [ -n "$CONTEXT_SUMMARY" ]; then
+    if [[ -n "$CONTEXT_SUMMARY" ]]; then
       append_context_to_run_meta "$RUN_META" "$CONTEXT_SUMMARY"
     fi
   fi
@@ -2755,13 +2763,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Note: append_metrics is called after rollback logic to capture both rollback and switch data
   # See the metrics call below the rollback section
 
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   else
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   fi
 
-  if [ "$MODE" = "build" ]; then
+  if [[ "$MODE" = "build" ]]; then
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
 
@@ -2769,7 +2777,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Rollback on Failure (US-001 + US-003)
     # Check for failures based on ROLLBACK_TRIGGER config and rollback to pre-story state
     # ─────────────────────────────────────────────────────────────────────────
-    if [ "$CMD_STATUS" -ne 0 ] && [ "${ROLLBACK_ENABLED:-true}" = "true" ] && [ "$NO_COMMIT" = "false" ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]] && [[ "${ROLLBACK_ENABLED:-true}" = "true" ]] && [[ "$NO_COMMIT" = "false" ]]; then
       # US-003: Check for story-level rollback skip via <!-- no-rollback --> comment
       if story_has_no_rollback "${STORY_BLOCK:-}"; then
         log_activity "ROLLBACK_SKIPPED story=$STORY_ID reason=no-rollback-directive"
@@ -2813,12 +2821,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           # Intelligent Retry (US-002)
           # Retry the story with enhanced context after successful rollback
           # ─────────────────────────────────────────────────────────────────────
-          if [ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]; then
+          if [[ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]]; then
             ROLLBACK_MAX="${ROLLBACK_MAX_RETRIES:-3}"
 
             # Track retry attempts for this story (use a simple file-based approach)
             RETRY_TRACKING_FILE="$RUNS_DIR/retry-count-${STORY_ID:-unknown}.txt"
-            if [ -f "$RETRY_TRACKING_FILE" ]; then
+            if [[ -f "$RETRY_TRACKING_FILE" ]]; then
               CURRENT_RETRY_COUNT=$(cat "$RETRY_TRACKING_FILE")
             else
               CURRENT_RETRY_COUNT=0
@@ -2827,7 +2835,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
             CURRENT_RETRY_COUNT=$((CURRENT_RETRY_COUNT + 1))
             echo "$CURRENT_RETRY_COUNT" > "$RETRY_TRACKING_FILE"
 
-            if [ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]; then
+            if [[ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]]; then
               printf "\n"
               printf "${C_CYAN}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
               printf "${C_CYAN}${C_BOLD}║            INTELLIGENT RETRY (US-002)                 ║${C_RESET}\n"
@@ -2861,7 +2869,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
               RETRY_END=$(date +%s)
               RETRY_DURATION=$((RETRY_END - RETRY_START))
 
-              if [ "$RETRY_STATUS" -eq 0 ]; then
+              if [[ "$RETRY_STATUS" -eq 0 ]]; then
                 # Retry succeeded! Log success for rollback history (US-004)
                 log_rollback "${STORY_ID:-unknown}" "retry_success" "$HEAD_BEFORE" "$(git_head)" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
                 printf "${C_GREEN}${C_BOLD}  Retry $CURRENT_RETRY_COUNT SUCCEEDED${C_RESET}\n"
@@ -2949,9 +2957,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     PRD_FOLDER="$(dirname "$PRD_PATH")"
     append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
 
-    if [ "$CMD_STATUS" -ne 0 ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]]; then
       # Differentiate agent errors vs system errors
-      if [ "$CMD_STATUS" -eq 1 ]; then
+      if [[ "$CMD_STATUS" -eq 1 ]]; then
         show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
         show_error_suggestions "agent"
       else
@@ -2961,7 +2969,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       log_error "ITERATION $i exited non-zero (code=$CMD_STATUS); review $LOG_FILE"
     fi
     if grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
-      if [ "$REMAINING" = "0" ]; then
+      if [[ "$REMAINING" = "0" ]]; then
         printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
@@ -2982,7 +2990,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
     printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete. Remaining stories: $REMAINING"
-    if [ "$REMAINING" = "0" ]; then
+    if [[ "$REMAINING" = "0" ]]; then
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
       rebuild_token_cache
@@ -2995,9 +3003,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     fi
   else
     # Handle plan mode errors
-    if [ "$CMD_STATUS" -ne 0 ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]]; then
       # Differentiate agent errors vs system errors
-      if [ "$CMD_STATUS" -eq 1 ]; then
+      if [[ "$CMD_STATUS" -eq 1 ]]; then
         show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
         show_error_suggestions "agent"
       else
@@ -3012,13 +3020,20 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete."
   fi
-  sleep 2
+
+  # Configurable delay between iterations (US-007)
+  # Configure via ITERATION_DELAY in config.sh (default: 0, minimum: 2)
+  local iter_delay="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
+  if [[ "$iter_delay" -lt 2 ]]; then
+    iter_delay=2  # Minimum 2 second delay for stability
+  fi
+  sleep "$iter_delay"
 
 done
 
 # Get final remaining count for summary
 FINAL_REMAINING="${REMAINING:-unknown}"
-if [ "$MODE" = "build" ] && [ -f "$STORY_META" ]; then
+if [[ "$MODE" = "build" ]] && [[ -f "$STORY_META" ]]; then
   FINAL_REMAINING="$(remaining_stories "$STORY_META")"
 fi
 
@@ -3029,7 +3044,7 @@ print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$IT
 rebuild_token_cache
 
 msg_warn "Reached max iterations ($MAX_ITERATIONS)."
-if [ "$MODE" = "plan" ]; then
+if [[ "$MODE" = "plan" ]]; then
   echo ""
   msg_info "Next steps (if you want to proceed):"
   msg_dim "1) Review the plan in \"$PLAN_PATH\"."
@@ -3040,7 +3055,7 @@ fi
 # Print error summary at end of run if any iterations failed
 print_error_summary "$FAILED_ITERATIONS" "$FAILED_COUNT"
 
-if [ "$HAS_ERROR" = "true" ]; then
+if [[ "$HAS_ERROR" = "true" ]]; then
   exit 1
 fi
 exit 0

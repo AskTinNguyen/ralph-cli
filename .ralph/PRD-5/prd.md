@@ -103,16 +103,16 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Add security comments where eval is still necessary
 - [x] Test all agent types (claude, codex, droid) after changes
 
-### [ ] US-007: Apply bash best practices improvements
+### [x] US-007: Apply bash best practices improvements
 **As a** ralph-cli maintainer
 **I want** bash anti-patterns replaced with best practices
 **So that** scripts are more efficient and maintainable
 
 #### Acceptance Criteria
-- [ ] Replace `seq` with bash arithmetic at line 1797: `for ((i = START_ITERATION; i <= MAX_ITERATIONS; i++))`
-- [ ] Use [[ ]] consistently instead of [ ] for conditionals
-- [ ] Add configurable delays to config.sh: ITERATION_DELAY, PROGRESS_INTERVAL
-- [ ] Test iteration timing and progress updates work correctly
+- [x] Replace `seq` with bash arithmetic at line 1797: `for ((i = START_ITERATION; i <= MAX_ITERATIONS; i++))`
+- [x] Use [[ ]] consistently instead of [ ] for conditionals
+- [x] Add configurable delays to config.sh: ITERATION_DELAY, PROGRESS_INTERVAL
+- [x] Test iteration timing and progress updates work correctly
 
 ### [ ] US-008: Add status constants and configuration
 **As a** ralph-cli maintainer

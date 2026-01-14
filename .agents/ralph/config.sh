@@ -177,3 +177,17 @@ AGENT_SWITCH_ON_QUALITY=false
 # PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
 # NO_COMMIT=false
 # MAX_ITERATIONS=25
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Timing Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure delays and intervals for the build loop.
+#
+# Delay between iterations in seconds (default: 0, no delay):
+# Use this to add a pause between build iterations for rate limiting or cooling.
+# ITERATION_DELAY=0
+#
+# Progress update interval in seconds (default: 30):
+# How often to show "still running" messages during long-running agent calls.
+# PROGRESS_INTERVAL=30
+# ─────────────────────────────────────────────────────────────────────────────
