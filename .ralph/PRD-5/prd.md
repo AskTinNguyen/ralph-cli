@@ -125,19 +125,19 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Update stream.sh to use constants instead of string literals
 - [x] Test status checks work with constants
 
-### [ ] US-009: Extract retry logic to shared library
+### [x] US-009: Extract retry logic to shared library
 **As a** ralph-cli maintainer
 **I want** retry/backoff logic extracted to a reusable module
 **So that** retry behavior is consistent and loop.sh is simplified
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/retry.sh`
-- [ ] Extract `calculate_backoff_delay()` from loop.sh:368-390
-- [ ] Extract `run_agent_with_retry()` from loop.sh:401-505
-- [ ] Move retry configuration constants (RETRY_MAX_ATTEMPTS, RETRY_BASE_DELAY_MS, etc.)
-- [ ] Update loop.sh to source the library
-- [ ] Test retry logic works with exponential backoff
-- [ ] Verify ~140 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/retry.sh`
+- [x] Extract `calculate_backoff_delay()` from loop.sh:368-390
+- [x] Extract `run_agent_with_retry()` from loop.sh:401-505
+- [x] Move retry configuration constants (RETRY_MAX_ATTEMPTS, RETRY_BASE_DELAY_MS, etc.)
+- [x] Update loop.sh to source the library
+- [x] Test retry logic works with exponential backoff
+- [x] Verify ~140 lines removed from loop.sh
 
 ### [ ] US-010: Extract checkpoint functions to shared library
 **As a** ralph-cli maintainer
