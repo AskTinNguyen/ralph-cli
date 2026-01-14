@@ -32,3 +32,4 @@ dist/
 # Browser automation temp files
 skills/dev-browser/profiles/
 skills/dev-browser/tmp/
+__pycache__/
