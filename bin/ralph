@@ -51,6 +51,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
+  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json]")}          Estimate time and cost for a PRD build
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
@@ -728,6 +729,78 @@ async function main() {
       const outputPath = path.join(evalDir, `eval-${score.runId}.md`);
       evalModule.saveReport(report, outputPath);
       success(`Report saved to ${pc.cyan(outputPath)}`);
+    }
+
+    process.exit(0);
+  }
+
+  if (cmd === "estimate") {
+    const estimateModule = require("../lib/estimate");
+    const ralphDir = path.join(cwd, ".ralph");
+
+    // Check for --json flag
+    const jsonOutput = args.includes("--json");
+
+    // Determine which PRD to analyze
+    let prdFolder = null;
+
+    if (prdNumber) {
+      // --prd=N flag specified
+      prdFolder = estimateModule.getPRDFolder(ralphDir, prdNumber);
+      if (!prdFolder) {
+        error(`PRD-${prdNumber} not found in ${pc.cyan(ralphDir)}`);
+        process.exit(1);
+      }
+    } else {
+      // Find active PRD
+      const activePRD = estimateModule.findActivePRD(ralphDir);
+      if (!activePRD) {
+        error(`No PRD found with plan.md. Run ${pc.cyan("ralph plan")} first.`);
+        process.exit(1);
+      }
+      prdFolder = activePRD.folder;
+      prdNumber = activePRD.number;
+    }
+
+    // Run estimation
+    const result = estimateModule.estimate({
+      prdFolder,
+      repoRoot: cwd,
+      model: "sonnet", // Default model for estimation
+    });
+
+    if (!result.success) {
+      error(result.error);
+      process.exit(1);
+    }
+
+    // Output results
+    if (jsonOutput) {
+      console.log(estimateModule.formatEstimate(result, { json: true }));
+    } else {
+      console.log("");
+      console.log(pc.bold(`Build Estimate for PRD-${prdNumber}`));
+      console.log(pc.dim("─".repeat(70)));
+      console.log("");
+      console.log(estimateModule.formatEstimate(result));
+      console.log("");
+
+      // Show confidence note
+      const conf = result.totals.confidence;
+      if (conf === "low") {
+        warn("Confidence: Low (no historical data). Estimates may vary significantly.");
+      } else if (conf === "medium") {
+        info("Confidence: Medium (limited historical data).");
+      } else {
+        success("Confidence: High (sufficient historical data).");
+      }
+
+      // Show range summary
+      console.log("");
+      console.log(pc.dim("Expected range for pending stories:"));
+      console.log(pc.dim(`  Time: ${estimateModule.formatDuration(result.totals.durationOptimistic)} - ${estimateModule.formatDuration(result.totals.durationPessimistic)}`));
+      console.log(pc.dim(`  Cost: ${estimateModule.formatter.formatCost(result.totals.costOptimistic)} - ${estimateModule.formatter.formatCost(result.totals.costPessimistic)}`));
+      console.log("");
     }
 
     process.exit(0);
