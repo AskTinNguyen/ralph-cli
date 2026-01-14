@@ -81,16 +81,16 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Update loop.sh and stream.sh to source the library
 - [x] Test git operations work correctly in both main repo and worktrees
 
-### [ ] US-005: Remove dead code and consolidate duplicates
+### [x] US-005: Remove dead code and consolidate duplicates
 **As a** ralph-cli maintainer
 **I want** dead code removed and duplicate functions consolidated
 **So that** the codebase is cleaner and easier to understand
 
 #### Acceptance Criteria
-- [ ] Consolidate `parse_routing_field()` (lines 1091-1102) and `parse_token_field()` (lines 1573-1584) into single `parse_json_field()`
-- [ ] Audit AGENTS_PATH usage and remove if not referenced in templates
-- [ ] Resolve log-activity.sh redundancy (keep inline function, deprecate standalone script)
-- [ ] Test all agent types still work after cleanup
+- [x] Consolidate `parse_routing_field()` (lines 1091-1102) and `parse_token_field()` (lines 1573-1584) into single `parse_json_field()`
+- [x] Audit AGENTS_PATH usage and remove if not referenced in templates
+- [x] Resolve log-activity.sh redundancy (keep inline function, deprecate standalone script)
+- [x] Test all agent types still work after cleanup
 
 ### [ ] US-006: Replace eval usage with safer alternatives
 **As a** ralph-cli maintainer

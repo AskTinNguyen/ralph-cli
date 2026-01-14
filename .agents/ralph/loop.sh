@@ -1421,13 +1421,15 @@ get_routing_decision() {
   fi
 }
 
-# Parse JSON field from routing decision
-parse_routing_field() {
+# Parse JSON field from any JSON object
+# Usage: parse_json_field <json_string> <field_name>
+# Returns: The value of the field, or empty string if not found/null
+parse_json_field() {
   local json="$1"
   local field="$2"
   local result
   result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
-  # Handle None, null, and empty
+  # Handle None, null, and empty - return empty string to prevent arithmetic errors
   if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
     echo ""
   else
@@ -1816,7 +1818,7 @@ write_run_meta() {
         local actual_cost_json
         actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$token_model" 2>/dev/null || echo "")"
         local actual_cost
-        actual_cost="$(parse_routing_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
+        actual_cost="$(parse_json_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
         if [ -n "$actual_cost" ] && [ "$actual_cost" != "null" ]; then
           echo "- Actual cost: \$$actual_cost"
         fi
@@ -1909,20 +1911,6 @@ extract_tokens_from_log() {
     node "$extractor_path" "$log_file" 2>/dev/null || echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
   else
     echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
-  fi
-}
-
-# Parse JSON field from token extraction result
-parse_token_field() {
-  local json="$1"
-  local field="$2"
-  local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
-  # Handle None, null, and empty - return empty string to prevent arithmetic errors
-  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
-    echo ""
-  else
-    echo "$result"
   fi
 }
 
@@ -2555,13 +2543,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
     # Get model routing decision
     ROUTING_JSON="$(get_routing_decision "$STORY_BLOCK" "${RALPH_MODEL_OVERRIDE:-}")"
-    ROUTED_MODEL="$(parse_routing_field "$ROUTING_JSON" "model")"
-    ROUTED_SCORE="$(parse_routing_field "$ROUTING_JSON" "score")"
-    ROUTED_REASON="$(parse_routing_field "$ROUTING_JSON" "reason")"
-    ROUTED_OVERRIDE="$(parse_routing_field "$ROUTING_JSON" "override")"
+    ROUTED_MODEL="$(parse_json_field "$ROUTING_JSON" "model")"
+    ROUTED_SCORE="$(parse_json_field "$ROUTING_JSON" "score")"
+    ROUTED_REASON="$(parse_json_field "$ROUTING_JSON" "reason")"
+    ROUTED_OVERRIDE="$(parse_json_field "$ROUTING_JSON" "override")"
 
     # Parse complexity breakdown from routing JSON
-    ROUTED_BREAKDOWN="$(parse_routing_field "$ROUTING_JSON" "breakdown")"
+    ROUTED_BREAKDOWN="$(parse_json_field "$ROUTING_JSON" "breakdown")"
 
     # Display routing decision with enhanced visualization
     printf "${C_DIM}  ┌─ Routing Decision ────────────────────────────────${C_RESET}\n"
@@ -2588,10 +2576,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
     # Get and display estimated cost before execution
     ESTIMATED_COST_JSON="$(estimate_execution_cost "$ROUTED_MODEL" "$ROUTED_SCORE")"
-    ESTIMATED_COST="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedCost")"
-    ESTIMATED_COST_RANGE="$(parse_routing_field "$ESTIMATED_COST_JSON" "costRange")"
-    ESTIMATED_TOKENS="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
-    ESTIMATED_COMPARISON="$(parse_routing_field "$ESTIMATED_COST_JSON" "comparison")"
+    ESTIMATED_COST="$(parse_json_field "$ESTIMATED_COST_JSON" "estimatedCost")"
+    ESTIMATED_COST_RANGE="$(parse_json_field "$ESTIMATED_COST_JSON" "costRange")"
+    ESTIMATED_TOKENS="$(parse_json_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
+    ESTIMATED_COMPARISON="$(parse_json_field "$ESTIMATED_COST_JSON" "comparison")"
     if [ -n "$ESTIMATED_COST" ] && [ "$ESTIMATED_COST" != "null" ]; then
       printf "${C_DIM}  │${C_RESET} Est. cost: ${C_CYAN}\$${ESTIMATED_COST}${C_RESET}"
       if [ -n "$ESTIMATED_COST_RANGE" ] && [ "$ESTIMATED_COST_RANGE" != "null" ]; then
@@ -2698,10 +2686,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
   # Extract token metrics from log file
   TOKEN_JSON="$(extract_tokens_from_log "$LOG_FILE")"
-  TOKEN_INPUT="$(parse_token_field "$TOKEN_JSON" "inputTokens")"
-  TOKEN_OUTPUT="$(parse_token_field "$TOKEN_JSON" "outputTokens")"
-  TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
-  TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
+  TOKEN_INPUT="$(parse_json_field "$TOKEN_JSON" "inputTokens")"
+  TOKEN_OUTPUT="$(parse_json_field "$TOKEN_JSON" "outputTokens")"
+  TOKEN_MODEL="$(parse_json_field "$TOKEN_JSON" "model")"
+  TOKEN_ESTIMATED="$(parse_json_field "$TOKEN_JSON" "estimated")"
 
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}" "$LAST_SWITCH_COUNT" "$LAST_SWITCH_FROM" "$LAST_SWITCH_TO" "$LAST_SWITCH_REASON"
 
