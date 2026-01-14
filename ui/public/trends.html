@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ralph CLI - Success Rate Trends</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/js/htmx.min.js"></script>
+    <script src="/js/chart.min.js"></script>
+  </head>
+  <body>
+    <!-- Error Toast Container -->
+    <div id="error-toast" class="error-toast hidden">
+      <div class="error-toast-header">
+        <span class="error-toast-title">Error</span>
+        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
+      </div>
+      <div class="error-toast-message" id="error-toast-message"></div>
+      <div class="error-toast-actions">
+        <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
+          <span class="retry-icon">&#8635;</span> Retry
+        </button>
+      </div>
+    </div>
+
+    <header>
+      <div class="header-content">
+        <h1>Ralph CLI</h1>
+        <span class="subtitle">Autonomous Coding Loop</span>
+      </div>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/streams.html">Streams</a>
+        <a href="/logs.html">Logs</a>
+        <a href="/tokens.html">Tokens</a>
+        <a href="/trends.html" class="active">Trends</a>
+        <a href="/editor.html">Editor</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- Success Rate Summary Section -->
+      <section id="success-rate-summary-section">
+        <h2>
+          Success Rate Overview
+          <span class="htmx-indicator" id="summary-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="success-rate-summary-container"
+          hx-get="/api/partials/success-rate-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#summary-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading success rate data...</div>
+        </div>
+      </section>
+
+      <!-- Success Rate Chart Section -->
+      <section id="success-rate-chart-section">
+        <div class="trend-chart-header">
+          <h2>Success Rate Timeline</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="trend-period">Period:</label>
+              <select id="trend-period" onchange="updateSuccessRateChart()">
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+              </select>
+            </div>
+            <div
+              id="trend-filters-container"
+              hx-get="/api/partials/success-rate-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="success-rate-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #10b981"></span>
+            <span>Success Rate (%)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Passed Runs</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #ef4444"></span>
+            <span>Failed Runs</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Week-over-Week Comparison Section -->
+      <section id="week-comparison-section">
+        <h2>Week-over-Week Comparison</h2>
+        <div id="week-comparison-container">
+          <div class="comparison-cards">
+            <div class="comparison-card" id="this-week-card">
+              <h3>This Week</h3>
+              <div class="comparison-value" id="this-week-value">--</div>
+              <div class="comparison-runs" id="this-week-runs">-- runs</div>
+            </div>
+            <div class="comparison-card" id="comparison-delta-card">
+              <h3>Change</h3>
+              <div class="comparison-delta" id="comparison-delta">--</div>
+              <div class="comparison-direction" id="comparison-direction">vs last week</div>
+            </div>
+            <div class="comparison-card" id="last-week-card">
+              <h3>Last Week</h3>
+              <div class="comparison-value" id="last-week-value">--</div>
+              <div class="comparison-runs" id="last-week-runs">-- runs</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Significant Changes Section -->
+      <section id="significant-changes-section">
+        <h2>Significant Changes</h2>
+        <p class="section-description">
+          Days with 10%+ change in success rate are highlighted to help identify patterns.
+        </p>
+        <div id="significant-changes-container">
+          <div class="no-data-message">No significant changes detected in the selected period.</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Ralph CLI Web UI &mdash;
+        <span
+          id="status-indicator"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          >checking...</span
+        >
+      </p>
+    </footer>
+
+    <script>
+      // ============================================
+      // Error Handling
+      // ============================================
+
+      var lastFailedRequest = null;
+
+      function showErrorToast(message, endpoint) {
+        console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
+        var toast = document.getElementById("error-toast");
+        var messageEl = document.getElementById("error-toast-message");
+        var retryBtn = document.getElementById("error-toast-retry");
+
+        messageEl.textContent = message;
+
+        if (lastFailedRequest) {
+          retryBtn.style.display = "inline-flex";
+        } else {
+          retryBtn.style.display = "none";
+        }
+
+        toast.classList.remove("hidden", "dismissing");
+      }
+
+      function dismissErrorToast() {
+        var toast = document.getElementById("error-toast");
+        toast.classList.add("dismissing");
+        setTimeout(function () {
+          toast.classList.add("hidden");
+          toast.classList.remove("dismissing");
+        }, 300);
+      }
+
+      function retryLastRequest() {
+        if (lastFailedRequest) {
+          var retryBtn = document.getElementById("error-toast-retry");
+          retryBtn.classList.add("loading");
+          retryBtn.disabled = true;
+
+          var element = lastFailedRequest.element;
+          htmx.trigger(element, "load");
+
+          setTimeout(function () {
+            retryBtn.classList.remove("loading");
+            retryBtn.disabled = false;
+            lastFailedRequest = null;
+            dismissErrorToast();
+          }, 1000);
+        }
+      }
+
+      document.body.addEventListener("htmx:responseError", function (event) {
+        var xhr = event.detail.xhr;
+        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+
+        var message = "Request failed";
+        if (xhr && xhr.status) {
+          if (xhr.status === 0) {
+            message = "Unable to connect to server. Check if the server is running.";
+          } else if (xhr.status === 404) {
+            message = "Resource not found: " + path;
+          } else if (xhr.status === 500) {
+            message = "Server error occurred. Please try again.";
+            try {
+              var response = JSON.parse(xhr.responseText);
+              if (response.message) {
+                message = response.message;
+              }
+            } catch (e) {}
+          } else {
+            message = "Request failed with status " + xhr.status;
+          }
+        }
+
+        lastFailedRequest = { element: event.target };
+        showErrorToast(message, path);
+      });
+
+      setInterval(function () {
+        var toast = document.getElementById("error-toast");
+        if (!toast.classList.contains("hidden") && !lastFailedRequest) {
+          dismissErrorToast();
+        }
+      }, 10000);
+
+      // ============================================
+      // Success Rate Chart
+      // ============================================
+
+      var successRateChart = null;
+      var chartData = null;
+
+      function initSuccessRateChart() {
+        var ctx = document.getElementById("success-rate-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        successRateChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Success Rate (%)",
+                data: [],
+                borderColor: "#10b981",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                fill: true,
+                tension: 0.3,
+                yAxisID: "y",
+                pointRadius: 5,
+                pointHoverRadius: 7,
+              },
+              {
+                label: "Passed",
+                data: [],
+                borderColor: "#3b82f6",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+                pointRadius: 4,
+                pointHoverRadius: 6,
+              },
+              {
+                label: "Failed",
+                data: [],
+                borderColor: "#ef4444",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+                pointRadius: 4,
+                pointHoverRadius: 6,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                  label: function (context) {
+                    var label = context.dataset.label || "";
+                    var value = context.parsed.y;
+                    if (label === "Success Rate (%)") {
+                      return label + ": " + value + "%";
+                    }
+                    return label + ": " + value;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                max: 100,
+                title: {
+                  display: true,
+                  text: "Success Rate (%)",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return value + "%";
+                  },
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Run Count",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateSuccessRateChart() {
+        var period = document.getElementById("trend-period").value;
+        var prdFilter = document.getElementById("trend-prd-filter");
+        var agentFilter = document.getElementById("trend-agent-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var agent = agentFilter ? agentFilter.value : "all";
+
+        var url = "/api/trends/success-rate?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (agent && agent !== "all") {
+          url += "&agent=" + encodeURIComponent(agent);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch trend data");
+            return response.json();
+          })
+          .then(function (data) {
+            chartData = data;
+            renderChart(data);
+            updateComparison(data.weekOverWeek);
+            updateSignificantChanges(data.trends.significantChanges);
+            updateSummary(data.trends);
+          })
+          .catch(function (error) {
+            console.error("Error fetching chart data:", error);
+          });
+      }
+
+      function renderChart(data) {
+        if (!successRateChart || !data.chartData) return;
+
+        successRateChart.data.labels = data.chartData.labels;
+        successRateChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        successRateChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        successRateChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        // Add annotations for significant changes
+        if (data.chartData.significantChanges && data.chartData.significantChanges.length > 0) {
+          // Highlight points with significant changes
+          var pointBackgroundColors = data.chartData.datasets[0].data.map(function (_, i) {
+            var change = data.chartData.significantChanges.find(function (c) {
+              return c.x === i;
+            });
+            if (change) {
+              return change.direction === "improved" ? "#10b981" : "#ef4444";
+            }
+            return "#10b981";
+          });
+
+          var pointRadii = data.chartData.datasets[0].data.map(function (_, i) {
+            var change = data.chartData.significantChanges.find(function (c) {
+              return c.x === i;
+            });
+            return change ? 8 : 5;
+          });
+
+          successRateChart.data.datasets[0].pointBackgroundColor = pointBackgroundColors;
+          successRateChart.data.datasets[0].pointRadius = pointRadii;
+        }
+
+        successRateChart.update("active");
+      }
+
+      function updateComparison(weekOverWeek) {
+        if (!weekOverWeek) return;
+
+        var thisWeekValue = document.getElementById("this-week-value");
+        var thisWeekRuns = document.getElementById("this-week-runs");
+        var lastWeekValue = document.getElementById("last-week-value");
+        var lastWeekRuns = document.getElementById("last-week-runs");
+        var deltaEl = document.getElementById("comparison-delta");
+        var deltaCard = document.getElementById("comparison-delta-card");
+
+        thisWeekValue.textContent =
+          weekOverWeek.thisWeek.successRate !== null
+            ? weekOverWeek.thisWeek.successRate + "%"
+            : "N/A";
+        thisWeekRuns.textContent = weekOverWeek.thisWeek.totalRuns + " runs";
+
+        lastWeekValue.textContent =
+          weekOverWeek.lastWeek.successRate !== null
+            ? weekOverWeek.lastWeek.successRate + "%"
+            : "N/A";
+        lastWeekRuns.textContent = weekOverWeek.lastWeek.totalRuns + " runs";
+
+        if (weekOverWeek.delta !== null) {
+          var sign = weekOverWeek.delta > 0 ? "+" : "";
+          deltaEl.textContent = sign + weekOverWeek.delta + "%";
+          deltaCard.className = "comparison-card " + weekOverWeek.direction;
+        } else {
+          deltaEl.textContent = "N/A";
+          deltaCard.className = "comparison-card stable";
+        }
+      }
+
+      function updateSignificantChanges(changes) {
+        var container = document.getElementById("significant-changes-container");
+
+        if (!changes || changes.length === 0) {
+          container.innerHTML =
+            '<div class="no-data-message">No significant changes detected in the selected period.</div>';
+          return;
+        }
+
+        var html = '<div class="changes-list">';
+        changes.forEach(function (change) {
+          var icon = change.direction === "improved" ? "&#8593;" : "&#8595;";
+          var changeClass = change.direction;
+          var date = new Date(change.date);
+          var formattedDate = date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          });
+
+          html +=
+            '<div class="change-item ' +
+            changeClass +
+            '">' +
+            '<span class="change-icon">' +
+            icon +
+            "</span>" +
+            '<div class="change-details">' +
+            '<span class="change-date">' +
+            formattedDate +
+            "</span>" +
+            '<span class="change-rates">' +
+            change.previousRate +
+            "% &rarr; " +
+            change.currentRate +
+            "%" +
+            "</span>" +
+            "</div>" +
+            '<span class="change-delta ' +
+            changeClass +
+            '">' +
+            (change.delta > 0 ? "+" : "") +
+            change.delta +
+            "%" +
+            "</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        container.innerHTML = html;
+      }
+
+      function updateSummary(trends) {
+        // Update HTMX partial with current filters
+        var period = document.getElementById("trend-period").value;
+        var prdFilter = document.getElementById("trend-prd-filter");
+        var agentFilter = document.getElementById("trend-agent-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var agent = agentFilter ? agentFilter.value : "all";
+
+        var url = "/api/partials/success-rate-chart?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (agent && agent !== "all") {
+          url += "&agent=" + encodeURIComponent(agent);
+        }
+
+        htmx.ajax("GET", url, "#success-rate-summary-container");
+      }
+
+      // Initialize on page load
+      document.addEventListener("DOMContentLoaded", function () {
+        initSuccessRateChart();
+        updateSuccessRateChart();
+      });
+    </script>
+  </body>
+</html>

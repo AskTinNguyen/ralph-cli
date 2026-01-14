@@ -13,6 +13,7 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
+import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
 // Import CommonJS accuracy and estimate modules
@@ -5850,6 +5851,172 @@ api.get('/rollback-stats', (c) => {
     byStream: allStats.byStream,
     byReason: allStats.byReason,
   });
+});
+
+// ============================================
+// SUCCESS RATE TRENDS ENDPOINTS (US-001)
+// ============================================
+
+/**
+ * GET /api/trends/success-rate
+ *
+ * Returns success rate trend data for visualization.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '7d')
+ *   - prd: PRD ID to filter by (optional)
+ *   - agent: Agent name to filter by (optional)
+ *   - developer: Developer to filter by (optional)
+ */
+api.get("/trends/success-rate", (c) => {
+  const periodParam = c.req.query("period") || "7d";
+  const period = periodParam === "30d" ? "30d" : "7d";
+  const prd = c.req.query("prd");
+  const agent = c.req.query("agent");
+  const developer = c.req.query("developer");
+
+  const trends = getSuccessRateTrends(period, { prd, agent, developer });
+  const chartData = formatForChart(trends);
+  const weekOverWeek = getWeekOverWeek({ prd, agent, developer });
+
+  return c.json({
+    trends,
+    chartData,
+    weekOverWeek,
+  });
+});
+
+/**
+ * GET /api/trends/filters
+ *
+ * Returns available filter options for success rate trends.
+ */
+api.get("/trends/filters", (c) => {
+  const options = getFilterOptions();
+  return c.json(options);
+});
+
+/**
+ * GET /api/partials/success-rate-chart
+ *
+ * Returns HTML fragment for the success rate trend chart section.
+ */
+api.get("/partials/success-rate-chart", (c) => {
+  const periodParam = c.req.query("period") || "7d";
+  const period = periodParam === "30d" ? "30d" : "7d";
+  const prd = c.req.query("prd");
+  const agent = c.req.query("agent");
+
+  const trends = getSuccessRateTrends(period, { prd, agent });
+  const weekOverWeek = getWeekOverWeek({ prd, agent });
+
+  // Calculate trend arrow and color
+  let trendArrow = "→";
+  let trendClass = "stable";
+  if (weekOverWeek.delta !== null && weekOverWeek.delta !== 0) {
+    if (weekOverWeek.delta > 0) {
+      trendArrow = "↑";
+      trendClass = "improved";
+    } else {
+      trendArrow = "↓";
+      trendClass = "declined";
+    }
+  }
+
+  const deltaText = weekOverWeek.delta !== null
+    ? `${weekOverWeek.delta > 0 ? "+" : ""}${weekOverWeek.delta}%`
+    : "N/A";
+
+  // Build significant changes HTML
+  let changesHtml = "";
+  if (trends.significantChanges.length > 0) {
+    const changeItems = trends.significantChanges
+      .slice(0, 3) // Show max 3
+      .map((change) => {
+        const icon = change.direction === "improved" ? "↑" : "↓";
+        const changeClass = change.direction;
+        const formattedDate = new Date(change.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        return `<div class="significant-change ${changeClass}">
+          <span class="change-icon">${icon}</span>
+          <span class="change-date">${formattedDate}</span>
+          <span class="change-delta">${change.delta > 0 ? "+" : ""}${change.delta}%</span>
+        </div>`;
+      })
+      .join("");
+    changesHtml = `<div class="significant-changes">
+      <h4>Significant Changes</h4>
+      ${changeItems}
+    </div>`;
+  }
+
+  // Build summary card
+  const html = `
+    <div class="success-rate-summary">
+      <div class="summary-card">
+        <div class="summary-value">${trends.overallSuccessRate !== null ? trends.overallSuccessRate + "%" : "N/A"}</div>
+        <div class="summary-label">Success Rate</div>
+        <div class="summary-trend ${trendClass}">
+          <span class="trend-arrow">${trendArrow}</span>
+          <span class="trend-delta">${deltaText}</span>
+          <span class="trend-label">vs last week</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-value">${trends.totalRuns}</div>
+        <div class="summary-label">Total Runs</div>
+        <div class="summary-detail">${trends.totalPassed} passed, ${trends.totalFailed} failed</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-value">${trends.dailyMetrics.length}</div>
+        <div class="summary-label">Active Days</div>
+        <div class="summary-detail">${period === "7d" ? "Last 7 days" : "Last 30 days"}</div>
+      </div>
+    </div>
+    ${changesHtml}
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/success-rate-filters
+ *
+ * Returns HTML fragment for the filter dropdown options.
+ */
+api.get("/partials/success-rate-filters", (c) => {
+  const options = getFilterOptions();
+
+  // Build PRD options
+  let prdOptions = '<option value="all">All PRDs</option>';
+  for (const prd of options.prds) {
+    prdOptions += `<option value="${prd}">PRD-${prd}</option>`;
+  }
+
+  // Build agent options
+  let agentOptions = '<option value="all">All Agents</option>';
+  for (const agent of options.agents) {
+    const displayName = agent.charAt(0).toUpperCase() + agent.slice(1);
+    agentOptions += `<option value="${agent}">${displayName}</option>`;
+  }
+
+  const html = `
+    <div class="filter-group">
+      <label for="trend-prd-filter">PRD:</label>
+      <select id="trend-prd-filter" onchange="updateSuccessRateChart()">
+        ${prdOptions}
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="trend-agent-filter">Agent:</label>
+      <select id="trend-agent-filter" onchange="updateSuccessRateChart()">
+        ${agentOptions}
+      </select>
+    </div>
+  `;
+
+  return c.html(html);
 });
 
 export { api };
