@@ -109,6 +109,62 @@ release_lock() {
   rm -f "$LOCKS_DIR/$stream_id.lock"
 }
 
+# ============================================================================
+# Merge Lock Functions (Global lock for serialized merges)
+# ============================================================================
+
+MERGE_LOCK_FILE="$LOCKS_DIR/merge.lock"
+
+acquire_merge_lock() {
+  local stream_id="$1"
+  mkdir -p "$LOCKS_DIR"
+
+  # Check if lock is already held by a running process
+  if is_merge_lock_held; then
+    local holder_stream holder_pid holder_time
+    holder_stream=$(grep '^STREAM_ID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+    holder_pid=$(grep '^PID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+    msg_error "Merge lock is held by $holder_stream (PID $holder_pid)" >&2
+    return 1
+  fi
+
+  # Create lock file with PID, stream ID, and timestamp
+  cat > "$MERGE_LOCK_FILE" << EOF
+PID=$$
+STREAM_ID=$stream_id
+TIMESTAMP=$(date +%s)
+EOF
+
+  return 0
+}
+
+release_merge_lock() {
+  rm -f "$MERGE_LOCK_FILE"
+}
+
+is_merge_lock_held() {
+  if [[ ! -f "$MERGE_LOCK_FILE" ]]; then
+    return 1
+  fi
+
+  local pid
+  pid=$(grep '^PID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+
+  if [[ -z "$pid" ]]; then
+    return 1
+  fi
+
+  # Check if the process is still running
+  if kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+
+  # Lock exists but process is dead - stale lock
+  msg_warn "Cleaning up stale merge lock (PID $pid no longer running)"
+  rm -f "$MERGE_LOCK_FILE"
+  return 1
+}
+
 get_stream_status() {
   local stream_id="$1"
   local stream_dir
@@ -499,6 +555,15 @@ cmd_merge() {
     msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
   fi
+
+  # Acquire global merge lock to prevent concurrent merges
+  if ! acquire_merge_lock "$stream_id"; then
+    msg_dim "Another merge is in progress. Wait for it to complete or use --force-unlock."
+    return 1
+  fi
+
+  # Set up trap to release merge lock on exit (success or failure)
+  trap 'release_merge_lock' EXIT
 
   local branch="ralph/$stream_id"
   local base_branch="main"
