@@ -19,6 +19,8 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { generateAccuracyReport, loadEstimates, saveEstimate } = require('../../../lib/estimate/accuracy.js');
 const { estimate } = require('../../../lib/estimate/index.js');
+// Rollback analytics (US-004)
+const { getRollbackAnalytics, getRollbackStats, loadMetrics } = require('../../../lib/estimate/metrics.js');
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -2374,6 +2376,7 @@ api.get("/partials/stream-detail", (c) => {
   <button class="stream-tab active" onclick="switchStreamTab(this, 'stories')">Stories (${stream.totalStories})</button>
   <button class="stream-tab" onclick="switchStreamTab(this, 'runs')">Runs (${stream.runs.length})</button>
   <button class="stream-tab" onclick="switchStreamTab(this, 'estimate')">Estimate</button>
+  <button class="stream-tab" onclick="switchStreamTab(this, 'rollback')">Rollback</button>
 </div>
 
 <div id="stream-tab-stories" class="stream-tab-content active">
@@ -2427,6 +2430,15 @@ api.get("/partials/stream-detail", (c) => {
          hx-swap="innerHTML">
       <div class="loading">Loading estimate history...</div>
     </div>
+  </div>
+</div>
+
+<div id="stream-tab-rollback" class="stream-tab-content">
+  <div id="rollback-stats-container"
+       hx-get="/api/partials/rollback-stats?id=${stream.id}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML">
+    <div class="loading">Loading rollback statistics...</div>
   </div>
 </div>
 
@@ -5614,6 +5626,230 @@ api.get('/partials/accuracy-widget', (c) => {
 `;
 
   return c.html(html);
+});
+
+/**
+ * GET /api/partials/rollback-stats
+ *
+ * Returns HTML fragment for rollback statistics (US-004).
+ * Shows total rollbacks, recovery rate, breakdown by reason, and recent events.
+ */
+api.get('/partials/rollback-stats', (c) => {
+  const streamId = c.req.query('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.html(`
+<div class="rollback-stats empty-state">
+  <p>Ralph directory not found.</p>
+</div>
+`);
+  }
+
+  // Get PRD folder path
+  const prdFolder = streamId
+    ? path.join(ralphRoot, `PRD-${streamId}`)
+    : null;
+
+  if (streamId && !fs.existsSync(prdFolder!)) {
+    return c.html(`
+<div class="rollback-stats empty-state">
+  <p>Stream PRD-${escapeHtml(streamId)} not found.</p>
+</div>
+`);
+  }
+
+  // Load rollback analytics
+  const analytics = streamId
+    ? getRollbackAnalytics(prdFolder)
+    : { success: true, hasData: false, total: 0 };
+
+  if (!analytics.success) {
+    return c.html(`
+<div class="rollback-stats error-state">
+  <p>Error loading rollback stats: ${escapeHtml(analytics.error || 'Unknown error')}</p>
+</div>
+`);
+  }
+
+  if (!analytics.hasData) {
+    return c.html(`
+<div class="rollback-stats empty-state">
+  <div class="empty-icon">✓</div>
+  <h3>No Rollbacks</h3>
+  <p>No rollback events recorded for this stream. This means all builds succeeded without test failures!</p>
+</div>
+`);
+  }
+
+  // Build breakdown by reason HTML
+  const reasonsHtml = Object.entries(analytics.byReason as Record<string, {count: number, successful: number, avgAttempts: number}>)
+    .sort(([, a], [, b]) => b.count - a.count)
+    .slice(0, 5)
+    .map(([reason, stats]) => {
+      const recoveryRate = stats.count > 0 ? Math.round((stats.successful / stats.count) * 100) : 0;
+      const reasonLabel = reason.replace(/-/g, ' ').replace(/_/g, ' ');
+      return `
+<div class="rollback-reason-item">
+  <div class="rollback-reason-name">${escapeHtml(reasonLabel)}</div>
+  <div class="rollback-reason-stats">
+    <span class="rollback-reason-count">${stats.count}</span>
+    <span class="rollback-reason-rate">${recoveryRate}% recovered</span>
+  </div>
+</div>
+`;
+    })
+    .join('');
+
+  // Build timeline HTML (last 5 events)
+  const timelineHtml = (analytics.timeline as Array<{timestamp: string, storyId: string, reason: string, success: boolean, attempt: number}>)
+    .slice(0, 5)
+    .map((event) => {
+      const time = new Date(event.timestamp).toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const statusClass = event.success ? 'success' : 'error';
+      const statusIcon = event.success ? '✓' : '✗';
+      return `
+<div class="rollback-timeline-item">
+  <span class="rollback-timeline-status ${statusClass}">${statusIcon}</span>
+  <span class="rollback-timeline-story">${escapeHtml(event.storyId)}</span>
+  <span class="rollback-timeline-reason">${escapeHtml(event.reason.replace(/-/g, ' '))}</span>
+  <span class="rollback-timeline-time">${time}</span>
+</div>
+`;
+    })
+    .join('');
+
+  const html = `
+<div class="rollback-stats">
+  <div class="rollback-stats-header">
+    <h3>Rollback & Recovery</h3>
+  </div>
+
+  <div class="rollback-summary">
+    <div class="rollback-stat">
+      <div class="rollback-stat-value">${analytics.total}</div>
+      <div class="rollback-stat-label">Total Rollbacks</div>
+    </div>
+    <div class="rollback-stat ${analytics.successRate >= 50 ? 'success' : 'warning'}">
+      <div class="rollback-stat-value">${analytics.successRate}%</div>
+      <div class="rollback-stat-label">Recovery Rate</div>
+    </div>
+    <div class="rollback-stat">
+      <div class="rollback-stat-value">${analytics.avgAttempts}</div>
+      <div class="rollback-stat-label">Avg Attempts</div>
+    </div>
+    <div class="rollback-stat">
+      <div class="rollback-stat-value">${Object.keys(analytics.byStory as object).length}</div>
+      <div class="rollback-stat-label">Stories Affected</div>
+    </div>
+  </div>
+
+  ${reasonsHtml ? `
+  <div class="rollback-breakdown">
+    <h4>By Failure Type</h4>
+    <div class="rollback-reasons">
+      ${reasonsHtml}
+    </div>
+  </div>
+  ` : ''}
+
+  ${timelineHtml ? `
+  <div class="rollback-timeline">
+    <h4>Recent Events</h4>
+    <div class="rollback-timeline-list">
+      ${timelineHtml}
+    </div>
+  </div>
+  ` : ''}
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/rollback-stats
+ *
+ * Returns JSON with rollback statistics for a stream or all streams (US-004).
+ */
+api.get('/rollback-stats', (c) => {
+  const streamId = c.req.query('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ success: false, error: 'Ralph directory not found' });
+  }
+
+  if (streamId) {
+    // Get stats for a specific stream
+    const prdFolder = path.join(ralphRoot, `PRD-${streamId}`);
+    if (!fs.existsSync(prdFolder)) {
+      return c.json({ success: false, error: `Stream PRD-${streamId} not found` });
+    }
+
+    const analytics = getRollbackAnalytics(prdFolder);
+    return c.json({
+      success: true,
+      streamId,
+      ...analytics,
+    });
+  }
+
+  // Get aggregated stats for all streams
+  const streams = getStreams();
+  const allStats = {
+    totalRollbacks: 0,
+    totalRecovered: 0,
+    totalFailed: 0,
+    byStream: {} as Record<string, {rollbacks: number, recoveryRate: number}>,
+    byReason: {} as Record<string, {count: number, successful: number}>,
+  };
+
+  for (const stream of streams) {
+    const prdFolder = path.join(ralphRoot, `PRD-${stream.id}`);
+    if (!fs.existsSync(prdFolder)) continue;
+
+    const analytics = getRollbackAnalytics(prdFolder);
+    if (!analytics.hasData) continue;
+
+    allStats.totalRollbacks += analytics.total;
+    allStats.totalRecovered += analytics.successful;
+    allStats.totalFailed += analytics.failed;
+
+    allStats.byStream[stream.id] = {
+      rollbacks: analytics.total,
+      recoveryRate: analytics.successRate,
+    };
+
+    // Aggregate by reason
+    for (const [reason, stats] of Object.entries(analytics.byReason as Record<string, {count: number, successful: number}>)) {
+      if (!allStats.byReason[reason]) {
+        allStats.byReason[reason] = { count: 0, successful: 0 };
+      }
+      allStats.byReason[reason].count += stats.count;
+      allStats.byReason[reason].successful += stats.successful;
+    }
+  }
+
+  const overallRecoveryRate = allStats.totalRollbacks > 0
+    ? Math.round((allStats.totalRecovered / allStats.totalRollbacks) * 100)
+    : 0;
+
+  return c.json({
+    success: true,
+    total: allStats.totalRollbacks,
+    recovered: allStats.totalRecovered,
+    failed: allStats.totalFailed,
+    recoveryRate: overallRecoveryRate,
+    byStream: allStats.byStream,
+    byReason: allStats.byReason,
+  });
 });
 
 export { api };

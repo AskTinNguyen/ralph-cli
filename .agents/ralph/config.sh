@@ -40,6 +40,56 @@ RALPH_BUDGET_MONTHLY=500.00
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Rollback Configuration (US-001)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic rollback behavior when test failures are detected.
+# When tests fail, Ralph can automatically revert to pre-story git state.
+#
+# Enable/disable automatic rollback on test failure (default: true):
+ROLLBACK_ENABLED=true
+#
+# Note: Rollback is disabled when using --no-commit flag.
+# Error context is preserved in .ralph/PRD-N/runs/failure-context-*.log
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Retry Configuration (US-002)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic retry behavior after rollback.
+# When a story fails and is rolled back, Ralph can retry with enhanced context.
+#
+# Maximum retry attempts per story before giving up (default: 3):
+ROLLBACK_MAX_RETRIES=3
+#
+# Enable/disable automatic retry after rollback (default: true):
+ROLLBACK_RETRY_ENABLED=true
+#
+# Note: Retry uses PROMPT_retry.md template with failure context injected.
+# Each retry includes: failure reason, previous approach analysis, and suggestions.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback Trigger Configuration (US-003)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure what types of failures trigger automatic rollback.
+#
+# Rollback trigger policy (choose one):
+#   test-fail  - Only test failures (Jest, Pytest, Mocha, Go test, Vitest, etc.)
+#   lint-fail  - Only lint failures (ESLint, Prettier, Ruff, Pylint, etc.)
+#   type-fail  - Only type check failures (TypeScript, mypy, pyright, etc.)
+#   any-fail   - Any non-zero exit code triggers rollback (most aggressive)
+#
+# Default: test-fail (most conservative, only rollback on test failures)
+ROLLBACK_TRIGGER=test-fail
+#
+# Override via CLI: ralph build 1 --rollback-trigger=any-fail
+# Disable rollback via CLI: ralph build 1 --no-rollback
+#
+# Story-level skip: Add <!-- no-rollback --> to a story block in the PRD
+# to exclude that specific story from rollback even if failures occur.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Automatically select AI model based on task complexity.

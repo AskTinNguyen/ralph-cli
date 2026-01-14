@@ -90,6 +90,7 @@ fi
 DEFAULT_AGENTS_PATH="AGENTS.md"
 DEFAULT_PROMPT_PLAN=".agents/ralph/PROMPT_plan.md"
 DEFAULT_PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
+DEFAULT_PROMPT_RETRY=".agents/ralph/PROMPT_retry.md"
 DEFAULT_GUARDRAILS_PATH=".ralph/guardrails.md"
 DEFAULT_ERRORS_LOG_PATH=".ralph/errors.log"
 DEFAULT_ACTIVITY_LOG_PATH=".ralph/activity.log"
@@ -239,6 +240,7 @@ fi
 AGENTS_PATH="${AGENTS_PATH:-$DEFAULT_AGENTS_PATH}"
 PROMPT_PLAN="${PROMPT_PLAN:-$DEFAULT_PROMPT_PLAN}"
 PROMPT_BUILD="${PROMPT_BUILD:-$DEFAULT_PROMPT_BUILD}"
+PROMPT_RETRY="${PROMPT_RETRY:-$DEFAULT_PROMPT_RETRY}"
 GUARDRAILS_PATH="${GUARDRAILS_PATH:-$DEFAULT_GUARDRAILS_PATH}"
 
 # ERRORS_LOG_PATH, ACTIVITY_LOG_PATH, RUNS_DIR should use PRD-N folder when specified
@@ -292,6 +294,7 @@ PROGRESS_PATH="$(abs_path "$PROGRESS_PATH")"
 AGENTS_PATH="$(abs_path "$AGENTS_PATH")"
 PROMPT_PLAN="$(abs_path "$PROMPT_PLAN")"
 PROMPT_BUILD="$(abs_path "$PROMPT_BUILD")"
+PROMPT_RETRY="$(abs_path "$PROMPT_RETRY")"
 GUARDRAILS_PATH="$(abs_path "$GUARDRAILS_PATH")"
 ERRORS_LOG_PATH="$(abs_path "$ERRORS_LOG_PATH")"
 ACTIVITY_LOG_PATH="$(abs_path "$ACTIVITY_LOG_PATH")"
@@ -393,6 +396,12 @@ calculate_backoff_delay() {
 # These are used by write_run_meta and append_metrics
 LAST_RETRY_COUNT=0
 LAST_RETRY_TOTAL_TIME=0
+
+# Global variables for rollback statistics (set during rollback execution, US-004)
+# These are used by append_metrics for tracking rollback events
+LAST_ROLLBACK_COUNT=0
+LAST_ROLLBACK_REASON=""
+LAST_ROLLBACK_SUCCESS=""
 
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
@@ -518,6 +527,14 @@ while [ $# -gt 0 ]; do
       ;;
     --no-commit)
       NO_COMMIT=true
+      shift
+      ;;
+    --no-rollback)
+      ROLLBACK_ENABLED=false
+      shift
+      ;;
+    --rollback-trigger=*)
+      ROLLBACK_TRIGGER="${1#*=}"
       shift
       ;;
     --resume)
@@ -787,6 +804,169 @@ Path(sys.argv[2]).write_text(src)
 PY
 }
 
+# Render retry prompt with failure context variables (US-002)
+# Usage: render_retry_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta> \
+#                            <failure_context_file> <retry_attempt> <retry_max>
+render_retry_prompt() {
+  local src="$1"
+  local dst="$2"
+  local story_meta="$3"
+  local story_block="$4"
+  local run_id="$5"
+  local iter="$6"
+  local run_log="$7"
+  local run_meta="$8"
+  local failure_context_file="${9:-}"
+  local retry_attempt="${10:-1}"
+  local retry_max="${11:-3}"
+  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1]).read_text()
+prd, plan, agents, progress, root = sys.argv[3:8]
+guardrails = sys.argv[8]
+errors_log = sys.argv[9]
+activity_log = sys.argv[10]
+guardrails_ref = sys.argv[11]
+context_ref = sys.argv[12]
+activity_cmd = sys.argv[13]
+no_commit = sys.argv[14]
+meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
+block_path = sys.argv[16] if len(sys.argv) > 16 else ""
+run_id = sys.argv[17] if len(sys.argv) > 17 else ""
+iteration = sys.argv[18] if len(sys.argv) > 18 else ""
+run_log = sys.argv[19] if len(sys.argv) > 19 else ""
+run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
+failure_context_file = sys.argv[21] if len(sys.argv) > 21 else ""
+retry_attempt = sys.argv[22] if len(sys.argv) > 22 else "1"
+retry_max = sys.argv[23] if len(sys.argv) > 23 else "3"
+
+def analyze_previous_approach(context):
+    """Analyze what the previous approach tried based on failure context."""
+    if not context:
+        return "No previous failure context available."
+
+    lines = context.split('\n')
+    analysis = []
+
+    # Look for common patterns
+    for line in lines:
+        line_lower = line.lower()
+        if 'import' in line_lower and ('error' in line_lower or 'fail' in line_lower):
+            analysis.append("- Import statements may have issues")
+        if 'route' in line_lower and ('not found' in line_lower or '404' in line_lower):
+            analysis.append("- Route registration may be missing")
+        if 'expect' in line_lower and 'received' in line_lower:
+            analysis.append("- Test assertions did not match expected values")
+        if 'undefined' in line_lower or 'null' in line_lower:
+            analysis.append("- Some variables or properties were undefined/null")
+        if 'type' in line_lower and 'error' in line_lower:
+            analysis.append("- Type mismatches were detected")
+
+    if not analysis:
+        analysis.append("- Review the full log for specific failure details")
+
+    return '\n'.join(list(set(analysis))[:5])  # Dedupe and limit to 5
+
+def suggest_alternatives(context):
+    """Suggest alternative approaches based on failure patterns."""
+    if not context:
+        return "- Try a simpler approach first\n- Double-check the requirements"
+
+    context_lower = context.lower()
+    suggestions = []
+
+    # Pattern-based suggestions
+    if 'import' in context_lower and ('error' in context_lower or 'module' in context_lower):
+        suggestions.append("- Verify all import paths are correct and modules exist")
+        suggestions.append("- Check for circular dependencies")
+
+    if 'route' in context_lower or '404' in context_lower:
+        suggestions.append("- Ensure the route is registered in the router/app")
+        suggestions.append("- Check route path spelling and parameters")
+
+    if 'expect' in context_lower or 'assert' in context_lower:
+        suggestions.append("- Match the expected output format exactly")
+        suggestions.append("- Check data types (string vs number, etc.)")
+
+    if 'undefined' in context_lower or 'null' in context_lower:
+        suggestions.append("- Add null checks and default values")
+        suggestions.append("- Verify object properties exist before accessing")
+
+    if 'timeout' in context_lower:
+        suggestions.append("- Reduce operation complexity or add pagination")
+        suggestions.append("- Check for infinite loops or blocking operations")
+
+    if 'permission' in context_lower or 'access' in context_lower:
+        suggestions.append("- Check file/directory permissions")
+        suggestions.append("- Verify authentication/authorization is set up")
+
+    if 'syntax' in context_lower:
+        suggestions.append("- Check for missing brackets, semicolons, or quotes")
+        suggestions.append("- Validate JSON/YAML/config file formats")
+
+    if not suggestions:
+        suggestions.append("- Read the failing test/verification command carefully")
+        suggestions.append("- Check if dependencies are installed")
+        suggestions.append("- Try a more incremental approach")
+
+    return '\n'.join(suggestions[:4])  # Limit to 4 suggestions
+
+# Read failure context from file
+failure_context = ""
+if failure_context_file and Path(failure_context_file).exists():
+    failure_context = Path(failure_context_file).read_text()
+
+# Analyze previous approach from failure context
+previous_approach = analyze_previous_approach(failure_context)
+
+# Generate suggestions based on failure patterns
+suggestions = suggest_alternatives(failure_context)
+
+repl = {
+    "PRD_PATH": prd,
+    "PLAN_PATH": plan,
+    "AGENTS_PATH": agents,
+    "PROGRESS_PATH": progress,
+    "REPO_ROOT": root,
+    "GUARDRAILS_PATH": guardrails,
+    "ERRORS_LOG_PATH": errors_log,
+    "ACTIVITY_LOG_PATH": activity_log,
+    "GUARDRAILS_REF": guardrails_ref,
+    "CONTEXT_REF": context_ref,
+    "ACTIVITY_CMD": activity_cmd,
+    "NO_COMMIT": no_commit,
+    "RUN_ID": run_id,
+    "ITERATION": iteration,
+    "RUN_LOG_PATH": run_log,
+    "RUN_META_PATH": run_meta,
+    "FAILURE_CONTEXT": failure_context,
+    "PREVIOUS_APPROACH": previous_approach,
+    "SUGGESTIONS": suggestions,
+    "RETRY_ATTEMPT": retry_attempt,
+    "RETRY_MAX": retry_max,
+}
+story = {"id": "", "title": "", "block": ""}
+if meta_path:
+    try:
+        import json
+        meta = json.loads(Path(meta_path).read_text())
+        story["id"] = meta.get("id", "") or ""
+        story["title"] = meta.get("title", "") or ""
+    except Exception:
+        pass
+if block_path and Path(block_path).exists():
+    story["block"] = Path(block_path).read_text()
+repl["STORY_ID"] = story["id"]
+repl["STORY_TITLE"] = story["title"]
+repl["STORY_BLOCK"] = story["block"]
+for k, v in repl.items():
+    src = src.replace("{{" + k + "}}", v)
+Path(sys.argv[2]).write_text(src)
+PY
+}
+
 select_story() {
   local meta_out="$1"
   local block_out="$2"
@@ -987,6 +1167,408 @@ load_checkpoint() {
     return 0
   else
     return 1
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback Functions (US-001: Automatic Rollback on Test Failure)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Detect test failures in build output
+# Returns: 0 if test failure detected, 1 if no test failure
+# Usage: detect_test_failure <log_file>
+detect_test_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common test failure patterns across various frameworks
+  # Jest: "Tests: X failed"
+  # Mocha: "X failing"
+  # Pytest: "X failed"
+  # npm test: "npm ERR!" with test context
+  # Go test: "FAIL" or "--- FAIL:"
+  # Vitest: "Tests: X failed"
+  # Bun test: "X fail"
+  local patterns=(
+    "Tests:.*[0-9]+ failed"           # Jest, Vitest
+    "[0-9]+ failing"                   # Mocha
+    "FAILED.*test"                     # Pytest
+    "^FAIL\t"                          # Go test (FAIL<tab>package)
+    "--- FAIL:"                        # Go test detailed
+    "npm ERR!.*test"                   # npm test failure
+    "test.*failed"                     # Generic test failure
+    "AssertionError"                   # Node.js assertion
+    "Error: expect"                    # Jest/Vitest expect failure
+    "✗.*test"                          # Various test runners
+    "[0-9]+ test.*fail"                # Bun and others
+    "FAIL.*\\.test\\."                 # Test file failure patterns
+    "FAIL.*\\.spec\\."                 # Spec file failure patterns
+    "exit status [1-9]"                # Go test exit status
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Test failure detected
+    fi
+  done
+
+  return 1  # No test failure detected
+}
+
+# Detect lint failures in build output (US-003)
+# Returns: 0 if lint failure detected, 1 if no lint failure
+# Usage: detect_lint_failure <log_file>
+detect_lint_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common lint failure patterns across various linters
+  local patterns=(
+    "error.*eslint"                    # ESLint
+    "eslint.*error"                    # ESLint (alternate order)
+    "[0-9]+ error"                     # ESLint summary
+    "prettier.*failed"                 # Prettier
+    "prettier.*check.*failed"          # Prettier check mode
+    "ruff.*error"                      # Ruff (Python)
+    "pylint.*error"                    # Pylint
+    "flake8.*error"                    # Flake8
+    "rubocop.*offense"                 # RuboCop (Ruby)
+    "stylelint.*error"                 # Stylelint (CSS)
+    "golangci-lint.*error"             # golangci-lint (Go)
+    "lint.*failed"                     # Generic lint failure
+    "linting.*failed"                  # Generic linting failure
+    "Linting errors"                   # Generic linting errors
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Lint failure detected
+    fi
+  done
+
+  return 1  # No lint failure detected
+}
+
+# Detect type check failures in build output (US-003)
+# Returns: 0 if type failure detected, 1 if no type failure
+# Usage: detect_type_failure <log_file>
+detect_type_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common type check failure patterns
+  local patterns=(
+    "error TS[0-9]+"                   # TypeScript errors
+    "tsc.*error"                       # TypeScript compiler
+    "Type.*is not assignable"          # TypeScript type error
+    "Cannot find module"               # TypeScript/JavaScript import error
+    "Cannot find name"                 # TypeScript undefined error
+    "mypy.*error"                      # mypy (Python)
+    "pyright.*error"                   # Pyright (Python)
+    "type.*mismatch"                   # Generic type mismatch
+    "incompatible type"                # Generic incompatible type
+    "error\\[E[0-9]+"                  # Rust compiler errors
+    "flow.*error"                      # Flow (JavaScript)
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Type failure detected
+    fi
+  done
+
+  return 1  # No type failure detected
+}
+
+# Unified failure detection based on ROLLBACK_TRIGGER config (US-003)
+# Returns: 0 if relevant failure detected (based on config), 1 otherwise
+# Usage: detect_failure <log_file> <trigger_policy>
+detect_failure() {
+  local log_file="$1"
+  local trigger_policy="${2:-test-fail}"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  case "$trigger_policy" in
+    test-fail)
+      detect_test_failure "$log_file"
+      return $?
+      ;;
+    lint-fail)
+      detect_lint_failure "$log_file"
+      return $?
+      ;;
+    type-fail)
+      detect_type_failure "$log_file"
+      return $?
+      ;;
+    any-fail)
+      # any-fail triggers on any non-zero exit, no log analysis needed
+      # The caller already checks CMD_STATUS != 0, so we always return 0 here
+      return 0
+      ;;
+    *)
+      # Unknown trigger policy, fall back to test-fail
+      detect_test_failure "$log_file"
+      return $?
+      ;;
+  esac
+}
+
+# Check if story has rollback disabled via <!-- no-rollback --> comment (US-003)
+# Returns: 0 if rollback should be skipped, 1 if rollback is allowed
+# Usage: story_has_no_rollback <story_block_file>
+story_has_no_rollback() {
+  local story_block_file="$1"
+
+  if [ -z "$story_block_file" ]; then
+    return 1  # No file, allow rollback
+  fi
+
+  if [ ! -f "$story_block_file" ]; then
+    return 1  # File doesn't exist, allow rollback
+  fi
+
+  # Check for <!-- no-rollback --> comment in story block file
+  if grep -qiE "<!--[[:space:]]*no-rollback[[:space:]]*-->" "$story_block_file" 2>/dev/null; then
+    return 0  # Rollback disabled for this story
+  fi
+
+  return 1  # Rollback is allowed
+}
+
+# Rollback to a git checkpoint (pre-story state)
+# Usage: rollback_to_checkpoint <target_sha> <story_id> <reason>
+# Returns: 0 on success, 1 on failure
+rollback_to_checkpoint() {
+  local target_sha="$1"
+  local story_id="$2"
+  local reason="${3:-test_failure}"
+
+  if [ -z "$target_sha" ]; then
+    log_error "ROLLBACK failed: no target SHA provided"
+    return 1
+  fi
+
+  local current_sha
+  current_sha=$(git_head)
+
+  # Check if we're already at target SHA
+  if [ "$current_sha" = "$target_sha" ]; then
+    msg_dim "Already at target SHA, no rollback needed"
+    return 0
+  fi
+
+  # Stash any uncommitted changes to preserve them
+  local stash_output
+  stash_output=$(git stash push -m "ralph-rollback-$story_id-$(date +%s)" 2>&1)
+  local has_stash=false
+  if ! echo "$stash_output" | grep -q "No local changes"; then
+    has_stash=true
+    msg_dim "Stashed uncommitted changes before rollback"
+  fi
+
+  # Perform the rollback using git reset
+  if ! git reset --hard "$target_sha" >/dev/null 2>&1; then
+    log_error "ROLLBACK failed: git reset --hard $target_sha failed"
+    # Attempt to restore stash if we made one
+    if [ "$has_stash" = "true" ]; then
+      git stash pop >/dev/null 2>&1 || true
+    fi
+    return 1
+  fi
+
+  # Log the rollback
+  log_activity "ROLLBACK story=$story_id reason=$reason from=${current_sha:0:8} to=${target_sha:0:8}"
+
+  return 0
+}
+
+# Save failure context for retry (preserves error information)
+# Usage: save_failure_context <log_file> <runs_dir> <run_tag> <iteration> <story_id>
+save_failure_context() {
+  local log_file="$1"
+  local runs_dir="$2"
+  local run_tag="$3"
+  local iteration="$4"
+  local story_id="$5"
+
+  local context_file="$runs_dir/failure-context-$run_tag-iter-$iteration.log"
+
+  {
+    echo "# Failure Context"
+    echo "# Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "# Story: $story_id"
+    echo "# Run: $run_tag (iteration $iteration)"
+    echo ""
+    echo "## Test Output"
+    echo ""
+
+    if [ -f "$log_file" ]; then
+      # Extract relevant error/test failure sections
+      # Look for test output, assertion failures, stack traces
+      grep -iE "(FAIL|ERROR|test.*fail|AssertionError|expect|✗|failing|failed)" "$log_file" 2>/dev/null | head -100 || true
+      echo ""
+      echo "## Full Log Tail (last 50 lines)"
+      echo ""
+      tail -50 "$log_file" 2>/dev/null || true
+    else
+      echo "(Log file not found: $log_file)"
+    fi
+  } > "$context_file"
+
+  echo "$context_file"
+}
+
+# Display rollback notification to user
+# Usage: notify_rollback <story_id> <reason> <target_sha> <context_file>
+notify_rollback() {
+  local story_id="$1"
+  local reason="$2"
+  local target_sha="$3"
+  local context_file="${4:-}"
+
+  printf "\n"
+  printf "${C_YELLOW}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_YELLOW}${C_BOLD}║              ROLLBACK TRIGGERED                       ║${C_RESET}\n"
+  printf "${C_YELLOW}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+  printf "\n"
+  printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "$story_id"
+  printf "  ${C_BOLD}Reason:${C_RESET} %s\n" "$reason"
+  printf "  ${C_BOLD}Rolled back to:${C_RESET} %s\n" "${target_sha:0:8}"
+  if [ -n "$context_file" ] && [ -f "$context_file" ]; then
+    printf "  ${C_BOLD}Error context:${C_RESET} %s\n" "$context_file"
+  fi
+  printf "\n"
+  printf "${C_DIM}  The codebase has been restored to its pre-story state.${C_RESET}\n"
+  printf "${C_DIM}  Review the error context for the next attempt.${C_RESET}\n"
+  printf "\n"
+}
+
+# Log rollback event to a dedicated rollback history log (US-004)
+# Provides structured logging for rollback analysis and statistics
+# Usage: log_rollback <story_id> <reason> <from_sha> <to_sha> <attempt> <success> [context_file]
+log_rollback() {
+  local story_id="$1"
+  local reason="$2"
+  local from_sha="$3"
+  local to_sha="$4"
+  local attempt="${5:-1}"
+  local success="${6:-true}"
+  local context_file="${7:-}"
+
+  local timestamp
+  timestamp=$(date '+%Y-%m-%dT%H:%M:%SZ')
+
+  # Log to activity log with structured format
+  log_activity "ROLLBACK_EVENT story=$story_id reason=$reason from=${from_sha:0:8} to=${to_sha:0:8} attempt=$attempt success=$success"
+
+  # Log to dedicated rollback history file (append-only JSONL format)
+  local rollback_log="${PRD_FOLDER:-$RALPH_DIR}/runs/rollback-history.jsonl"
+  local runs_dir
+  runs_dir="$(dirname "$rollback_log")"
+
+  # Create runs directory if needed
+  if [ ! -d "$runs_dir" ]; then
+    mkdir -p "$runs_dir"
+  fi
+
+  # Build JSON record (escape special characters)
+  local escaped_reason
+  escaped_reason=$(printf '%s' "$reason" | sed 's/"/\\"/g')
+
+  local json_record
+  json_record=$(printf '{"timestamp":"%s","storyId":"%s","reason":"%s","fromSha":"%s","toSha":"%s","attempt":%d,"success":%s,"runId":"%s","contextFile":"%s"}' \
+    "$timestamp" \
+    "$story_id" \
+    "$escaped_reason" \
+    "${from_sha:0:8}" \
+    "${to_sha:0:8}" \
+    "$attempt" \
+    "$success" \
+    "${RUN_TAG:-unknown}" \
+    "${context_file:-}")
+
+  echo "$json_record" >> "$rollback_log"
+}
+
+# Get rollback statistics from rollback history (US-004)
+# Usage: get_rollback_stats [prd_folder]
+# Returns: JSON with rollback statistics
+get_rollback_stats() {
+  local prd_folder="${1:-$PRD_FOLDER}"
+  local rollback_log="$prd_folder/runs/rollback-history.jsonl"
+
+  if [ ! -f "$rollback_log" ]; then
+    echo '{"total":0,"successful":0,"failed":0,"successRate":0,"byReason":{},"byStory":{}}'
+    return 0
+  fi
+
+  # Use Node.js for JSON aggregation if available, otherwise use shell
+  if command -v node >/dev/null 2>&1; then
+    node -e "
+const fs = require('fs');
+const lines = fs.readFileSync('$rollback_log', 'utf-8').split('\\n').filter(l => l.trim());
+const records = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+
+const stats = {
+  total: records.length,
+  successful: records.filter(r => r.success === true || r.success === 'true').length,
+  failed: records.filter(r => r.success === false || r.success === 'false').length,
+  successRate: 0,
+  avgAttempts: 0,
+  byReason: {},
+  byStory: {}
+};
+
+stats.successRate = stats.total > 0 ? Math.round((stats.successful / stats.total) * 100) : 0;
+
+// Calculate average attempts
+const totalAttempts = records.reduce((sum, r) => sum + (r.attempt || 1), 0);
+stats.avgAttempts = stats.total > 0 ? Math.round((totalAttempts / stats.total) * 100) / 100 : 0;
+
+// Group by reason
+for (const r of records) {
+  const reason = r.reason || 'unknown';
+  if (!stats.byReason[reason]) stats.byReason[reason] = { count: 0, successful: 0 };
+  stats.byReason[reason].count++;
+  if (r.success === true || r.success === 'true') stats.byReason[reason].successful++;
+}
+
+// Group by story
+for (const r of records) {
+  const story = r.storyId || 'unknown';
+  if (!stats.byStory[story]) stats.byStory[story] = { rollbacks: 0, maxAttempts: 0 };
+  stats.byStory[story].rollbacks++;
+  stats.byStory[story].maxAttempts = Math.max(stats.byStory[story].maxAttempts, r.attempt || 1);
+}
+
+console.log(JSON.stringify(stats));
+"
+  else
+    # Fallback shell implementation (basic counts only)
+    local total
+    total=$(wc -l < "$rollback_log" | tr -d ' ')
+    local successful
+    successful=$(grep -c '"success":true' "$rollback_log" 2>/dev/null || echo 0)
+    local failed=$((total - successful))
+    local rate=0
+    if [ "$total" -gt 0 ]; then
+      rate=$((successful * 100 / total))
+    fi
+    printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
+      "$total" "$successful" "$failed" "$rate"
   fi
 }
 
@@ -1388,8 +1970,6 @@ write_run_meta() {
   local routing_reason="${25:-}"
   local est_cost="${26:-}"
   local est_tokens="${27:-}"
-  # Agent switch tracking (US-003: Switch Notifications)
-  local agent_switches="${28:-}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -1513,21 +2093,6 @@ write_run_meta() {
       echo "- (variance not available)"
     fi
     echo ""
-    echo "## Agent Switches"
-    if [ -n "${AGENT_SWITCHES:-}" ]; then
-      echo ""
-      echo "| From | To | Reason | Story | Failures |"
-      echo "|------|-----|--------|-------|----------|"
-      # Parse AGENT_SWITCHES (newline-separated "from|to|reason|story|failures" entries)
-      while IFS='|' read -r from_agent to_agent reason sw_story failures; do
-        if [ -n "$from_agent" ]; then
-          echo "| $from_agent | $to_agent | $reason | $sw_story | $failures |"
-        fi
-      done <<< "$AGENT_SWITCHES"
-    else
-      echo "- (no switches during this iteration)"
-    fi
-    echo ""
   } > "$path"
 }
 
@@ -1616,16 +2181,16 @@ append_metrics() {
   local iteration="${11}"
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
-  local complexity_score="${14:-}"
+local complexity_score="${14:-}"
   local routing_reason="${15:-}"
   local estimated_cost="${16:-}"
   local exp_name="${17:-}"
   local exp_variant="${18:-}"
   local exp_excluded="${19:-}"
-  # Switch tracking fields (US-004)
-  local switch_count="${20:-0}"
-  local agents_tried="${21:-}"
-  local failure_type="${22:-}"
+  # Rollback tracking fields (US-004)
+  local rollback_count="${20:-0}"
+  local rollback_reason="${21:-}"
+  local rollback_success="${22:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1680,25 +2245,23 @@ local escaped_reason="null"
         "$excluded_bool")
     fi
 
-    # Build switch tracking fields (US-004)
-    local switch_fields=""
-    if [ -n "$switch_count" ] && [ "$switch_count" != "0" ]; then
-      # Convert comma-separated agents to JSON array
-      local agents_json="[]"
-      if [ -n "$agents_tried" ]; then
-        agents_json=$(printf '["%s"]' "$(echo "$agents_tried" | sed 's/,/","/g')")
+    # Build rollback fields if present (US-004)
+    local rollback_fields=""
+    if [ -n "$rollback_count" ] && [ "$rollback_count" != "0" ]; then
+      local rollback_success_bool="null"
+      if [ "$rollback_success" = "true" ]; then
+        rollback_success_bool="true"
+      elif [ "$rollback_success" = "false" ]; then
+        rollback_success_bool="false"
       fi
-      local failure_type_json="null"
-      if [ -n "$failure_type" ] && [ "$failure_type" != "none" ]; then
-        failure_type_json="\"$failure_type\""
+      local escaped_rollback_reason="null"
+      if [ -n "$rollback_reason" ]; then
+        escaped_rollback_reason=$(printf '"%s"' "$(printf '%s' "$rollback_reason" | sed 's/"/\\"/g')")
       fi
-      switch_fields=$(printf ',"switchCount":%s,"agents":%s,"failureType":%s' \
-        "$switch_count" \
-        "$agents_json" \
-        "$failure_type_json")
-    elif [ -n "$failure_type" ] && [ "$failure_type" != "none" ] && [ "$failure_type" != "" ]; then
-      # Record failure type even without switch for analytics
-      switch_fields=$(printf ',"switchCount":0,"failureType":"%s"' "$failure_type")
+      rollback_fields=$(printf ',"rollbackCount":%s,"rollbackReason":%s,"rollbackSuccess":%s' \
+        "$rollback_count" \
+        "$escaped_rollback_reason" \
+        "$rollback_success_bool")
     fi
 
     local json_data
@@ -1715,48 +2278,14 @@ local escaped_reason="null"
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
-"$complexity_val" \
+      "$complexity_val" \
       "$escaped_reason" \
       "$estimated_cost_val" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       "$exp_fields" \
-      "$switch_fields")
+      "$rollback_fields")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
-  fi
-}
-
-# Print fix summary from activity.log (US-003: Fix Execution Tracking)
-# Called after build iterations to show auto-fix results in build output
-print_fix_summary() {
-  local fix_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    fix_cli="$RALPH_ROOT/lib/diagnose/fix-summary-cli.js"
-  else
-    fix_cli="$SCRIPT_DIR/../../lib/diagnose/fix-summary-cli.js"
-  fi
-
-  # Check if fix CLI exists and Node.js is available
-  if [ -f "$fix_cli" ] && command -v node >/dev/null 2>&1; then
-    node "$fix_cli" print "$ACTIVITY_LOG_PATH" 2>/dev/null || true
-  fi
-}
-
-# Get fix message for commit (US-003: Fix Execution Tracking)
-# Returns a string like "Auto-fixed: LINT_ERROR, FORMAT_ERROR" for commit messages
-get_fix_commit_message() {
-  local fix_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    fix_cli="$RALPH_ROOT/lib/diagnose/fix-summary-cli.js"
-  else
-    fix_cli="$SCRIPT_DIR/../../lib/diagnose/fix-summary-cli.js"
-  fi
-
-  # Check if fix CLI exists and Node.js is available
-  if [ -f "$fix_cli" ] && command -v node >/dev/null 2>&1; then
-    node "$fix_cli" commit "$ACTIVITY_LOG_PATH" 2>/dev/null || echo ""
-  else
-    echo ""
   fi
 }
 
@@ -1790,371 +2319,6 @@ rebuild_token_cache() {
         console.error('Failed to rebuild token cache:', e.message);
       }
     " 2>/dev/null || true
-  fi
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Failure Pattern Detection (US-001)
-# ─────────────────────────────────────────────────────────────────────────────
-# Tracks consecutive failures per agent and classifies failure types
-# to enable context-aware agent switching.
-
-# Failure types enum
-FAILURE_TYPE_NONE="none"
-FAILURE_TYPE_TIMEOUT="timeout"
-FAILURE_TYPE_ERROR="error"
-FAILURE_TYPE_QUALITY="quality"
-
-# Consecutive failure tracking (reset on success or story change)
-CONSECUTIVE_FAILURES=0
-CURRENT_STORY_ID=""
-LAST_FAILURE_TYPE="$FAILURE_TYPE_NONE"
-
-# Agent switch threshold (from config.sh or default)
-AGENT_SWITCH_THRESHOLD="${AGENT_SWITCH_THRESHOLD:-2}"
-AGENT_SWITCH_ON_TIMEOUT="${AGENT_SWITCH_ON_TIMEOUT:-true}"
-AGENT_SWITCH_ON_ERROR="${AGENT_SWITCH_ON_ERROR:-true}"
-AGENT_SWITCH_ON_QUALITY="${AGENT_SWITCH_ON_QUALITY:-false}"
-
-# Detect failure type from exit code and log content
-# Usage: detect_failure_type <exit_code> <log_file>
-# Returns: timeout|error|quality|none
-detect_failure_type() {
-  local exit_code="$1"
-  local log_file="$2"
-
-  # Success - no failure
-  if [ "$exit_code" -eq 0 ]; then
-    echo "$FAILURE_TYPE_NONE"
-    return
-  fi
-
-  # Timeout (SIGALRM=124, SIGKILL=137 from timeout command)
-  if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
-    echo "$FAILURE_TYPE_TIMEOUT"
-    return
-  fi
-
-  # Check log for quality failures (tests, lint, type errors)
-  if [ -f "$log_file" ]; then
-    # Check for test failures
-    if grep -qiE "(test(s)? failed|tests? failing|assertion.*failed|expect.*received|FAIL\s+[a-z])" "$log_file" 2>/dev/null; then
-      echo "$FAILURE_TYPE_QUALITY"
-      return
-    fi
-    # Check for lint errors
-    if grep -qiE "(eslint|tslint|lint error|linting failed)" "$log_file" 2>/dev/null; then
-      echo "$FAILURE_TYPE_QUALITY"
-      return
-    fi
-    # Check for TypeScript type errors
-    if grep -qiE "(tsc --noEmit|TS[0-9]+:|type error|cannot find name)" "$log_file" 2>/dev/null; then
-      echo "$FAILURE_TYPE_QUALITY"
-      return
-    fi
-    # Check for build errors
-    if grep -qiE "(build failed|compilation error|syntax error)" "$log_file" 2>/dev/null; then
-      echo "$FAILURE_TYPE_QUALITY"
-      return
-    fi
-  fi
-
-  # Default to general error
-  echo "$FAILURE_TYPE_ERROR"
-}
-
-# Check if failure type should trigger switch suggestion
-# Usage: should_suggest_switch <failure_type>
-# Returns: 0 (true) or 1 (false)
-should_suggest_switch() {
-  local failure_type="$1"
-
-  case "$failure_type" in
-    "$FAILURE_TYPE_TIMEOUT")
-      [ "$AGENT_SWITCH_ON_TIMEOUT" = "true" ]
-      return $?
-      ;;
-    "$FAILURE_TYPE_ERROR")
-      [ "$AGENT_SWITCH_ON_ERROR" = "true" ]
-      return $?
-      ;;
-    "$FAILURE_TYPE_QUALITY")
-      [ "$AGENT_SWITCH_ON_QUALITY" = "true" ]
-      return $?
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-# Update consecutive failure counter
-# Usage: update_failure_counter <story_id> <failure_type>
-# Sets CONSECUTIVE_FAILURES and returns threshold status
-update_failure_counter() {
-  local story_id="$1"
-  local failure_type="$2"
-
-  # Reset counter if story changed
-  if [ "$story_id" != "$CURRENT_STORY_ID" ]; then
-    CONSECUTIVE_FAILURES=0
-    CURRENT_STORY_ID="$story_id"
-  fi
-
-  # Reset on success
-  if [ "$failure_type" = "$FAILURE_TYPE_NONE" ]; then
-    CONSECUTIVE_FAILURES=0
-    LAST_FAILURE_TYPE="$FAILURE_TYPE_NONE"
-    return 1  # No switch needed
-  fi
-
-  # Increment counter and update type
-  CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
-  LAST_FAILURE_TYPE="$failure_type"
-
-  # Check if threshold reached and failure type triggers switch
-  if [ "$CONSECUTIVE_FAILURES" -ge "$AGENT_SWITCH_THRESHOLD" ] && should_suggest_switch "$failure_type"; then
-    return 0  # Switch suggested
-  fi
-
-  return 1  # No switch yet
-}
-
-# Get switch state file path for a PRD folder
-# Usage: get_switch_state_path <prd_folder>
-get_switch_state_path() {
-  local prd_folder="$1"
-  echo "$prd_folder/switch-state.json"
-}
-
-# Save switch state to file for cross-run persistence
-# Usage: save_switch_state <prd_folder> <agent> <failures> <failure_type> <story_id>
-save_switch_state() {
-  local prd_folder="$1"
-  local agent="$2"
-  local failures="$3"
-  local failure_type="$4"
-  local story_id="$5"
-  local state_file
-  state_file="$(get_switch_state_path "$prd_folder")"
-
-  # Build JSON and save
-  local timestamp
-  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '{"agent":"%s","failures":%d,"lastFailureType":"%s","storyId":"%s","timestamp":"%s"}\n' \
-    "$agent" "$failures" "$failure_type" "$story_id" "$timestamp" > "$state_file"
-}
-
-# Load switch state from file
-# Usage: load_switch_state <prd_folder>
-# Sets: CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, CURRENT_STORY_ID
-# Returns: 0 if loaded, 1 if not found
-load_switch_state() {
-  local prd_folder="$1"
-  local state_file
-  state_file="$(get_switch_state_path "$prd_folder")"
-
-  if [ ! -f "$state_file" ]; then
-    return 1
-  fi
-
-  # Parse JSON with Python
-  local state_data
-  state_data=$(python3 -c "
-import json, sys
-with open('$state_file') as f:
-    d = json.load(f)
-    print(d.get('failures', 0))
-    print(d.get('lastFailureType', 'none'))
-    print(d.get('storyId', ''))
-" 2>/dev/null)
-
-  if [ -z "$state_data" ]; then
-    return 1
-  fi
-
-  # Read into variables
-  CONSECUTIVE_FAILURES=$(echo "$state_data" | sed -n '1p')
-  LAST_FAILURE_TYPE=$(echo "$state_data" | sed -n '2p')
-  CURRENT_STORY_ID=$(echo "$state_data" | sed -n '3p')
-
-  return 0
-}
-
-# Clear switch state on successful story completion
-# Usage: clear_switch_state <prd_folder>
-clear_switch_state() {
-  local prd_folder="$1"
-  local state_file
-  state_file="$(get_switch_state_path "$prd_folder")"
-
-  if [ -f "$state_file" ]; then
-    rm -f "$state_file"
-  fi
-}
-
-# Log failure event for analytics
-# Usage: log_failure_event <story_id> <failure_type> <consecutive_count> <agent>
-log_failure_event() {
-  local story_id="$1"
-  local failure_type="$2"
-  local consecutive_count="$3"
-  local agent="$4"
-
-  log_activity "FAILURE_DETECTED story=$story_id type=$failure_type consecutive=$consecutive_count agent=$agent threshold=$AGENT_SWITCH_THRESHOLD"
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Agent Fallback Chain Functions (US-002)
-# ─────────────────────────────────────────────────────────────────────────────
-# Default fallback chain (from config.sh or default)
-AGENT_FALLBACK_CHAIN="${AGENT_FALLBACK_CHAIN:-claude codex droid}"
-
-# Current position in the fallback chain (0-indexed)
-CHAIN_POSITION=0
-
-# Check if an agent CLI is available in PATH
-# Usage: agent_available <agent_name>
-# Returns: 0 if available, 1 if not
-agent_available() {
-  local agent="$1"
-  if [ -z "$agent" ]; then
-    return 1
-  fi
-  command -v "$agent" >/dev/null 2>&1
-}
-
-# Get the agent at a specific position in the chain
-# Usage: get_agent_at_position <position>
-# Returns: agent name or empty string if out of bounds
-get_agent_at_position() {
-  local pos="$1"
-  local chain_array
-  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
-  local chain_length=${#chain_array[@]}
-
-  if [ "$pos" -ge "$chain_length" ] || [ "$pos" -lt 0 ]; then
-    echo ""
-  else
-    echo "${chain_array[$pos]}"
-  fi
-}
-
-# Get the chain length
-# Usage: get_chain_length
-# Returns: number of agents in the chain
-get_chain_length() {
-  local chain_array
-  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
-  echo "${#chain_array[@]}"
-}
-
-# Switch to the next available agent in the fallback chain
-# Usage: switch_to_next_agent <story_id> <failure_type> <failures>
-# Returns: 0 if switched successfully, 1 if chain exhausted
-# Sets: AGENT_CMD to the new agent command, DEFAULT_AGENT_NAME to new agent
-switch_to_next_agent() {
-  local story_id="${1:-unknown}"
-  local failure_type="${2:-unknown}"
-  local failures="${3:-0}"
-  local old_agent="$DEFAULT_AGENT_NAME"
-  local chain_array
-  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
-  local chain_length=${#chain_array[@]}
-  local start_pos=$CHAIN_POSITION
-  local attempts=0
-
-  # Try each agent in the chain starting from current position + 1
-  while [ "$attempts" -lt "$chain_length" ]; do
-    CHAIN_POSITION=$(( (CHAIN_POSITION + 1) % chain_length ))
-    attempts=$((attempts + 1))
-
-    local candidate="${chain_array[$CHAIN_POSITION]}"
-
-    # Skip if we're back at the original agent
-    if [ "$candidate" = "$old_agent" ]; then
-      continue
-    fi
-
-    # Check if this agent is available
-    if agent_available "$candidate"; then
-      DEFAULT_AGENT_NAME="$candidate"
-      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      # Log with format expected by parseSwitchEvents(): from=X to=Y reason=Z story=S failures=N
-      log_activity "AGENT_SWITCH from=$old_agent to=$candidate reason=$failure_type story=$story_id failures=$failures"
-      return 0
-    else
-      # Log skipped unavailable agent
-      log_activity "AGENT_SKIP agent=$candidate reason=unavailable story=$story_id"
-    fi
-  done
-
-  # Chain exhausted - no available agents found
-  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$attempts story=$story_id"
-  return 1
-}
-
-# Reset the fallback chain to the first available agent
-# Usage: reset_fallback_chain
-# Returns: 0 if reset successful, 1 if no agents available
-reset_fallback_chain() {
-  local chain_array
-  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
-
-  for pos in "${!chain_array[@]}"; do
-    local candidate="${chain_array[$pos]}"
-    if agent_available "$candidate"; then
-      CHAIN_POSITION=$pos
-      DEFAULT_AGENT_NAME="$candidate"
-      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-# Track agent switches during the run (for run summary)
-# Format: "from|to|reason|story|failures" separated by newlines
-AGENT_SWITCHES=""
-
-# Perform the agent switch when threshold is reached
-# Usage: perform_agent_switch <story_id> <failure_type>
-# Returns: 0 if switched, 1 if chain exhausted
-perform_agent_switch() {
-  local story_id="$1"
-  local failure_type="$2"
-  local old_agent="$DEFAULT_AGENT_NAME"
-  local failures_before_switch="$CONSECUTIVE_FAILURES"
-
-  if switch_to_next_agent "$story_id" "$failure_type" "$failures_before_switch"; then
-    # Track the switch for run summary
-    AGENT_SWITCHES="${AGENT_SWITCHES}${AGENT_SWITCHES:+$'\n'}${old_agent}|${DEFAULT_AGENT_NAME}|${failure_type}|${story_id}|${failures_before_switch}"
-    # Track per-iteration switch for metrics (US-004)
-    ITER_SWITCH_COUNT=$((ITER_SWITCH_COUNT + 1))
-    ITER_AGENTS_TRIED="${ITER_AGENTS_TRIED},${DEFAULT_AGENT_NAME}"
-
-    # Log the switch to terminal
-    printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
-    printf "${C_YELLOW}  Agent Switched${C_RESET}\n"
-    printf "${C_DIM}  From: ${C_RESET}$old_agent\n"
-    printf "${C_DIM}  To: ${C_RESET}$DEFAULT_AGENT_NAME\n"
-    printf "${C_DIM}  Reason: ${C_RESET}$failures_before_switch consecutive $failure_type failures\n"
-    printf "${C_DIM}  Chain position: ${C_RESET}$CHAIN_POSITION / $(get_chain_length)\n"
-    printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
-
-    # Reset failure counter for new agent
-    CONSECUTIVE_FAILURES=0
-    return 0
-  else
-    # Chain exhausted
-    printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
-    printf "${C_RED}  Agent Fallback Chain Exhausted${C_RESET}\n"
-    printf "${C_DIM}  All agents in chain tried: ${C_RESET}$AGENT_FALLBACK_CHAIN\n"
-    printf "${C_DIM}  Current agent: ${C_RESET}$old_agent\n"
-    printf "${C_DIM}  Consider checking agent installations${C_RESET}\n"
-    printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
-    return 1
   fi
 }
 
@@ -2230,11 +2394,6 @@ if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
     else
       START_ITERATION=$CHECKPOINT_ITERATION
       msg_success "Resuming from iteration $START_ITERATION (story $CHECKPOINT_STORY_ID)"
-
-      # Load switch state for failure tracking continuity (US-001)
-      if load_switch_state "$PRD_FOLDER"; then
-        msg_dim "Restored failure state: $CONSECUTIVE_FAILURES consecutive failures on $CURRENT_STORY_ID"
-      fi
     fi
   else
     msg_warn "No checkpoint found. Starting fresh build."
@@ -2252,10 +2411,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   STORY_BLOCK=""
   ITER_START=$(date +%s)
   ITER_START_FMT=$(date '+%Y-%m-%d %H:%M:%S')
-  # Per-iteration switch tracking (US-004)
-  ITER_SWITCH_COUNT=0
-  ITER_AGENTS_TRIED="$DEFAULT_AGENT_NAME"  # Track agents tried this iteration
-  ITER_FAILURE_TYPE=""  # Will be set on failure
+
+  # Reset rollback tracking for this iteration (US-004)
+  LAST_ROLLBACK_COUNT=0
+  LAST_ROLLBACK_REASON=""
+  LAST_ROLLBACK_SUCCESS=""
   if [ "$MODE" = "build" ]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
@@ -2298,8 +2458,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
     elif [ -n "$ROUTED_SCORE" ]; then
       # Determine complexity level and color
-      level_color="$C_GREEN"
-      level_label="low"
+      local level_color="$C_GREEN"
+      local level_label="low"
       if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
         level_color="$C_YELLOW"
         level_label="medium"
@@ -2378,45 +2538,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   ITER_DURATION=$((ITER_END - ITER_START))
   HEAD_AFTER="$(git_head)"
   log_activity "ITERATION $i end (duration=${ITER_DURATION}s)"
-
-  # Detect failure type and update consecutive failure counter (US-001)
-  DETECTED_FAILURE_TYPE="$(detect_failure_type "$CMD_STATUS" "$LOG_FILE")"
-
   if [ "$CMD_STATUS" -ne 0 ]; then
     log_error "ITERATION $i command failed (status=$CMD_STATUS)"
     HAS_ERROR="true"
     # Track failed iteration details for summary
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
-    # Track failure type for metrics (US-004)
-    ITER_FAILURE_TYPE="$DETECTED_FAILURE_TYPE"
-
-    # Update failure counter and check if switch threshold reached (US-001)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-      if update_failure_counter "$STORY_ID" "$DETECTED_FAILURE_TYPE"; then
-        # Threshold reached - perform automatic agent switch (US-002)
-        log_activity "SWITCH_TRIGGERED story=$STORY_ID consecutive=$CONSECUTIVE_FAILURES type=$DETECTED_FAILURE_TYPE agent=$DEFAULT_AGENT_NAME"
-        perform_agent_switch "$STORY_ID" "$DETECTED_FAILURE_TYPE"
-      fi
-      # Log the failure event for analytics
-      log_failure_event "$STORY_ID" "$DETECTED_FAILURE_TYPE" "$CONSECUTIVE_FAILURES" "$DEFAULT_AGENT_NAME"
-      # Persist state for cross-run resumability
-      PRD_FOLDER="$(dirname "$PRD_PATH")"
-      save_switch_state "$PRD_FOLDER" "$DEFAULT_AGENT_NAME" "$CONSECUTIVE_FAILURES" "$DETECTED_FAILURE_TYPE" "$STORY_ID"
-    fi
-  else
-    # Success - reset failure counter, clear switch state, and reset chain position (US-001, US-002)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-      update_failure_counter "$STORY_ID" "$FAILURE_TYPE_NONE"
-      PRD_FOLDER="$(dirname "$PRD_PATH")"
-      clear_switch_state "$PRD_FOLDER"
-      # Reset chain to first available agent on successful story (US-002)
-      if [ "$CHAIN_POSITION" -ne 0 ]; then
-        log_activity "CHAIN_RESET story=$STORY_ID from_position=$CHAIN_POSITION"
-        reset_fallback_chain
-        msg_dim "Chain reset to primary agent: $DEFAULT_AGENT_NAME"
-      fi
-    fi
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
   CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -2446,12 +2573,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}"
 
-  # Append metrics to metrics.jsonl for historical tracking (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-    # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
-    PRD_FOLDER="$(dirname "$PRD_PATH")"
-append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$ITER_SWITCH_COUNT" "$ITER_AGENTS_TRIED" "$ITER_FAILURE_TYPE"
-  fi
+  # Note: append_metrics is called after rollback logic to capture rollback data (US-004)
+  # See the metrics call below the rollback section
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
@@ -2462,6 +2585,191 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
   if [ "$MODE" = "build" ]; then
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Rollback on Failure (US-001 + US-003)
+    # Check for failures based on ROLLBACK_TRIGGER config and rollback to pre-story state
+    # ─────────────────────────────────────────────────────────────────────────
+    if [ "$CMD_STATUS" -ne 0 ] && [ "${ROLLBACK_ENABLED:-true}" = "true" ] && [ "$NO_COMMIT" = "false" ]; then
+      # US-003: Check for story-level rollback skip via <!-- no-rollback --> comment
+      if story_has_no_rollback "${STORY_BLOCK:-}"; then
+        log_activity "ROLLBACK_SKIPPED story=$STORY_ID reason=no-rollback-directive"
+        msg_dim "Rollback skipped: story has <!-- no-rollback --> directive"
+      # Check if failure matches configured trigger policy (US-003)
+      elif detect_failure "$LOG_FILE" "${ROLLBACK_TRIGGER:-test-fail}"; then
+        log_activity "FAILURE_DETECTED story=$STORY_ID trigger=${ROLLBACK_TRIGGER:-test-fail}"
+
+        # Save failure context for retry before rollback
+        FAILURE_CONTEXT_FILE="$(save_failure_context "$LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i" "${STORY_ID:-unknown}")"
+
+        # Determine failure reason based on trigger policy for notification
+        local failure_reason
+        case "${ROLLBACK_TRIGGER:-test-fail}" in
+          test-fail) failure_reason="Test failure detected" ;;
+          lint-fail) failure_reason="Lint failure detected" ;;
+          type-fail) failure_reason="Type check failure detected" ;;
+          any-fail)  failure_reason="Build failure detected (any-fail policy)" ;;
+          *)         failure_reason="Failure detected" ;;
+        esac
+
+        # Perform rollback to pre-story state
+        if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}"; then
+          # Notify user of successful rollback
+          notify_rollback "${STORY_ID:-unknown}" "$failure_reason" "$HEAD_BEFORE" "$FAILURE_CONTEXT_FILE"
+          log_activity "ROLLBACK_SUCCESS story=$STORY_ID context=$FAILURE_CONTEXT_FILE"
+          # Log rollback event for history tracking (US-004)
+          log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "true" "$FAILURE_CONTEXT_FILE"
+
+          # Update rollback tracking variables for metrics (US-004)
+          LAST_ROLLBACK_COUNT=$((LAST_ROLLBACK_COUNT + 1))
+          LAST_ROLLBACK_REASON="${ROLLBACK_TRIGGER:-test-fail}"
+          LAST_ROLLBACK_SUCCESS="true"
+
+          # Update HEAD_AFTER to reflect rollback
+          HEAD_AFTER="$(git_head)"
+          COMMIT_LIST=""
+          CHANGED_FILES=""
+
+          # ─────────────────────────────────────────────────────────────────────
+          # Intelligent Retry (US-002)
+          # Retry the story with enhanced context after successful rollback
+          # ─────────────────────────────────────────────────────────────────────
+          if [ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]; then
+            ROLLBACK_MAX="${ROLLBACK_MAX_RETRIES:-3}"
+
+            # Track retry attempts for this story (use a simple file-based approach)
+            RETRY_TRACKING_FILE="$RUNS_DIR/retry-count-${STORY_ID:-unknown}.txt"
+            if [ -f "$RETRY_TRACKING_FILE" ]; then
+              CURRENT_RETRY_COUNT=$(cat "$RETRY_TRACKING_FILE")
+            else
+              CURRENT_RETRY_COUNT=0
+            fi
+
+            CURRENT_RETRY_COUNT=$((CURRENT_RETRY_COUNT + 1))
+            echo "$CURRENT_RETRY_COUNT" > "$RETRY_TRACKING_FILE"
+
+            if [ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]; then
+              printf "\n"
+              printf "${C_CYAN}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+              printf "${C_CYAN}${C_BOLD}║            INTELLIGENT RETRY (US-002)                 ║${C_RESET}\n"
+              printf "${C_CYAN}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+              printf "\n"
+              printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "${STORY_ID:-unknown}"
+              printf "  ${C_BOLD}Retry:${C_RESET}  %s of %s\n" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+              printf "  ${C_BOLD}Context:${C_RESET} %s\n" "$FAILURE_CONTEXT_FILE"
+              printf "\n"
+              printf "${C_DIM}  Preparing enhanced retry prompt with failure context...${C_RESET}\n"
+              printf "\n"
+
+              log_activity "ROLLBACK_RETRY story=$STORY_ID attempt=$CURRENT_RETRY_COUNT/$ROLLBACK_MAX context=$FAILURE_CONTEXT_FILE"
+
+              # Render retry prompt with failure context
+              RETRY_PROMPT_RENDERED="$TMP_DIR/prompt-retry-$RUN_TAG-$i-retry$CURRENT_RETRY_COUNT.md"
+              RETRY_LOG_FILE="$RUNS_DIR/run-$RUN_TAG-iter-$i-retry$CURRENT_RETRY_COUNT.log"
+              RETRY_RUN_META="$RUNS_DIR/run-$RUN_TAG-iter-$i-retry$CURRENT_RETRY_COUNT.md"
+
+              render_retry_prompt "$PROMPT_RETRY" "$RETRY_PROMPT_RENDERED" "$STORY_META" "$STORY_BLOCK" "$RUN_TAG" "$i" "$RETRY_LOG_FILE" "$RETRY_RUN_META" "$FAILURE_CONTEXT_FILE" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+
+              # Execute retry
+              RETRY_START=$(date +%s)
+              set +e
+              start_progress_indicator "$RETRY_START"
+              run_agent_with_retry "$RETRY_PROMPT_RENDERED" "$RETRY_LOG_FILE" "$i"
+              RETRY_STATUS=$?
+              stop_progress_indicator
+              set -e
+
+              RETRY_END=$(date +%s)
+              RETRY_DURATION=$((RETRY_END - RETRY_START))
+
+              if [ "$RETRY_STATUS" -eq 0 ]; then
+                # Retry succeeded! Log success for rollback history (US-004)
+                log_rollback "${STORY_ID:-unknown}" "retry_success" "$HEAD_BEFORE" "$(git_head)" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
+                printf "${C_GREEN}${C_BOLD}  Retry $CURRENT_RETRY_COUNT SUCCEEDED${C_RESET}\n"
+                log_activity "ROLLBACK_RETRY_SUCCESS story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
+
+                # Update rollback tracking - mark as success since retry worked (US-004)
+                LAST_ROLLBACK_COUNT=$CURRENT_RETRY_COUNT
+                LAST_ROLLBACK_REASON="retry_success"
+                LAST_ROLLBACK_SUCCESS="true"
+
+                # Clear retry tracking file on success
+                rm -f "$RETRY_TRACKING_FILE"
+
+                # Update metrics with successful retry
+                CMD_STATUS=0
+                STATUS_LABEL="success"
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                HEAD_AFTER="$(git_head)"
+                COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
+                CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
+
+                # Update run meta for the retry
+                write_run_meta "$RETRY_RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-} (Retry $CURRENT_RETRY_COUNT)" "$ITER_START_FMT" "$(date '+%Y-%m-%d %H:%M:%S')" "$RETRY_DURATION" "success" "$RETRY_LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "" "" "" "" "" "" "" "" "" "" "" ""
+              else
+                # Retry failed
+                printf "${C_YELLOW}  Retry $CURRENT_RETRY_COUNT failed${C_RESET}\n"
+                log_activity "ROLLBACK_RETRY_FAILED story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
+
+                # Check if we should rollback this retry too (use same trigger policy)
+                if detect_failure "$RETRY_LOG_FILE" "${ROLLBACK_TRIGGER:-test-fail}"; then
+                  log_activity "RETRY_FAILURE story=$STORY_ID attempt=$CURRENT_RETRY_COUNT trigger=${ROLLBACK_TRIGGER:-test-fail}"
+                  # Save new failure context
+                  FAILURE_CONTEXT_FILE="$(save_failure_context "$RETRY_LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i-retry$CURRENT_RETRY_COUNT" "${STORY_ID:-unknown}")"
+                  # Rollback the retry attempt
+                  if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}"; then
+                    # Log retry rollback for history tracking (US-004)
+                    log_rollback "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
+                  fi
+                fi
+              fi
+            else
+              # Max retries exhausted
+              printf "\n"
+              printf "${C_RED}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+              printf "${C_RED}${C_BOLD}║          MAX RETRIES EXHAUSTED                        ║${C_RESET}\n"
+              printf "${C_RED}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+              printf "\n"
+              printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "${STORY_ID:-unknown}"
+              printf "  ${C_BOLD}Attempts:${C_RESET} %s (max: %s)\n" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+              printf "\n"
+              printf "${C_DIM}  Story will be skipped. Review failure context and fix manually.${C_RESET}\n"
+              printf "${C_DIM}  Context file: %s${C_RESET}\n" "$FAILURE_CONTEXT_FILE"
+              printf "\n"
+
+              log_activity "MAX_RETRIES_EXHAUSTED story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
+              log_error "MAX_RETRIES_EXHAUSTED story=$STORY_ID - manual intervention required"
+              # Log max retries exhausted for history tracking (US-004)
+              log_rollback "${STORY_ID:-unknown}" "max_retries_exhausted" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "false" "$FAILURE_CONTEXT_FILE"
+
+              # Update rollback tracking - mark as failure since max retries exhausted (US-004)
+              LAST_ROLLBACK_COUNT=$CURRENT_RETRY_COUNT
+              LAST_ROLLBACK_REASON="max_retries_exhausted"
+              LAST_ROLLBACK_SUCCESS="false"
+
+              # Clear retry tracking file
+              rm -f "$RETRY_TRACKING_FILE"
+            fi
+          fi
+        else
+          log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
+          msg_error "Rollback failed - manual intervention may be required"
+          # Log failed rollback for history tracking (US-004)
+          log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "false" "${FAILURE_CONTEXT_FILE:-}"
+
+          # Update rollback tracking variables for metrics (US-004)
+          LAST_ROLLBACK_COUNT=$((LAST_ROLLBACK_COUNT + 1))
+          LAST_ROLLBACK_REASON="${ROLLBACK_TRIGGER:-test-fail}"
+          LAST_ROLLBACK_SUCCESS="false"
+        fi
+      fi
+    fi
+
+    # Append metrics to metrics.jsonl for historical tracking (build mode only)
+    # Called after rollback logic to capture rollback data (US-004)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
+
     if [ "$CMD_STATUS" -ne 0 ]; then
       # Differentiate agent errors vs system errors
       if [ "$CMD_STATUS" -eq 1 ]; then
@@ -2478,8 +2786,6 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
         printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
-        # Print fix summary if any fixes were applied (US-003)
-        print_fix_summary
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
         rebuild_token_cache
@@ -2491,8 +2797,6 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
       fi
       msg_info "Completion signal received; stories remaining: $REMAINING"
     fi
-    # Print fix summary if any fixes were applied (US-003)
-    print_fix_summary
     # Iteration completion separator
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"

@@ -5490,3 +5490,174 @@ footer {
     font-size: 0.8rem;
   }
 }
+
+/* Rollback Statistics (US-004) */
+.rollback-stats {
+  background: var(--surface-bg);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+}
+
+.rollback-stats-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.rollback-stats-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.rollback-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.rollback-stat {
+  text-align: center;
+  padding: var(--spacing-md);
+  background: var(--primary-bg);
+  border-radius: var(--border-radius);
+}
+
+.rollback-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rollback-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rollback-stat.success .rollback-stat-value {
+  color: var(--success-color);
+}
+
+.rollback-stat.warning .rollback-stat-value {
+  color: var(--warning-color);
+}
+
+.rollback-breakdown,
+.rollback-timeline {
+  margin-top: var(--spacing-lg);
+}
+
+.rollback-breakdown h4,
+.rollback-timeline h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rollback-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.rollback-reason-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--primary-bg);
+  border-radius: var(--border-radius);
+}
+
+.rollback-reason-name {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.rollback-reason-stats {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.rollback-reason-count {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rollback-reason-rate {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.rollback-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.rollback-timeline-item {
+  display: grid;
+  grid-template-columns: 24px 80px 1fr auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--primary-bg);
+  border-radius: var(--border-radius);
+  font-size: 0.85rem;
+}
+
+.rollback-timeline-status {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.7rem;
+}
+
+.rollback-timeline-status.success {
+  background: var(--success-bg);
+  color: var(--success-color);
+}
+
+.rollback-timeline-status.error {
+  background: var(--error-bg);
+  color: var(--error-color);
+}
+
+.rollback-timeline-story {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rollback-timeline-reason {
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.rollback-timeline-time {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .rollback-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rollback-timeline-item {
+    grid-template-columns: 24px 1fr;
+    gap: var(--spacing-xs);
+  }
+
+  .rollback-timeline-reason,
+  .rollback-timeline-time {
+    grid-column: 2;
+    font-size: 0.75rem;
+  }
+}
