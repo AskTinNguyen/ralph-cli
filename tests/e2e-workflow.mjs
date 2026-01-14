@@ -75,12 +75,36 @@ try {
 
   test("ralph prd generates PRD-1/prd.md", () => {
     mkdirSync(path.join(project, ".ralph", "PRD-1"), { recursive: true });
-    writeFileSync(path.join(project, ".ralph", "PRD-1", "prd.md"), "# PRD\n\n## User Stories\n\n### [ ] US-001\n", "utf-8");
+    const prdContent = `# PRD: Test Feature
+
+## Overview
+Test feature for E2E workflow testing.
+
+## User Stories
+
+### [ ] US-001: Test Story
+**As a** developer
+**I want** to test the CLI
+**So that** I verify it works
+
+#### Acceptance Criteria
+- [ ] CLI executes successfully
+`;
+    writeFileSync(path.join(project, ".ralph", "PRD-1", "prd.md"), prdContent, "utf-8");
     assert(existsSync(path.join(project, ".ralph", "PRD-1", "prd.md")));
   });
 
   test("ralph plan creates plan.md", () => {
-    writeFileSync(path.join(project, ".ralph", "PRD-1", "plan.md"), "# Plan\n\n## Tasks\n\n### US-001\n- [ ] Task\n", "utf-8");
+    const planContent = `# Implementation Plan
+
+## Stories
+
+### US-001: Test Story
+
+#### Tasks
+- [ ] Task 1: Execute test
+`;
+    writeFileSync(path.join(project, ".ralph", "PRD-1", "plan.md"), planContent, "utf-8");
     const content = readFileSync(path.join(project, ".ralph", "PRD-1", "plan.md"), "utf-8");
     assertContains(content, "Tasks");
   });
