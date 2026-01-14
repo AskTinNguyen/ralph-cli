@@ -1388,6 +1388,8 @@ write_run_meta() {
   local routing_reason="${25:-}"
   local est_cost="${26:-}"
   local est_tokens="${27:-}"
+  # Agent switch tracking (US-003: Switch Notifications)
+  local agent_switches="${28:-}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -1509,6 +1511,21 @@ write_run_meta() {
       fi
     else
       echo "- (variance not available)"
+    fi
+    echo ""
+    echo "## Agent Switches"
+    if [ -n "${AGENT_SWITCHES:-}" ]; then
+      echo ""
+      echo "| From | To | Reason | Story | Failures |"
+      echo "|------|-----|--------|-------|----------|"
+      # Parse AGENT_SWITCHES (newline-separated "from|to|reason|story|failures" entries)
+      while IFS='|' read -r from_agent to_agent reason sw_story failures; do
+        if [ -n "$from_agent" ]; then
+          echo "| $from_agent | $to_agent | $reason | $sw_story | $failures |"
+        fi
+      done <<< "$AGENT_SWITCHES"
+    else
+      echo "- (no switches during this iteration)"
     fi
     echo ""
   } > "$path"
@@ -1973,10 +1990,13 @@ get_chain_length() {
 }
 
 # Switch to the next available agent in the fallback chain
-# Usage: switch_to_next_agent
+# Usage: switch_to_next_agent <story_id> <failure_type> <failures>
 # Returns: 0 if switched successfully, 1 if chain exhausted
 # Sets: AGENT_CMD to the new agent command, DEFAULT_AGENT_NAME to new agent
 switch_to_next_agent() {
+  local story_id="${1:-unknown}"
+  local failure_type="${2:-unknown}"
+  local failures="${3:-0}"
   local old_agent="$DEFAULT_AGENT_NAME"
   local chain_array
   read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
@@ -2000,13 +2020,17 @@ switch_to_next_agent() {
     if agent_available "$candidate"; then
       DEFAULT_AGENT_NAME="$candidate"
       AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      log_activity "AGENT_SWITCH from=$old_agent to=$candidate chain_position=$CHAIN_POSITION"
+      # Log with format expected by parseSwitchEvents(): from=X to=Y reason=Z story=S failures=N
+      log_activity "AGENT_SWITCH from=$old_agent to=$candidate reason=$failure_type story=$story_id failures=$failures"
       return 0
+    else
+      # Log skipped unavailable agent
+      log_activity "AGENT_SKIP agent=$candidate reason=unavailable story=$story_id"
     fi
   done
 
   # Chain exhausted - no available agents found
-  log_activity "AGENT_SWITCH_FAILED from=$old_agent reason=chain_exhausted"
+  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$attempts story=$story_id"
   return 1
 }
 
@@ -2030,6 +2054,10 @@ reset_fallback_chain() {
   return 1
 }
 
+# Track agent switches during the run (for run summary)
+# Format: "from|to|reason|story|failures" separated by newlines
+AGENT_SWITCHES=""
+
 # Perform the agent switch when threshold is reached
 # Usage: perform_agent_switch <story_id> <failure_type>
 # Returns: 0 if switched, 1 if chain exhausted
@@ -2037,14 +2065,18 @@ perform_agent_switch() {
   local story_id="$1"
   local failure_type="$2"
   local old_agent="$DEFAULT_AGENT_NAME"
+  local failures_before_switch="$CONSECUTIVE_FAILURES"
 
-  if switch_to_next_agent; then
-    # Log the switch
+  if switch_to_next_agent "$story_id" "$failure_type" "$failures_before_switch"; then
+    # Track the switch for run summary
+    AGENT_SWITCHES="${AGENT_SWITCHES}${AGENT_SWITCHES:+$'\n'}${old_agent}|${DEFAULT_AGENT_NAME}|${failure_type}|${story_id}|${failures_before_switch}"
+
+    # Log the switch to terminal
     printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_YELLOW}  Agent Switched${C_RESET}\n"
     printf "${C_DIM}  From: ${C_RESET}$old_agent\n"
     printf "${C_DIM}  To: ${C_RESET}$DEFAULT_AGENT_NAME\n"
-    printf "${C_DIM}  Reason: ${C_RESET}$CONSECUTIVE_FAILURES consecutive $failure_type failures\n"
+    printf "${C_DIM}  Reason: ${C_RESET}$failures_before_switch consecutive $failure_type failures\n"
     printf "${C_DIM}  Chain position: ${C_RESET}$CHAIN_POSITION / $(get_chain_length)\n"
     printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
 
