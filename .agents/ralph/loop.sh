@@ -223,6 +223,52 @@ CONTEXT_REF="$(abs_path "$CONTEXT_REF")"
 ACTIVITY_CMD="$(abs_path "$ACTIVITY_CMD")"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Validate PRD-N folder structure (ERROR CODE: RALPH-001)
+# ─────────────────────────────────────────────────────────────────────────────
+# Ralph requires PRDs to be in numbered folders: .ralph/PRD-1/, .ralph/PRD-2/, etc.
+# This is the modern structure that supports parallel streams and isolated plans.
+#
+# If you're seeing this error, you may be using the old centralized PRD format.
+# Migration: Move your prd.md and plan.md into .ralph/PRD-N/ folders.
+# ─────────────────────────────────────────────────────────────────────────────
+validate_prd_structure() {
+  # Check if PRD_PATH is set but doesn't follow PRD-N pattern
+  if [[ -n "$PRD_PATH" ]] && [[ ! "$PRD_PATH" =~ /PRD-[0-9]+/ ]]; then
+    msg_warn "WARNING [RALPH-001]: PRD path doesn't use PRD-N folder structure"
+    msg_dim "  Path: $PRD_PATH"
+    msg_dim ""
+    msg_dim "  Ralph now requires PRDs in numbered folders for parallel streams:"
+    msg_dim "    .ralph/PRD-1/prd.md"
+    msg_dim "    .ralph/PRD-1/plan.md"
+    msg_dim "    .ralph/PRD-2/prd.md"
+    msg_dim "    ..."
+    msg_dim ""
+    msg_dim "  Quick fix options:"
+    msg_dim "    1. Use --prd=N flag:  ralph build 1 --prd=1"
+    msg_dim "    2. Create PRD folder: ralph prd (auto-creates PRD-N)"
+    msg_dim "    3. Move existing:     mkdir -p .ralph/PRD-1 && mv prd.md .ralph/PRD-1/"
+    msg_dim ""
+  fi
+
+  # Check for missing derived paths when PRD_PATH is custom
+  if [[ -n "$PRD_PATH" ]] && [[ -z "$PROGRESS_PATH" ]]; then
+    # Derive paths from PRD_PATH parent directory
+    local prd_dir
+    prd_dir="$(dirname "$PRD_PATH")"
+    if [[ -d "$prd_dir" ]]; then
+      PROGRESS_PATH="$prd_dir/progress.md"
+      RUNS_DIR="$prd_dir/runs"
+      ERRORS_LOG_PATH="$prd_dir/errors.log"
+      ACTIVITY_LOG_PATH="$prd_dir/activity.log"
+      msg_dim "Auto-derived paths from PRD directory: $prd_dir"
+    fi
+  fi
+}
+
+# Run validation
+validate_prd_structure
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Agent Functions (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # require_agent(), run_agent(), run_agent_inline() are now in lib/agent.sh
