@@ -65,6 +65,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
   ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
   ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
+  ${pc.green("experiment")} ${pc.dim("<subcmd>")}                  A/B testing framework for agents
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Registry commands:"))}
@@ -131,6 +132,14 @@ ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream build")} ${pc.dim("<N> [n]")}                Run n build iterations in stream
   ${pc.green("stream merge")} ${pc.dim("<N>")}                    Merge completed stream to main
   ${pc.green("stream cleanup")} ${pc.dim("<N>")}                  Remove stream worktree
+
+${pc.bold(pc.cyan("Experiment commands:"))}
+  ${pc.green("experiment create")} ${pc.dim("<name>")}            Create a new A/B experiment
+  ${pc.green("experiment list")}                     List all experiments
+  ${pc.green("experiment status")} ${pc.dim("<name>")}            Show experiment status and stats
+  ${pc.green("experiment start")} ${pc.dim("<name>")}             Start an experiment
+  ${pc.green("experiment pause")} ${pc.dim("<name>")}             Pause an experiment
+  ${pc.green("experiment conclude")} ${pc.dim("<name>")}          Conclude an experiment
 
 ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--prd")} ${pc.dim("<N|path>")}                      Use PRD-N folder (e.g., --prd=1) or custom path
@@ -2727,6 +2736,344 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     // Keep the process running
     return;
+  }
+
+  if (cmd === "experiment") {
+    const experimentModule = require("../lib/experiment");
+    const subCmd = args[1];
+    const experimentName = args[2];
+
+    if (!subCmd || subCmd === "help") {
+      console.log(`${pc.bold("ralph experiment")} ${pc.dim("<command>")}
+
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("create")} ${pc.dim("<name>")}                 Create a new A/B experiment
+  ${pc.green("list")} ${pc.dim("[--status <status>]")}    List all experiments
+  ${pc.green("status")} ${pc.dim("<name>")}                Show experiment details and statistics
+  ${pc.green("start")} ${pc.dim("<name>")}                 Start an experiment (enable traffic split)
+  ${pc.green("pause")} ${pc.dim("<name>")}                 Pause an experiment
+  ${pc.green("conclude")} ${pc.dim("<name>")}              Conclude an experiment
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph experiment create claude-vs-codex")}
+  ${pc.dim("ralph experiment start claude-vs-codex")}
+  ${pc.dim("ralph experiment status claude-vs-codex")}
+  ${pc.dim("ralph experiment list --status running")}
+`);
+      process.exit(0);
+    }
+
+    if (subCmd === "create") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment create <name>")}`);
+        process.exit(1);
+      }
+
+      // Interactive experiment creation
+      const { intro, outro, text, select, isCancel } = await import("@clack/prompts");
+      intro("Create A/B Experiment");
+
+      // Select control agent
+      const controlAgent = await select({
+        message: "Select the control variant agent:",
+        options: [
+          { value: "claude", label: "Claude" },
+          { value: "codex", label: "Codex" },
+          { value: "droid", label: "Droid" },
+        ],
+        initialValue: "claude",
+      });
+
+      if (isCancel(controlAgent)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+
+      // Select treatment agent
+      const treatmentAgent = await select({
+        message: "Select the treatment variant agent:",
+        options: [
+          { value: "codex", label: "Codex" },
+          { value: "claude", label: "Claude" },
+          { value: "droid", label: "Droid" },
+        ].filter((o) => o.value !== controlAgent),
+        initialValue: controlAgent === "claude" ? "codex" : "claude",
+      });
+
+      if (isCancel(treatmentAgent)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+
+      // Select traffic split
+      const trafficSplit = await select({
+        message: "Select traffic split:",
+        options: [
+          { value: "50-50", label: "50/50 (equal split)" },
+          { value: "80-20", label: "80/20 (control heavy)" },
+          { value: "20-80", label: "20/80 (treatment heavy)" },
+          { value: "70-30", label: "70/30" },
+          { value: "30-70", label: "30/70" },
+        ],
+        initialValue: "50-50",
+      });
+
+      if (isCancel(trafficSplit)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+
+      const [controlWeight, treatmentWeight] = trafficSplit.split("-").map(Number);
+
+      // Get description (optional)
+      const description = await text({
+        message: "Description (optional):",
+        placeholder: `Compare ${controlAgent} vs ${treatmentAgent} performance`,
+        defaultValue: `Compare ${controlAgent} vs ${treatmentAgent} performance`,
+      });
+
+      if (isCancel(description)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+
+      // Select minimum samples
+      const minSamplesChoice = await select({
+        message: "Minimum samples before analysis:",
+        options: [
+          { value: 30, label: "30 (quick test)" },
+          { value: 50, label: "50 (small experiment)" },
+          { value: 100, label: "100 (recommended)" },
+          { value: 200, label: "200 (high confidence)" },
+        ],
+        initialValue: 100,
+      });
+
+      if (isCancel(minSamplesChoice)) {
+        outro("Cancelled.");
+        process.exit(0);
+      }
+
+      // Create the experiment
+      const result = experimentModule.createQuickExperiment(
+        cwd,
+        experimentName,
+        controlAgent,
+        treatmentAgent,
+        {
+          description: description || `Compare ${controlAgent} vs ${treatmentAgent} performance`,
+          controlWeight,
+          treatmentWeight,
+          minSamples: minSamplesChoice,
+        }
+      );
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      console.log("");
+      console.log(pc.bold("Experiment Created"));
+      console.log(pc.dim("-".repeat(50)));
+      console.log(`Name:           ${pc.bold(result.experiment.name)}`);
+      console.log(`Status:         ${pc.yellow("draft")}`);
+      console.log(`Control:        ${pc.cyan(controlAgent)} (${controlWeight}%)`);
+      console.log(`Treatment:      ${pc.cyan(treatmentAgent)} (${treatmentWeight}%)`);
+      console.log(`Min Samples:    ${minSamplesChoice}`);
+      console.log(pc.dim("-".repeat(50)));
+      console.log("");
+
+      success(`Experiment saved to ${pc.cyan(result.path)}`);
+      info(`Run ${pc.cyan(`ralph experiment start ${experimentName}`)} to begin.`);
+
+      outro("Done.");
+      process.exit(0);
+    }
+
+    if (subCmd === "list") {
+      // Parse --status flag
+      let statusFilter = null;
+      for (let i = 2; i < args.length; i++) {
+        if (args[i].startsWith("--status=")) {
+          statusFilter = args[i].split("=").slice(1).join("=");
+        } else if (args[i] === "--status" && args[i + 1]) {
+          statusFilter = args[++i];
+        }
+      }
+
+      const result = experimentModule.listExperiments(cwd, { status: statusFilter });
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      if (result.experiments.length === 0) {
+        if (statusFilter) {
+          warn(`No experiments found with status: ${statusFilter}`);
+        } else {
+          warn("No experiments found.");
+          info(`Create one with ${pc.cyan("ralph experiment create <name>")}`);
+        }
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold(`Experiments (${result.experiments.length})`));
+      console.log(pc.dim("-".repeat(70)));
+      console.log(
+        pc.dim(
+          `${"NAME".padEnd(25)} ${"STATUS".padEnd(12)} ${"VARIANTS".padEnd(20)} ${"MIN SAMPLES".padStart(12)}`
+        )
+      );
+      console.log(pc.dim("-".repeat(70)));
+
+      for (const exp of result.experiments) {
+        const name = exp.name.length > 23 ? exp.name.slice(0, 22) + "\u2026" : exp.name;
+        const statusColor =
+          exp.status === "running" ? pc.green
+            : exp.status === "paused" ? pc.yellow
+            : exp.status === "concluded" ? pc.cyan
+            : pc.dim;
+        const status = statusColor(exp.status.padEnd(12));
+        const variantNames = Object.keys(exp.variants).join(" vs ");
+        const variants = variantNames.length > 18 ? variantNames.slice(0, 17) + "\u2026" : variantNames;
+        const minSamples = String(exp.minSamples).padStart(12);
+
+        console.log(`${name.padEnd(25)} ${status} ${variants.padEnd(20)} ${minSamples}`);
+      }
+
+      console.log(pc.dim("-".repeat(70)));
+      console.log("");
+      process.exit(0);
+    }
+
+    if (subCmd === "status") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment status <name>")}`);
+        process.exit(1);
+      }
+
+      const result = experimentModule.loadExperiment(cwd, experimentName);
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      const exp = result.experiment;
+      const statusColor =
+        exp.status === "running" ? pc.green
+          : exp.status === "paused" ? pc.yellow
+          : exp.status === "concluded" ? pc.cyan
+          : pc.dim;
+
+      console.log("");
+      console.log(pc.bold(`Experiment: ${exp.name}`));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+
+      console.log(pc.bold(pc.cyan("Configuration")));
+      console.log(pc.dim("-".repeat(40)));
+      console.log(`Status:         ${statusColor(exp.status)}`);
+      console.log(`Description:    ${exp.description || pc.dim("(none)")}`);
+      console.log(`Min Samples:    ${exp.minSamples}`);
+      console.log(`Max Samples:    ${exp.maxSamples || pc.dim("unlimited")}`);
+      console.log(`Duration:       ${exp.duration ? `${exp.duration} days` : pc.dim("unlimited")}`);
+      console.log(`Created:        ${exp.createdAt}`);
+      console.log(`Updated:        ${exp.updatedAt}`);
+      console.log("");
+
+      console.log(pc.bold(pc.cyan("Variants")));
+      console.log(pc.dim("-".repeat(40)));
+
+      for (const [variantName, variant] of Object.entries(exp.variants)) {
+        const agentColor = variant.agent === "claude" ? pc.cyan : variant.agent === "codex" ? pc.green : pc.yellow;
+        console.log(`${variantName.padEnd(15)} ${agentColor(variant.agent.padEnd(10))} ${variant.weight}% weight`);
+      }
+      console.log("");
+
+      console.log(pc.bold(pc.cyan("Metrics Tracked")));
+      console.log(pc.dim("-".repeat(40)));
+      console.log(`  ${exp.metrics.join(", ")}`);
+      console.log("");
+
+      if (exp.exclusions && exp.exclusions.length > 0) {
+        console.log(pc.bold(pc.cyan("Exclusions")));
+        console.log(pc.dim("-".repeat(40)));
+        for (const pattern of exp.exclusions) {
+          console.log(`  - ${pattern}`);
+        }
+        console.log("");
+      }
+
+      console.log(pc.dim("=".repeat(60)));
+      process.exit(0);
+    }
+
+    if (subCmd === "start") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment start <name>")}`);
+        process.exit(1);
+      }
+
+      const result = experimentModule.startExperiment(cwd, experimentName);
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      success(`Experiment ${pc.bold(experimentName)} is now ${pc.green("running")}.`);
+      info("Stories will now be assigned to variants based on traffic split.");
+      process.exit(0);
+    }
+
+    if (subCmd === "pause") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment pause <name>")}`);
+        process.exit(1);
+      }
+
+      const result = experimentModule.pauseExperiment(cwd, experimentName);
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      success(`Experiment ${pc.bold(experimentName)} is now ${pc.yellow("paused")}.`);
+      info("No new stories will be assigned to variants.");
+      process.exit(0);
+    }
+
+    if (subCmd === "conclude") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment conclude <name>")}`);
+        process.exit(1);
+      }
+
+      const result = experimentModule.concludeExperiment(cwd, experimentName);
+
+      if (!result.success) {
+        error(result.error);
+        process.exit(1);
+      }
+
+      success(`Experiment ${pc.bold(experimentName)} is now ${pc.cyan("concluded")}.`);
+      info("No further assignments will be made. Results are final.");
+      process.exit(0);
+    }
+
+    error(`Unknown experiment command: ${pc.bold(subCmd)}`);
+    info(`Run ${pc.cyan("ralph experiment help")} for usage.`);
+    process.exit(1);
   }
 
   const result = spawnSync(loopPath, loopArgs, {
