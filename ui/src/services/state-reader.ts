@@ -373,6 +373,118 @@ function extractStoryFromLog(logPath: string): { storyId?: string; storyTitle?: 
 }
 
 /**
+ * Extract retry statistics from a run summary file
+ * Returns { retryCount, retryTime } or null if not found
+ */
+function extractRetryStatsFromSummary(summaryPath: string): { retryCount: number; retryTime: number } | null {
+  try {
+    const content = fs.readFileSync(summaryPath, 'utf-8');
+
+    // Look for retry statistics section
+    // Format: "- Retry count: N" and "- Total retry wait time: Ns"
+    const retryCountMatch = content.match(/^- Retry count:\s*(\d+)/m);
+    const retryTimeMatch = content.match(/^- Total retry wait time:\s*(\d+)s/m);
+
+    if (retryCountMatch) {
+      const retryCount = parseInt(retryCountMatch[1], 10);
+      const retryTime = retryTimeMatch ? parseInt(retryTimeMatch[1], 10) : 0;
+      return { retryCount, retryTime };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retry event from activity log
+ */
+export interface RetryEvent {
+  timestamp: Date;
+  iteration: number;
+  attempt: number;
+  maxAttempts: number;
+  delay: number;
+  exitCode: number;
+  cumulativeTime?: number;
+  eventType: 'retry' | 'success' | 'exhausted';
+}
+
+/**
+ * Parse retry events from activity log content
+ * Returns array of retry events for analysis
+ */
+export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
+  const events: RetryEvent[] = [];
+
+  if (!fs.existsSync(activityLogPath)) {
+    return events;
+  }
+
+  try {
+    const content = fs.readFileSync(activityLogPath, 'utf-8');
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+      // Match timestamp: [2026-01-14 10:30:45]
+      const timestampMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
+      if (!timestampMatch) continue;
+
+      const timestamp = new Date(timestampMatch[1].replace(' ', 'T'));
+
+      // Match RETRY event: RETRY iteration=N attempt=M/X delay=Ns exit_code=E
+      const retryMatch = line.match(/RETRY\s+iteration=(\d+)\s+attempt=(\d+)\/(\d+)\s+delay=([0-9.]+)s\s+exit_code=(\d+)/);
+      if (retryMatch) {
+        events.push({
+          timestamp,
+          iteration: parseInt(retryMatch[1], 10),
+          attempt: parseInt(retryMatch[2], 10),
+          maxAttempts: parseInt(retryMatch[3], 10),
+          delay: parseFloat(retryMatch[4]),
+          exitCode: parseInt(retryMatch[5], 10),
+          eventType: 'retry',
+        });
+        continue;
+      }
+
+      // Match RETRY_SUCCESS event: RETRY_SUCCESS iteration=N succeeded_after=M retries
+      const successMatch = line.match(/RETRY_SUCCESS\s+iteration=(\d+)\s+succeeded_after=(\d+)\s+retries/);
+      if (successMatch) {
+        events.push({
+          timestamp,
+          iteration: parseInt(successMatch[1], 10),
+          attempt: parseInt(successMatch[2], 10) + 1, // succeeded on attempt after retries
+          maxAttempts: 0, // not available in success log
+          delay: 0,
+          exitCode: 0,
+          eventType: 'success',
+        });
+        continue;
+      }
+
+      // Match RETRY_EXHAUSTED event: RETRY_EXHAUSTED iteration=N total_attempts=M final_exit_code=E
+      const exhaustedMatch = line.match(/RETRY_EXHAUSTED\s+iteration=(\d+)\s+total_attempts=(\d+)\s+final_exit_code=(\d+)/);
+      if (exhaustedMatch) {
+        events.push({
+          timestamp,
+          iteration: parseInt(exhaustedMatch[1], 10),
+          attempt: parseInt(exhaustedMatch[2], 10),
+          maxAttempts: parseInt(exhaustedMatch[2], 10),
+          delay: 0,
+          exitCode: parseInt(exhaustedMatch[3], 10),
+          eventType: 'exhausted',
+        });
+      }
+    }
+  } catch {
+    // Return empty array on error
+  }
+
+  return events;
+}
+
+/**
  * Parse runs from a stream's runs directory
  */
 function parseRuns(runsPath: string, streamId: string): Run[] {
@@ -417,6 +529,17 @@ function parseRuns(runsPath: string, streamId: string): Run[] {
         // Extract story information from log content
         const storyInfo = extractStoryFromLog(logPath);
 
+        // Extract retry statistics from summary if available
+        let retryCount: number | undefined;
+        let retryTime: number | undefined;
+        if (hasSummary) {
+          const retryStats = extractRetryStatsFromSummary(summaryPath);
+          if (retryStats) {
+            retryCount = retryStats.retryCount;
+            retryTime = retryStats.retryTime;
+          }
+        }
+
         runs.push({
           id: runId,
           streamId,
@@ -428,6 +551,8 @@ function parseRuns(runsPath: string, streamId: string): Run[] {
           verifications: [],
           logPath,
           summaryPath: hasSummary ? summaryPath : undefined,
+          retryCount,
+          retryTime,
         });
       }
     }

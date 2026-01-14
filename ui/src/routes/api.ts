@@ -1578,6 +1578,11 @@ api.get('/partials/stream-detail', (c) => {
         const runStatusClass = run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'error' : 'in-progress';
         const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ''}` : 'Unknown story';
 
+        // Show retry badge if retries occurred
+        const retryBadge = (run.retryCount && run.retryCount > 0)
+          ? `<span class="retry-badge" title="Succeeded after ${run.retryCount} retry attempt(s), ${run.retryTime || 0}s total wait">&#8635; ${run.retryCount}</span>`
+          : '';
+
         return `
 <div class="run-item">
   <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
@@ -1585,6 +1590,7 @@ api.get('/partials/stream-detail', (c) => {
       <span class="status-badge ${runStatusClass}">${run.status}</span>
       <span class="run-id">iter ${run.iteration}</span>
       <span class="run-story">${escapeHtml(storyInfo)}</span>
+      ${retryBadge}
     </div>
     <div style="display: flex; align-items: center; gap: var(--spacing-md);">
       <span class="run-timestamp">${timestamp}</span>

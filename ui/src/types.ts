@@ -75,6 +75,10 @@ export interface Run {
   verifications: VerificationResult[];
   logPath: string;
   summaryPath?: string;
+  /** Number of retry attempts made during this run (0 means succeeded on first attempt) */
+  retryCount?: number;
+  /** Total time spent waiting for retries in seconds */
+  retryTime?: number;
 }
 
 /**
