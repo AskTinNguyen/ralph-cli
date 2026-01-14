@@ -33,6 +33,7 @@ let estimatePricing = null;  // For --pricing flag in estimate command (format: 
 let estimateModel = null;  // For --model flag in estimate command
 let noRetry = false;  // For --no-retry flag to disable automatic retries
 let resumeMode = false;  // For --resume flag in build command
+let watchBuildMode = false;  // For --build flag in watch command
 
 function exists(p) {
   try {
@@ -67,6 +68,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
   ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
   ${pc.green("checkpoint")} ${pc.dim("<subcmd>")}                  Manage build checkpoints
+  ${pc.green("watch")} ${pc.dim("[--prd=N] [--build]")}              Watch files for changes (--build: auto-run on plan change)
   ${pc.green("help")}                                Show this message
 
 ${pc.bold(pc.cyan("Checkpoint commands:"))}
@@ -129,6 +131,10 @@ ${pc.bold(pc.cyan("Doctor options:"))}
 ${pc.bold(pc.cyan("UI options:"))}
   ${pc.yellow("[port]")}                             Port number (default 3000)
   ${pc.yellow("--open")}                             Open browser automatically after starting
+
+${pc.bold(pc.cyan("Watch options:"))}
+  ${pc.yellow("--prd")} ${pc.dim("<N>")}                           Watch specific PRD (default: most recent)
+  ${pc.yellow("--build")}                            Auto-run build iteration on plan change
 
 ${pc.bold(pc.cyan("Stream commands:"))}
   ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
@@ -269,6 +275,10 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   // Parse --no-retry flag to disable automatic retries
   if (arg === "--no-retry") {
     noRetry = true;
+    continue;
+  }
+  if (arg === "--build") {
+    watchBuildMode = true;
     continue;
   }
   args.push(arg);
@@ -2613,6 +2623,315 @@ ${pc.bold(pc.cyan("Examples:"))}
     // Exit with error code if there are errors
     const hasErrors = results.summary && results.summary.totalErrors > 0;
     process.exit(hasErrors ? 1 : 0);
+  }
+
+  if (cmd === "watch") {
+    const watchModule = require("../lib/watch");
+    const ralphDir = path.join(cwd, ".ralph");
+
+    // Determine which PRD to watch
+    let prdFolder = null;
+
+    if (prdNumber) {
+      // --prd=N flag specified
+      prdFolder = path.join(ralphDir, `PRD-${prdNumber}`);
+      if (!exists(prdFolder)) {
+        error(`PRD-${prdNumber} not found at ${pc.cyan(prdFolder)}`);
+        process.exit(1);
+      }
+    } else {
+      // Auto-detect: find most recent PRD with pending stories
+      const prdFolders = [];
+      if (exists(ralphDir)) {
+        for (const item of fs.readdirSync(ralphDir)) {
+          if (item.match(/^PRD-\d+$/i)) {
+            const folder = path.join(ralphDir, item);
+            const planPath = path.join(folder, "plan.md");
+            if (exists(planPath)) {
+              const stat = fs.statSync(folder);
+              prdFolders.push({ folder, mtime: stat.mtime, number: item.match(/\d+/)[0] });
+            }
+          }
+        }
+      }
+
+      if (prdFolders.length === 0) {
+        error(`No PRD found with plan.md. Run ${pc.cyan("ralph plan")} first.`);
+        process.exit(1);
+      }
+
+      // Sort by modification time (most recent first)
+      prdFolders.sort((a, b) => b.mtime - a.mtime);
+      prdFolder = prdFolders[0].folder;
+      prdNumber = prdFolders[0].number;
+    }
+
+    // Load custom watch configuration if it exists
+    const customConfig = watchModule.loadCustomConfig(cwd);
+
+    // Create watcher
+    const watcher = new watchModule.FileWatcher({
+      debounceMs: customConfig?.debounce || 500,
+    });
+
+    // Enable build mode if --build flag is set
+    if (watchBuildMode) {
+      watchModule.enableBuildMode();
+    }
+
+    // Manual build trigger function
+    const triggerManualBuild = () => {
+      if (!watchBuildMode || watchModule.getBuildState().isRunning) return;
+
+      const event = {
+        planPath: path.join(prdFolder, "plan.md"),
+        prdNumber,
+        timestamp: new Date(),
+      };
+
+      dashboard.setCurrentAction("plan_build");
+      dashboard.setBuildRunning(true);
+
+      watchModule.executeAction("plan_build", event, actionOptions).then((result) => {
+        dashboard.setCurrentAction(null);
+        if (result.success && result.result) {
+          const { success: buildSuccess, paused, exitCode } = result.result;
+          dashboard.setBuildPaused(paused || false, exitCode);
+          if (buildSuccess) {
+            dashboard.addFileChange({
+              file: "build",
+              action: "run",
+              result: "completed",
+              resultIcon: "✓",
+            });
+          } else {
+            dashboard.addFileChange({
+              file: "build",
+              action: "run",
+              result: `failed (${exitCode})`,
+              resultIcon: "✗",
+            });
+          }
+        }
+      });
+    };
+
+    // Resume build function (after fixing issues)
+    const resumeBuild = () => {
+      watchModule.resetBuildPause();
+      dashboard.clearBuildOutput();
+      // Will auto-trigger on next plan change
+    };
+
+    // Create dashboard
+    const dashboard = watchModule.createDashboard({
+      projectRoot: cwd,
+      maxRecentChanges: 8,
+      onQuit: () => {
+        watcher.stop();
+        process.exit(0);
+      },
+      onReload: () => {
+        watchModule.clearCustomActions();
+        watchModule.loadCustomConfig(cwd);
+        if (watchBuildMode) {
+          watchModule.enableBuildMode();
+        }
+      },
+      onBuild: triggerManualBuild,
+      onResume: resumeBuild,
+    });
+
+    // Action execution options
+    const actionOptions = {
+      projectRoot: cwd,
+      prdNumber,
+      onOutput: () => {}, // Suppress console output, dashboard handles display
+      onBuildStart: () => {
+        dashboard.setBuildRunning(true);
+      },
+      onBuildEnd: (success, exitCode) => {
+        dashboard.setBuildPaused(!success, exitCode);
+        dashboard.refreshPRDStatus(); // Refresh story counts after build
+      },
+      onBuildOutput: (line) => {
+        dashboard.addBuildOutput(line);
+      },
+    };
+
+    // Event handlers with automatic actions and dashboard updates
+    watcher.on("started", (event) => {
+      // Initialize dashboard with PRD info
+      dashboard.init({
+        prdNumber,
+        prdPath: prdFolder,
+        watchedPaths: event.paths,
+        buildMode: watchBuildMode,
+      });
+      // Start dashboard (enables keyboard input and rendering)
+      dashboard.start();
+    });
+
+    watcher.on("prd_changed", async (event) => {
+      dashboard.setCurrentAction("prd_regenerate_plan");
+
+      // Execute PRD change actions
+      const results = await watchModule.executeActionsForTrigger("prd_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
+      for (const result of results) {
+        if (result.success && result.result?.message) {
+          resultText = "offer plan";
+          resultIcon = "→";
+        }
+      }
+
+      dashboard.addFileChange({
+        file: "prd.md",
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
+      dashboard.setCurrentAction(null);
+    });
+
+    watcher.on("plan_changed", async (event) => {
+      // In build mode, action is "plan_build"; otherwise "plan_validate"
+      const actionName = watchBuildMode ? "plan_build" : "plan_validate";
+      dashboard.setCurrentAction(actionName);
+
+      // Execute plan change actions (validation or build)
+      const results = await watchModule.executeActionsForTrigger("plan_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
+      let buildResult = null;
+
+      for (const result of results) {
+        if (result.success && result.result) {
+          // Check if this is a build result or validation result
+          if (result.result.exitCode !== undefined) {
+            // Build result
+            buildResult = result.result;
+            if (result.result.success) {
+              resultText = "build completed";
+              resultIcon = "✓";
+            } else if (result.result.paused) {
+              resultText = `build failed (${result.result.exitCode})`;
+              resultIcon = "✗";
+            } else if (result.result.reason === "already_running") {
+              resultText = "build skipped (busy)";
+              resultIcon = "→";
+            } else if (result.result.reason === "validation_failed") {
+              resultText = "validation failed";
+              resultIcon = "✗";
+            }
+          } else if (result.result.valid !== undefined) {
+            // Validation result
+            const { valid, storiesFound, warnings } = result.result;
+            if (valid && (!warnings || warnings.length === 0)) {
+              resultText = "validated";
+              resultIcon = "✓";
+            } else if (valid) {
+              resultText = `${warnings.length} warning(s)`;
+              resultIcon = "⚠";
+            } else {
+              resultText = "validation failed";
+              resultIcon = "✗";
+            }
+          }
+        }
+      }
+
+      dashboard.addFileChange({
+        file: "plan.md",
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
+
+      // Update build state in dashboard
+      if (buildResult) {
+        dashboard.setBuildPaused(buildResult.paused || false, buildResult.exitCode);
+      }
+
+      dashboard.setCurrentAction(null);
+    });
+
+    watcher.on("config_changed", async (event) => {
+      const filename = path.basename(event.configPath);
+      dashboard.setCurrentAction("config_reload");
+
+      // Execute config change actions (reload)
+      const results = await watchModule.executeActionsForTrigger("config_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
+      for (const result of results) {
+        if (result.success && result.result) {
+          const { valid } = result.result;
+          if (valid) {
+            resultText = "reloaded";
+            resultIcon = "✓";
+          }
+        }
+      }
+
+      dashboard.addFileChange({
+        file: filename,
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
+
+      // If watch.config.js changed, reload custom actions
+      if (filename === "watch.config.js") {
+        watchModule.clearCustomActions();
+        watchModule.loadCustomConfig(cwd);
+      }
+      dashboard.setCurrentAction(null);
+    });
+
+    watcher.on("file_changed", async (event) => {
+      // Only log other files if not already logged by specific handlers
+      const filename = event.filename;
+      if (!filename.endsWith("prd.md") && !filename.endsWith("plan.md")) {
+        // Execute any custom actions for generic file changes
+        await watchModule.executeActionsForTrigger("file_changed", event, actionOptions);
+
+        dashboard.addFileChange({
+          file: filename,
+          action: event.changeType,
+          result: "",
+          resultIcon: "",
+        });
+      }
+    });
+
+    watcher.on("error", (err) => {
+      dashboard.setStatus(`Error: ${err.message}`);
+    });
+
+    // Start watching
+    const started = watcher.start(prdFolder);
+    if (!started) {
+      error("Failed to start file watcher.");
+      process.exit(1);
+    }
+
+    // Handle graceful shutdown
+    const cleanup = () => {
+      dashboard.stop();
+      watcher.stop();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+
+    // Keep the process running
+    return;
   }
 
   if (cmd === "ui") {
