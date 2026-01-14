@@ -272,6 +272,96 @@ function isStreamMerged(ralphRoot: string, streamId: string): boolean {
 }
 
 /**
+ * Extract commit hashes from progress.md
+ */
+function getPrdCommits(streamPath: string): string[] {
+  const progressPath = path.join(streamPath, 'progress.md');
+
+  if (!fs.existsSync(progressPath)) {
+    return [];
+  }
+
+  try {
+    const content = fs.readFileSync(progressPath, 'utf-8');
+    // Extract commit hashes from lines like "- Commit: abc123f message"
+    const commits = content.match(/^- Commit: ([a-f0-9]{7})/gm) || [];
+    return commits
+      .map(line => line.match(/([a-f0-9]{7})/)?.[1])
+      .filter((hash): hash is string => hash !== undefined);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check if PRD has commits on current branch via 3-tier detection
+ */
+function hasGitEvidence(ralphRoot: string, streamId: string, streamPath: string): boolean {
+  try {
+    const { execSync } = require('node:child_process');
+
+    // Tier 1: Extract commits from progress.md and verify in git
+    const commits = getPrdCommits(streamPath);
+    if (commits.length > 0) {
+      const gitLog = execSync('git log --oneline', {
+        cwd: path.dirname(ralphRoot),
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      });
+
+      for (const commit of commits) {
+        if (gitLog.includes(commit)) {
+          return true;
+        }
+      }
+    }
+
+    // Tier 2: Search git log for PRD references
+    const result = execSync(
+      `git log --all --oneline --grep="PRD-${streamId}"`,
+      {
+        cwd: path.dirname(ralphRoot),
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }
+    );
+
+    return result.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if stream is completed via direct-to-main workflow
+ */
+function isStreamCompleted(ralphRoot: string, streamId: string): boolean {
+  const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+  const completedMarkerPath = path.join(streamPath, '.completed');
+
+  // Quick check: .completed marker exists?
+  if (fs.existsSync(completedMarkerPath)) {
+    return true;
+  }
+
+  // Check git evidence for commits
+  if (hasGitEvidence(ralphRoot, streamId, streamPath)) {
+    // Auto-create .completed marker
+    try {
+      fs.writeFileSync(
+        completedMarkerPath,
+        `completed_at=${new Date().toISOString()}\ncompleted_by=ui\nworkflow=direct-to-main`
+      );
+    } catch {
+      // Ignore write errors
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Determine stream status based on files and locks
  */
 function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): StreamStatus {
@@ -280,14 +370,41 @@ function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): 
     return "running";
   }
 
-  // Check PRD for completion status
+  // Check for merged (worktree workflow)
+  if (isStreamMerged(ralphRoot, streamId)) {
+    return "merged";
+  }
+
+  // NEW: Check for completed (direct-to-main workflow)
+  // This catches PRDs with git evidence but no .merged marker
+  if (isStreamCompleted(ralphRoot, streamId)) {
+    return "completed";
+  }
+
+  // Check PRD for other status indicators
   if (fs.existsSync(prdPath)) {
     try {
       const content = fs.readFileSync(prdPath, "utf-8");
       const { total, completed } = countStories(content);
 
+      // Prefer progress.md existence as indicator of in-progress work
+      const progressPath = path.join(path.dirname(prdPath), 'progress.md');
+      if (fs.existsSync(progressPath)) {
+        return "in_progress";
+      }
+
+      // Check for plan.md to indicate ready
+      const planPath = path.join(path.dirname(prdPath), 'plan.md');
+      if (fs.existsSync(planPath)) {
+        return "ready";
+      }
+
       if (total > 0 && completed === total) {
-        return "completed";
+        return "ready";
+      }
+
+      if (total === 0) {
+        return "ready";
       }
     } catch {
       // Fall through to idle

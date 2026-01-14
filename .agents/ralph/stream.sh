@@ -163,6 +163,110 @@ mark_stream_merged() {
   echo "merged_by=${USER:-unknown}" >> "$stream_dir/.merged"
 }
 
+get_prd_commits() {
+  # Extract commit hashes from progress.md (format: "- Commit: abc123f message")
+  # Args: stream_dir
+  # Outputs: List of 7-char commit hashes, one per line
+  local stream_dir="$1"
+  local progress_file="$stream_dir/progress.md"
+
+  if [[ ! -f "$progress_file" ]]; then
+    return
+  fi
+
+  # Extract commit hashes from progress entries
+  grep -E "^- Commit: [a-f0-9]{7}" "$progress_file" | \
+    sed -E 's/^- Commit: ([a-f0-9]{7}).*/\1/' | \
+    sort -u
+}
+
+verify_commit_exists() {
+  # Check if a commit hash exists in git history
+  # Args: commit_hash
+  # Returns: 0 if commit exists, 1 otherwise
+  local commit_hash="$1"
+
+  git log --oneline 2>/dev/null | grep -q "^$commit_hash" && return 0
+  return 1
+}
+
+has_git_evidence() {
+  # Check if PRD has commits on current branch via 3-tier detection
+  # Args: stream_id
+  # Returns: 0 if evidence found, 1 otherwise
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Tier 1: Extract commits from progress.md and verify in git (most reliable)
+  local commits
+  commits=$(get_prd_commits "$stream_dir")
+  if [[ -n "$commits" ]]; then
+    while read -r commit_hash; do
+      if verify_commit_exists "$commit_hash"; then
+        return 0
+      fi
+    done <<< "$commits"
+  fi
+
+  # Tier 2: Search git log for more specific PRD pattern (word boundary match)
+  # Use -E for extended regex to properly match word boundaries
+  if git log --all --oneline --grep="^.*PRD-${stream_id}.*$" 2>/dev/null | head -1 | grep -q .; then
+    return 0
+  fi
+
+  # If no evidence found, status will be determined by file structure (plan.md, progress.md, etc.)
+  return 1
+}
+
+is_stream_completed() {
+  # Check if stream completed via direct-to-main workflow
+  # Args: stream_id
+  # Returns: 0 if completed (has .completed marker or git evidence), 1 otherwise
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Quick check: .completed marker exists?
+  if [[ -f "$stream_dir/.completed" ]]; then
+    return 0
+  fi
+
+  # Check git evidence for commits
+  if has_git_evidence "$stream_id"; then
+    # Auto-create .completed marker
+    mark_stream_completed "$stream_id"
+    return 0
+  fi
+
+  return 1
+}
+
+mark_stream_completed() {
+  # Mark a stream as completed via direct-to-main workflow
+  # Args: stream_id
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Create .completed marker with metadata
+  {
+    echo "completed_at=$(date -Iseconds)"
+    echo "completed_by=${USER:-unknown}"
+    echo "workflow=direct-to-main"
+  } > "$stream_dir/.completed"
+}
+
+unmark_stream_completed() {
+  # Remove completion marker from stream
+  # Args: stream_id
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  rm -f "$stream_dir/.completed"
+}
+
 is_stream_running() {
   local stream_id="$1"
   local lock_file="$LOCKS_DIR/$stream_id.lock"
@@ -522,19 +626,39 @@ get_stream_status() {
   fi
 
   # IMPORTANT: Check git history FIRST (source of truth)
-  # This catches cases where PRD was merged but checkboxes weren't updated
+  # Worktree workflow: Branch merged to main via PR
   if is_stream_merged "$stream_id"; then
     echo "merged"
     return
   fi
 
-  # Check if all stories are done by looking at PRD
+  # NEW: Direct-to-main workflow: Commits exist on main
+  # This catches PRDs completed without using worktrees
+  if is_stream_completed "$stream_id"; then
+    echo "completed"
+    return
+  fi
+
+  # Check if PRD exists
   local prd_file="$stream_dir/prd.md"
   if [[ ! -f "$prd_file" ]]; then
     echo "no_prd"
     return
   fi
 
+  # Check if progress.md exists (work has started)
+  if [[ -f "$stream_dir/progress.md" ]]; then
+    echo "in_progress"
+    return
+  fi
+
+  # Check if plan.md exists (work hasn't started yet)
+  if [[ -f "$stream_dir/plan.md" ]]; then
+    echo "ready"
+    return
+  fi
+
+  # Fallback: Count stories as last resort
   local total remaining
   total=$(grep -c '### \[' "$prd_file" 2>/dev/null || true)
   remaining=$(grep -c '### \[ \]' "$prd_file" 2>/dev/null || true)
@@ -544,8 +668,8 @@ get_stream_status() {
   if [[ "$total" -eq 0 ]]; then
     echo "no_stories"
   elif [[ "$remaining" -eq 0 ]]; then
-    # All stories completed in prd.md but not merged yet
-    echo "completed"
+    # All stories completed in prd.md
+    echo "ready"
   else
     # Stories remain unchecked
     echo "ready"
@@ -1363,6 +1487,93 @@ cmd_unmark_merged() {
   printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Unmarked %s as merged\n" "$stream_id"
 }
 
+cmd_mark_completed() {
+  # Manually mark a stream as completed (for direct-to-main workflows)
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  if ! stream_exists "$stream_id"; then
+    msg_error "Stream $stream_id does not exist" >&2
+    return 1
+  fi
+
+  local status
+  status=$(get_stream_status "$stream_id")
+
+  if [[ "$status" == "completed" ]]; then
+    msg_dim "$stream_id is already marked as completed"
+    return 0
+  fi
+
+  # Mark as completed
+  mark_stream_completed "$stream_id"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Marked %s as completed\n" "$stream_id"
+}
+
+cmd_unmark_completed() {
+  # Remove completed marker from a stream
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  if [[ ! -f "$stream_dir/.completed" ]]; then
+    msg_dim "$stream_id is not marked as completed"
+    return 0
+  fi
+
+  unmark_stream_completed "$stream_id"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Unmarked %s as completed\n" "$stream_id"
+}
+
+cmd_verify_status() {
+  # Auto-scan all PRDs and correct stale status markers
+  section_header "Verifying PRD Status"
+
+  local prd_count=0
+  local corrected_count=0
+
+  for prd_dir in "$RALPH_DIR"/PRD-*/ "$RALPH_DIR"/prd-*/; do
+    [[ -d "$prd_dir" ]] || continue
+    local stream_id
+    stream_id=$(basename "$prd_dir")
+
+    # Get current status (will auto-create .completed if git evidence found)
+    local status
+    status=$(get_stream_status "$stream_id")
+
+    # Log correction if marker was created
+    if [[ "$status" == "completed" ]] && [[ -f "$prd_dir/.completed" ]]; then
+      local completed_at
+      completed_at=$(grep "^completed_at=" "$prd_dir/.completed" | cut -d= -f2)
+      if [[ -n "$completed_at" ]]; then
+        ((corrected_count++))
+        msg_dim "✓ $stream_id: auto-corrected to completed"
+      fi
+    fi
+
+    ((prd_count++))
+  done
+
+  msg_success "Scanned $prd_count PRDs, corrected $corrected_count stale status markers"
+  if [[ $corrected_count -gt 0 ]]; then
+    printf "\n${C_CYAN}Auto-corrections logged to activity log${C_RESET}\n"
+  fi
+}
+
 # ============================================================================
 # Merge Queue Status (US-005)
 # ============================================================================
@@ -1834,6 +2045,23 @@ case "$cmd" in
     fi
     cmd_unmark_merged "$1"
     ;;
+  mark-completed)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream mark-completed <N>" >&2
+      exit 1
+    fi
+    cmd_mark_completed "$1"
+    ;;
+  unmark-completed)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream unmark-completed <N>" >&2
+      exit 1
+    fi
+    cmd_unmark_completed "$1"
+    ;;
+  verify-status)
+    cmd_verify_status
+    ;;
   pr)
     if [[ -z "${1:-}" ]]; then
       echo "Usage: ralph stream pr <N> [--title \"...\"] [--reviewers \"...\"] [--base branch] [--dry-run]" >&2
@@ -1871,6 +2099,10 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream mark-merged ${C_YELLOW}<N>${C_RESET}  Mark stream as merged manually\n"
     printf "  ${C_GREEN}ralph stream unmark-merged ${C_YELLOW}<N>${C_RESET}\n"
     printf "                              Remove merged marker from stream\n"
+    printf "  ${C_GREEN}ralph stream mark-completed ${C_YELLOW}<N>${C_RESET} Mark stream as completed (direct-to-main)\n"
+    printf "  ${C_GREEN}ralph stream unmark-completed ${C_YELLOW}<N>${C_RESET}\n"
+    printf "                              Remove completed marker from stream\n"
+    printf "  ${C_GREEN}ralph stream verify-status${C_RESET}     Auto-scan and fix stale status markers\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
     printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"

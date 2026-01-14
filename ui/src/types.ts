@@ -28,8 +28,22 @@ export interface Story {
 
 /**
  * Status of a stream (PRD folder)
+ * - idle: PRD doesn't exist or not enough data
+ * - running: Lock file exists with active PID
+ * - merged: Worktree workflow - branch merged to main
+ * - completed: Direct-to-main workflow - commits found on main
+ * - in_progress: Progress started but not committed yet
+ * - ready: PRD exists but work hasn't started
+ * - error: Error reading/processing PRD
  */
-export type StreamStatus = "idle" | "running" | "completed" | "error";
+export type StreamStatus =
+  | "idle"
+  | "running"
+  | "merged"
+  | "completed"
+  | "in_progress"
+  | "ready"
+  | "error";
 
 /**
  * A stream represents a PRD-N folder with its associated data

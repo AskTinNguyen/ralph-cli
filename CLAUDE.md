@@ -145,34 +145,57 @@ The loop is stateless - each iteration reads files, does work, writes results.
 
 ### Stream Status Verification
 
-**IMPORTANT**: `ralph stream status` now cross-checks git history as the source of truth.
+**IMPORTANT**: Git commits are the ultimate source of truth for PRD status. Checkboxes are only progress markers.
 
 **How it works:**
-1. **Git is the source of truth**: Status is verified via `git merge-base --is-ancestor` and merge commit history
-2. **Auto-correction**: If git shows a PRD is merged but `.merged` marker is missing, it's auto-created
-3. **Stale detection**: PRDs showing "ready" or "completed" but already merged in git are auto-corrected to "merged"
+1. **Git is authoritative**: Status checks git history for actual commits, not checkboxes
+2. **Two completion workflows**:
+   - `merged`: Worktree workflow - branch merged to main via PR (`.merged` marker)
+   - `completed`: Direct-to-main workflow - commits directly on main (`.completed` marker)
+3. **Auto-correction**: Missing `.completed` markers auto-created when git shows commits
+4. **Checkboxes are hints**: Used by agents during work, not for status determination
+
+**Status detection hierarchy:**
+- `running`: Lock file exists with active PID
+- `merged`: Branch merged to main (git merge-base check)
+- `completed`: Commits found on main (progress.md hashes + git log search)
+- `in_progress`: progress.md exists but no commits found
+- `ready`: plan.md exists but no progress yet
 
 **Why this matters:**
-- Prevents attempting to build already-merged PRDs
-- Catches discrepancies between file markers and git reality
-- Ensures accurate status across team members and CI/CD
+- Correctly identifies PRDs completed via direct-to-main workflow (no worktree)
+- Checkboxes can't be trusted as proof of work - only git commits matter
+- Prevents false status when checkboxes aren't updated
 
 **Manual verification:**
 ```bash
-# Check if PRD-N branch was actually merged
-git branch --merged main | grep "ralph/PRD-N"
+# Check if PRD has commits on main
+git log --oneline --grep="PRD-N"
 
-# View merge commits for a specific PRD
-git log --oneline --grep="PRD-N" --merges
+# Verify specific commits from progress.md
+grep "Commit:" .ralph/PRD-N/progress.md
 
-# Manually mark as merged (if git shows it but status doesn't)
-ralph stream mark-merged N
+# See all commits for a PRD
+git log --all --oneline | grep -i "PRD-N\|US-00"
+```
+
+**New status commands:**
+```bash
+# Mark PRD as completed (direct-to-main workflow)
+ralph stream mark-completed N
+
+# Remove completion marker
+ralph stream unmark-completed N
+
+# Auto-scan and fix all stale status markers
+ralph stream verify-status
 ```
 
 **Common issues:**
-- **"Ready" but already merged**: Git history checked, status auto-updated to "merged"
-- **"Completed" but no merge**: Verify with `git branch --merged main`, then run `ralph stream merge N`
-- **Stale progress.md**: Status now ignores stale markers when git history conflicts
+- **Checkbox marked but no commits**: Status = "in_progress" (work not committed yet)
+- **Commits exist but shows "ready"**: Run `ralph stream verify-status` to auto-correct
+- **Want to distinguish worktree vs direct builds**: Check for `.merged` vs `.completed` marker files
+- **Direct-to-main PRD shows wrong status**: `get_stream_status()` will auto-create `.completed` marker on first status check
 
 ## MCP Servers
 
