@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ralph CLI - Chat</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/js/htmx.min.js"></script>
+    <script src="/js/htmx-ext-sse.js"></script>
+    <style>
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 200px);
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .chat-header {
+        text-align: center;
+        padding: 2rem;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .chat-header h2 {
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+      }
+
+      .chat-header p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .chat-message {
+        display: flex;
+        gap: 0.75rem;
+        max-width: 80%;
+      }
+
+      .chat-message.user {
+        align-self: flex-end;
+        flex-direction: row-reverse;
+      }
+
+      .chat-message.assistant {
+        align-self: flex-start;
+      }
+
+      .chat-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: white;
+        flex-shrink: 0;
+      }
+
+      .chat-message.user .chat-avatar {
+        background: var(--secondary-color);
+      }
+
+      .chat-bubble {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 1rem;
+        padding: 0.875rem 1.25rem;
+        line-height: 1.5;
+      }
+
+      .chat-message.user .chat-bubble {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+      }
+
+      .chat-input-container {
+        padding: 1.5rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+      }
+
+      .chat-input-form {
+        display: flex;
+        gap: 0.75rem;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 0.875rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        background: var(--card-bg);
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .chat-input:focus {
+        border-color: var(--primary-color);
+      }
+
+      .chat-input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .chat-send-btn {
+        padding: 0.875rem 1.5rem;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .chat-send-btn:hover {
+        background: var(--primary-hover);
+      }
+
+      .chat-send-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        justify-content: center;
+      }
+
+      .quick-action-btn {
+        padding: 0.5rem 1rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 2rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .quick-action-btn:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+      }
+
+      .feature-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 2rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+      }
+
+      .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 0.5rem;
+      }
+
+      .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: var(--text-secondary);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+      }
+
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes typing {
+        0%, 60%, 100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+
+      .welcome-message {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+      }
+
+      .welcome-message h3 {
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+      }
+
+      .capabilities-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+        padding: 0 1rem;
+      }
+
+      .capability-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        text-align: left;
+      }
+
+      .capability-card h4 {
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .capability-card p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+
+      .capability-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+    </style>
+  </head>
+  <body hx-ext="sse" sse-connect="/api/events">
+    <!-- Connection Lost Banner -->
+    <div id="connection-banner" class="connection-lost hidden">
+      <span>Connection lost. Reconnecting...</span>
+      <button onclick="window.location.reload()">Reload Page</button>
+    </div>
+
+    <!-- Error Toast Container -->
+    <div id="error-toast" class="error-toast hidden">
+      <div class="error-toast-header">
+        <span class="error-toast-title">Error</span>
+        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
+      </div>
+      <div class="error-toast-message" id="error-toast-message"></div>
+    </div>
+
+    <header>
+      <div class="header-content">
+        <h1>Ralph CLI</h1>
+        <span class="subtitle">Autonomous Coding Loop</span>
+      </div>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/chat.html" class="active">Chat</a>
+        <a href="/streams.html">Streams</a>
+        <a href="/logs.html">Logs</a>
+        <a href="/tokens.html">Tokens</a>
+        <a href="/trends.html">Trends</a>
+        <a href="/editor.html">Editor</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="chat-container">
+        <div class="chat-header">
+          <span class="feature-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Interactive Chat
+          </span>
+          <h2>Chat with Ralph</h2>
+          <p>Ask questions about your project, get help with PRDs, or discuss implementation strategies.</p>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+          <div class="welcome-message">
+            <h3>Welcome to Ralph Chat</h3>
+            <p>I can help you with PRD creation, planning, troubleshooting, and more.</p>
+
+            <div class="capabilities-list">
+              <div class="capability-card">
+                <div class="capability-icon">📝</div>
+                <h4>PRD Assistance</h4>
+                <p>Help writing and refining your Product Requirements Documents</p>
+              </div>
+              <div class="capability-card">
+                <div class="capability-icon">📋</div>
+                <h4>Planning Help</h4>
+                <p>Break down features into actionable user stories</p>
+              </div>
+              <div class="capability-card">
+                <div class="capability-icon">🔧</div>
+                <h4>Troubleshooting</h4>
+                <p>Diagnose and fix issues with builds, streams, or git</p>
+              </div>
+              <div class="capability-card">
+                <div class="capability-icon">💡</div>
+                <h4>Best Practices</h4>
+                <p>Get tips on using Ralph more effectively</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sample conversation to show the interface -->
+          <div class="chat-message user">
+            <div class="chat-avatar">U</div>
+            <div class="chat-bubble">How do I start a new PRD?</div>
+          </div>
+
+          <div class="chat-message assistant">
+            <div class="chat-avatar">R</div>
+            <div class="chat-bubble">
+              To create a new PRD, run <code>ralph prd "Your feature description"</code> in your terminal. This will generate a structured PRD in <code>.ralph/PRD-N/prd.md</code>.<br><br>
+              For example:<br>
+              <code>ralph prd "Add user authentication with OAuth"</code><br><br>
+              You can then edit the generated PRD to add more details, acceptance criteria, and user stories.
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-container">
+          <form class="chat-input-form" id="chat-form" onsubmit="handleChatSubmit(event)">
+            <input
+              type="text"
+              class="chat-input"
+              id="chat-input"
+              placeholder="Ask Ralph a question..."
+              autocomplete="off"
+            />
+            <button type="submit" class="chat-send-btn" id="send-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Send
+            </button>
+          </form>
+          <div class="quick-actions">
+            <button class="quick-action-btn" onclick="insertQuickAction('How do I create a new PRD?')">Create PRD</button>
+            <button class="quick-action-btn" onclick="insertQuickAction('How do I run a build?')">Run Build</button>
+            <button class="quick-action-btn" onclick="insertQuickAction('How do I use streams for parallel development?')">Use Streams</button>
+            <button class="quick-action-btn" onclick="insertQuickAction('What commands are available?')">Show Commands</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>
+        Ralph CLI Web UI &mdash;
+        <span
+          id="status-indicator"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          >checking...</span
+        >
+      </p>
+    </footer>
+
+    <script>
+      // Dismiss error toast
+      function dismissErrorToast() {
+        var toast = document.getElementById("error-toast");
+        toast.classList.add("hidden");
+      }
+
+      // Insert quick action into input
+      function insertQuickAction(text) {
+        var input = document.getElementById("chat-input");
+        input.value = text;
+        input.focus();
+      }
+
+      // Handle chat form submission
+      function handleChatSubmit(event) {
+        event.preventDefault();
+        var input = document.getElementById("chat-input");
+        var message = input.value.trim();
+
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage(message, "user");
+        input.value = "";
+
+        // Show typing indicator
+        showTypingIndicator();
+
+        // Simulate response (in a real implementation, this would call an API)
+        setTimeout(function() {
+          hideTypingIndicator();
+          var response = generateResponse(message);
+          addMessage(response, "assistant");
+        }, 1000 + Math.random() * 1000);
+      }
+
+      // Add a message to the chat
+      function addMessage(text, type) {
+        var messagesContainer = document.getElementById("chat-messages");
+        var welcomeMessage = messagesContainer.querySelector(".welcome-message");
+        if (welcomeMessage) {
+          welcomeMessage.style.display = "none";
+        }
+
+        var messageDiv = document.createElement("div");
+        messageDiv.className = "chat-message " + type;
+
+        var avatar = document.createElement("div");
+        avatar.className = "chat-avatar";
+        avatar.textContent = type === "user" ? "U" : "R";
+
+        var bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+        bubble.innerHTML = text;
+
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+        messagesContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // Show typing indicator
+      function showTypingIndicator() {
+        var messagesContainer = document.getElementById("chat-messages");
+        var indicator = document.createElement("div");
+        indicator.className = "chat-message assistant";
+        indicator.id = "typing-indicator";
+        indicator.innerHTML = '<div class="chat-avatar">R</div><div class="chat-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+        messagesContainer.appendChild(indicator);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // Hide typing indicator
+      function hideTypingIndicator() {
+        var indicator = document.getElementById("typing-indicator");
+        if (indicator) {
+          indicator.remove();
+        }
+      }
+
+      // Generate a response based on the message
+      function generateResponse(message) {
+        var lowerMessage = message.toLowerCase();
+
+        if (lowerMessage.includes("prd") && (lowerMessage.includes("create") || lowerMessage.includes("new"))) {
+          return 'To create a new PRD, use:<br><br><code>ralph prd "Your feature description"</code><br><br>This creates a structured PRD in <code>.ralph/PRD-N/prd.md</code>. You can then edit it to add acceptance criteria and user stories.';
+        }
+
+        if (lowerMessage.includes("build") && (lowerMessage.includes("run") || lowerMessage.includes("start"))) {
+          return 'To run a build, use:<br><br><code>ralph build N</code><br><br>Where N is the number of iterations. For example, <code>ralph build 5</code> runs 5 iterations.<br><br>Options:<br>- <code>--prd=N</code> - Target a specific PRD<br>- <code>--no-commit</code> - Dry run without commits<br>- <code>--agent=claude</code> - Choose the agent';
+        }
+
+        if (lowerMessage.includes("stream")) {
+          return 'Streams allow parallel development on multiple PRDs:<br><br>1. <strong>List PRDs:</strong> <code>ralph stream list</code><br>2. <strong>Init worktree:</strong> <code>ralph stream init N</code><br>3. <strong>Build in stream:</strong> <code>ralph stream build N 5</code><br>4. <strong>Merge when done:</strong> <code>ralph stream merge N</code><br><br>Run multiple streams in parallel with: <code>ralph stream build 1 & ralph stream build 2 &</code>';
+        }
+
+        if (lowerMessage.includes("command")) {
+          return 'Core Ralph commands:<br><br><strong>Setup:</strong><br>- <code>ralph install</code> - Install Ralph to project<br><br><strong>PRD Workflow:</strong><br>- <code>ralph prd "desc"</code> - Create PRD<br>- <code>ralph plan</code> - Create plan from PRD<br>- <code>ralph build N</code> - Run N iterations<br><br><strong>Streams:</strong><br>- <code>ralph stream list</code> - List PRDs<br>- <code>ralph stream status</code> - Show status<br>- <code>ralph stream build N M</code> - Build PRD N with M iterations<br><br>See <a href="/docs/commands.html">Command Reference</a> for full details.';
+        }
+
+        if (lowerMessage.includes("help") || lowerMessage.includes("stuck")) {
+          return 'Here are some things I can help with:<br><br>- Creating and editing PRDs<br>- Understanding Ralph commands<br>- Troubleshooting build issues<br>- Using streams for parallel work<br>- Best practices and tips<br><br>What would you like to know more about?';
+        }
+
+        // Default response
+        return 'I can help with PRD creation, builds, streams, and troubleshooting. Try asking:<br><br>- "How do I create a new PRD?"<br>- "How do I run a build?"<br>- "How do I use streams?"<br>- "What commands are available?"<br><br>Or check the <a href="/docs/">documentation</a> for detailed guides.';
+      }
+    </script>
+  </body>
+</html>

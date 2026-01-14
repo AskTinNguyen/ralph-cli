@@ -1,0 +1,486 @@
+/* Command Reference Page Styles */
+
+/* ========================================
+   Commands Hero
+   ======================================== */
+.commands-hero {
+  text-align: center;
+  padding: var(--docs-space-3xl) var(--docs-space-lg);
+  background: linear-gradient(180deg, var(--docs-bg-secondary) 0%, var(--docs-bg-primary) 100%);
+}
+
+/* ========================================
+   Search & Filter Bar
+   ======================================== */
+.commands-search-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--docs-space-lg);
+  margin-bottom: var(--docs-space-xl);
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--docs-space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--docs-text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--docs-space-md) var(--docs-space-md) var(--docs-space-md) calc(var(--docs-space-md) + 28px);
+  font-family: var(--docs-font-sans);
+  font-size: var(--docs-text-base);
+  background: var(--docs-bg-card);
+  border: 2px solid var(--docs-border-light);
+  border-radius: var(--docs-radius-lg);
+  color: var(--docs-text-primary);
+  transition: all var(--docs-transition-fast);
+}
+
+.search-input::placeholder {
+  color: var(--docs-text-muted);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--docs-sage);
+  box-shadow: 0 0 0 4px var(--docs-focus-ring);
+}
+
+.search-clear {
+  position: absolute;
+  right: var(--docs-space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--docs-bg-tertiary);
+  border: none;
+  border-radius: var(--docs-radius-full);
+  color: var(--docs-text-muted);
+  cursor: pointer;
+  transition: all var(--docs-transition-fast);
+}
+
+.search-clear:hover {
+  background: var(--docs-border-medium);
+  color: var(--docs-text-primary);
+}
+
+/* Filter Buttons */
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--docs-space-sm);
+  justify-content: center;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--docs-space-xs);
+  padding: var(--docs-space-sm) var(--docs-space-md);
+  font-family: var(--docs-font-sans);
+  font-size: var(--docs-text-sm);
+  font-weight: 500;
+  background: var(--docs-bg-card);
+  border: 1px solid var(--docs-border-light);
+  border-radius: var(--docs-radius-full);
+  color: var(--docs-text-secondary);
+  cursor: pointer;
+  transition: all var(--docs-transition-fast);
+}
+
+.filter-btn:hover {
+  background: var(--docs-bg-tertiary);
+  color: var(--docs-text-primary);
+}
+
+.filter-btn.active {
+  background: var(--docs-sage);
+  border-color: var(--docs-sage);
+  color: white;
+}
+
+.filter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--docs-radius-full);
+}
+
+.filter-dot.beginner {
+  background: var(--docs-success);
+}
+
+.filter-dot.intermediate {
+  background: var(--docs-warning);
+}
+
+.filter-dot.advanced {
+  background: var(--docs-info);
+}
+
+/* Quick Navigation */
+.quick-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--docs-space-sm);
+  flex-wrap: wrap;
+}
+
+.quick-nav-label {
+  font-size: var(--docs-text-sm);
+  color: var(--docs-text-muted);
+  font-weight: 500;
+}
+
+.quick-nav-link {
+  padding: var(--docs-space-xs) var(--docs-space-md);
+  font-size: var(--docs-text-sm);
+  color: var(--docs-text-secondary);
+  text-decoration: none;
+  border-radius: var(--docs-radius-md);
+  transition: all var(--docs-transition-fast);
+}
+
+.quick-nav-link:hover {
+  background: var(--docs-bg-tertiary);
+  color: var(--docs-text-primary);
+}
+
+/* ========================================
+   Commands Content
+   ======================================== */
+.commands-content {
+  padding: var(--docs-space-2xl) 0 var(--docs-space-4xl);
+}
+
+/* No Results */
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--docs-space-4xl) var(--docs-space-lg);
+  text-align: center;
+}
+
+.no-results-icon {
+  color: var(--docs-text-muted);
+  margin-bottom: var(--docs-space-lg);
+  opacity: 0.5;
+}
+
+.no-results h3 {
+  font-family: var(--docs-font-serif);
+  font-size: var(--docs-text-2xl);
+  color: var(--docs-text-primary);
+  margin-bottom: var(--docs-space-sm);
+}
+
+.no-results p {
+  color: var(--docs-text-secondary);
+  margin-bottom: var(--docs-space-lg);
+}
+
+/* ========================================
+   Command Sections
+   ======================================== */
+.command-section {
+  margin-bottom: var(--docs-space-3xl);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--docs-space-lg);
+  margin-bottom: var(--docs-space-xl);
+  padding-bottom: var(--docs-space-md);
+  border-bottom: 2px solid var(--docs-border-light);
+}
+
+.section-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--docs-bg-secondary);
+  border-radius: var(--docs-radius-lg);
+  color: var(--docs-sage-dark);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-family: var(--docs-font-serif);
+  font-size: var(--docs-text-2xl);
+  font-weight: 600;
+  color: var(--docs-text-primary);
+  margin-bottom: var(--docs-space-xs);
+}
+
+.section-description {
+  font-size: var(--docs-text-base);
+  color: var(--docs-text-secondary);
+}
+
+/* Command Grid */
+.command-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--docs-space-lg);
+}
+
+/* ========================================
+   Command Cards
+   ======================================== */
+.command-card {
+  background: var(--docs-bg-card);
+  border: 1px solid var(--docs-border-light);
+  border-radius: var(--docs-radius-lg);
+  overflow: hidden;
+  transition: box-shadow var(--docs-transition-normal);
+}
+
+.command-card:hover {
+  box-shadow: var(--docs-shadow-md);
+}
+
+.command-header {
+  padding: var(--docs-space-lg);
+  background: var(--docs-bg-secondary);
+  border-bottom: 1px solid var(--docs-border-light);
+}
+
+.command-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--docs-space-md);
+  margin-bottom: var(--docs-space-sm);
+  flex-wrap: wrap;
+}
+
+.command-name {
+  font-family: var(--docs-font-mono);
+  font-size: var(--docs-text-lg);
+  font-weight: 600;
+  color: var(--docs-text-primary);
+  margin: 0;
+}
+
+.command-description {
+  font-size: var(--docs-text-base);
+  color: var(--docs-text-secondary);
+  margin: 0;
+}
+
+/* Difficulty Badges */
+.difficulty-badge {
+  padding: var(--docs-space-xs) var(--docs-space-md);
+  font-size: var(--docs-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--docs-radius-full);
+  white-space: nowrap;
+}
+
+.difficulty-badge.beginner {
+  background: var(--docs-success-bg);
+  color: var(--docs-success);
+}
+
+.difficulty-badge.intermediate {
+  background: var(--docs-warning-bg);
+  color: var(--docs-warning);
+}
+
+.difficulty-badge.advanced {
+  background: var(--docs-info-bg);
+  color: var(--docs-info);
+}
+
+/* Command Body */
+.command-body {
+  padding: var(--docs-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--docs-space-lg);
+}
+
+/* Syntax Section */
+.command-syntax,
+.command-flags,
+.command-examples,
+.command-output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--docs-space-sm);
+}
+
+.syntax-label,
+.flags-label,
+.examples-label,
+.output-label,
+.related-label {
+  font-size: var(--docs-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--docs-text-muted);
+}
+
+/* Flags List */
+.flags-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--docs-space-sm);
+}
+
+.flag-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--docs-space-md);
+  padding: var(--docs-space-sm) var(--docs-space-md);
+  background: var(--docs-bg-secondary);
+  border-radius: var(--docs-radius-md);
+}
+
+.flag-name {
+  font-family: var(--docs-font-mono);
+  font-size: var(--docs-text-sm);
+  color: var(--docs-sage-dark);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.flag-description {
+  font-size: var(--docs-text-sm);
+  color: var(--docs-text-secondary);
+}
+
+/* Examples */
+.example-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--docs-space-sm);
+}
+
+.example-description {
+  font-size: var(--docs-text-sm);
+  color: var(--docs-text-secondary);
+  margin: 0;
+}
+
+/* Output */
+.output-description {
+  font-size: var(--docs-text-sm);
+  color: var(--docs-text-secondary);
+  margin: 0;
+}
+
+/* Related Commands */
+.command-related {
+  display: flex;
+  align-items: center;
+  gap: var(--docs-space-sm);
+  flex-wrap: wrap;
+  padding-top: var(--docs-space-md);
+  border-top: 1px solid var(--docs-border-light);
+}
+
+.related-link {
+  font-family: var(--docs-font-mono);
+  font-size: var(--docs-text-sm);
+  color: var(--docs-link);
+  text-decoration: none;
+  padding: var(--docs-space-xs) var(--docs-space-sm);
+  background: var(--docs-bg-secondary);
+  border-radius: var(--docs-radius-sm);
+  transition: all var(--docs-transition-fast);
+}
+
+.related-link:hover {
+  background: var(--docs-sage-light);
+  color: var(--docs-sage-dark);
+}
+
+/* Search highlight */
+.command-card mark {
+  background: var(--docs-gold-light);
+  color: var(--docs-text-primary);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 768px) {
+  .commands-hero {
+    padding: var(--docs-space-2xl) var(--docs-space-md);
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--docs-space-md);
+  }
+
+  .section-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .command-name-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--docs-space-sm);
+  }
+
+  .flag-item {
+    flex-direction: column;
+    gap: var(--docs-space-xs);
+  }
+
+  .quick-nav {
+    flex-direction: column;
+    gap: var(--docs-space-xs);
+  }
+
+  .quick-nav-label {
+    margin-bottom: var(--docs-space-xs);
+  }
+
+  .command-related {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-buttons {
+    width: 100%;
+  }
+
+  .filter-btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+}

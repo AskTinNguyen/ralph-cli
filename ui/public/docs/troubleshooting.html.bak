@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Troubleshooting & FAQ - Ralph CLI</title>
+  <meta name="description" content="Common issues, solutions, and troubleshooting guides for Ralph CLI">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/docs/docs-theme.css">
+  <link rel="stylesheet" href="/docs/navigation.css">
+  <style>
+    .issue-card {
+      border: 1px solid var(--docs-border-light);
+      border-radius: 12px;
+      padding: var(--docs-space-lg);
+      margin-bottom: var(--docs-space-lg);
+      background: var(--docs-bg-primary);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .issue-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .issue-symptom {
+      font-family: var(--docs-font-heading);
+      font-size: var(--docs-text-lg);
+      font-weight: 600;
+      color: var(--docs-text-primary);
+      margin-bottom: var(--docs-space-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--docs-space-sm);
+    }
+
+    .issue-severity {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: var(--docs-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .severity-common {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .severity-occasional {
+      background: #DBEAFE;
+      color: #1E40AF;
+    }
+
+    .severity-rare {
+      background: #F3E8FF;
+      color: #6B21A8;
+    }
+
+    .issue-cause {
+      font-size: var(--docs-text-sm);
+      color: var(--docs-text-secondary);
+      margin-bottom: var(--docs-space-md);
+      padding-left: var(--docs-space-lg);
+      border-left: 3px solid var(--docs-border-light);
+    }
+
+    .issue-solution {
+      margin-top: var(--docs-space-md);
+    }
+
+    .solution-steps {
+      list-style: none;
+      padding: 0;
+      margin: var(--docs-space-md) 0;
+    }
+
+    .solution-steps li {
+      padding-left: var(--docs-space-lg);
+      margin-bottom: var(--docs-space-sm);
+      position: relative;
+      color: var(--docs-text-secondary);
+      font-size: var(--docs-text-sm);
+    }
+
+    .solution-steps li:before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--docs-accent);
+      font-weight: 600;
+    }
+
+    .quick-fix-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--docs-accent-lighter);
+      color: var(--docs-accent-darker);
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: var(--docs-text-xs);
+      font-weight: 600;
+      margin-left: var(--docs-space-sm);
+    }
+
+    .diagnostic-flow {
+      background: var(--docs-bg-secondary);
+      border-radius: 10px;
+      padding: var(--docs-space-lg);
+      margin: var(--docs-space-lg) 0;
+    }
+
+    .diagnostic-step {
+      padding: var(--docs-space-md);
+      margin-bottom: var(--docs-space-sm);
+      border-left: 3px solid var(--docs-accent);
+      background: var(--docs-bg-primary);
+      border-radius: 4px;
+    }
+
+    .diagnostic-question {
+      font-weight: 600;
+      color: var(--docs-text-primary);
+      margin-bottom: var(--docs-space-xs);
+    }
+
+    .diagnostic-action {
+      font-size: var(--docs-text-sm);
+      color: var(--docs-text-secondary);
+    }
+
+    .search-box {
+      position: sticky;
+      top: 80px;
+      z-index: 10;
+      background: var(--docs-bg-primary);
+      padding: var(--docs-space-md) 0;
+      margin-bottom: var(--docs-space-xl);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: var(--docs-space-md);
+      border: 2px solid var(--docs-border-light);
+      border-radius: 10px;
+      font-size: var(--docs-text-base);
+      font-family: var(--docs-font-body);
+      transition: border-color 0.2s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--docs-accent);
+    }
+
+    .toc-section {
+      background: var(--docs-bg-secondary);
+      border-radius: 10px;
+      padding: var(--docs-space-lg);
+      margin-bottom: var(--docs-space-xl);
+    }
+
+    .toc-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--docs-space-sm);
+      margin-top: var(--docs-space-md);
+    }
+
+    .toc-link {
+      padding: 8px 16px;
+      background: var(--docs-bg-primary);
+      border: 1px solid var(--docs-border-light);
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--docs-text-primary);
+      font-size: var(--docs-text-sm);
+      transition: all 0.2s ease;
+    }
+
+    .toc-link:hover {
+      background: var(--docs-accent-lighter);
+      border-color: var(--docs-accent);
+      color: var(--docs-accent-darker);
+    }
+
+    .help-section {
+      background: linear-gradient(135deg, var(--docs-bg-secondary) 0%, var(--docs-accent-lighter) 100%);
+      border-radius: 12px;
+      padding: var(--docs-space-2xl);
+      text-align: center;
+      margin-top: var(--docs-space-2xl);
+    }
+
+    .limitation-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .limitation-list li {
+      padding: var(--docs-space-md);
+      margin-bottom: var(--docs-space-sm);
+      background: var(--docs-bg-secondary);
+      border-radius: 6px;
+      border-left: 4px solid var(--docs-accent);
+    }
+
+    .limitation-title {
+      font-weight: 600;
+      color: var(--docs-text-primary);
+      margin-bottom: var(--docs-space-xs);
+    }
+
+    .limitation-workaround {
+      font-size: var(--docs-text-sm);
+      color: var(--docs-text-secondary);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="docs-page has-sidebar">
+  <!-- Collapsible Sidebar Navigation -->
+  <aside class="docs-sidebar">
+    <nav aria-label="Documentation navigation">
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Getting Started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/" class="docs-sidebar-link">Home</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/tutorial.html" class="docs-sidebar-link">Interactive Tutorial</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/commands.html" class="docs-sidebar-link">Command Reference</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Resources
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/examples.html" class="docs-sidebar-link">Examples Gallery</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/tips.html" class="docs-sidebar-link">Tips & Best Practices</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/troubleshooting.html" class="docs-sidebar-link active">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Advanced
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/integration.html" class="docs-sidebar-link">Integrations</a></li>
+        </ul>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Mobile Hamburger Menu -->
+  <button class="docs-hamburger" aria-label="Toggle navigation menu">
+    <div class="docs-hamburger-icon">
+      <span class="docs-hamburger-line"></span>
+      <span class="docs-hamburger-line"></span>
+      <span class="docs-hamburger-line"></span>
+    </div>
+  </button>
+
+  <!-- Mobile Overlay -->
+  <div class="docs-mobile-overlay"></div>
+
+  <!-- Global Search Modal -->
+  <div class="docs-global-search">
+    <div class="docs-search-modal">
+      <div class="docs-search-input-wrapper">
+        <input type="text" class="docs-search-input" placeholder="Search documentation..." autocomplete="off">
+      </div>
+      <div class="docs-search-results">
+        <div class="docs-search-empty">Type to search documentation...</div>
+      </div>
+      <div class="docs-search-footer">
+        <div class="docs-search-hint">
+          <kbd class="docs-search-kbd">↑</kbd>
+          <kbd class="docs-search-kbd">↓</kbd>
+          <span>to navigate</span>
+        </div>
+        <div class="docs-search-hint">
+          <kbd class="docs-search-kbd">esc</kbd>
+          <span>to close</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="docs-header">
+    <a href="/docs/" class="docs-header-brand">
+      <span class="docs-header-logo">Ralph CLI</span>
+      <span class="docs-header-tag">Documentation</span>
+    </a>
+    <nav class="docs-header-nav">
+      <a href="/docs/" class="docs-header-link">Home</a>
+      <a href="/docs/tutorial.html" class="docs-header-link">Tutorial</a>
+      <a href="/docs/commands.html" class="docs-header-link">Commands</a>
+      <a href="/docs/examples.html" class="docs-header-link">Examples</a>
+      <a href="/docs/tips.html" class="docs-header-link">Tips & Tricks</a>
+      <a href="/docs/streams.html" class="docs-header-link">Stream Workflows</a>
+      <a href="/docs/troubleshooting.html" class="docs-header-link active">Troubleshooting</a>
+      <a href="/" class="docs-header-link">Dashboard</a>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="docs-content docs-main-content">
+    <div class="docs-container">
+      <!-- Hero -->
+      <div class="docs-page-header">
+        <h1 class="docs-heading docs-heading-1 docs-mb-md">Troubleshooting & FAQ</h1>
+        <p class="docs-body docs-body-lg" style="max-width: 650px; color: var(--docs-text-secondary);">
+          Find solutions to common issues and get help when you need it. Search below or browse by category.
+        </p>
+      </div>
+      <!-- Search Box -->
+      <div class="search-box">
+        <input
+          type="text"
+          class="search-input"
+          id="issueSearch"
+          placeholder="Search for an issue... (e.g., 'build not starting')"
+          aria-label="Search issues">
+      </div>
+
+      <!-- Table of Contents -->
+      <div class="toc-section">
+        <h3 class="docs-heading docs-heading-4">Quick Jump</h3>
+        <div class="toc-links">
+          <a href="#installation" class="toc-link">Installation</a>
+          <a href="#build-issues" class="toc-link">Build Issues</a>
+          <a href="#stream-issues" class="toc-link">Stream Issues</a>
+          <a href="#git-issues" class="toc-link">Git Issues</a>
+          <a href="#diagnostic-flows" class="toc-link">Diagnostic Flows</a>
+          <a href="#limitations" class="toc-link">Known Limitations</a>
+          <a href="#get-help" class="toc-link">Get Help</a>
+        </div>
+      </div>
+
+      <!-- Installation Issues -->
+      <div id="installation" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Installation Issues</h2>
+
+        <div class="issue-card" data-keywords="install node version npm compatibility">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "Node version not supported" error during install
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Ralph CLI requires Node.js 18+ for ES modules and modern JavaScript features.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Check your Node version: <code>node --version</code></li>
+              <li>If below v18, upgrade Node.js from <a href="https://nodejs.org" target="_blank">nodejs.org</a> or use nvm: <code>nvm install 18</code></li>
+              <li>Retry the installation: <code>npm install</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="permission denied eacces npm global install">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "Permission denied" or "EACCES" during npm link
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Global npm packages require elevated permissions on some systems.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution (pick one):</strong>
+            <ol class="solution-steps">
+              <li><strong>Option 1:</strong> Use npm's recommended fix: <code>npm config set prefix ~/.npm-global</code> then add <code>~/.npm-global/bin</code> to your PATH</li>
+              <li><strong>Option 2:</strong> Use sudo (not recommended): <code>sudo npm link</code></li>
+              <li><strong>Option 3:</strong> Use a Node version manager like nvm which handles permissions correctly</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="command not found ralph path">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "ralph: command not found" after installation
+            <span class="quick-fix-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              Quick Fix
+            </span>
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> npm's global bin directory is not in your system PATH.
+          </div>
+          <div class="issue-solution">
+            <strong>Quick Fix:</strong>
+            <div class="docs-code-block docs-mt-sm">
+              <div class="docs-code-content">
+                <pre><code># Check where npm global packages go
+npm config get prefix
+
+# Add to PATH (add this to ~/.bashrc or ~/.zshrc)
+export PATH="$PATH:$(npm config get prefix)/bin"
+
+# Reload shell
+source ~/.bashrc  # or source ~/.zshrc</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="git repository not found">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            "ralph install" fails - "Not a git repository"
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Ralph requires the project to be a git repository to track changes.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Initialize git in your project: <code>git init</code></li>
+              <li>Make an initial commit: <code>git add . && git commit -m "Initial commit"</code></li>
+              <li>Run <code>ralph install</code> again</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Build Issues -->
+      <div id="build-issues" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Build Issues</h2>
+
+        <div class="issue-card" data-keywords="agent not found claude code">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "Agent not found" or "claude_code command not found"
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Ralph can't locate the Claude Code CLI agent in your PATH.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Verify Claude Code is installed: <code>which claude_code</code></li>
+              <li>If not found, install from <a href="https://claude.ai/download" target="_blank">claude.ai/download</a></li>
+              <li>Ensure it's in PATH: <code>export PATH="$PATH:/path/to/claude_code"</code></li>
+              <li>Alternatively, set the agent path in <code>.agents/ralph/config.sh</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="build stuck hanging not progressing">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            Build appears stuck or not progressing
+            <span class="quick-fix-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              Quick Fix
+            </span>
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> The agent may be waiting for input, rate-limited, or in an error state.
+          </div>
+          <div class="issue-solution">
+            <strong>Diagnostic Steps:</strong>
+            <ol class="solution-steps">
+              <li>Check the run log: <code>tail -f .ralph/PRD-N/runs/run-*.log</code></li>
+              <li>Look for error messages or "waiting" indicators in the log</li>
+              <li>Check if the agent is rate-limited (wait and retry)</li>
+              <li>Kill stuck process: Find PID with <code>ps aux | grep ralph</code>, then <code>kill [PID]</code></li>
+              <li>Remove lock file if present: <code>rm .ralph/locks/PRD-N.lock</code></li>
+              <li>Restart the build: <code>ralph build 1</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="no stories found prd empty">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            Build says "No unchecked stories found"
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> All stories in the PRD are marked as complete, or the PRD format is incorrect.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Open <code>.ralph/PRD-N/prd.md</code> and check story checkboxes</li>
+              <li>Verify stories use format: <code>### [ ] US-001: Story Title</code></li>
+              <li>Uncheck stories you want to implement: change <code>[x]</code> to <code>[ ]</code></li>
+              <li>Ensure stories are not inside code blocks (```)</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="commit failed dirty tree uncommitted">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            Commit fails - "working tree is dirty"
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Manual changes were made during the build, or agent didn't stage all files.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Check what's uncommitted: <code>git status</code></li>
+              <li>Review changes: <code>git diff</code></li>
+              <li>If changes look good, stage and commit: <code>git add . && git commit -m "Complete US-XXX"</code></li>
+              <li>If unwanted, discard: <code>git restore .</code></li>
+              <li>Continue build: <code>ralph build 1</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="token limit exceeded context too large">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-rare">Rare</span>
+            "Token limit exceeded" or context window errors
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Very large files or codebases exceed the agent's context window.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Break large stories into smaller ones</li>
+              <li>Add more specific file paths to the plan to reduce exploration</li>
+              <li>Use <code>.gitignore</code> to exclude large generated files</li>
+              <li>Consider using Opus model for larger context: edit <code>.agents/ralph/config.sh</code></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stream Issues -->
+      <div id="stream-issues" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Stream Issues</h2>
+
+        <div class="issue-card" data-keywords="worktree already exists init failed">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "Worktree already exists" when running stream init
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> A worktree for this PRD was previously created and not cleaned up.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Check existing worktrees: <code>git worktree list</code></li>
+              <li>If the worktree is no longer needed, remove it: <code>ralph stream cleanup N</code></li>
+              <li>Or manually: <code>git worktree remove .ralph/worktrees/PRD-N</code></li>
+              <li>Re-init if needed: <code>ralph stream init N</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="lock file exists concurrent build blocked">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-common">Common</span>
+            "Lock file exists - another build is running"
+            <span class="quick-fix-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              Quick Fix
+            </span>
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Lock file prevents concurrent builds on the same PRD, or stale lock from crashed build.
+          </div>
+          <div class="issue-solution">
+            <strong>Quick Fix:</strong>
+            <ol class="solution-steps">
+              <li>Check if build is actually running: <code>ralph stream status</code></li>
+              <li>If no build is running, remove stale lock: <code>rm .ralph/locks/PRD-N.lock</code></li>
+              <li>Or use force flag: <code>ralph stream build N 5 --force</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="merge conflict failed">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            Merge fails with conflicts
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Changes in the stream branch conflict with main branch.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Navigate to worktree: <code>cd .ralph/worktrees/PRD-N</code></li>
+              <li>Update main branch: <code>git fetch origin main</code></li>
+              <li>Try rebasing: <code>git rebase origin/main</code></li>
+              <li>Resolve conflicts in indicated files</li>
+              <li>Continue rebase: <code>git rebase --continue</code></li>
+              <li>Push force if needed: <code>git push -f</code></li>
+              <li>Complete merge: <code>ralph stream merge N</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="status wrong completed merged">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            Stream status shows incorrect state
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Status markers (.completed, .merged) out of sync with git history.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Run status verification: <code>ralph stream verify-status</code></li>
+              <li>This auto-corrects markers based on git history</li>
+              <li>Or manually mark: <code>ralph stream mark-completed N</code></li>
+              <li>Check git history to confirm: <code>git log --oneline --grep="PRD-N"</code></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Git Issues -->
+      <div id="git-issues" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Git Issues</h2>
+
+        <div class="issue-card" data-keywords="detached head state">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-rare">Rare</span>
+            Git in "detached HEAD" state after build
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Build interrupted while switching branches or commits.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Check current state: <code>git status</code></li>
+              <li>Return to main: <code>git checkout main</code></li>
+              <li>If you have uncommitted work, create a branch: <code>git checkout -b recovery-branch</code></li>
+              <li>Commit changes: <code>git commit -am "Recover work"</code></li>
+              <li>Merge into main: <code>git checkout main && git merge recovery-branch</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="push rejected non-fast-forward">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-occasional">Occasional</span>
+            Push rejected - "non-fast-forward"
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Remote branch has commits not in your local branch.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>Fetch latest: <code>git fetch origin</code></li>
+              <li>Rebase your changes: <code>git rebase origin/main</code></li>
+              <li>Resolve any conflicts</li>
+              <li>Force push (if in feature branch): <code>git push -f</code></li>
+              <li><strong>Never</strong> force push to main/master</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="issue-card" data-keywords="branch not found missing">
+          <div class="issue-symptom">
+            <span class="issue-severity severity-rare">Rare</span>
+            Branch "ralph/PRD-N" not found
+          </div>
+          <div class="issue-cause">
+            <strong>Cause:</strong> Stream branch was deleted or never created.
+          </div>
+          <div class="issue-solution">
+            <strong>Solution:</strong>
+            <ol class="solution-steps">
+              <li>List branches: <code>git branch -a</code></li>
+              <li>If branch exists remotely, checkout: <code>git checkout -t origin/ralph/PRD-N</code></li>
+              <li>If completely missing, re-init stream: <code>ralph stream init N</code></li>
+              <li>If work was lost, check reflog: <code>git reflog</code> to find lost commits</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Diagnostic Flows -->
+      <div id="diagnostic-flows" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Diagnostic Flows</h2>
+        <p class="docs-body docs-mb-lg">
+          Follow these step-by-step guides to diagnose common problems.
+        </p>
+
+        <h3 class="docs-heading docs-heading-4 docs-mb-md">Build Not Starting?</h3>
+        <div class="diagnostic-flow">
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">1. Is Ralph installed?</div>
+            <div class="diagnostic-action">
+              Run <code>ralph --version</code>. If "command not found", see <a href="#installation">Installation Issues</a>.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">2. Is this a git repository?</div>
+            <div class="diagnostic-action">
+              Run <code>git status</code>. If "not a git repository", run <code>git init && git add . && git commit -m "Initial"</code>.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">3. Does a plan exist?</div>
+            <div class="diagnostic-action">
+              Check <code>ls .ralph/PRD-*/plan.md</code>. If empty, run <code>ralph plan</code> first.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">4. Are there unchecked stories?</div>
+            <div class="diagnostic-action">
+              Open <code>.ralph/PRD-N/prd.md</code> and look for <code>[ ]</code> checkboxes. If all checked, uncheck stories or create new PRD.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">5. Is the agent configured?</div>
+            <div class="diagnostic-action">
+              Check <code>.agents/ralph/config.sh</code> exists. Run <code>which claude_code</code> to verify agent is in PATH.
+            </div>
+          </div>
+        </div>
+
+        <h3 class="docs-heading docs-heading-4 docs-mb-md docs-mt-xl">Stream Build Failing?</h3>
+        <div class="diagnostic-flow">
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">1. Is the worktree initialized?</div>
+            <div class="diagnostic-action">
+              Run <code>git worktree list</code>. If PRD-N missing, run <code>ralph stream init N</code>.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">2. Is there a lock file?</div>
+            <div class="diagnostic-action">
+              Check <code>ls .ralph/locks/</code>. If PRD-N.lock exists, verify no build is running with <code>ps aux | grep ralph</code>, then remove lock.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">3. Is the branch clean?</div>
+            <div class="diagnostic-action">
+              In worktree: <code>cd .ralph/worktrees/PRD-N && git status</code>. Commit or stash changes before building.
+            </div>
+          </div>
+          <div class="diagnostic-step">
+            <div class="diagnostic-question">4. Is the stream already merged?</div>
+            <div class="diagnostic-action">
+              Run <code>ralph stream status</code>. If "merged", you can't build it again. Start a new PRD.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Known Limitations -->
+      <div id="limitations" class="docs-mb-2xl">
+        <h2 class="docs-heading docs-heading-2 docs-mb-lg">Known Limitations</h2>
+        <p class="docs-body docs-mb-lg">
+          These are current limitations with known workarounds where available.
+        </p>
+
+        <ul class="limitation-list">
+          <li>
+            <div class="limitation-title">Large Context Windows</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> Very large files (>10,000 lines) or codebases (>500 files) may exceed context limits.
+              <br><strong>Workaround:</strong> Break stories into smaller chunks, use more specific file paths in plan, or upgrade to Opus model.
+            </div>
+          </li>
+          <li>
+            <div class="limitation-title">No Visual/UI Testing</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> Ralph doesn't automatically verify UI changes in browser (though it can use browser automation via MCP).
+              <br><strong>Workaround:</strong> Manually verify UI changes after build completes, or use ChromeMCP tools for browser testing.
+            </div>
+          </li>
+          <li>
+            <div class="limitation-title">Binary Files</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> Ralph works best with text-based code files. Binary files (images, PDFs) can't be easily modified.
+              <br><strong>Workaround:</strong> Manually handle binary assets, or use external tools for image generation.
+            </div>
+          </li>
+          <li>
+            <div class="limitation-title">Rate Limiting</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> API rate limits may slow down or pause builds during high usage.
+              <br><strong>Workaround:</strong> Be patient, builds will resume. Consider scheduling builds during off-peak hours.
+            </div>
+          </li>
+          <li>
+            <div class="limitation-title">Single Agent Limitation</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> Only one build per PRD can run at a time (enforced by lock files).
+              <br><strong>Workaround:</strong> Use streams to run multiple PRDs in parallel. Each stream can build independently.
+            </div>
+          </li>
+          <li>
+            <div class="limitation-title">Merge Conflicts</div>
+            <div class="limitation-workaround">
+              <strong>Limitation:</strong> Ralph doesn't automatically resolve merge conflicts.
+              <br><strong>Workaround:</strong> Manually resolve conflicts using git, then complete the merge with <code>ralph stream merge N</code>.
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Get Help Section -->
+      <div id="get-help" class="help-section">
+        <h2 class="docs-heading docs-heading-2 docs-mb-md">Still Need Help?</h2>
+        <p class="docs-body docs-body-lg docs-mb-xl" style="max-width: 600px; margin: 0 auto;">
+          If you couldn't find a solution above, we're here to help
+        </p>
+
+        <div style="display: flex; gap: var(--docs-space-md); justify-content: center; flex-wrap: wrap;">
+          <a href="https://github.com/AskTinNguyen/ralph-cli/issues" target="_blank" rel="noopener" class="docs-btn docs-btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            Report an Issue
+          </a>
+          <a href="https://github.com/AskTinNguyen/ralph-cli/discussions" target="_blank" rel="noopener" class="docs-btn docs-btn-secondary">
+            Ask the Community
+          </a>
+        </div>
+
+        <div class="docs-mt-xl" style="padding-top: var(--docs-space-xl); border-top: 1px solid rgba(0,0,0,0.1);">
+          <h3 class="docs-heading docs-heading-4 docs-mb-md">When Reporting an Issue</h3>
+          <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+            <ol class="solution-steps">
+              <li>Include your Ralph CLI version: <code>ralph --version</code></li>
+              <li>Describe what you were trying to do</li>
+              <li>Share the error message or unexpected behavior</li>
+              <li>Include relevant log files from <code>.ralph/PRD-N/runs/</code></li>
+              <li>Mention your OS and Node.js version</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer style="padding: var(--docs-space-xl); text-align: center; border-top: 1px solid var(--docs-border-light);">
+    <p class="docs-caption">
+      <a href="/docs/" style="color: var(--docs-link); text-decoration: none;">Documentation Home</a> ·
+      <a href="/docs/tips.html" style="color: var(--docs-link); text-decoration: none;">Tips & Tricks</a> ·
+      <a href="https://github.com/AskTinNguyen/ralph-cli" style="color: var(--docs-link); text-decoration: none;">GitHub</a>
+    </p>
+  </footer>
+
+  <script>
+    // Search functionality
+    const searchInput = document.getElementById('issueSearch');
+    const issueCards = document.querySelectorAll('.issue-card');
+
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+
+      issueCards.forEach(card => {
+        const keywords = card.getAttribute('data-keywords') || '';
+        const text = card.textContent.toLowerCase();
+        const matches = keywords.toLowerCase().includes(query) || text.includes(query);
+
+        card.classList.toggle('hidden', !matches && query.length > 0);
+      });
+    });
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Keyboard shortcut for search
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+  </script>
+
+  <!-- Navigation System -->
+  <script src="/docs/navigation.js"></script>
+</body>
+</html>

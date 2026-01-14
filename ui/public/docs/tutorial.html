@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Tutorial - Ralph CLI</title>
+  <meta name="description" content="Learn Ralph CLI step-by-step with hands-on examples. Go from zero to autonomous coding in minutes.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/docs/docs-theme.css">
+  <link rel="stylesheet" href="/docs/tutorial.css">
+  <link rel="stylesheet" href="/docs/navigation.css">
+</head>
+<body class="docs-page has-sidebar">
+  <!-- Collapsible Sidebar Navigation -->
+  <aside class="docs-sidebar">
+    <nav aria-label="Documentation navigation">
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Getting Started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/" class="docs-sidebar-link">Home</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/tutorial.html" class="docs-sidebar-link active">Interactive Tutorial</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/commands.html" class="docs-sidebar-link">Command Reference</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Resources
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/examples.html" class="docs-sidebar-link">Examples Gallery</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/tips.html" class="docs-sidebar-link">Tips & Best Practices</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a>
+        <li><a href="/docs/troubleshooting.html" class="docs-sidebar-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="docs-sidebar-section">
+        <h2 class="docs-sidebar-title">
+          Advanced
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </h2>
+        <ul class="docs-sidebar-items">
+          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a></li>
+          <li class="docs-sidebar-item"><a href="/docs/integration.html" class="docs-sidebar-link">Integrations</a></li>
+        </ul>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Mobile Hamburger Menu -->
+  <button class="docs-hamburger" aria-label="Toggle navigation menu">
+    <div class="docs-hamburger-icon">
+      <span class="docs-hamburger-line"></span>
+      <span class="docs-hamburger-line"></span>
+      <span class="docs-hamburger-line"></span>
+    </div>
+  </button>
+
+  <!-- Mobile Overlay -->
+  <div class="docs-mobile-overlay"></div>
+
+  <!-- Global Search Modal -->
+  <div class="docs-global-search">
+    <div class="docs-search-modal">
+      <div class="docs-search-input-wrapper">
+        <input type="text" class="docs-search-input" placeholder="Search documentation..." autocomplete="off">
+      </div>
+      <div class="docs-search-results">
+        <div class="docs-search-empty">Type to search documentation...</div>
+      </div>
+      <div class="docs-search-footer">
+        <div class="docs-search-hint">
+          <kbd class="docs-search-kbd">↑</kbd>
+          <kbd class="docs-search-kbd">↓</kbd>
+          <span>to navigate</span>
+        </div>
+        <div class="docs-search-hint">
+          <kbd class="docs-search-kbd">esc</kbd>
+          <span>to close</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="docs-header">
+    <a href="/docs/" class="docs-header-brand">
+      <span class="docs-header-logo">Ralph CLI</span>
+      <span class="docs-header-tag">Documentation</span>
+    </a>
+    <nav class="docs-header-nav">
+      <a href="/docs/" class="docs-header-link">Home</a>
+      <a href="/docs/tutorial.html" class="docs-header-link active">Tutorial</a>
+      <a href="/docs/commands.html" class="docs-header-link">Commands</a>
+      <a href="/docs/examples.html" class="docs-header-link">Examples</a>
+      <a href="/docs/tips.html" class="docs-header-link">Tips & Tricks</a>
+      <a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a>
+        <li><a href="/docs/troubleshooting.html" class="docs-header-link">Troubleshooting</a>
+      <a href="/" class="docs-header-link">Dashboard</a>
+    </nav>
+  </header>
+
+  <!-- Tutorial Hero -->
+  <section class="tutorial-hero">
+    <div class="docs-container">
+      <h1 class="docs-heading docs-heading-1 docs-mb-md">Your First Build</h1>
+      <p class="docs-body docs-body-lg docs-mb-xl" style="max-width: 600px; margin-left: auto; margin-right: auto;">
+        Follow this step-by-step guide to go from installation to your first autonomous build.
+        Each step includes what to type, what you'll see, and what it means.
+      </p>
+
+      <!-- Skill Level Selector -->
+      <div class="skill-selector">
+        <span class="skill-label">Skill Level:</span>
+        <div class="skill-buttons" role="tablist">
+          <button class="skill-btn active" data-level="beginner" role="tab" aria-selected="true">
+            <span class="skill-icon">🌱</span>
+            Beginner
+          </button>
+          <button class="skill-btn" data-level="intermediate" role="tab" aria-selected="false">
+            <span class="skill-icon">🌿</span>
+            Intermediate
+          </button>
+          <button class="skill-btn" data-level="advanced" role="tab" aria-selected="false">
+            <span class="skill-icon">🌲</span>
+            Advanced
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Progress Indicator -->
+  <div class="progress-container">
+    <div class="docs-container">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="progress-steps">
+        <button class="progress-step active" data-step="1">
+          <span class="progress-step-num">1</span>
+          <span class="progress-step-label">Install</span>
+        </button>
+        <button class="progress-step" data-step="2">
+          <span class="progress-step-num">2</span>
+          <span class="progress-step-label">Setup</span>
+        </button>
+        <button class="progress-step" data-step="3">
+          <span class="progress-step-num">3</span>
+          <span class="progress-step-label">PRD</span>
+        </button>
+        <button class="progress-step" data-step="4">
+          <span class="progress-step-num">4</span>
+          <span class="progress-step-label">Plan</span>
+        </button>
+        <button class="progress-step" data-step="5">
+          <span class="progress-step-num">5</span>
+          <span class="progress-step-label">Build</span>
+        </button>
+        <button class="progress-step" data-step="6">
+          <span class="progress-step-num">6</span>
+          <span class="progress-step-label">Review</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Content -->
+  <main class="tutorial-content docs-main-content">
+    <div class="docs-container">
+      <!-- Breadcrumb Navigation -->
+      <nav class="docs-breadcrumb" aria-label="Breadcrumb">
+        <div class="docs-breadcrumb-item">
+          <a href="/docs/" class="docs-breadcrumb-link">Documentation</a>
+          <span class="docs-breadcrumb-separator">›</span>
+        </div>
+        <div class="docs-breadcrumb-item">
+          <span class="docs-breadcrumb-current">Interactive Tutorial</span>
+        </div>
+      </nav>
+
+      <!-- Step 1: Install -->
+      <section class="tutorial-step" data-step="1">
+        <div class="step-header">
+          <div class="step-number">1</div>
+          <div class="step-info">
+            <h2 class="step-title">Install Ralph CLI</h2>
+            <p class="step-subtitle">Get Ralph running on your machine in under a minute</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              Ralph is a Node.js command-line tool. We'll clone the repository, install dependencies,
+              and make the <code class="docs-inline-code">ralph</code> command available globally on your system.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Run this command</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm install && npm link')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code>git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm install && npm link</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Expected output</h3>
+            <div class="output-box">
+              <pre>Cloning into 'ralph-cli'...
+remote: Enumerating objects: 1234, done.
+...
+added 45 packages in 3.2s
+/usr/local/bin/ralph -> /usr/local/lib/node_modules/ralph-cli/bin/ralph</pre>
+            </div>
+          </div>
+
+          <div class="step-explanation-box">
+            <div class="explanation-header">
+              <span class="explanation-icon">💡</span>
+              <h4>What just happened?</h4>
+            </div>
+            <p class="docs-body">
+              We downloaded the Ralph source code, installed its dependencies with npm, and created
+              a global link so you can run <code class="docs-inline-code">ralph</code> from anywhere.
+              The last line shows where the command was linked.
+            </p>
+          </div>
+
+          <!-- Error Handling Tips -->
+          <details class="error-tips">
+            <summary class="error-tips-header">
+              <span class="error-icon">🔧</span>
+              If you see an error...
+            </summary>
+            <div class="error-tips-content">
+              <div class="error-tip">
+                <strong>Permission denied (npm link):</strong>
+                <p>Try running with sudo: <code class="docs-inline-code">sudo npm link</code></p>
+              </div>
+              <div class="error-tip">
+                <strong>node: command not found:</strong>
+                <p>Install Node.js 18+ from <a href="https://nodejs.org/" target="_blank">nodejs.org</a></p>
+              </div>
+              <div class="error-tip">
+                <strong>git: command not found:</strong>
+                <p>Install Git from <a href="https://git-scm.com/" target="_blank">git-scm.com</a></p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-next" onclick="goToStep(2)">
+            Next: Setup Your Project
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 2: Setup -->
+      <section class="tutorial-step" data-step="2" style="display: none;">
+        <div class="step-header">
+          <div class="step-number">2</div>
+          <div class="step-info">
+            <h2 class="step-title">Setup Your Project</h2>
+            <p class="step-subtitle">Initialize Ralph in your project directory</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              Ralph needs to be installed in each project where you want to use it.
+              This creates the <code class="docs-inline-code">.agents/</code> and
+              <code class="docs-inline-code">.ralph/</code> directories that Ralph uses
+              to store its templates and your work.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Run these commands</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, 'cd your-project\nralph install')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code># Navigate to your project
+cd your-project
+
+# Install Ralph in this project
+ralph install</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Expected output</h3>
+            <div class="output-box">
+              <pre>Installing Ralph CLI...
+Created .agents/ralph/
+Created .ralph/
+Ralph installed successfully!</pre>
+            </div>
+          </div>
+
+          <div class="step-explanation-box">
+            <div class="explanation-header">
+              <span class="explanation-icon">💡</span>
+              <h4>What just happened?</h4>
+            </div>
+            <p class="docs-body">
+              Ralph created two directories:
+            </p>
+            <ul class="docs-body" style="margin-top: 0.5rem;">
+              <li><strong>.agents/ralph/</strong> - Contains loop templates and prompts (commit to git)</li>
+              <li><strong>.ralph/</strong> - Your PRDs, plans, and progress logs (local only, add to .gitignore)</li>
+            </ul>
+          </div>
+
+          <details class="error-tips">
+            <summary class="error-tips-header">
+              <span class="error-icon">🔧</span>
+              If you see an error...
+            </summary>
+            <div class="error-tips-content">
+              <div class="error-tip">
+                <strong>ralph: command not found:</strong>
+                <p>The global link may not be in your PATH. Try: <code class="docs-inline-code">npx ralph install</code></p>
+              </div>
+              <div class="error-tip">
+                <strong>Not a git repository:</strong>
+                <p>Ralph works best in git repos. Run <code class="docs-inline-code">git init</code> first.</p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-prev" onclick="goToStep(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </button>
+          <button class="nav-btn nav-btn-next" onclick="goToStep(3)">
+            Next: Create a PRD
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 3: PRD -->
+      <section class="tutorial-step" data-step="3" style="display: none;">
+        <div class="step-header">
+          <div class="step-number">3</div>
+          <div class="step-info">
+            <h2 class="step-title">Create a PRD</h2>
+            <p class="step-subtitle">Define what you want Ralph to build</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              A PRD (Product Requirements Document) describes what you want to build.
+              Ralph will read your PRD, break it into stories, and implement each one.
+              You can write PRDs by hand or have Claude help you create one.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Run this command</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, 'ralph prd')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code>ralph prd</code></pre>
+              </div>
+            </div>
+            <p class="docs-caption docs-mt-sm">
+              This opens an interactive session where you describe what you want to build.
+            </p>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Example: A Real PRD from this Repo</h3>
+            <div class="real-example">
+              <div class="example-header">
+                <span class="example-badge">Real Example</span>
+                <span class="example-name">PRD-9: Token Consumption Dashboard</span>
+              </div>
+              <div class="example-preview">
+                <pre><code># Token Consumption & Cost Tracking Dashboard
+
+## Overview
+Build a comprehensive dashboard that tracks token consumption
+and costs across all Streams (PRD-N folders).
+
+## User Stories
+
+### US-001: Extract token metrics from agent runs
+**As a** developer using Ralph CLI
+**I want** token usage data captured from each agent run
+**So that** I have accurate metrics for analysis
+
+#### Acceptance Criteria
+- [ ] Parse Claude Code output for token data
+- [ ] Store token metrics in run summary files
+- [ ] Create a token metrics cache file
+- [ ] Handle cases where token data is unavailable</code></pre>
+              </div>
+              <p class="docs-caption docs-mt-sm">
+                This PRD resulted in 10 completed user stories and a fully functional token dashboard!
+              </p>
+            </div>
+          </div>
+
+          <div class="step-explanation-box">
+            <div class="explanation-header">
+              <span class="explanation-icon">💡</span>
+              <h4>What just happened?</h4>
+            </div>
+            <p class="docs-body">
+              Ralph created a new PRD file at <code class="docs-inline-code">.ralph/PRD-1/prd.md</code>.
+              Each PRD gets its own numbered folder to keep things organized. You can edit this file
+              anytime to refine your requirements.
+            </p>
+          </div>
+
+          <!-- Intermediate content -->
+          <div class="skill-content intermediate">
+            <div class="pro-tip">
+              <div class="pro-tip-header">
+                <span class="pro-tip-icon">⚡</span>
+                <h4>Pro Tip: Writing Effective PRDs</h4>
+              </div>
+              <ul class="docs-body">
+                <li>Be specific about acceptance criteria - they guide the agent</li>
+                <li>Break large features into multiple user stories</li>
+                <li>Reference existing files if you want them modified</li>
+                <li>Include technical constraints (frameworks, patterns)</li>
+              </ul>
+            </div>
+          </div>
+
+          <details class="error-tips">
+            <summary class="error-tips-header">
+              <span class="error-icon">🔧</span>
+              If you see an error...
+            </summary>
+            <div class="error-tips-content">
+              <div class="error-tip">
+                <strong>ANTHROPIC_API_KEY not set:</strong>
+                <p>Set your API key: <code class="docs-inline-code">export ANTHROPIC_API_KEY="your-key"</code></p>
+              </div>
+              <div class="error-tip">
+                <strong>PRD seems incomplete:</strong>
+                <p>You can edit <code class="docs-inline-code">.ralph/PRD-1/prd.md</code> directly to refine it.</p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-prev" onclick="goToStep(2)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </button>
+          <button class="nav-btn nav-btn-next" onclick="goToStep(4)">
+            Next: Create a Plan
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 4: Plan -->
+      <section class="tutorial-step" data-step="4" style="display: none;">
+        <div class="step-header">
+          <div class="step-number">4</div>
+          <div class="step-info">
+            <h2 class="step-title">Create an Implementation Plan</h2>
+            <p class="step-subtitle">Break your PRD into actionable tasks</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              The plan translates your PRD into specific, checkable tasks for each user story.
+              This gives you visibility into what Ralph will do and lets you review the approach
+              before any code is written.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Run this command</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, 'ralph plan')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code>ralph plan</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Expected output</h3>
+            <div class="output-box">
+              <pre>Planning PRD-1...
+Analyzing user stories...
+Creating implementation tasks...
+Plan saved to .ralph/PRD-1/plan.md</pre>
+            </div>
+          </div>
+
+          <div class="step-explanation-box">
+            <div class="explanation-header">
+              <span class="explanation-icon">💡</span>
+              <h4>What just happened?</h4>
+            </div>
+            <p class="docs-body">
+              Ralph analyzed your PRD and created <code class="docs-inline-code">.ralph/PRD-1/plan.md</code>
+              with specific implementation tasks for each user story. Each task has:
+            </p>
+            <ul class="docs-body" style="margin-top: 0.5rem;">
+              <li><strong>Scope</strong> - What files to modify</li>
+              <li><strong>Acceptance</strong> - How to verify it's done</li>
+              <li><strong>Verification</strong> - Commands to run</li>
+            </ul>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="skill-content advanced">
+            <div class="pro-tip">
+              <div class="pro-tip-header">
+                <span class="pro-tip-icon">🔬</span>
+                <h4>Advanced: Editing the Plan</h4>
+              </div>
+              <p class="docs-body">
+                Review <code class="docs-inline-code">.ralph/PRD-1/plan.md</code> before building.
+                You can:
+              </p>
+              <ul class="docs-body" style="margin-top: 0.5rem;">
+                <li>Reorder stories to control build sequence</li>
+                <li>Add specific files or patterns the agent should check</li>
+                <li>Insert guardrails ("Do NOT modify X")</li>
+                <li>Split large tasks into smaller checkpoints</li>
+              </ul>
+            </div>
+          </div>
+
+          <details class="error-tips">
+            <summary class="error-tips-header">
+              <span class="error-icon">🔧</span>
+              If you see an error...
+            </summary>
+            <div class="error-tips-content">
+              <div class="error-tip">
+                <strong>No PRD found:</strong>
+                <p>Run <code class="docs-inline-code">ralph prd</code> first to create a PRD.</p>
+              </div>
+              <div class="error-tip">
+                <strong>Plan looks wrong:</strong>
+                <p>Edit the PRD to be more specific, then run <code class="docs-inline-code">ralph plan</code> again.</p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-prev" onclick="goToStep(3)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </button>
+          <button class="nav-btn nav-btn-next" onclick="goToStep(5)">
+            Next: Start Building
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 5: Build -->
+      <section class="tutorial-step" data-step="5" style="display: none;">
+        <div class="step-header">
+          <div class="step-number">5</div>
+          <div class="step-info">
+            <h2 class="step-title">Run the Build</h2>
+            <p class="step-subtitle">Watch Ralph implement your features</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              This is where the magic happens! Ralph will pick up the first unchecked story,
+              implement it, run tests, commit the code, and mark it complete. Each "iteration"
+              handles one story.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Run this command</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, 'ralph build 5')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code># Run 5 build iterations
+ralph build 5</code></pre>
+              </div>
+            </div>
+            <p class="docs-caption docs-mt-sm">
+              The number (5) is how many stories to attempt. You can start with 1 to test.
+            </p>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What you'll see</h3>
+            <div class="output-box">
+              <pre>Starting build for PRD-1...
+Iteration 1/5: US-001 - Extract token metrics
+  Reading story...
+  Implementing...
+  Running verification...
+  Committing: feat(US-001): Add token extraction
+  ✓ Story complete
+
+Iteration 2/5: US-002 - Calculate costs
+  Reading story...
+  Implementing...
+  ...</pre>
+            </div>
+          </div>
+
+          <div class="step-explanation-box">
+            <div class="explanation-header">
+              <span class="explanation-icon">💡</span>
+              <h4>What just happened?</h4>
+            </div>
+            <p class="docs-body">
+              For each iteration, Ralph:
+            </p>
+            <ol class="docs-body" style="margin-top: 0.5rem;">
+              <li>Picks the next unchecked story from the plan</li>
+              <li>Reads relevant code files for context</li>
+              <li>Implements the required changes</li>
+              <li>Runs any verification commands</li>
+              <li>Commits with a descriptive message</li>
+              <li>Marks the story as complete</li>
+              <li>Logs everything to <code class="docs-inline-code">.ralph/PRD-1/progress.md</code></li>
+            </ol>
+          </div>
+
+          <!-- Intermediate content -->
+          <div class="skill-content intermediate">
+            <div class="pro-tip">
+              <div class="pro-tip-header">
+                <span class="pro-tip-icon">⚡</span>
+                <h4>Dry Run Mode</h4>
+              </div>
+              <p class="docs-body">
+                Not sure if it'll work? Use dry run to see what Ralph would do without committing:
+              </p>
+              <div class="docs-code-block docs-mt-sm">
+                <div class="docs-code-content">
+                  <pre><code>ralph build 1 --no-commit</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="skill-content advanced">
+            <div class="pro-tip">
+              <div class="pro-tip-header">
+                <span class="pro-tip-icon">🚀</span>
+                <h4>Parallel Streams</h4>
+              </div>
+              <p class="docs-body">
+                Build multiple PRDs simultaneously using streams:
+              </p>
+              <div class="docs-code-block docs-mt-sm">
+                <div class="docs-code-content">
+                  <pre><code># Run PRD-1 and PRD-2 in parallel
+ralph stream build 1 5 &
+ralph stream build 2 5 &</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <details class="error-tips">
+            <summary class="error-tips-header">
+              <span class="error-icon">🔧</span>
+              If you see an error...
+            </summary>
+            <div class="error-tips-content">
+              <div class="error-tip">
+                <strong>Story failed verification:</strong>
+                <p>Check the run log at <code class="docs-inline-code">.ralph/PRD-1/runs/</code>. The agent will retry on next iteration.</p>
+              </div>
+              <div class="error-tip">
+                <strong>Stuck on same story:</strong>
+                <p>Edit the plan to make the task clearer, or manually check off the story to skip it.</p>
+              </div>
+              <div class="error-tip">
+                <strong>API rate limit:</strong>
+                <p>Wait a few minutes and try again with fewer iterations.</p>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-prev" onclick="goToStep(4)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </button>
+          <button class="nav-btn nav-btn-next" onclick="goToStep(6)">
+            Next: Review Results
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 6: Review -->
+      <section class="tutorial-step" data-step="6" style="display: none;">
+        <div class="step-header">
+          <div class="step-number completed">✓</div>
+          <div class="step-info">
+            <h2 class="step-title">Review Your Results</h2>
+            <p class="step-subtitle">See what Ralph accomplished</p>
+          </div>
+          <span class="step-badge beginner">Beginner</span>
+        </div>
+
+        <div class="step-content">
+          <div class="step-explanation">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What we're doing</h3>
+            <p class="docs-body">
+              After the build completes, check what Ralph created. Everything is logged and
+              version-controlled, so you can review, adjust, or roll back as needed.
+            </p>
+          </div>
+
+          <div class="step-command">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">Check the results</h3>
+            <div class="docs-code-block">
+              <div class="docs-code-header">
+                <span class="docs-code-lang">Terminal</span>
+                <button class="docs-code-copy" onclick="copyCode(this, '# See git history\ngit log --oneline -10\n\n# Check progress\ncat .ralph/PRD-1/progress.md\n\n# View the PRD status\ncat .ralph/PRD-1/prd.md')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="docs-code-content">
+                <pre><code># See git history
+git log --oneline -10
+
+# Check progress
+cat .ralph/PRD-1/progress.md
+
+# View the PRD status
+cat .ralph/PRD-1/prd.md</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-output">
+            <h3 class="docs-heading docs-heading-4 docs-mb-sm">What you'll find</h3>
+            <div class="output-box">
+              <pre>abc1234 feat(US-005): Add export functionality
+def5678 feat(US-004): Create dashboard page
+ghi9012 feat(US-003): Add API endpoints
+jkl3456 feat(US-002): Implement cost calculation
+mno7890 feat(US-001): Add token extraction</pre>
+            </div>
+          </div>
+
+          <div class="step-explanation-box celebration">
+            <div class="explanation-header">
+              <span class="explanation-icon">🎉</span>
+              <h4>Congratulations!</h4>
+            </div>
+            <p class="docs-body">
+              You've completed your first Ralph build! You now know how to:
+            </p>
+            <ul class="docs-body" style="margin-top: 0.5rem;">
+              <li>✅ Install and set up Ralph in any project</li>
+              <li>✅ Create PRDs that describe your features</li>
+              <li>✅ Generate implementation plans</li>
+              <li>✅ Run automated builds that commit real code</li>
+              <li>✅ Review and manage your build results</li>
+            </ul>
+          </div>
+
+          <div class="next-steps">
+            <h3 class="docs-heading docs-heading-3 docs-mb-lg">What's Next?</h3>
+            <div class="next-steps-grid">
+              <a href="/docs/commands.html" class="next-step-card">
+                <span class="next-step-icon">📚</span>
+                <strong>Command Reference</strong>
+                <p>Explore all Ralph commands and options</p>
+              </a>
+              <a href="/docs/examples.html" class="next-step-card">
+                <span class="next-step-icon">🎯</span>
+                <strong>Real Examples</strong>
+                <p>See completed PRDs from this repository</p>
+              </a>
+              <a href="/" class="next-step-card">
+                <span class="next-step-icon">📊</span>
+                <strong>Dashboard</strong>
+                <p>Monitor your builds in real-time</p>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-navigation">
+          <button class="nav-btn nav-btn-prev" onclick="goToStep(5)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </button>
+          <a href="/docs/" class="nav-btn nav-btn-primary">
+            Back to Home
+          </a>
+        </div>
+      </section>
+
+      <!-- Previous/Next Page Navigation -->
+      <nav class="docs-page-nav" aria-label="Page navigation">
+        <a href="/docs/" class="docs-page-nav-item prev">
+          <div class="docs-page-nav-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Previous
+          </div>
+          <h3 class="docs-page-nav-title">Getting Started</h3>
+        </a>
+        <a href="/docs/commands.html" class="docs-page-nav-item next">
+          <div class="docs-page-nav-label">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </div>
+          <h3 class="docs-page-nav-title">Command Reference</h3>
+        </a>
+      </nav>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer style="padding: var(--docs-space-xl); text-align: center; border-top: 1px solid var(--docs-border-light);">
+    <p class="docs-caption">
+      Made with care for developers everywhere.
+      <a href="https://github.com/AskTinNguyen/ralph-cli" style="color: var(--docs-link); text-decoration: none;">Ralph CLI</a> is open source.
+    </p>
+  </footer>
+
+  <!-- Celebration Overlay (hidden by default) -->
+  <div class="celebration-overlay" id="celebration" style="display: none;">
+    <div class="celebration-content">
+      <div class="celebration-confetti"></div>
+      <div class="celebration-icon">🎉</div>
+      <h3 class="celebration-title">Section Complete!</h3>
+      <p class="celebration-text">Great progress! Keep going!</p>
+      <button class="docs-btn docs-btn-primary" onclick="dismissCelebration()">Continue</button>
+    </div>
+  </div>
+
+  <script>
+    // Copy to clipboard functionality
+    function copyCode(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.innerHTML;
+        button.classList.add('copied');
+        button.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Copied!
+        `;
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = originalText;
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+
+    // Step navigation
+    let currentStep = 1;
+    const totalSteps = 6;
+    let completedSteps = new Set();
+
+    function goToStep(step) {
+      if (step < 1 || step > totalSteps) return;
+
+      // Mark current step as completed if moving forward
+      if (step > currentStep) {
+        completedSteps.add(currentStep);
+        // Show celebration for key milestones
+        if (currentStep === 3 || currentStep === 5) {
+          showCelebration();
+        }
+      }
+
+      // Hide current step
+      document.querySelector(`.tutorial-step[data-step="${currentStep}"]`).style.display = 'none';
+
+      // Show new step
+      document.querySelector(`.tutorial-step[data-step="${step}"]`).style.display = 'block';
+
+      // Update progress bar
+      const progress = ((step - 1) / (totalSteps - 1)) * 100;
+      document.querySelector('.progress-fill').style.width = `${progress}%`;
+
+      // Update progress steps
+      document.querySelectorAll('.progress-step').forEach((el, i) => {
+        const stepNum = i + 1;
+        el.classList.remove('active', 'completed');
+        if (stepNum === step) {
+          el.classList.add('active');
+        } else if (completedSteps.has(stepNum) || stepNum < step) {
+          el.classList.add('completed');
+        }
+      });
+
+      currentStep = step;
+
+      // Scroll to top of tutorial content
+      document.querySelector('.tutorial-content').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Progress step click handlers
+    document.querySelectorAll('.progress-step').forEach(el => {
+      el.addEventListener('click', () => {
+        const step = parseInt(el.dataset.step);
+        goToStep(step);
+      });
+    });
+
+    // Skill level selector
+    const skillButtons = document.querySelectorAll('.skill-btn');
+    let currentLevel = 'beginner';
+
+    skillButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const level = btn.dataset.level;
+
+        // Update button states
+        skillButtons.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+
+        // Update content visibility
+        currentLevel = level;
+        updateSkillContent();
+
+        // Save preference
+        localStorage.setItem('ralph-skill-level', level);
+      });
+    });
+
+    function updateSkillContent() {
+      // Hide all skill-specific content first
+      document.querySelectorAll('.skill-content').forEach(el => {
+        el.style.display = 'none';
+      });
+
+      // Show content for current level and below
+      const levels = ['beginner', 'intermediate', 'advanced'];
+      const currentIndex = levels.indexOf(currentLevel);
+
+      levels.slice(0, currentIndex + 1).forEach(level => {
+        document.querySelectorAll(`.skill-content.${level}`).forEach(el => {
+          el.style.display = 'block';
+        });
+      });
+    }
+
+    // Restore saved skill level
+    const savedLevel = localStorage.getItem('ralph-skill-level');
+    if (savedLevel) {
+      const btn = document.querySelector(`.skill-btn[data-level="${savedLevel}"]`);
+      if (btn) btn.click();
+    } else {
+      updateSkillContent();
+    }
+
+    // Celebration animation
+    function showCelebration() {
+      const overlay = document.getElementById('celebration');
+      overlay.style.display = 'flex';
+
+      // Create confetti
+      const confetti = overlay.querySelector('.celebration-confetti');
+      confetti.innerHTML = '';
+      for (let i = 0; i < 50; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.animationDelay = Math.random() * 0.5 + 's';
+        piece.style.backgroundColor = ['#A8B5A0', '#D4A574', '#8EB5C5', '#D4918A'][Math.floor(Math.random() * 4)];
+        confetti.appendChild(piece);
+      }
+
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        dismissCelebration();
+      }, 3000);
+    }
+
+    function dismissCelebration() {
+      const overlay = document.getElementById('celebration');
+      overlay.style.opacity = '0';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        overlay.style.opacity = '1';
+      }, 300);
+    }
+
+    // Initialize
+    updateSkillContent();
+  </script>
+
+  <!-- Navigation System -->
+  <script src="/docs/navigation.js"></script>
+</body>
+</html>

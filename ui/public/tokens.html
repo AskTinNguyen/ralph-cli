@@ -30,6 +30,7 @@
       </div>
       <nav>
         <a href="/">Dashboard</a>
+        <a href="/chat.html">Chat</a>
         <a href="/streams.html">Streams</a>
         <a href="/logs.html">Logs</a>
         <a href="/tokens.html" class="active">Tokens</a>
@@ -200,13 +201,11 @@
       <!-- Per-Story Token Detail Section (shown when a stream is selected) -->
       <section id="token-stories-section" style="display: none">
         <div class="token-stories-breadcrumb">
-          <a
-            href="#"
-            onclick="
-              hideTokenStories();
-              return false;
-            "
-            >&larr; Back to Streams</a
+          <button
+            type="button"
+            onclick="hideTokenStories()"
+            style="background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: inherit; padding: 0; text-decoration: underline;"
+            >&larr; Back to Streams</button
           >
           <span class="token-stories-stream-title" id="token-stories-stream-title"
             >Stream Detail</span

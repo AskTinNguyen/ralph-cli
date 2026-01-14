@@ -29,6 +29,7 @@
       </div>
       <nav>
         <a href="/">Dashboard</a>
+        <a href="/chat.html">Chat</a>
         <a href="/streams.html" class="active">Streams</a>
         <a href="/logs.html">Logs</a>
         <a href="/tokens.html">Tokens</a>
@@ -93,13 +94,11 @@
       <!-- Stream Detail Section (shown when a stream is selected) -->
       <section id="stream-detail-section" style="display: none">
         <div class="breadcrumbs">
-          <a
-            href="#"
-            onclick="
-              hideStreamDetail();
-              return false;
-            "
-            >Streams</a
+          <button
+            type="button"
+            onclick="hideStreamDetail()"
+            style="background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: inherit; padding: 0;"
+            >Streams</button
           >
           <span class="breadcrumb-separator">&rsaquo;</span>
           <span id="stream-detail-title">Stream Detail</span>
