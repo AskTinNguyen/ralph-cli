@@ -1363,6 +1363,7 @@ cmd_pr() {
   local dry_run=false
   local custom_title=""
   local custom_base=""
+  local custom_reviewers=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run)
@@ -1385,6 +1386,15 @@ cmd_pr() {
       --base)
         shift
         custom_base="${1:-}"
+        shift
+        ;;
+      --reviewers=*)
+        custom_reviewers="${1#--reviewers=}"
+        shift
+        ;;
+      --reviewers)
+        shift
+        custom_reviewers="${1:-}"
         shift
         ;;
       *)
@@ -1510,6 +1520,11 @@ $completed_stories
     section_header "PR Preview (Dry Run)"
     printf "${C_BOLD}Title:${C_RESET} %s\n" "$pr_title"
     printf "${C_BOLD}Branch:${C_RESET} %s -> %s\n" "$branch" "$base_branch"
+    if [[ -n "$custom_reviewers" ]]; then
+      printf "${C_BOLD}Reviewers:${C_RESET} %s\n" "$custom_reviewers"
+    else
+      printf "${C_BOLD}Reviewers:${C_RESET} %s\n" "(auto-assign from CODEOWNERS)"
+    fi
     echo ""
     printf "${C_BOLD}Body:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
@@ -1556,45 +1571,111 @@ $completed_stories
 
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}PR created:${C_RESET} %s\n" "$pr_url"
 
-  # Auto-assign reviewers and labels (US-003)
-  local assign_script="$SCRIPT_DIR/../../lib/github/assign-reviewers.js"
-  if [[ -f "$assign_script" ]] && command -v node &> /dev/null; then
-    msg_dim "Assigning reviewers and labels..."
-    local assign_output
-    assign_output=$(node "$assign_script" "$stream_id" "$pr_url" "$ROOT_DIR" "$base_branch" 2>&1)
-    local assign_exit=$?
+  # Handle reviewer assignment (custom --reviewers override or auto-assign)
+  if [[ -n "$custom_reviewers" ]]; then
+    # Use custom reviewers specified via --reviewers flag
+    msg_dim "Assigning custom reviewers: $custom_reviewers"
 
-    if [[ $assign_exit -eq 0 ]]; then
-      # Parse and display results
-      if echo "$assign_output" | grep -q "reviewers:"; then
-        local reviewers
-        reviewers=$(echo "$assign_output" | grep "reviewers:" | sed 's/reviewers: //')
-        if [[ -n "$reviewers" && "$reviewers" != "none" ]]; then
-          msg_dim "Assigned reviewers: $reviewers"
+    # Parse comma-separated reviewers and request reviews
+    local reviewer_list=""
+    local team_list=""
+
+    # Split reviewers and categorize as users vs teams
+    IFS=',' read -ra reviewer_arr <<< "$custom_reviewers"
+    for reviewer in "${reviewer_arr[@]}"; do
+      reviewer=$(echo "$reviewer" | xargs) # Trim whitespace
+      reviewer=${reviewer#@} # Remove leading @ if present
+
+      if [[ "$reviewer" == *"/"* ]]; then
+        # Team format: org/team
+        if [[ -n "$team_list" ]]; then
+          team_list="$team_list,$reviewer"
+        else
+          team_list="$reviewer"
+        fi
+      else
+        # Individual reviewer
+        if [[ -n "$reviewer_list" ]]; then
+          reviewer_list="$reviewer_list,$reviewer"
+        else
+          reviewer_list="$reviewer"
         fi
       fi
-      if echo "$assign_output" | grep -q "teams:"; then
-        local teams
-        teams=$(echo "$assign_output" | grep "teams:" | sed 's/teams: //')
-        if [[ -n "$teams" && "$teams" != "none" ]]; then
-          msg_dim "Assigned teams: $teams"
+    done
+
+    # Extract PR number from URL for gh commands
+    local pr_number
+    pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+
+    if [[ -n "$pr_number" ]]; then
+      # Request review from individual users
+      if [[ -n "$reviewer_list" ]]; then
+        if gh pr edit "$pr_number" --add-reviewer "$reviewer_list" 2>/dev/null; then
+          msg_dim "Assigned reviewers: $reviewer_list"
+        else
+          msg_warn "Could not assign some reviewers"
         fi
       fi
-      if echo "$assign_output" | grep -q "labels:"; then
-        local labels
-        labels=$(echo "$assign_output" | grep "labels:" | sed 's/labels: //')
-        if [[ -n "$labels" ]]; then
-          msg_dim "Added labels: $labels"
-        fi
-      fi
-      # Show any warnings
-      if echo "$assign_output" | grep -q "warning:"; then
-        echo "$assign_output" | grep "warning:" | while read -r warning_line; do
-          msg_warn "${warning_line#warning: }"
+
+      # Request review from teams
+      if [[ -n "$team_list" ]]; then
+        IFS=',' read -ra team_arr <<< "$team_list"
+        for team in "${team_arr[@]}"; do
+          if gh api "repos/{owner}/{repo}/pulls/$pr_number/requested_reviewers" \
+            -f "team_reviewers[]=$team" 2>/dev/null; then
+            msg_dim "Assigned team: $team"
+          else
+            msg_warn "Could not assign team: $team"
+          fi
         done
       fi
-    else
-      msg_warn "Could not auto-assign reviewers: $assign_output"
+    fi
+
+    # Add standard labels
+    if gh pr edit "$pr_number" --add-label "ralph-generated,PRD-${stream_id#PRD-}" 2>/dev/null; then
+      msg_dim "Added labels: ralph-generated, PRD-${stream_id#PRD-}"
+    fi
+  else
+    # Auto-assign reviewers and labels (US-003)
+    local assign_script="$SCRIPT_DIR/../../lib/github/assign-reviewers.js"
+    if [[ -f "$assign_script" ]] && command -v node &> /dev/null; then
+      msg_dim "Assigning reviewers and labels..."
+      local assign_output
+      assign_output=$(node "$assign_script" "$stream_id" "$pr_url" "$ROOT_DIR" "$base_branch" 2>&1)
+      local assign_exit=$?
+
+      if [[ $assign_exit -eq 0 ]]; then
+        # Parse and display results
+        if echo "$assign_output" | grep -q "reviewers:"; then
+          local reviewers
+          reviewers=$(echo "$assign_output" | grep "reviewers:" | sed 's/reviewers: //')
+          if [[ -n "$reviewers" && "$reviewers" != "none" ]]; then
+            msg_dim "Assigned reviewers: $reviewers"
+          fi
+        fi
+        if echo "$assign_output" | grep -q "teams:"; then
+          local teams
+          teams=$(echo "$assign_output" | grep "teams:" | sed 's/teams: //')
+          if [[ -n "$teams" && "$teams" != "none" ]]; then
+            msg_dim "Assigned teams: $teams"
+          fi
+        fi
+        if echo "$assign_output" | grep -q "labels:"; then
+          local labels
+          labels=$(echo "$assign_output" | grep "labels:" | sed 's/labels: //')
+          if [[ -n "$labels" ]]; then
+            msg_dim "Added labels: $labels"
+          fi
+        fi
+        # Show any warnings
+        if echo "$assign_output" | grep -q "warning:"; then
+          echo "$assign_output" | grep "warning:" | while read -r warning_line; do
+            msg_warn "${warning_line#warning: }"
+          done
+        fi
+      else
+        msg_warn "Could not auto-assign reviewers: $assign_output"
+      fi
     fi
   fi
 
@@ -1668,7 +1749,7 @@ case "$cmd" in
     ;;
   pr)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream pr <N> [--title \"...\"] [--base branch] [--dry-run]" >&2
+      echo "Usage: ralph stream pr <N> [--title \"...\"] [--reviewers \"...\"] [--base branch] [--dry-run]" >&2
       exit 1
     fi
     cmd_pr "$@"
@@ -1693,6 +1774,7 @@ case "$cmd" in
     printf "                              Create PR for completed stream\n"
     printf "                              ${C_DIM}--dry-run: preview without creating${C_RESET}\n"
     printf "                              ${C_DIM}--title: custom PR title${C_RESET}\n"
+    printf "                              ${C_DIM}--reviewers: comma-separated reviewers${C_RESET}\n"
     printf "                              ${C_DIM}--base: target branch (default: main)${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
