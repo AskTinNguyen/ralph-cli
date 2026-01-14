@@ -1861,15 +1861,16 @@ save_switch_state() {
   "failures": $CONSECUTIVE_FAILURES,
   "lastFailureType": "$LAST_FAILURE_TYPE",
   "storyId": "$LAST_FAILED_STORY_ID",
+  "chainPosition": $CHAIN_POSITION,
   "updatedAt": "$timestamp"
 }
 EOF
-  msg_dim "Switch state saved: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT"
+  msg_dim "Switch state saved: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT (chain position $CHAIN_POSITION)"
 }
 
 # Load switch state from JSON file
 # Usage: load_switch_state <prd_folder>
-# Sets: CURRENT_AGENT, CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, LAST_FAILED_STORY_ID
+# Sets: CURRENT_AGENT, CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, LAST_FAILED_STORY_ID, CHAIN_POSITION
 load_switch_state() {
   local prd_folder="$1"
   local state_file
@@ -1891,6 +1892,7 @@ try:
     print(d.get('failures', 0))
     print(d.get('lastFailureType', ''))
     print(d.get('storyId', ''))
+    print(d.get('chainPosition', 0))
 except Exception:
     sys.exit(1)
 " 2>/dev/null) || return 1
@@ -1900,6 +1902,7 @@ except Exception:
   CONSECUTIVE_FAILURES=$(echo "$parsed" | sed -n '2p')
   LAST_FAILURE_TYPE=$(echo "$parsed" | sed -n '3p')
   LAST_FAILED_STORY_ID=$(echo "$parsed" | sed -n '4p')
+  CHAIN_POSITION=$(echo "$parsed" | sed -n '5p')
 
   # Validate
   if [ -z "$CURRENT_AGENT" ]; then
@@ -1908,8 +1911,13 @@ except Exception:
   if [ -z "$CONSECUTIVE_FAILURES" ] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
     CONSECUTIVE_FAILURES=0
   fi
+  if [ -z "$CHAIN_POSITION" ] || ! [[ "$CHAIN_POSITION" =~ ^[0-9]+$ ]]; then
+    CHAIN_POSITION=0
+  fi
+  # Update AGENT_CMD to match loaded agent
+  AGENT_CMD="$(resolve_agent_cmd "$CURRENT_AGENT")"
 
-  msg_dim "Switch state loaded: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT"
+  msg_dim "Switch state loaded: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT (chain position $CHAIN_POSITION)"
   return 0
 }
 
@@ -1924,6 +1932,99 @@ clear_switch_state() {
     rm -f "$state_file"
     msg_dim "Switch state cleared (build complete)"
   fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Fallback Chain Functions (US-002)
+# ─────────────────────────────────────────────────────────────────────────────
+# Track current position in the fallback chain
+CHAIN_POSITION=0
+
+# Check if an agent CLI is available in PATH
+# Usage: agent_available <agent_name>
+# Returns: 0 (true) if available, 1 (false) otherwise
+agent_available() {
+  local agent_name="$1"
+  if [ -z "$agent_name" ]; then
+    return 1
+  fi
+  command -v "$agent_name" >/dev/null 2>&1
+}
+
+# Get the fallback chain as an array (space-separated string from config)
+# Usage: chain=($(get_fallback_chain))
+get_fallback_chain() {
+  echo "${AGENT_FALLBACK_CHAIN:-claude codex droid}"
+}
+
+# Switch to the next available agent in the fallback chain
+# Usage: switch_to_next_agent
+# Returns: 0 if switched successfully, 1 if chain exhausted
+# Sets: CURRENT_AGENT, AGENT_CMD, CHAIN_POSITION
+switch_to_next_agent() {
+  local chain_str
+  chain_str="$(get_fallback_chain)"
+  local -a chain=($chain_str)
+  local chain_length=${#chain[@]}
+  local old_agent="$CURRENT_AGENT"
+  local start_position=$CHAIN_POSITION
+
+  # Try each agent in the chain starting from current position + 1
+  for ((i = 1; i <= chain_length; i++)); do
+    local next_pos=$(( (start_position + i) % chain_length ))
+    local candidate="${chain[$next_pos]}"
+
+    # Skip if we're back at the current agent (full loop)
+    if [ "$candidate" = "$old_agent" ]; then
+      continue
+    fi
+
+    # Check if agent is available
+    if agent_available "$candidate"; then
+      CHAIN_POSITION=$next_pos
+      CURRENT_AGENT="$candidate"
+      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
+      log_activity "AGENT_SWITCH from=$old_agent to=$CURRENT_AGENT reason=$LAST_FAILURE_TYPE chain_position=$CHAIN_POSITION"
+      msg_warn "Switching agent: $old_agent → $CURRENT_AGENT (after $CONSECUTIVE_FAILURES $LAST_FAILURE_TYPE failure(s))"
+      return 0
+    fi
+  done
+
+  # Chain exhausted - no available agents found
+  log_activity "AGENT_SWITCH_EXHAUSTED from=$old_agent tried_all_agents chain=$chain_str"
+  msg_error "Agent fallback chain exhausted. No available agents found."
+  return 1
+}
+
+# Reset chain position to start (first available agent)
+# Called when a story completes successfully (US-002)
+# Usage: reset_chain_position
+# Sets: CHAIN_POSITION, CURRENT_AGENT, AGENT_CMD
+reset_chain_position() {
+  local chain_str
+  chain_str="$(get_fallback_chain)"
+  local -a chain=($chain_str)
+  local old_agent="$CURRENT_AGENT"
+  local old_position=$CHAIN_POSITION
+
+  # Find first available agent in chain
+  for ((i = 0; i < ${#chain[@]}; i++)); do
+    local candidate="${chain[$i]}"
+    if agent_available "$candidate"; then
+      CHAIN_POSITION=$i
+      CURRENT_AGENT="$candidate"
+      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
+      if [ "$old_position" -ne "$i" ] || [ "$old_agent" != "$candidate" ]; then
+        log_activity "CHAIN_RESET from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION (story completed successfully)"
+        msg_dim "Chain reset: using primary agent $CURRENT_AGENT"
+      fi
+      return 0
+    fi
+  done
+
+  # No agents available at all - keep current (shouldn't happen)
+  msg_warn "No agents available in chain, keeping $CURRENT_AGENT"
+  return 1
 }
 
 # Progress indicator: prints elapsed time every N seconds (TTY only)
@@ -2144,6 +2245,15 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       track_failure "$CMD_STATUS" "$LOG_FILE" "$STORY_ID"
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       save_switch_state "$PRD_FOLDER"
+      # Check if we should switch agents (US-002)
+      if switch_threshold_reached; then
+        if switch_to_next_agent; then
+          # Reset failure count after successful switch
+          CONSECUTIVE_FAILURES=0
+          save_switch_state "$PRD_FOLDER"
+          msg_info "Will retry story $STORY_ID with agent $CURRENT_AGENT in next iteration"
+        fi
+      fi
     fi
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -2157,6 +2267,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Reset failure tracking on success (US-001)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       reset_failure_tracking
+      # Reset chain position to primary agent on success (US-002)
+      reset_chain_position
     fi
   fi
   # Track iteration result for summary table
