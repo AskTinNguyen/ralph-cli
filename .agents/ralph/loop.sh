@@ -1847,8 +1847,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
     elif [ -n "$ROUTED_SCORE" ]; then
       # Determine complexity level and color
-      local level_color="$C_GREEN"
-      local level_label="low"
+      level_color="$C_GREEN"
+      level_label="low"
       if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
         level_color="$C_YELLOW"
         level_label="medium"

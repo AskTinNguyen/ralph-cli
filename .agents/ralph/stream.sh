@@ -533,8 +533,68 @@ cmd_build() {
     "$SCRIPT_DIR/loop.sh" build "$iterations"
 }
 
+# ============================================================================
+# Pre-flight Conflict Check (US-002)
+# ============================================================================
+
+check_merge_conflicts() {
+  # Check for merge conflicts before attempting the actual merge
+  # Args: branch_to_merge, base_branch
+  # Returns: 0 if no conflicts, 1 if conflicts detected
+  # Outputs: List of conflicting files (one per line) if conflicts exist
+  local branch_to_merge="$1"
+  local base_branch="$2"
+  local conflicts=""
+
+  # Attempt a dry-run merge (no-commit, no-ff) to detect conflicts
+  # We need to capture the output to get conflicting file names
+  local merge_output
+  if merge_output=$(git merge --no-commit --no-ff "$branch_to_merge" 2>&1); then
+    # Merge succeeded without conflicts - abort it since we're just checking
+    git merge --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null
+    return 0
+  fi
+
+  # Check if we're in a merge state (conflicts detected)
+  if git rev-parse --verify MERGE_HEAD >/dev/null 2>&1; then
+    # Get list of conflicting files
+    conflicts=$(git diff --name-only --diff-filter=U 2>/dev/null)
+    # Abort the merge
+    git merge --abort 2>/dev/null || git reset --hard HEAD 2>/dev/null
+  else
+    # Merge failed for another reason (not conflicts) - reset just in case
+    git reset --hard HEAD 2>/dev/null
+    # Return empty conflicts but indicate failure
+    echo "Merge failed: $merge_output" >&2
+    return 1
+  fi
+
+  if [[ -n "$conflicts" ]]; then
+    echo "$conflicts"
+    return 1
+  fi
+
+  return 0
+}
+
 cmd_merge() {
   local input="$1"
+  shift || true
+
+  # Parse flags
+  local force_merge=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force)
+        force_merge=true
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
   local stream_id
   stream_id=$(normalize_stream_id "$input")
 
@@ -580,12 +640,66 @@ cmd_merge() {
   # Switch to base branch
   git checkout "$base_branch"
 
+  # Pre-flight conflict check (US-002)
+  msg_dim "Checking for merge conflicts..."
+  local conflict_files
+  if ! conflict_files=$(check_merge_conflicts "$branch" "$base_branch"); then
+    if [[ -n "$conflict_files" ]]; then
+      msg_warn "Conflicts detected in the following files:"
+      echo "$conflict_files" | while read -r file; do
+        printf "  ${C_RED}•${C_RESET} %s\n" "$file"
+      done
+      echo ""
+      if [[ "$force_merge" == "true" ]]; then
+        msg_warn "Proceeding with merge due to --force flag"
+      else
+        msg_error "Merge aborted. Resolve conflicts first or use --force to proceed anyway."
+        return 1
+      fi
+    else
+      # Merge failed for non-conflict reason
+      msg_error "Merge pre-check failed. See error above."
+      return 1
+    fi
+  else
+    msg_dim "No conflicts detected"
+  fi
+
   # Merge stream branch
   if git merge --ff-only "$branch"; then
     msg_dim "Merged $branch to $base_branch (fast-forward)"
   else
     msg_warn "Fast-forward not possible. Attempting regular merge..."
     git merge "$branch" -m "Merge $stream_id"
+  fi
+
+  # Sync state files from worktree to main repo
+  local worktree_path="$WORKTREES_DIR/$stream_id"
+  local worktree_state_dir="$worktree_path/.ralph/$stream_id"
+  local main_state_dir="$RALPH_DIR/$stream_id"
+
+  # Also check for legacy lowercase stream_id in worktree
+  if [[ ! -d "$worktree_state_dir" ]]; then
+    worktree_state_dir="$worktree_path/.ralph/${stream_id,,}"
+  fi
+
+  if [[ -d "$worktree_state_dir" ]]; then
+    msg_dim "Syncing state files from worktree..."
+
+    # Sync key state files (prd.md, plan.md, progress.md, activity.log)
+    for state_file in prd.md plan.md progress.md activity.log; do
+      if [[ -f "$worktree_state_dir/$state_file" ]]; then
+        cp "$worktree_state_dir/$state_file" "$main_state_dir/$state_file"
+      fi
+    done
+
+    # Sync run logs directory if it exists
+    if [[ -d "$worktree_state_dir/runs" ]]; then
+      mkdir -p "$main_state_dir/runs"
+      cp -r "$worktree_state_dir/runs/"* "$main_state_dir/runs/" 2>/dev/null || true
+    fi
+
+    msg_dim "State files synced to $(path_display "$main_state_dir")"
   fi
 
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Stream %s merged successfully${C_RESET}\n" "$stream_id"
@@ -652,10 +766,10 @@ case "$cmd" in
     ;;
   merge)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream merge <N>" >&2
+      echo "Usage: ralph stream merge <N> [--force]" >&2
       exit 1
     fi
-    cmd_merge "$1"
+    cmd_merge "$@"
     ;;
   cleanup)
     if [[ -z "${1:-}" ]]; then
@@ -673,7 +787,7 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
     printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n]${C_RESET}    Run n build iterations in stream\n"
-    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET}        Merge completed stream to main\n"
+    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[--force]${C_RESET} Merge completed stream (--force ignores conflicts)\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
