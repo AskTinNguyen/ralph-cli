@@ -54,6 +54,22 @@ inputs:
     description: 'Block merge on validation failure (optional)'
     required: false
     default: 'false'
+  scheduled-build:
+    description: 'Enable scheduled build mode (continue from last checkpoint)'
+    required: false
+    default: 'false'
+  target-branch:
+    description: 'Branch to push scheduled build results to'
+    required: false
+    default: 'ralph-builds'
+  notification-webhook:
+    description: 'Slack webhook URL for build notifications'
+    required: false
+    default: ''
+  notification-channel:
+    description: 'Slack channel for notifications (without #)'
+    required: false
+    default: ''
 
 outputs:
   success:
@@ -80,6 +96,12 @@ outputs:
   test-output:
     description: 'Output from test command (truncated)'
     value: ${{ steps.ralph-run.outputs.test_output }}
+  branch-pushed:
+    description: 'Branch that was pushed to (for scheduled builds)'
+    value: ${{ steps.ralph-run.outputs.branch_pushed }}
+  notification-sent:
+    description: 'Whether notification was sent (true/false)'
+    value: ${{ steps.ralph-run.outputs.notification_sent }}
 
 runs:
   using: 'composite'
@@ -108,6 +130,9 @@ runs:
         RALPH_ISSUE_LABEL: ${{ inputs.issue-label }}
         RALPH_TEST_COMMAND: ${{ inputs.test-command }}
         RALPH_BLOCK_ON_FAILURE: ${{ inputs.block-on-failure }}
+        RALPH_TARGET_BRANCH: ${{ inputs.target-branch }}
+        RALPH_NOTIFICATION_WEBHOOK: ${{ inputs.notification-webhook }}
+        RALPH_NOTIFICATION_CHANNEL: ${{ inputs.notification-channel }}
       run: |
         # Source the entrypoint script
         source "${{ github.action_path }}/action/entrypoint.sh"
@@ -125,6 +150,16 @@ runs:
             "${{ inputs.iterations }}" \
             "${{ inputs.agent }}" \
             "${{ inputs.no-commit }}"
+        # Check if this is a scheduled build
+        elif [ "${{ inputs.scheduled-build }}" = "true" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+          log_info "Scheduled build mode"
+          run_scheduled_build \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.prd }}" \
+            "${{ inputs.target-branch }}" \
+            "${{ inputs.notification-webhook }}" \
+            "${{ inputs.notification-channel }}"
         else
           # Run ralph with provided options
           run_ralph \

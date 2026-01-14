@@ -586,9 +586,304 @@ run_pr_validation() {
     return $test_exit_code
 }
 
+# Check if this is a scheduled event
+is_schedule_trigger() {
+    [ "$GITHUB_EVENT_NAME" = "schedule" ]
+}
+
+# Find PRD with incomplete stories (continue from last checkpoint)
+find_incomplete_prd() {
+    local prd_dir
+    local latest_incomplete=""
+    local highest_num=0
+
+    if [ ! -d ".ralph" ]; then
+        echo ""
+        return
+    fi
+
+    for prd_dir in .ralph/PRD-*; do
+        if [ ! -d "$prd_dir" ]; then
+            continue
+        fi
+
+        local prd_file="$prd_dir/prd.md"
+        if [ ! -f "$prd_file" ]; then
+            continue
+        fi
+
+        # Check if there are incomplete stories ([ ] not [x])
+        if grep -q '### \[ \]' "$prd_file" 2>/dev/null; then
+            local num="${prd_dir##*-}"
+            if [ "$num" -gt "$highest_num" ] 2>/dev/null; then
+                highest_num="$num"
+                latest_incomplete="$num"
+            fi
+        fi
+    done
+
+    echo "$latest_incomplete"
+}
+
+# Get last completed story from progress.md
+get_last_checkpoint() {
+    local prd_num="$1"
+    local progress_file=".ralph/PRD-${prd_num}/progress.md"
+
+    if [ ! -f "$progress_file" ]; then
+        echo ""
+        return
+    fi
+
+    # Extract the last story ID from progress.md
+    local last_story
+    last_story=$(grep -oE 'US-[0-9]+' "$progress_file" | tail -1)
+    echo "$last_story"
+}
+
+# Configure git for commits
+configure_git() {
+    # Check if git user is configured
+    if [ -z "$(git config user.email)" ]; then
+        git config user.email "ralph-action@github.com"
+        git config user.name "Ralph Action"
+        log_info "Configured git user for commits"
+    fi
+}
+
+# Push results to specified branch
+push_to_branch() {
+    local target_branch="${1:-ralph-builds}"
+    local prd_num="$2"
+
+    configure_git
+
+    # Check if there are changes to push
+    if [ -z "$(git status --porcelain)" ]; then
+        log_info "No changes to push"
+        echo ""
+        return
+    fi
+
+    # Get current branch
+    local current_branch
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+    log_info "Pushing changes to branch: $target_branch"
+
+    # Check if target branch exists remotely
+    if git ls-remote --exit-code --heads origin "$target_branch" > /dev/null 2>&1; then
+        # Branch exists, checkout and merge
+        git fetch origin "$target_branch"
+        git checkout "$target_branch"
+        git merge "$current_branch" --no-edit -m "Merge scheduled build from $current_branch (PRD-$prd_num)"
+    else
+        # Branch doesn't exist, create it
+        git checkout -b "$target_branch"
+    fi
+
+    # Commit any uncommitted changes
+    if [ -n "$(git status --porcelain)" ]; then
+        git add -A
+        git commit -m "Scheduled build progress (PRD-$prd_num)
+
+Run by Ralph GitHub Action at $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+    fi
+
+    # Push to remote
+    git push origin "$target_branch" -u
+
+    # Switch back to original branch
+    git checkout "$current_branch"
+
+    log_success "Pushed changes to $target_branch"
+    echo "$target_branch"
+}
+
+# Send notification via webhook (Slack)
+send_notification() {
+    local webhook_url="$1"
+    local channel="$2"
+    local success="$3"
+    local stories_completed="$4"
+    local duration="$5"
+    local prd_num="$6"
+    local branch_pushed="$7"
+
+    if [ -z "$webhook_url" ]; then
+        log_info "No notification webhook configured, skipping"
+        echo "false"
+        return
+    fi
+
+    local script_dir="${GITHUB_ACTION_PATH:-$(dirname "$0")}"
+    local notify_script="$script_dir/notify.js"
+
+    if [ ! -f "$notify_script" ]; then
+        log_warning "notify.js not found, skipping notification"
+        echo "false"
+        return
+    fi
+
+    log_info "Sending notification..."
+
+    # Set environment variables for the notify script
+    NOTIFY_WEBHOOK_URL="$webhook_url" \
+    NOTIFY_CHANNEL="$channel" \
+    NOTIFY_SUCCESS="$success" \
+    NOTIFY_STORIES_COMPLETED="$stories_completed" \
+    NOTIFY_DURATION="$duration" \
+    NOTIFY_PRD_NUM="$prd_num" \
+    NOTIFY_BRANCH="$branch_pushed" \
+    node "$notify_script" 2>&1 || {
+        log_warning "Failed to send notification"
+        echo "false"
+        return
+    }
+
+    log_success "Notification sent"
+    echo "true"
+}
+
+# Run scheduled build
+run_scheduled_build() {
+    local iterations="${1:-5}"
+    local agent="${2:-claude}"
+    local prd="${3:-}"
+    local target_branch="${4:-ralph-builds}"
+    local notification_webhook="${5:-}"
+    local notification_channel="${6:-}"
+
+    log_info "=== Scheduled Build ==="
+
+    # Validate API key
+    validate_api_key
+
+    # Find PRD to work on
+    local prd_num="$prd"
+    if [ -z "$prd_num" ]; then
+        prd_num=$(find_incomplete_prd)
+        if [ -z "$prd_num" ]; then
+            log_info "No incomplete PRDs found, nothing to build"
+            echo "success=true" >> "$GITHUB_OUTPUT"
+            echo "stories_completed=0" >> "$GITHUB_OUTPUT"
+            echo "duration=0" >> "$GITHUB_OUTPUT"
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            return 0
+        fi
+        log_info "Found incomplete PRD: PRD-$prd_num"
+    fi
+
+    # Get last checkpoint
+    local last_checkpoint
+    last_checkpoint=$(get_last_checkpoint "$prd_num")
+    if [ -n "$last_checkpoint" ]; then
+        log_info "Continuing from last checkpoint: $last_checkpoint"
+    else
+        log_info "Starting fresh build for PRD-$prd_num"
+    fi
+
+    # Record start time
+    local start_time
+    start_time=$(get_timestamp)
+
+    # Count stories before run
+    local stories_before
+    stories_before=$(count_completed_stories "$prd_num")
+
+    # Run the build
+    log_info "Running ralph build for PRD-$prd_num..."
+    local build_args="build $iterations --prd=$prd_num --agent=$agent"
+
+    echo "::group::Ralph Build Output"
+    local exit_code=0
+    ralph $build_args || exit_code=$?
+    echo "::endgroup::"
+
+    # Record end time and calculate duration
+    local end_time
+    end_time=$(get_timestamp)
+    local duration=$((end_time - start_time))
+
+    # Count stories after run
+    local stories_after
+    stories_after=$(count_completed_stories "$prd_num")
+    local stories_completed=$((stories_after - stories_before))
+
+    # Determine success
+    local success="false"
+    if [ "$exit_code" -eq 0 ]; then
+        success="true"
+        log_success "Scheduled build completed successfully"
+    else
+        log_error "Scheduled build failed with exit code $exit_code"
+    fi
+
+    # Push results to branch
+    local branch_pushed=""
+    if [ -n "$target_branch" ]; then
+        branch_pushed=$(push_to_branch "$target_branch" "$prd_num")
+    fi
+
+    # Send notification
+    local notification_sent="false"
+    if [ -n "$notification_webhook" ]; then
+        notification_sent=$(send_notification \
+            "$notification_webhook" \
+            "$notification_channel" \
+            "$success" \
+            "$stories_completed" \
+            "$duration" \
+            "$prd_num" \
+            "$branch_pushed")
+    fi
+
+    # Set GitHub Action outputs
+    echo "success=$success" >> "$GITHUB_OUTPUT"
+    echo "stories_completed=$stories_completed" >> "$GITHUB_OUTPUT"
+    echo "duration=$duration" >> "$GITHUB_OUTPUT"
+    echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+    echo "prd_num=$prd_num" >> "$GITHUB_OUTPUT"
+    echo "branch_pushed=$branch_pushed" >> "$GITHUB_OUTPUT"
+    echo "notification_sent=$notification_sent" >> "$GITHUB_OUTPUT"
+
+    # Log summary
+    log_info "=== Scheduled Build Summary ==="
+    log_info "Success: $success"
+    log_info "Stories completed: $stories_completed"
+    log_info "Duration: ${duration}s"
+    log_info "PRD: PRD-$prd_num"
+    log_info "Branch pushed: ${branch_pushed:-none}"
+    log_info "Notification sent: $notification_sent"
+
+    # Create job summary if available
+    if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+        {
+            echo "## Scheduled Build Summary"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| PRD | PRD-$prd_num |"
+            echo "| Success | $success |"
+            echo "| Stories Completed | $stories_completed |"
+            echo "| Duration | ${duration}s |"
+            echo "| Exit Code | $exit_code |"
+            echo "| Agent | $agent |"
+            echo "| Branch Pushed | ${branch_pushed:-none} |"
+            echo "| Notification Sent | $notification_sent |"
+            if [ -n "$last_checkpoint" ]; then
+                echo "| Continued From | $last_checkpoint |"
+            fi
+        } >> "$GITHUB_STEP_SUMMARY"
+    fi
+
+    return $exit_code
+}
+
 # Export functions for use in action.yml
 export -f log_info log_success log_warning log_error
 export -f validate_api_key get_timestamp count_completed_stories get_latest_prd
 export -f is_issue_trigger has_ralph_label convert_issue_to_prd run_issue_build
 export -f is_pr_trigger get_pr_info run_tests report_status_check add_review_comments run_pr_validation
+export -f is_schedule_trigger find_incomplete_prd get_last_checkpoint configure_git push_to_branch send_notification run_scheduled_build
 export -f run_ralph
