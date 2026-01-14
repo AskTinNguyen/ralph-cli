@@ -255,6 +255,7 @@ Documentation:
 ## Commits with Trailers
 
 ### Single Issue
+
 ```
 fix(validation): prevent XSS in user input
 
@@ -264,6 +265,7 @@ Fixes #78
 ```
 
 ### Multiple Issues + Co-author
+
 ```
 fix(auth): resolve session and token issues
 
@@ -278,6 +280,7 @@ Co-authored-by: Bob <bob@example.com>
 ## Breaking Changes
 
 ### With ! Notation
+
 ```
 feat(api)!: migrate to v2 endpoints
 
@@ -285,6 +288,7 @@ BREAKING CHANGE: /api/v1/* endpoints removed. Update base URL to /api/v2/.
 ```
 
 ### Config Breaking Change
+
 ```
 chore(config)!: rename environment variables
 

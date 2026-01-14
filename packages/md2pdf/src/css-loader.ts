@@ -25,7 +25,7 @@ export function loadCSSFiles(cssFiles: string[]): string[] {
       const warnings = validateCSS(content, cssFile);
 
       if (warnings.length > 0) {
-        warnings.forEach(warning => {
+        warnings.forEach((warning) => {
           console.warn(`Warning: ${warning}`);
         });
         console.warn(`Continuing with valid CSS rules from ${cssFile}`);
@@ -43,7 +43,7 @@ export function loadCSSFiles(cssFiles: string[]): string[] {
   // If any files were not found, throw error with all invalid paths
   if (invalidFiles.length > 0) {
     throw new Error(
-      `The following CSS files were not found:\n${invalidFiles.map(f => `  - ${f}`).join("\n")}`
+      `The following CSS files were not found:\n${invalidFiles.map((f) => `  - ${f}`).join("\n")}`
     );
   }
 
@@ -72,17 +72,13 @@ function validateCSS(css: string, filename: string): string[] {
   const commentEnds = (css.match(/\*\//g) || []).length;
 
   if (commentStarts !== commentEnds) {
-    warnings.push(
-      `${filename}: Unclosed CSS comments detected`
-    );
+    warnings.push(`${filename}: Unclosed CSS comments detected`);
   }
 
   // Check for empty rules (basic check)
   const emptyRules = css.match(/[^}]\s*\{\s*\}/g);
   if (emptyRules && emptyRules.length > 0) {
-    warnings.push(
-      `${filename}: Found ${emptyRules.length} empty CSS rule(s)`
-    );
+    warnings.push(`${filename}: Found ${emptyRules.length} empty CSS rule(s)`);
   }
 
   return warnings;

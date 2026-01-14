@@ -22,9 +22,9 @@ const skillsRoot = path.join(repoRoot, "skills");
 let agentOverride = null;
 let installSkills = false;
 let installForce = false;
-let importFromProject = null;  // For --import-from flag in install command
+let importFromProject = null; // For --import-from flag in install command
 let prdPath = null;
-let prdNumber = null;  // PRD number for folder-based storage (e.g., --prd=1 uses PRD-1)
+let prdNumber = null; // PRD number for folder-based storage (e.g., --prd=1 uses PRD-1)
 let planPath = null;
 let progressPath = null;
 let prdOutPath = null;
@@ -50,7 +50,7 @@ function usage() {
 ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("install")} ${pc.dim("[--skills] [--import-from]")}   Copy .agents/ralph into the current repo
   ${pc.green("init")}                                 Interactive setup wizard for new projects
-  ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
+  ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
   ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume]")} Run build loop (default)
@@ -420,8 +420,7 @@ async function main() {
       const projects = registryModule.listProjects();
       const sourceProject = projects.find(
         (p) =>
-          p.name.toLowerCase() === importFromProject.toLowerCase() ||
-          p.id === importFromProject
+          p.name.toLowerCase() === importFromProject.toLowerCase() || p.id === importFromProject
       );
 
       if (!sourceProject) {
@@ -441,7 +440,9 @@ async function main() {
         } else {
           const result = importModule.importGuardrails(guardrails, cwd, sourceProject.name);
           if (result.imported > 0) {
-            success(`Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(sourceProject.name)}`);
+            success(
+              `Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(sourceProject.name)}`
+            );
           }
           if (result.skipped > 0) {
             dim(`Skipped ${result.skipped} duplicate(s).`);
@@ -494,7 +495,7 @@ async function main() {
   const loadAgentMap = () => {
     const defaults = {
       codex: "codex exec --yolo --skip-git-repo-check -",
-      claude: "claude -p --dangerously-skip-permissions \"$(cat {prompt})\"",
+      claude: 'claude -p --dangerously-skip-permissions "$(cat {prompt})"',
       droid: "droid exec --skip-permissions-unsafe -f {prompt}",
     };
     const interactiveDefaults = {
@@ -730,7 +731,9 @@ async function main() {
         console.log(pc.bold("Evaluation Summary"));
         console.log(pc.dim("─".repeat(50)));
         console.log(`Total Runs:      ${pc.bold(aggregate.totalRuns)}`);
-        console.log(`Successful:      ${pc.green(aggregate.successCount)} (${aggregate.successRate}%)`);
+        console.log(
+          `Successful:      ${pc.green(aggregate.successCount)} (${aggregate.successRate}%)`
+        );
         console.log(`Failed:          ${pc.red(aggregate.errorCount)}`);
         console.log(`Average Score:   ${pc.bold(aggregate.avgOverall)}/100 (${aggregate.grade})`);
         console.log(`Avg Duration:    ${evalModule.formatDuration(aggregate.avgDuration)}`);
@@ -791,13 +794,24 @@ async function main() {
 
       // Display results
       const grade = evalModule.gradeScore(score.overall);
-      const gradeColor = grade === "A" ? pc.green : grade === "B" ? pc.blue : grade === "C" ? pc.yellow : grade === "D" ? pc.magenta : pc.red;
+      const gradeColor =
+        grade === "A"
+          ? pc.green
+          : grade === "B"
+            ? pc.blue
+            : grade === "C"
+              ? pc.yellow
+              : grade === "D"
+                ? pc.magenta
+                : pc.red;
 
       console.log("");
       console.log(pc.bold(`Evaluation: ${score.runId}`));
       console.log(pc.dim("─".repeat(50)));
       console.log(`Grade:           ${gradeColor(pc.bold(grade))} (${score.overall}/100)`);
-      console.log(`Status:          ${score.status === "success" ? pc.green(score.status) : pc.red(score.status)}`);
+      console.log(
+        `Status:          ${score.status === "success" ? pc.green(score.status) : pc.red(score.status)}`
+      );
       console.log(`Mode:            ${score.mode || "N/A"}`);
       console.log(`Story:           ${score.story || "N/A"}`);
       console.log(`Duration:        ${evalModule.formatDuration(score.duration)}`);
@@ -814,7 +828,9 @@ async function main() {
       console.log(pc.bold("Details"));
       console.log(`  Commits:       ${score.details.commitCount}`);
       console.log(`  Files changed: ${score.details.changedFilesCount}`);
-      console.log(`  Clean tree:    ${score.details.hasUncommittedChanges ? pc.yellow("No") : pc.green("Yes")}`);
+      console.log(
+        `  Clean tree:    ${score.details.hasUncommittedChanges ? pc.yellow("No") : pc.green("Yes")}`
+      );
       console.log(`  Tests passed:  ${score.details.verificationsPassed}`);
       console.log(`  Tests failed:  ${score.details.verificationsFailed}`);
       console.log(`  Errors:        ${score.details.errorCount}`);
@@ -892,10 +908,15 @@ async function main() {
 
           // Color-coded trend display
           if (report.trend) {
-            const trendColor = report.trend.trend === "improving" ? pc.green
-              : report.trend.trend === "degrading" ? pc.red
-              : pc.yellow;
-            console.log(trendColor(`Trend: ${report.trend.trendIndicator} ${report.trend.description}`));
+            const trendColor =
+              report.trend.trend === "improving"
+                ? pc.green
+                : report.trend.trend === "degrading"
+                  ? pc.red
+                  : pc.yellow;
+            console.log(
+              trendColor(`Trend: ${report.trend.trendIndicator} ${report.trend.description}`)
+            );
           }
           console.log("");
         }
@@ -924,8 +945,8 @@ async function main() {
         process.exit(1);
       }
       // Fill in missing values with defaults
-      if (!customPricing.input) customPricing.input = 3.0;  // Default Sonnet input
-      if (!customPricing.output) customPricing.output = 15.0;  // Default Sonnet output
+      if (!customPricing.input) customPricing.input = 3.0; // Default Sonnet input
+      if (!customPricing.output) customPricing.output = 15.0; // Default Sonnet output
     }
 
     // Determine model to use for pricing (default: sonnet)
@@ -991,7 +1012,9 @@ async function main() {
 
       // Show pricing info
       if (customPricing) {
-        info(`Using custom pricing: $${customPricing.input}/M input, $${customPricing.output}/M output`);
+        info(
+          `Using custom pricing: $${customPricing.input}/M input, $${customPricing.output}/M output`
+        );
       } else {
         dim(`Using ${model} pricing (use --pricing to override)`);
       }
@@ -1009,8 +1032,16 @@ async function main() {
       // Show range summary
       console.log("");
       console.log(pc.dim("Expected range for pending stories:"));
-      console.log(pc.dim(`  Time: ${estimateModule.formatDuration(result.totals.durationOptimistic)} - ${estimateModule.formatDuration(result.totals.durationPessimistic)}`));
-      console.log(pc.dim(`  Cost: ${estimateModule.formatter.formatCost(result.totals.costOptimistic)} - ${estimateModule.formatter.formatCost(result.totals.costPessimistic)}`));
+      console.log(
+        pc.dim(
+          `  Time: ${estimateModule.formatDuration(result.totals.durationOptimistic)} - ${estimateModule.formatDuration(result.totals.durationPessimistic)}`
+        )
+      );
+      console.log(
+        pc.dim(
+          `  Cost: ${estimateModule.formatter.formatCost(result.totals.costOptimistic)} - ${estimateModule.formatter.formatCost(result.totals.costPessimistic)}`
+        )
+      );
       console.log("");
     }
 
@@ -1104,7 +1135,11 @@ async function main() {
       console.log(`  ${pc.yellow("Context:")}     ${candidate.context}`);
       console.log("");
       console.log(pc.dim(`  Occurrences: ${candidate.occurrences}`));
-      console.log(pc.dim(`  Affected runs: ${candidate.affectedRuns.slice(0, 3).join(", ")}${candidate.affectedRuns.length > 3 ? "..." : ""}`));
+      console.log(
+        pc.dim(
+          `  Affected runs: ${candidate.affectedRuns.slice(0, 3).join(", ")}${candidate.affectedRuns.length > 3 ? "..." : ""}`
+        )
+      );
       console.log("");
 
       const action = await select({
@@ -1145,7 +1180,10 @@ async function main() {
       // Ensure guardrails file exists
       if (!exists(guardrailsPath)) {
         fs.mkdirSync(path.dirname(guardrailsPath), { recursive: true });
-        fs.writeFileSync(guardrailsPath, `# Guardrails (Signs)\n\n> Lessons learned from failures. Read before acting.\n\n## Learned Signs\n\n`);
+        fs.writeFileSync(
+          guardrailsPath,
+          `# Guardrails (Signs)\n\n> Lessons learned from failures. Read before acting.\n\n## Learned Signs\n\n`
+        );
       }
 
       const acceptedAt = new Date().toISOString();
@@ -1167,7 +1205,9 @@ async function main() {
     improveModule.saveCandidates(remaining, pendingPath);
 
     console.log("");
-    outro(`Done. ${accepted.length} applied, ${rejected.length} rejected, ${remaining.length} pending.`);
+    outro(
+      `Done. ${accepted.length} applied, ${rejected.length} rejected, ${remaining.length} pending.`
+    );
     process.exit(0);
   }
 
@@ -1179,7 +1219,12 @@ async function main() {
     let tags = [];
     for (let i = 0; i < rawArgs.length; i++) {
       if (rawArgs[i].startsWith("--tags=")) {
-        tags = rawArgs[i].split("=").slice(1).join("=").split(",").map((t) => t.trim().toLowerCase());
+        tags = rawArgs[i]
+          .split("=")
+          .slice(1)
+          .join("=")
+          .split(",")
+          .map((t) => t.trim().toLowerCase());
       } else if (rawArgs[i] === "--tags" && rawArgs[i + 1]) {
         tags = rawArgs[i + 1].split(",").map((t) => t.trim().toLowerCase());
       }
@@ -1234,7 +1279,9 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(`Name:         ${pc.bold(project.name)}`);
       console.log(`Path:         ${pc.dim(project.path)}`);
       console.log(`ID:           ${pc.dim(project.id)}`);
-      console.log(`Tags:         ${project.tags.length > 0 ? pc.cyan(project.tags.join(", ")) : pc.dim("none")}`);
+      console.log(
+        `Tags:         ${project.tags.length > 0 ? pc.cyan(project.tags.join(", ")) : pc.dim("none")}`
+      );
       console.log(pc.dim("─".repeat(50)));
 
       if (indexed) {
@@ -1242,7 +1289,9 @@ ${pc.bold(pc.cyan("Examples:"))}
         console.log(`  Guardrails:  ${indexed.stats.guardrailCount}`);
         console.log(`  Progress:    ${indexed.stats.progressCount}`);
         console.log(`  Runs:        ${indexed.stats.runCount}`);
-        console.log(`  Success:     ${indexed.stats.successRate !== null ? indexed.stats.successRate + "%" : "N/A"}`);
+        console.log(
+          `  Success:     ${indexed.stats.successRate !== null ? indexed.stats.successRate + "%" : "N/A"}`
+        );
         console.log("");
       }
 
@@ -1278,7 +1327,10 @@ ${pc.bold(pc.cyan("Examples:"))}
       for (const project of projects) {
         const name = project.name.length > 18 ? project.name.slice(0, 17) + "…" : project.name;
         const runs = String(project.stats.runCount || 0).padStart(6);
-        const successRate = project.stats.successRate !== null ? `${project.stats.successRate}%`.padStart(8) : "N/A".padStart(8);
+        const successRate =
+          project.stats.successRate !== null
+            ? `${project.stats.successRate}%`.padStart(8)
+            : "N/A".padStart(8);
         const guardrails = String(project.stats.guardrailCount || 0).padStart(11);
         const tagsStr = project.tags.slice(0, 3).join(", ");
         const tagsDisplay = tagsStr.length > 18 ? tagsStr.slice(0, 17) + "…" : tagsStr;
@@ -1339,7 +1391,9 @@ ${pc.bold(pc.cyan("Examples:"))}
         console.log(`  Guardrails:  ${updated.stats.guardrailCount}`);
         console.log(`  Progress:    ${updated.stats.progressCount}`);
         console.log(`  Runs:        ${updated.stats.runCount}`);
-        console.log(`  Success:     ${updated.stats.successRate !== null ? updated.stats.successRate + "%" : "N/A"}`);
+        console.log(
+          `  Success:     ${updated.stats.successRate !== null ? updated.stats.successRate + "%" : "N/A"}`
+        );
         if (tags.length > 0) {
           console.log(`  Tags:        ${pc.cyan(updated.tags.join(", "))}`);
         }
@@ -1429,7 +1483,9 @@ ${pc.bold(pc.cyan("Examples:"))}
     if (rebuildFlag || !exists(indexPath)) {
       info("Building search index...");
       const stats = searchModule.buildIndex();
-      dim(`Indexed ${stats.projects} projects: ${stats.guardrails} guardrails, ${stats.progress} progress entries, ${stats.evaluations} evaluations, ${stats.runs} runs`);
+      dim(
+        `Indexed ${stats.projects} projects: ${stats.guardrails} guardrails, ${stats.progress} progress entries, ${stats.evaluations} evaluations, ${stats.runs} runs`
+      );
       console.log("");
     }
 
@@ -1439,7 +1495,7 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(`${pc.bold("ralph search")} ${pc.dim("<query>")} ${pc.dim("[options]")}
 
 ${pc.bold(pc.cyan("Usage:"))}
-  ${pc.green("ralph search")} ${pc.dim("\"test before commit\"")}       Search for a phrase
+  ${pc.green("ralph search")} ${pc.dim('"test before commit"')}       Search for a phrase
   ${pc.green("ralph search")} ${pc.dim("error --type guardrail")}      Search guardrails for \"error\"
   ${pc.green("ralph search")} ${pc.dim("--project myapp")}             List all entries from a project
   ${pc.green("ralph search")} ${pc.dim("--tags typescript")}           Search in TypeScript projects
@@ -1455,7 +1511,7 @@ ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--rebuild")}             Rebuild search index first
 
 ${pc.bold(pc.cyan("Examples:"))}
-  ${pc.dim("ralph search \"missing dependency\" --type guardrail")}
+  ${pc.dim('ralph search "missing dependency" --type guardrail')}
   ${pc.dim("ralph search US-001 --project ralph-cli")}
   ${pc.dim("ralph search --tags typescript,cli --since 30d")}
 `);
@@ -1489,7 +1545,9 @@ ${pc.bold(pc.cyan("Examples:"))}
     }
 
     console.log(pc.dim("─".repeat(70)));
-    console.log(`Found ${pc.bold(results.totalCount)} results${results.totalCount > results.returnedCount ? ` (showing ${results.returnedCount})` : ""}`);
+    console.log(
+      `Found ${pc.bold(results.totalCount)} results${results.totalCount > results.returnedCount ? ` (showing ${results.returnedCount})` : ""}`
+    );
     console.log("");
 
     if (results.results.length === 0) {
@@ -1514,7 +1572,12 @@ ${pc.bold(pc.cyan("Examples:"))}
               : pc.magenta(`[${result.type}]`);
 
       // Relevance indicator
-      const relevance = result.relevance >= 80 ? pc.green("●●●") : result.relevance >= 50 ? pc.yellow("●●○") : pc.dim("●○○");
+      const relevance =
+        result.relevance >= 80
+          ? pc.green("●●●")
+          : result.relevance >= 50
+            ? pc.yellow("●●○")
+            : pc.dim("●○○");
 
       console.log(`${typeBadge} ${pc.bold(result.title)} ${relevance}`);
       dim(`   Project: ${result.projectName} | Score: ${result.relevance}/100`);
@@ -1526,7 +1589,13 @@ ${pc.bold(pc.cyan("Examples:"))}
         if (result.snippet.highlights && result.snippet.highlights.length > 0 && query) {
           // Highlight query terms in the snippet
           const lowerQuery = query.toLowerCase();
-          const terms = [lowerQuery, ...query.toLowerCase().split(/\s+/).filter((t) => t.length >= 2)];
+          const terms = [
+            lowerQuery,
+            ...query
+              .toLowerCase()
+              .split(/\s+/)
+              .filter((t) => t.length >= 2),
+          ];
           for (const term of terms) {
             const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
             snippetText = snippetText.replace(regex, pc.bold(pc.cyan("$1")));
@@ -1551,7 +1620,9 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     console.log(pc.dim("─".repeat(70)));
     if (results.totalCount > results.returnedCount) {
-      info(`Showing ${results.returnedCount} of ${results.totalCount} results. Use ${pc.cyan("--limit")} to see more.`);
+      info(
+        `Showing ${results.returnedCount} of ${results.totalCount} results. Use ${pc.cyan("--limit")} to see more.`
+      );
     }
     process.exit(0);
   }
@@ -1627,9 +1698,7 @@ ${pc.bold(pc.cyan("Examples:"))}
       // If --from specified, find that project
       if (fromProject) {
         selectedProject = suggestedProjects.find(
-          (p) =>
-            p.name.toLowerCase() === fromProject.toLowerCase() ||
-            p.id === fromProject
+          (p) => p.name.toLowerCase() === fromProject.toLowerCase() || p.id === fromProject
         );
         if (!selectedProject) {
           error(`Project not found: ${pc.bold(fromProject)}`);
@@ -1641,7 +1710,8 @@ ${pc.bold(pc.cyan("Examples:"))}
         }
       } else {
         // Interactive project selection
-        const { intro, outro, select, multiselect, confirm, isCancel } = await import("@clack/prompts");
+        const { intro, outro, select, multiselect, confirm, isCancel } =
+          await import("@clack/prompts");
         intro("Ralph Guardrails Import");
 
         console.log("");
@@ -1751,7 +1821,9 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       console.log("");
       if (result.imported > 0) {
-        success(`Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(selectedProject.name)}`);
+        success(
+          `Imported ${pc.bold(result.imported)} guardrail(s) from ${pc.cyan(selectedProject.name)}`
+        );
         info(`Guardrails saved to ${pc.cyan(".ralph/guardrails.md")}`);
       }
       if (result.skipped > 0) {
@@ -1772,6 +1844,99 @@ ${pc.bold(pc.cyan("Examples:"))}
     const statsModule = require("../lib/stats");
     const registryModule = require("../lib/registry");
     const { formatDuration } = require("../lib/eval/reporter");
+
+    // Check for switches subcommand (US-004)
+    const subCmd = args[1];
+    if (subCmd === "switches") {
+      const metricsModule = require("../lib/estimate/metrics");
+      const ralphDir = path.join(cwd, ".ralph");
+
+      if (!exists(ralphDir)) {
+        warn("No .ralph directory found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Get latest PRD directory
+      const prdDirs = fs.readdirSync(ralphDir)
+        .filter(d => d.match(/^PRD-\d+$/))
+        .sort((a, b) => {
+          const numA = parseInt(a.split('-')[1]);
+          const numB = parseInt(b.split('-')[1]);
+          return numB - numA;
+        });
+
+      if (prdDirs.length === 0) {
+        warn("No PRD directories found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      const latestPrdDir = path.join(ralphDir, prdDirs[0]);
+      const agentStats = metricsModule.getAgentSuccessRates(latestPrdDir, { groupByStoryType: true });
+
+      if (agentStats.totalRuns === 0) {
+        warn("No metrics data found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Agent Switch Analytics"));
+      console.log(pc.dim("=".repeat(70)));
+      console.log("");
+
+      // Overall success rates
+      console.log(pc.bold(pc.cyan("Overall Agent Performance")));
+      console.log(pc.dim("-".repeat(70)));
+      console.log(pc.dim(`${"AGENT".padEnd(15)} ${"SUCCESS RATE".padStart(13)} ${"RUNS".padStart(6)} ${"ERRORS".padStart(7)} ${"AVG SWITCHES".padStart(13)}`));
+      console.log(pc.dim("-".repeat(70)));
+
+      const agents = Object.keys(agentStats.overall).sort((a, b) => {
+        return (agentStats.overall[b].successRate || 0) - (agentStats.overall[a].successRate || 0);
+      });
+
+      for (const agent of agents) {
+        const stats = agentStats.overall[agent];
+        const rateStr = `${stats.successRate}%`.padStart(13);
+        const runsStr = String(stats.total).padStart(6);
+        const errorsStr = String(stats.error).padStart(7);
+        const switchStr = String(stats.avgSwitchesPerRun || '0.00').padStart(13);
+
+        const rateColor = stats.successRate >= 70 ? pc.green : stats.successRate >= 50 ? pc.yellow : pc.red;
+        console.log(`${agent.padEnd(15)} ${rateColor(rateStr)} ${runsStr} ${errorsStr} ${switchStr}`);
+      }
+
+      console.log("");
+      console.log(pc.dim("-".repeat(70)));
+      console.log("");
+
+      // Recommendations
+      console.log(pc.bold(pc.cyan("Recommendations")));
+      console.log(pc.dim("-".repeat(70)));
+
+      const bestAgent = agents[0];
+      const bestStats = agentStats.overall[bestAgent];
+      const worstAgent = agents[agents.length - 1];
+      const worstStats = agentStats.overall[worstAgent];
+
+      if (bestAgent && bestStats && bestStats.total >= 3) {
+        success(`Best performing agent: ${pc.bold(bestAgent)} (${bestStats.successRate}% success rate)`);
+        console.log(`  ${pc.dim("→")} ${bestStats.total} runs, ${bestStats.success} successes, avg ${bestStats.avgSwitchesPerRun} switches/run`);
+      }
+
+      if (worstAgent && worstStats && worstAgent !== bestAgent && worstStats.total >= 3) {
+        warn(`Worst performing agent: ${pc.bold(worstAgent)} (${worstStats.successRate}% success rate)`);
+        console.log(`  ${pc.dim("→")} ${worstStats.total} runs, ${worstStats.error} errors`);
+      }
+
+      console.log("");
+
+      if (bestAgent && bestStats && bestStats.total >= 5) {
+        info(`Consider setting ${pc.bold(bestAgent)} as your default agent in .agents/ralph/config.sh`);
+      }
+
+      console.log("");
+      console.log(pc.dim("-".repeat(70)));
+      process.exit(0);
+    }
 
     // Parse flags
     let globalFlag = false;
@@ -1802,7 +1967,8 @@ ${pc.bold(pc.cyan("Examples:"))}
       }
 
       // Collect token data from all PRD-N folders
-      const prdDirs = fs.readdirSync(ralphDir)
+      const prdDirs = fs
+        .readdirSync(ralphDir)
         .filter((dir) => /^PRD-\d+$/.test(dir))
         .map((dir) => ({
           id: dir.replace("PRD-", ""),
@@ -1877,16 +2043,22 @@ ${pc.bold(pc.cyan("Examples:"))}
       };
 
       if (jsonFlag) {
-        console.log(JSON.stringify({
-          totalInputTokens,
-          totalOutputTokens,
-          totalCost,
-          totalRuns,
-          totalEstimated,
-          avgCostPerRun: totalRuns > 0 ? totalCost / totalRuns : 0,
-          byModel,
-          byStream,
-        }, null, 2));
+        console.log(
+          JSON.stringify(
+            {
+              totalInputTokens,
+              totalOutputTokens,
+              totalCost,
+              totalRuns,
+              totalEstimated,
+              avgCostPerRun: totalRuns > 0 ? totalCost / totalRuns : 0,
+              byModel,
+              byStream,
+            },
+            null,
+            2
+          )
+        );
         process.exit(0);
       }
 
@@ -1900,12 +2072,16 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(pc.dim("-".repeat(40)));
       console.log(`Input Tokens:    ${pc.bold(formatTokens(totalInputTokens))}`);
       console.log(`Output Tokens:   ${pc.bold(formatTokens(totalOutputTokens))}`);
-      console.log(`Total Tokens:    ${pc.bold(formatTokens(totalInputTokens + totalOutputTokens))}`);
+      console.log(
+        `Total Tokens:    ${pc.bold(formatTokens(totalInputTokens + totalOutputTokens))}`
+      );
       console.log(`Total Cost:      ${pc.green(formatCost(totalCost))}`);
       console.log(`Total Runs:      ${pc.bold(totalRuns)}`);
       console.log(`Avg Cost/Run:    ${formatCost(totalRuns > 0 ? totalCost / totalRuns : 0)}`);
       if (totalEstimated > 0) {
-        console.log(`Estimated Runs:  ${pc.yellow(totalEstimated)} (${Math.round((totalEstimated / totalRuns) * 100)}%)`);
+        console.log(
+          `Estimated Runs:  ${pc.yellow(totalEstimated)} (${Math.round((totalEstimated / totalRuns) * 100)}%)`
+        );
       }
       console.log("");
 
@@ -1926,9 +2102,7 @@ ${pc.bold(pc.cyan("Examples:"))}
           const tokens = formatTokens(data.inputTokens + data.outputTokens);
           const cost = formatCost(data.cost);
           const runs = String(data.runs).padStart(6);
-          console.log(
-            `${model.padEnd(15)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`
-          );
+          console.log(`${model.padEnd(15)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`);
         }
         console.log("");
       }
@@ -1949,9 +2123,7 @@ ${pc.bold(pc.cyan("Examples:"))}
           const tokens = formatTokens(stream.inputTokens + stream.outputTokens);
           const cost = formatCost(stream.cost);
           const runs = String(stream.runs).padStart(6);
-          console.log(
-            `${name.padEnd(10)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`
-          );
+          console.log(`${name.padEnd(10)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`);
         }
         if (byStream.length > 10) {
           console.log(pc.dim(`  ... and ${byStream.length - 10} more streams`));
@@ -1967,7 +2139,9 @@ ${pc.bold(pc.cyan("Examples:"))}
     // Trend arrow helper with color
     const trendArrow = (trend, positiveIsGood = true) => {
       if (!trend || trend.direction === "stable") return pc.dim("-");
-      const isGood = (positiveIsGood && trend.direction === "up") || (!positiveIsGood && trend.direction === "down");
+      const isGood =
+        (positiveIsGood && trend.direction === "up") ||
+        (!positiveIsGood && trend.direction === "down");
       const color = isGood ? pc.green : pc.red;
       return color(`${trend.arrow} ${trend.change}%`);
     };
@@ -2001,7 +2175,9 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(pc.dim("-".repeat(40)));
       console.log(`Projects:        ${pc.bold(metrics.projectCount)}`);
       console.log(`Total Runs:      ${pc.bold(metrics.totalRuns)}`);
-      console.log(`Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`);
+      console.log(
+        `Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`
+      );
       console.log(`Failed:          ${pc.red(metrics.failedCount)}`);
       console.log(`Avg Duration:    ${formatDuration(metrics.avgDuration)}`);
       console.log(`Total Guardrails:${pc.bold(metrics.totalGuardrails)}`);
@@ -2021,8 +2197,11 @@ ${pc.bold(pc.cyan("Examples:"))}
         for (const proj of metrics.topProjects.slice(0, 10)) {
           const name = proj.name.length > 23 ? proj.name.slice(0, 22) + "\u2026" : proj.name;
           const runs = String(proj.runs).padStart(6);
-          const rate = proj.successRate !== null ? `${proj.successRate}%`.padStart(8) : "N/A".padStart(8);
-          const trend = proj.successRateTrend ? trendArrow(proj.successRateTrend, true) : pc.dim("-");
+          const rate =
+            proj.successRate !== null ? `${proj.successRate}%`.padStart(8) : "N/A".padStart(8);
+          const trend = proj.successRateTrend
+            ? trendArrow(proj.successRateTrend, true)
+            : pc.dim("-");
 
           console.log(
             `${name.padEnd(25)} ${runs} ${proj.successRate !== null ? pc.green(rate) : pc.dim(rate)} ${trend.padStart(10)}`
@@ -2070,7 +2249,9 @@ ${pc.bold(pc.cyan("Examples:"))}
     console.log(pc.bold(pc.cyan("Overview")));
     console.log(pc.dim("-".repeat(40)));
     console.log(`Total Runs:      ${pc.bold(metrics.totalRuns)}`);
-    console.log(`Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`);
+    console.log(
+      `Successful:      ${pc.green(metrics.successCount)} (${metrics.successRate || 0}%)`
+    );
     console.log(`Failed:          ${pc.red(metrics.failedCount)}`);
     console.log(`Guardrails:      ${pc.bold(metrics.guardrailCount)}`);
     console.log("");
@@ -2098,7 +2279,9 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(pc.dim("-".repeat(40)));
       for (const [mode, stats] of Object.entries(metrics.modeStats)) {
         const rate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
-        console.log(`${mode.padEnd(15)} ${String(stats.total).padStart(4)} runs  ${pc.green(`${rate}%`)} success`);
+        console.log(
+          `${mode.padEnd(15)} ${String(stats.total).padStart(4)} runs  ${pc.green(`${rate}%`)} success`
+        );
       }
       console.log("");
     }
@@ -2109,10 +2292,17 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(pc.dim("-".repeat(60)));
       for (const impact of metrics.guardrailImpacts) {
         const arrow = impact.isPositive ? pc.green("\u2191") : pc.red("\u2193");
-        const change = impact.isPositive ? pc.green(`+${impact.improvement}%`) : pc.red(`${impact.improvement}%`);
-        const title = impact.title.length > 35 ? impact.title.slice(0, 34) + "\u2026" : impact.title;
+        const change = impact.isPositive
+          ? pc.green(`+${impact.improvement}%`)
+          : pc.red(`${impact.improvement}%`);
+        const title =
+          impact.title.length > 35 ? impact.title.slice(0, 34) + "\u2026" : impact.title;
         console.log(`${arrow} ${title}`);
-        console.log(pc.dim(`   ${impact.rateBefore}% \u2192 ${impact.rateAfter}% (${change}) after ${impact.addedDate}`));
+        console.log(
+          pc.dim(
+            `   ${impact.rateBefore}% \u2192 ${impact.rateAfter}% (${change}) after ${impact.addedDate}`
+          )
+        );
       }
       console.log("");
     }
@@ -2122,11 +2312,16 @@ ${pc.bold(pc.cyan("Examples:"))}
       const recentWeeks = metrics.weeklyStats.slice(-4);
       console.log(pc.bold(pc.cyan("Weekly Activity (Last 4 Weeks)")));
       console.log(pc.dim("-".repeat(50)));
-      console.log(pc.dim(`${"WEEK".padEnd(10)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(10)} ${"AVG DUR".padStart(10)}`));
+      console.log(
+        pc.dim(
+          `${"WEEK".padEnd(10)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(10)} ${"AVG DUR".padStart(10)}`
+        )
+      );
       console.log(pc.dim("-".repeat(50)));
       for (const week of recentWeeks) {
         const runs = String(week.runs).padStart(6);
-        const rate = week.successRate !== null ? `${week.successRate}%`.padStart(10) : "N/A".padStart(10);
+        const rate =
+          week.successRate !== null ? `${week.successRate}%`.padStart(10) : "N/A".padStart(10);
         const dur = formatDuration(week.avgDuration).padStart(10);
         console.log(
           `${week.week.padEnd(10)} ${runs} ${week.successRate !== null ? pc.green(rate) : pc.dim(rate)} ${dur}`
@@ -2213,7 +2408,8 @@ ${pc.bold(pc.cyan("Examples:"))}
         console.log(pc.bold("Prompt Templates"));
         console.log(pc.dim("-".repeat(50)));
         for (const template of templates) {
-          const status = template.action === "initialized" ? pc.green("initialized") : pc.dim("exists");
+          const status =
+            template.action === "initialized" ? pc.green("initialized") : pc.dim("exists");
           console.log(`  ${template.name}: v${template.version} (${status})`);
         }
         console.log("");
@@ -2235,7 +2431,11 @@ ${pc.bold(pc.cyan("Examples:"))}
         console.log(pc.bold("Prompt Version Effectiveness"));
         console.log(pc.dim("=".repeat(60)));
         console.log("");
-        console.log(pc.dim(`${"VERSION".padEnd(12)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(9)} ${"AVG DUR".padStart(10)} ${"STATUS".padEnd(10)}`));
+        console.log(
+          pc.dim(
+            `${"VERSION".padEnd(12)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(9)} ${"AVG DUR".padStart(10)} ${"STATUS".padEnd(10)}`
+          )
+        );
         console.log(pc.dim("-".repeat(60)));
 
         for (const v of versions) {
@@ -2245,8 +2445,11 @@ ${pc.bold(pc.cyan("Examples:"))}
           const dur = v.avgDuration != null ? `${v.avgDuration}s`.padStart(10) : "N/A".padStart(10);
           const status = v.isCurrent ? pc.green("current") : pc.dim("previous");
 
-          const rateColor = v.successRate >= 70 ? pc.green : v.successRate >= 50 ? pc.yellow : pc.red;
-          console.log(`${version} ${runs} ${v.successRate != null ? rateColor(rate) : pc.dim(rate)} ${dur} ${status}`);
+          const rateColor =
+            v.successRate >= 70 ? pc.green : v.successRate >= 50 ? pc.yellow : pc.red;
+          console.log(
+            `${version} ${runs} ${v.successRate != null ? rateColor(rate) : pc.dim(rate)} ${dur} ${status}`
+          );
         }
         console.log(pc.dim("-".repeat(60)));
         console.log("");
@@ -2255,7 +2458,11 @@ ${pc.bold(pc.cyan("Examples:"))}
         if (versions.length > 1) {
           const best = versions[0];
           const current = versions.find((v) => v.isCurrent);
-          if (current && best.version !== current.version && best.successRate > (current.successRate || 0)) {
+          if (
+            current &&
+            best.version !== current.version &&
+            best.successRate > (current.successRate || 0)
+          ) {
             const improvement = (best.successRate || 0) - (current.successRate || 0);
             warn(`Version ${best.version} has ${improvement}% higher success rate than current.`);
             info("Consider reverting recent prompt changes.");
@@ -2358,8 +2565,15 @@ ${pc.bold(pc.cyan("Examples:"))}
         for (const suggestion of suggestions) {
           console.log("");
           console.log(pc.dim("-".repeat(60)));
-          const priorityColor = suggestion.priority === "high" ? pc.red : suggestion.priority === "medium" ? pc.yellow : pc.dim;
-          console.log(`${priorityColor(`[${suggestion.priority}]`)} ${pc.bold(suggestion.type)}: ${suggestion.section}`);
+          const priorityColor =
+            suggestion.priority === "high"
+              ? pc.red
+              : suggestion.priority === "medium"
+                ? pc.yellow
+                : pc.dim;
+          console.log(
+            `${priorityColor(`[${suggestion.priority}]`)} ${pc.bold(suggestion.type)}: ${suggestion.section}`
+          );
           console.log("");
 
           if (suggestion.instruction) {
@@ -2374,7 +2588,9 @@ ${pc.bold(pc.cyan("Examples:"))}
             for (const [key, value] of Object.entries(suggestion.metrics)) {
               if (value != null) {
                 const label = key.replace(/([A-Z])/g, " $1").trim();
-                dim(`  ${label}: ${typeof value === "number" && key.includes("Rate") ? value + "%" : value}`);
+                dim(
+                  `  ${label}: ${typeof value === "number" && key.includes("Rate") ? value + "%" : value}`
+                );
               }
             }
           }
@@ -2492,7 +2708,9 @@ ${pc.bold(pc.cyan("Examples:"))}
       console.log(pc.dim("-".repeat(50)));
       for (const [type, stats] of Object.entries(results.summary.typeBreakdown)) {
         const typeLabel = type.replace(/_/g, " ");
-        console.log(`  ${typeLabel.padEnd(25)} ${String(stats.count).padStart(4)} errors in ${stats.clusters} patterns`);
+        console.log(
+          `  ${typeLabel.padEnd(25)} ${String(stats.count).padStart(4)} errors in ${stats.clusters} patterns`
+        );
       }
       console.log("");
     }
@@ -2508,26 +2726,31 @@ ${pc.bold(pc.cyan("Examples:"))}
     console.log(pc.dim("-".repeat(70)));
 
     for (const pattern of results.patterns.slice(0, 10)) {
-      const label = pattern.rootCauseLabel.length > 23
-        ? pattern.rootCauseLabel.slice(0, 22) + "\u2026"
-        : pattern.rootCauseLabel;
+      const label =
+        pattern.rootCauseLabel.length > 23
+          ? pattern.rootCauseLabel.slice(0, 22) + "\u2026"
+          : pattern.rootCauseLabel;
       const count = String(pattern.count).padStart(6);
       const runs = String(pattern.runs.length).padStart(6);
 
       // Color by severity
       const severityColor =
-        pattern.severity === "critical" ? pc.red
-          : pattern.severity === "high" ? pc.yellow
-          : pattern.severity === "medium" ? pc.cyan
-          : pc.dim;
+        pattern.severity === "critical"
+          ? pc.red
+          : pattern.severity === "high"
+            ? pc.yellow
+            : pattern.severity === "medium"
+              ? pc.cyan
+              : pc.dim;
       const severity = severityColor(pattern.severity.toUpperCase().padStart(10));
 
       console.log(`${label.padEnd(25)} ${count} ${runs} ${severity}`);
 
       // Show representative error
-      const shortError = pattern.representative.length > 65
-        ? pattern.representative.slice(0, 62) + "..."
-        : pattern.representative;
+      const shortError =
+        pattern.representative.length > 65
+          ? pattern.representative.slice(0, 62) + "..."
+          : pattern.representative;
       dim(`  ${pc.dim("→")} ${shortError}`);
     }
 
@@ -2542,12 +2765,17 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       for (const suggestion of results.suggestions.slice(0, 5)) {
         const severityColor =
-          suggestion.severity === "critical" ? pc.red
-            : suggestion.severity === "high" ? pc.yellow
-            : suggestion.severity === "medium" ? pc.cyan
-            : pc.dim;
+          suggestion.severity === "critical"
+            ? pc.red
+            : suggestion.severity === "high"
+              ? pc.yellow
+              : suggestion.severity === "medium"
+                ? pc.cyan
+                : pc.dim;
 
-        console.log(`${severityColor("●")} ${pc.bold(suggestion.label)} (${suggestion.totalOccurrences} occurrences)`);
+        console.log(
+          `${severityColor("●")} ${pc.bold(suggestion.label)} (${suggestion.totalOccurrences} occurrences)`
+        );
 
         // Show top 2 remediation steps
         for (const step of suggestion.remediation.slice(0, 2)) {

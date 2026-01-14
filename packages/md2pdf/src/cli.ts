@@ -34,13 +34,27 @@ program
   .option("-d, --output-dir <path>", "Output directory for batch conversion")
   .option("-r, --recursive", "Include subdirectories when processing a directory")
   .option("--merge", "Merge all files from a directory into a single PDF")
-  .option("--sort <strategy>", "Sort strategy for merging: alpha, numeric, or natural (default: natural)")
-  .option("--css <file>", "Custom CSS stylesheet (can be specified multiple times)", (value, previous) => {
-    const prev = previous || [];
-    return [...prev, value];
-  }, [] as string[])
-  .option("--header <text>", "Header text with placeholders: {page}, {pages}, {date}, {title}, {filename}")
-  .option("--footer <text>", "Footer text with placeholders: {page}, {pages}, {date}, {title}, {filename}")
+  .option(
+    "--sort <strategy>",
+    "Sort strategy for merging: alpha, numeric, or natural (default: natural)"
+  )
+  .option(
+    "--css <file>",
+    "Custom CSS stylesheet (can be specified multiple times)",
+    (value, previous) => {
+      const prev = previous || [];
+      return [...prev, value];
+    },
+    [] as string[]
+  )
+  .option(
+    "--header <text>",
+    "Header text with placeholders: {page}, {pages}, {date}, {title}, {filename}"
+  )
+  .option(
+    "--footer <text>",
+    "Footer text with placeholders: {page}, {pages}, {date}, {title}, {filename}"
+  )
   .option("--header-template <html>", "Custom HTML template for header")
   .option("--footer-template <html>", "Custom HTML template for footer")
   .option("--no-first-page-header", "Exclude header/footer from the first page")
@@ -107,17 +121,23 @@ async function handleDirectoryMerge(
   console.log(`\nMerged PDF created: ${options.output}`);
 }
 
-async function handleDirectoryInput(dirPath: string, options: CliOptions, customCSS?: string[]): Promise<void> {
+async function handleDirectoryInput(
+  dirPath: string,
+  options: CliOptions,
+  customCSS?: string[]
+): Promise<void> {
   // Validate sort strategy
   if (options.sort && !["alpha", "numeric", "natural"].includes(options.sort)) {
-    console.error(`Error: Invalid sort strategy "${options.sort}". Must be one of: alpha, numeric, natural`);
+    console.error(
+      `Error: Invalid sort strategy "${options.sort}". Must be one of: alpha, numeric, natural`
+    );
     process.exit(1);
   }
 
   // Discover markdown files in directory
   const markdownFiles = discoverMarkdownFiles(dirPath, {
     recursive: options.recursive,
-    sort: options.sort || "natural"
+    sort: options.sort || "natural",
   });
 
   // Check for empty directory
@@ -203,7 +223,11 @@ async function handleDirectoryInput(dirPath: string, options: CliOptions, custom
   }
 }
 
-async function handleFileInputs(inputs: string[], options: CliOptions, customCSS?: string[]): Promise<void> {
+async function handleFileInputs(
+  inputs: string[],
+  options: CliOptions,
+  customCSS?: string[]
+): Promise<void> {
   // Validate all input files exist before processing
   const invalidFiles: string[] = [];
   for (const input of inputs) {
@@ -242,10 +266,9 @@ async function handleFileInputs(inputs: string[], options: CliOptions, customCSS
   const markdownContents = inputs.map((input) => fs.readFileSync(input, "utf-8"));
 
   // Convert markdown to HTML (merge if multiple files)
-  const html = renderMarkdown(
-    inputs.length === 1 ? markdownContents[0] : markdownContents,
-    { customCSS }
-  );
+  const html = renderMarkdown(inputs.length === 1 ? markdownContents[0] : markdownContents, {
+    customCSS,
+  });
 
   // Build header/footer options
   const headerFooterOptions: HeaderFooterOptions = {

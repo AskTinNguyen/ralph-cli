@@ -5,9 +5,9 @@
  * Handles single-PRD, multi-stream, and legacy modes.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import type { RalphMode, Stream, StreamStatus, Story, Run, VerificationResult } from '../types.js';
+import fs from "node:fs";
+import path from "node:path";
+import type { RalphMode, Stream, StreamStatus, Story, Run, VerificationResult } from "../types.js";
 
 // Cache the ralph root to avoid repeated lookups
 let cachedRalphRoot: string | null = null;
@@ -29,7 +29,7 @@ export function getRalphRoot(): string | null {
   const root = path.parse(currentDir).root;
 
   while (currentDir !== root) {
-    const ralphPath = path.join(currentDir, '.ralph');
+    const ralphPath = path.join(currentDir, ".ralph");
     if (fs.existsSync(ralphPath) && fs.statSync(ralphPath).isDirectory()) {
       cachedRalphRoot = ralphPath;
       return ralphPath;
@@ -38,7 +38,7 @@ export function getRalphRoot(): string | null {
   }
 
   // Check root directory too
-  const rootRalphPath = path.join(root, '.ralph');
+  const rootRalphPath = path.join(root, ".ralph");
   if (fs.existsSync(rootRalphPath) && fs.statSync(rootRalphPath).isDirectory()) {
     cachedRalphRoot = rootRalphPath;
     return rootRalphPath;
@@ -65,7 +65,7 @@ export function getMode(): RalphMode {
   const ralphRoot = getRalphRoot();
 
   if (!ralphRoot) {
-    return 'uninitialized';
+    return "uninitialized";
   }
 
   try {
@@ -77,7 +77,7 @@ export function getMode(): RalphMode {
     );
 
     if (hasPrdDirs) {
-      return 'multi';
+      return "multi";
     }
 
     // Check for legacy ralph-N directories
@@ -86,22 +86,22 @@ export function getMode(): RalphMode {
     );
 
     if (hasLegacyDirs) {
-      return 'legacy';
+      return "legacy";
     }
 
     // Check for single-PRD mode (prd.md at root level)
     const hasPrdFile = entries.some(
-      (entry) => entry.isFile() && entry.name.toLowerCase() === 'prd.md'
+      (entry) => entry.isFile() && entry.name.toLowerCase() === "prd.md"
     );
 
     if (hasPrdFile) {
-      return 'single';
+      return "single";
     }
 
     // Default to uninitialized if no recognizable structure
-    return 'uninitialized';
+    return "uninitialized";
   } catch {
-    return 'uninitialized';
+    return "uninitialized";
   }
 }
 
@@ -110,19 +110,19 @@ export function getMode(): RalphMode {
  * Supports both naming conventions: N.lock and PRD-N.lock
  */
 function isStreamLocked(ralphRoot: string, streamId: string): boolean {
-  const locksDir = path.join(ralphRoot, 'locks');
+  const locksDir = path.join(ralphRoot, "locks");
 
   // Check both naming conventions
   const lockPaths = [
-    path.join(locksDir, `${streamId}.lock`),       // N.lock
-    path.join(locksDir, `PRD-${streamId}.lock`),   // PRD-N.lock
+    path.join(locksDir, `${streamId}.lock`), // N.lock
+    path.join(locksDir, `PRD-${streamId}.lock`), // PRD-N.lock
   ];
 
   for (const lockPath of lockPaths) {
     if (fs.existsSync(lockPath)) {
       // Verify the lock is still valid (process is running)
       try {
-        const pid = fs.readFileSync(lockPath, 'utf-8').trim();
+        const pid = fs.readFileSync(lockPath, "utf-8").trim();
         if (pid && !isNaN(parseInt(pid, 10))) {
           // Check if process is still alive (optional validation)
           return true;
@@ -148,7 +148,7 @@ function countStories(prdContent: string): { total: number; completed: number } 
 
   while ((match = storyPattern.exec(prdContent)) !== null) {
     total++;
-    if (match[1].toLowerCase() === 'x') {
+    if (match[1].toLowerCase() === "x") {
       completed++;
     }
   }
@@ -164,11 +164,11 @@ function getEffectivePrdPath(ralphRoot: string, streamId: string, mainPrdPath: s
   // Check for worktree PRD (has more up-to-date data during builds)
   const worktreePrdPath = path.join(
     ralphRoot,
-    'worktrees',
+    "worktrees",
     `PRD-${streamId}`,
-    '.ralph',
+    ".ralph",
     `PRD-${streamId}`,
-    'prd.md'
+    "prd.md"
   );
 
   if (fs.existsSync(worktreePrdPath)) {
@@ -184,11 +184,11 @@ function getEffectivePrdPath(ralphRoot: string, streamId: string, mainPrdPath: s
 function getEffectiveRunsPath(ralphRoot: string, streamId: string, mainRunsPath: string): string {
   const worktreeRunsPath = path.join(
     ralphRoot,
-    'worktrees',
+    "worktrees",
     `PRD-${streamId}`,
-    '.ralph',
+    ".ralph",
     `PRD-${streamId}`,
-    'runs'
+    "runs"
   );
 
   if (fs.existsSync(worktreeRunsPath)) {
@@ -204,24 +204,24 @@ function getEffectiveRunsPath(ralphRoot: string, streamId: string, mainRunsPath:
 function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): StreamStatus {
   // Check if stream is locked (running)
   if (isStreamLocked(ralphRoot, streamId)) {
-    return 'running';
+    return "running";
   }
 
   // Check PRD for completion status
   if (fs.existsSync(prdPath)) {
     try {
-      const content = fs.readFileSync(prdPath, 'utf-8');
+      const content = fs.readFileSync(prdPath, "utf-8");
       const { total, completed } = countStories(content);
 
       if (total > 0 && completed === total) {
-        return 'completed';
+        return "completed";
       }
     } catch {
       // Fall through to idle
     }
   }
 
-  return 'idle';
+  return "idle";
 }
 
 /**
@@ -248,9 +248,9 @@ export function getStreams(): Stream[] {
         const streamId = match[1];
         const streamPath = path.join(ralphRoot, entry.name);
 
-        const mainPrdPath = path.join(streamPath, 'prd.md');
-        const planPath = path.join(streamPath, 'plan.md');
-        const progressPath = path.join(streamPath, 'progress.md');
+        const mainPrdPath = path.join(streamPath, "prd.md");
+        const planPath = path.join(streamPath, "plan.md");
+        const progressPath = path.join(streamPath, "progress.md");
 
         // Use worktree PRD if available (has current progress during builds)
         const effectivePrdPath = getEffectivePrdPath(ralphRoot, streamId, mainPrdPath);
@@ -265,7 +265,7 @@ export function getStreams(): Stream[] {
 
         if (fs.existsSync(effectivePrdPath)) {
           try {
-            const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
+            const prdContent = fs.readFileSync(effectivePrdPath, "utf-8");
             const counts = countStories(prdContent);
             totalStories = counts.total;
             completedStories = counts.completed;
@@ -280,7 +280,7 @@ export function getStreams(): Stream[] {
         let name = `PRD-${streamId}`;
         if (fs.existsSync(effectivePrdPath)) {
           try {
-            const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
+            const prdContent = fs.readFileSync(effectivePrdPath, "utf-8");
             const titleMatch = prdContent.match(/^#\s+(.+)$/m);
             if (titleMatch) {
               name = titleMatch[1].trim();
@@ -320,7 +320,7 @@ export function getStreams(): Stream[] {
  */
 function parseStoriesFromPrd(content: string): Story[] {
   const stories: Story[] = [];
-  const lines = content.split('\n');
+  const lines = content.split("\n");
 
   let currentStory: Story | null = null;
   let inAcceptanceCriteria = false;
@@ -335,11 +335,11 @@ function parseStoriesFromPrd(content: string): Story[] {
         stories.push(currentStory);
       }
 
-      const isCompleted = storyMatch[1].toLowerCase() === 'x';
+      const isCompleted = storyMatch[1].toLowerCase() === "x";
       currentStory = {
         id: storyMatch[2].toUpperCase(),
         title: storyMatch[3].trim(),
-        status: isCompleted ? 'completed' : 'pending',
+        status: isCompleted ? "completed" : "pending",
         acceptanceCriteria: [],
       };
       inAcceptanceCriteria = false;
@@ -363,16 +363,16 @@ function parseStoriesFromPrd(content: string): Story[] {
       if (criteriaMatch) {
         currentStory.acceptanceCriteria.push({
           text: criteriaMatch[2].trim(),
-          completed: criteriaMatch[1].toLowerCase() === 'x',
+          completed: criteriaMatch[1].toLowerCase() === "x",
         });
       }
     }
 
     // Update story status based on "As a" line indicating in-progress
-    if (currentStory && currentStory.status === 'pending') {
+    if (currentStory && currentStory.status === "pending") {
       // Check for in-progress markers (could be customized)
-      if (line.includes('IN PROGRESS') || line.includes('in progress')) {
-        currentStory.status = 'in-progress';
+      if (line.includes("IN PROGRESS") || line.includes("in progress")) {
+        currentStory.status = "in-progress";
       }
     }
   }
@@ -391,12 +391,12 @@ function parseStoriesFromPrd(content: string): Story[] {
 function extractStoryFromLog(logPath: string): { storyId?: string; storyTitle?: string } {
   try {
     // Read only the first 2KB of the log to find story info (it's usually at the top)
-    const fd = fs.openSync(logPath, 'r');
+    const fd = fs.openSync(logPath, "r");
     const buffer = Buffer.alloc(2048);
     const bytesRead = fs.readSync(fd, buffer, 0, 2048, 0);
     fs.closeSync(fd);
 
-    const content = buffer.toString('utf-8', 0, bytesRead);
+    const content = buffer.toString("utf-8", 0, bytesRead);
 
     // Pattern 1: "**US-XXX: Story Title**" (markdown bold with title)
     const boldPattern = /\*\*(US-\d+):\s*([^*]+)\*\*/i;
@@ -445,9 +445,11 @@ function extractStoryFromLog(logPath: string): { storyId?: string; storyTitle?: 
  * Extract retry statistics from a run summary file
  * Returns { retryCount, retryTime } or null if not found
  */
-function extractRetryStatsFromSummary(summaryPath: string): { retryCount: number; retryTime: number } | null {
+function extractRetryStatsFromSummary(
+  summaryPath: string
+): { retryCount: number; retryTime: number } | null {
   try {
-    const content = fs.readFileSync(summaryPath, 'utf-8');
+    const content = fs.readFileSync(summaryPath, "utf-8");
 
     // Look for retry statistics section
     // Format: "- Retry count: N" and "- Total retry wait time: Ns"
@@ -477,7 +479,7 @@ export interface RetryEvent {
   delay: number;
   exitCode: number;
   cumulativeTime?: number;
-  eventType: 'retry' | 'success' | 'exhausted';
+  eventType: "retry" | "success" | "exhausted";
 }
 
 /**
@@ -492,18 +494,20 @@ export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
   }
 
   try {
-    const content = fs.readFileSync(activityLogPath, 'utf-8');
-    const lines = content.split('\n');
+    const content = fs.readFileSync(activityLogPath, "utf-8");
+    const lines = content.split("\n");
 
     for (const line of lines) {
       // Match timestamp: [2026-01-14 10:30:45]
       const timestampMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
       if (!timestampMatch) continue;
 
-      const timestamp = new Date(timestampMatch[1].replace(' ', 'T'));
+      const timestamp = new Date(timestampMatch[1].replace(" ", "T"));
 
       // Match RETRY event: RETRY iteration=N attempt=M/X delay=Ns exit_code=E
-      const retryMatch = line.match(/RETRY\s+iteration=(\d+)\s+attempt=(\d+)\/(\d+)\s+delay=([0-9.]+)s\s+exit_code=(\d+)/);
+      const retryMatch = line.match(
+        /RETRY\s+iteration=(\d+)\s+attempt=(\d+)\/(\d+)\s+delay=([0-9.]+)s\s+exit_code=(\d+)/
+      );
       if (retryMatch) {
         events.push({
           timestamp,
@@ -512,13 +516,15 @@ export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
           maxAttempts: parseInt(retryMatch[3], 10),
           delay: parseFloat(retryMatch[4]),
           exitCode: parseInt(retryMatch[5], 10),
-          eventType: 'retry',
+          eventType: "retry",
         });
         continue;
       }
 
       // Match RETRY_SUCCESS event: RETRY_SUCCESS iteration=N succeeded_after=M retries
-      const successMatch = line.match(/RETRY_SUCCESS\s+iteration=(\d+)\s+succeeded_after=(\d+)\s+retries/);
+      const successMatch = line.match(
+        /RETRY_SUCCESS\s+iteration=(\d+)\s+succeeded_after=(\d+)\s+retries/
+      );
       if (successMatch) {
         events.push({
           timestamp,
@@ -527,13 +533,15 @@ export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
           maxAttempts: 0, // not available in success log
           delay: 0,
           exitCode: 0,
-          eventType: 'success',
+          eventType: "success",
         });
         continue;
       }
 
       // Match RETRY_EXHAUSTED event: RETRY_EXHAUSTED iteration=N total_attempts=M final_exit_code=E
-      const exhaustedMatch = line.match(/RETRY_EXHAUSTED\s+iteration=(\d+)\s+total_attempts=(\d+)\s+final_exit_code=(\d+)/);
+      const exhaustedMatch = line.match(
+        /RETRY_EXHAUSTED\s+iteration=(\d+)\s+total_attempts=(\d+)\s+final_exit_code=(\d+)/
+      );
       if (exhaustedMatch) {
         events.push({
           timestamp,
@@ -542,7 +550,7 @@ export function parseRetryEvents(activityLogPath: string): RetryEvent[] {
           maxAttempts: parseInt(exhaustedMatch[2], 10),
           delay: 0,
           exitCode: parseInt(exhaustedMatch[3], 10),
-          eventType: 'exhausted',
+          eventType: "exhausted",
         });
       }
     }
@@ -588,12 +596,12 @@ function parseRuns(runsPath: string, streamId: string): Run[] {
 
         const runId = `${dateStr}-${timeStr}-${runNum}`;
         const logPath = path.join(runsPath, entry.name);
-        const summaryName = entry.name.replace('.log', '.md');
+        const summaryName = entry.name.replace(".log", ".md");
         const summaryPath = path.join(runsPath, summaryName);
         const hasSummary = fs.existsSync(summaryPath);
 
         // Determine status based on whether summary exists
-        const status: Run['status'] = hasSummary ? 'completed' : 'running';
+        const status: Run["status"] = hasSummary ? "completed" : "running";
 
         // Extract story information from log content
         const storyInfo = extractStoryFromLog(logPath);
@@ -671,10 +679,10 @@ export function getStreamDetails(id: string): Stream | null {
     return null;
   }
 
-  const mainPrdPath = path.join(streamPath, 'prd.md');
-  const planPath = path.join(streamPath, 'plan.md');
-  const progressPath = path.join(streamPath, 'progress.md');
-  const mainRunsPath = path.join(streamPath, 'runs');
+  const mainPrdPath = path.join(streamPath, "prd.md");
+  const planPath = path.join(streamPath, "plan.md");
+  const progressPath = path.join(streamPath, "progress.md");
+  const mainRunsPath = path.join(streamPath, "runs");
 
   // Use worktree paths if available (has current progress during builds)
   const effectivePrdPath = getEffectivePrdPath(ralphRoot, id, mainPrdPath);
@@ -690,7 +698,7 @@ export function getStreamDetails(id: string): Stream | null {
 
   if (fs.existsSync(effectivePrdPath)) {
     try {
-      const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
+      const prdContent = fs.readFileSync(effectivePrdPath, "utf-8");
       stories = parseStoriesFromPrd(prdContent);
 
       // Extract title
@@ -708,7 +716,7 @@ export function getStreamDetails(id: string): Stream | null {
 
   // Calculate story counts
   const totalStories = stories.length;
-  const completedStories = stories.filter((s) => s.status === 'completed').length;
+  const completedStories = stories.filter((s) => s.status === "completed").length;
 
   // Determine status
   const status = getStreamStatus(ralphRoot, id, effectivePrdPath);

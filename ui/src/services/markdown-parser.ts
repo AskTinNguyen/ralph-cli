@@ -5,7 +5,7 @@
  * and task information for display in the UI.
  */
 
-import type { Story, StoryStatus, AcceptanceCriterion } from '../types.js';
+import type { Story, StoryStatus, AcceptanceCriterion } from "../types.js";
 
 /**
  * A task within a plan section
@@ -50,7 +50,7 @@ export interface ParsedPlan {
  */
 export function parseStories(markdown: string): Story[] {
   const stories: Story[] = [];
-  const lines = markdown.split('\n');
+  const lines = markdown.split("\n");
 
   let currentStory: Story | null = null;
   let inAcceptanceCriteria = false;
@@ -67,16 +67,16 @@ export function parseStories(markdown: string): Story[] {
       // Save previous story
       if (currentStory) {
         if (descriptionLines.length > 0) {
-          currentStory.description = descriptionLines.join('\n').trim();
+          currentStory.description = descriptionLines.join("\n").trim();
         }
         stories.push(currentStory);
       }
 
-      const isCompleted = storyMatch[1].toLowerCase() === 'x';
+      const isCompleted = storyMatch[1].toLowerCase() === "x";
       currentStory = {
         id: storyMatch[2].toUpperCase(),
         title: storyMatch[3].trim(),
-        status: isCompleted ? 'completed' : 'pending',
+        status: isCompleted ? "completed" : "pending",
         acceptanceCriteria: [],
       };
       inAcceptanceCriteria = false;
@@ -112,7 +112,7 @@ export function parseStories(markdown: string): Story[] {
       if (criteriaMatch) {
         currentStory.acceptanceCriteria.push({
           text: criteriaMatch[2].trim(),
-          completed: criteriaMatch[1].toLowerCase() === 'x',
+          completed: criteriaMatch[1].toLowerCase() === "x",
         });
       }
     }
@@ -122,15 +122,15 @@ export function parseStories(markdown: string): Story[] {
       // Stop collecting description at acceptance criteria header
       if (/^#{4,}\s*Acceptance/i.test(line)) {
         collectingDescription = false;
-      } else if (line.trim() !== '' || descriptionLines.length > 0) {
+      } else if (line.trim() !== "" || descriptionLines.length > 0) {
         descriptionLines.push(line);
       }
     }
 
     // Update story status based on "IN PROGRESS" markers
-    if (currentStory.status === 'pending') {
+    if (currentStory.status === "pending") {
       if (/\bIN[- ]?PROGRESS\b/i.test(line)) {
-        currentStory.status = 'in-progress';
+        currentStory.status = "in-progress";
       }
     }
   }
@@ -138,7 +138,7 @@ export function parseStories(markdown: string): Story[] {
   // Don't forget the last story
   if (currentStory) {
     if (descriptionLines.length > 0) {
-      currentStory.description = descriptionLines.join('\n').trim();
+      currentStory.description = descriptionLines.join("\n").trim();
     }
     stories.push(currentStory);
   }
@@ -154,17 +154,17 @@ export function parseStories(markdown: string): Story[] {
  */
 export function parsePlan(markdown: string): ParsedPlan {
   const sections: PlanSection[] = [];
-  const lines = markdown.split('\n');
+  const lines = markdown.split("\n");
 
-  let summary = '';
+  let summary = "";
   let inSummary = false;
   let summaryLines: string[] = [];
 
   let currentSection: PlanSection | null = null;
   let currentTask: PlanTask | null = null;
-  let currentTaskField: 'scope' | 'acceptance' | 'verification' | 'notes' | null = null;
+  let currentTaskField: "scope" | "acceptance" | "verification" | "notes" | null = null;
 
-  let notes = '';
+  let notes = "";
   let discoveries: string[] = [];
   let risks: string[] = [];
   let inNotes = false;
@@ -183,7 +183,7 @@ export function parsePlan(markdown: string): ParsedPlan {
     if (inSummary && /^##\s+/.test(line) && !/^##\s+Summary/i.test(line)) {
       // End of summary section
       inSummary = false;
-      summary = summaryLines.join('\n').trim();
+      summary = summaryLines.join("\n").trim();
     }
 
     if (inSummary) {
@@ -245,13 +245,13 @@ export function parsePlan(markdown: string): ParsedPlan {
     }
 
     // Collect discoveries
-    if (inDiscoveries && line.startsWith('- ')) {
+    if (inDiscoveries && line.startsWith("- ")) {
       discoveries.push(line.slice(2).trim());
       continue;
     }
 
     // Collect risks
-    if (inRisks && line.startsWith('- ')) {
+    if (inRisks && line.startsWith("- ")) {
       risks.push(line.slice(2).trim());
       continue;
     }
@@ -273,48 +273,48 @@ export function parsePlan(markdown: string): ParsedPlan {
 
         currentTask = {
           description: taskMatch[2].trim(),
-          completed: taskMatch[1].toLowerCase() === 'x',
+          completed: taskMatch[1].toLowerCase() === "x",
         };
         currentTaskField = null;
         continue;
       }
 
       // Parse task metadata fields (indented under task)
-      if (currentTask && line.startsWith('  ')) {
+      if (currentTask && line.startsWith("  ")) {
         const trimmedLine = line.trim();
 
         // Check for field labels
         const scopeMatch = trimmedLine.match(/^-?\s*Scope:\s*(.*)$/i);
         if (scopeMatch) {
           currentTask.scope = scopeMatch[1].trim();
-          currentTaskField = 'scope';
+          currentTaskField = "scope";
           continue;
         }
 
         const acceptanceMatch = trimmedLine.match(/^-?\s*Acceptance:\s*(.*)$/i);
         if (acceptanceMatch) {
           currentTask.acceptance = acceptanceMatch[1].trim();
-          currentTaskField = 'acceptance';
+          currentTaskField = "acceptance";
           continue;
         }
 
         const verificationMatch = trimmedLine.match(/^-?\s*Verification:\s*(.*)$/i);
         if (verificationMatch) {
           currentTask.verification = verificationMatch[1].trim();
-          currentTaskField = 'verification';
+          currentTaskField = "verification";
           continue;
         }
 
         const notesMatch = trimmedLine.match(/^-?\s*\*\*Verified\*\*:\s*(.*)$/i);
         if (notesMatch) {
           currentTask.notes = notesMatch[1].trim();
-          currentTaskField = 'notes';
+          currentTaskField = "notes";
           continue;
         }
 
         // Continuation of previous field
-        if (currentTaskField && trimmedLine !== '') {
-          const currentValue = currentTask[currentTaskField] || '';
+        if (currentTaskField && trimmedLine !== "") {
+          const currentValue = currentTask[currentTaskField] || "";
           currentTask[currentTaskField] = currentValue
             ? `${currentValue} ${trimmedLine}`
             : trimmedLine;
@@ -354,9 +354,9 @@ export function countStoriesByStatus(stories: Story[]): {
 } {
   return {
     total: stories.length,
-    completed: stories.filter((s) => s.status === 'completed').length,
-    inProgress: stories.filter((s) => s.status === 'in-progress').length,
-    pending: stories.filter((s) => s.status === 'pending').length,
+    completed: stories.filter((s) => s.status === "completed").length,
+    inProgress: stories.filter((s) => s.status === "in-progress").length,
+    pending: stories.filter((s) => s.status === "pending").length,
   };
 }
 
@@ -370,7 +370,7 @@ export function getCompletionPercentage(stories: Story[]): number {
   if (stories.length === 0) {
     return 0;
   }
-  const completed = stories.filter((s) => s.status === 'completed').length;
+  const completed = stories.filter((s) => s.status === "completed").length;
   return Math.round((completed / stories.length) * 100);
 }
 

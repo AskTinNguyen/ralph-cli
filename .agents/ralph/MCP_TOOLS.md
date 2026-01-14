@@ -5,9 +5,11 @@ This document defines available MCP (Model Context Protocol) servers and how age
 ## Available MCP Servers
 
 ### Notion
+
 Access Notion workspaces, databases, pages, and blocks.
 
 **Common Tools:**
+
 - `mcp__notion__search` - Search for pages and databases
 - `mcp__notion__get_page` - Retrieve a page by ID
 - `mcp__notion__create_page` - Create a new page
@@ -17,28 +19,31 @@ Access Notion workspaces, databases, pages, and blocks.
 - `mcp__notion__append_block_children` - Add content blocks to a page
 
 **Use Cases:**
+
 - Fetch project documentation from Notion
 - Update task status in Notion databases
 - Create meeting notes or documentation pages
 - Query databases for project information
 
 ### Slack
+
 Send and receive messages, manage channels, search conversations.
 
 **Quick Reference Channels:**
 
-| Channel ID | Channel Name |
-|------------|--------------|
-| C021YDBQM53 | general |
-| C05V8KNACTU | leadership-team |
-| C070Z0D2GQZ | life-at-ather-labs |
-| C07L2GUNV6Y | s2-game |
-| C034P04K6EA | metaverse-engineers |
-| C04QKEKPD3M | learning-generative-ai |
+| Channel ID  | Channel Name                |
+| ----------- | --------------------------- |
+| C021YDBQM53 | general                     |
+| C05V8KNACTU | leadership-team             |
+| C070Z0D2GQZ | life-at-ather-labs          |
+| C07L2GUNV6Y | s2-game                     |
+| C034P04K6EA | metaverse-engineers         |
+| C04QKEKPD3M | learning-generative-ai      |
 | C0984SP6VCJ | s2-story-trailers-cinematic |
-| C02RGAP67BL | art-wip-2dconcept |
+| C02RGAP67BL | art-wip-2dconcept           |
 
 **Common Tools:**
+
 - `mcp__slack__send_message` - Send a message to a channel
 - `mcp__slack__list_channels` - List available channels
 - `mcp__slack__get_channel_history` - Get recent messages from a channel
@@ -47,6 +52,7 @@ Send and receive messages, manage channels, search conversations.
 - `mcp__slack__get_users` - List workspace users
 
 **Use Cases:**
+
 - Notify team of build completion
 - Post status updates to project channels
 - Search for context from previous discussions
@@ -57,6 +63,7 @@ Send and receive messages, manage channels, search conversations.
 MCP doesn't include canvas methods. Use direct API calls:
 
 **Create Canvas:**
+
 ```bash
 curl -s -X POST "https://slack.com/api/canvases.create" \
   -H "Authorization: Bearer $SLACK_USER_TOKEN" \
@@ -68,6 +75,7 @@ curl -s -X POST "https://slack.com/api/canvases.create" \
 ```
 
 **Canvas URL Formats:**
+
 ```
 # Short format
 https://app.slack.com/docs/{team_id}/{canvas_id}
@@ -75,12 +83,14 @@ https://app.slack.com/docs/{team_id}/{canvas_id}
 # Slack's internal format
 https://app.slack.com/client/{team_id}/unified-files/doc/{canvas_id}
 ```
+
 - Team ID: starts with `T` (e.g., T022R9VEBPA)
 - Canvas ID: starts with `F` (e.g., F0A8D6U5MV1)
 - Canvases stored in `unified-files` system as type `doc`
 - Do NOT use `{workspace}.slack.com/docs/` - returns 404
 
 **Canvas Methods:**
+
 - `canvases.create` - Create standalone canvas
 - `canvases.edit` - Update canvas content
 - `canvases.delete` - Delete canvas
@@ -90,9 +100,11 @@ https://app.slack.com/client/{team_id}/unified-files/doc/{canvas_id}
 See `skills/slack-canvas/SKILL.md` for full reference.
 
 ### GitHub
+
 Manage repositories, issues, pull requests, and code.
 
 **Common Tools:**
+
 - `mcp__github__create_issue` - Create a new issue
 - `mcp__github__list_issues` - List repository issues
 - `mcp__github__create_pull_request` - Create a PR
@@ -103,15 +115,18 @@ Manage repositories, issues, pull requests, and code.
 - `mcp__github__get_file_contents` - Read file from repo
 
 **Use Cases:**
+
 - Create issues from discovered bugs
 - Link PRs to user stories
 - Search for code patterns across repositories
 - Automate PR creation after builds
 
 ### Miro
+
 Create and manage Miro boards for visual collaboration.
 
 **Common Tools:**
+
 - `mcp__miro__get_boards` - List available boards
 - `mcp__miro__create_board` - Create a new board
 - `mcp__miro__create_sticky_note` - Add sticky notes
@@ -120,6 +135,7 @@ Create and manage Miro boards for visual collaboration.
 - `mcp__miro__get_items` - Get items from a board
 
 **Use Cases:**
+
 - Create architecture diagrams
 - Build visual roadmaps
 - Document workflows and processes
@@ -145,6 +161,7 @@ Create and manage Miro boards for visual collaboration.
 ### Error Handling
 
 If an MCP tool fails:
+
 1. Log the error to the activity log
 2. Continue with the task if the MCP call was optional
 3. Report the failure in progress.md if it blocks the task

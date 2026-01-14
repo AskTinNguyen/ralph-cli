@@ -565,27 +565,35 @@ stateDiagram-v2
 ## Key Concepts
 
 ### Memory Model
+
 Ralph treats **files and git** as memory, not model context:
+
 - Each iteration starts fresh with a new agent session
 - State persists only in files (`.ralph/` directory)
 - Git commits serve as checkpoints
 
 ### Story Format
+
 Stories in PRD must follow this exact pattern:
+
 ```markdown
 ### [ ] US-001: Story Title
+
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 ```
 
 When complete:
+
 ```markdown
 ### [x] US-001: Story Title
+
 - [x] Acceptance criterion 1
 - [x] Acceptance criterion 2
 ```
 
 ### State Files (.ralph/)
+
 - `IMPLEMENTATION_PLAN.md` - Task plan grouped by story
 - `progress.md` - Append-only progress log
 - `guardrails.md` - "Signs" (lessons learned)
@@ -594,12 +602,14 @@ When complete:
 - `runs/` - Raw run logs + summaries
 
 ### Control Flow
+
 1. **PRD Generation**: User request → Agent + skill → PRD file
 2. **Planning**: PRD → Agent reads code → Creates implementation plan
 3. **Build Loop**: For each story → Agent implements → Commits → Updates PRD/plan
 4. **Completion**: When all stories marked `[x]` → `<promise>COMPLETE</promise>` → Exit
 
 ### Error Handling
+
 - Non-zero exit codes logged to `errors.log`
 - Uncommitted files after build iteration trigger warnings
 - Guardrails updated with learned failures

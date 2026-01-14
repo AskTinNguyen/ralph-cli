@@ -5,9 +5,9 @@
  * for the token dashboard API endpoints.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { getRalphRoot, getStreams } from './state-reader.js';
+import fs from "node:fs";
+import path from "node:path";
+import { getRalphRoot, getStreams } from "./state-reader.js";
 import type {
   TokenMetrics,
   TokenSummary,
@@ -19,7 +19,7 @@ import type {
   ModelEfficiency,
   ModelComparison,
   ModelRecommendations,
-} from '../types.js';
+} from "../types.js";
 
 /**
  * Token cache structure from lib/tokens/cache.js
@@ -38,25 +38,31 @@ interface TokenCache {
     estimatedCount: number;
     runCount: number;
   };
-  byStory?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    inputCost: number;
-    outputCost: number;
-    runs: number;
-    estimatedCount: number;
-  }>;
-  byModel?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    inputCost: number;
-    outputCost: number;
-    runs: number;
-  }>;
+  byStory?: Record<
+    string,
+    {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      totalCost: number;
+      inputCost: number;
+      outputCost: number;
+      runs: number;
+      estimatedCount: number;
+    }
+  >;
+  byModel?: Record<
+    string,
+    {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      totalCost: number;
+      inputCost: number;
+      outputCost: number;
+      runs: number;
+    }
+  >;
   runs?: Array<{
     runId: string;
     storyId: string | null;
@@ -75,14 +81,14 @@ interface TokenCache {
  * Load token cache from a stream directory
  */
 function loadTokenCache(streamPath: string): TokenCache | null {
-  const cachePath = path.join(streamPath, 'tokens.json');
+  const cachePath = path.join(streamPath, "tokens.json");
 
   if (!fs.existsSync(cachePath)) {
     return null;
   }
 
   try {
-    const content = fs.readFileSync(cachePath, 'utf-8');
+    const content = fs.readFileSync(cachePath, "utf-8");
     return JSON.parse(content) as TokenCache;
   } catch {
     return null;
@@ -181,7 +187,9 @@ export function getTokenSummary(): TokenSummary {
         byModel[model].outputTokens += metrics.outputTokens;
         byModel[model].totalCost = roundCost(byModel[model].totalCost + metrics.totalCost);
         byModel[model].inputCost = roundCost((byModel[model].inputCost || 0) + metrics.inputCost);
-        byModel[model].outputCost = roundCost((byModel[model].outputCost || 0) + metrics.outputCost);
+        byModel[model].outputCost = roundCost(
+          (byModel[model].outputCost || 0) + metrics.outputCost
+        );
         byModel[model].runCount = (byModel[model].runCount || 0) + metrics.runs;
       }
     }
@@ -219,10 +227,10 @@ export function getStreamTokens(streamId: string): StreamTokenSummary | null {
 
   // Get stream name from PRD
   let streamName = `PRD-${streamId}`;
-  const prdPath = path.join(streamPath, 'prd.md');
+  const prdPath = path.join(streamPath, "prd.md");
   if (fs.existsSync(prdPath)) {
     try {
-      const prdContent = fs.readFileSync(prdPath, 'utf-8');
+      const prdContent = fs.readFileSync(prdPath, "utf-8");
       const titleMatch = prdContent.match(/^#\s+(.+)$/m);
       if (titleMatch) {
         streamName = titleMatch[1].trim();
@@ -253,7 +261,7 @@ export function getStreamTokens(streamId: string): StreamTokenSummary | null {
   const totalCost = cache.totals?.totalCost || 0;
 
   // Transform runs for response
-  const runs: RunTokenData[] = (cache.runs || []).map(run => ({
+  const runs: RunTokenData[] = (cache.runs || []).map((run) => ({
     runId: run.runId,
     storyId: run.storyId || undefined,
     inputTokens: run.inputTokens,
@@ -305,8 +313,8 @@ export function getStoryTokens(streamId: string, storyId: string): StoryTokenSum
 
   // Get all runs for this story
   const runs: RunTokenData[] = (cache.runs || [])
-    .filter(run => run.storyId === storyId)
-    .map(run => ({
+    .filter((run) => run.storyId === storyId)
+    .map((run) => ({
       runId: run.runId,
       storyId: run.storyId || undefined,
       inputTokens: run.inputTokens,
@@ -355,7 +363,7 @@ export function getRunTokens(options: {
     const cache = loadTokenCache(streamPath);
 
     if (cache?.runs) {
-      allRuns = cache.runs.map(run => ({
+      allRuns = cache.runs.map((run) => ({
         runId: run.runId,
         streamId,
         storyId: run.storyId || undefined,
@@ -397,7 +405,7 @@ export function getRunTokens(options: {
     const fromDate = from ? new Date(from) : null;
     const toDate = to ? new Date(to) : null;
 
-    allRuns = allRuns.filter(run => {
+    allRuns = allRuns.filter((run) => {
       const runDate = new Date(run.timestamp);
       if (fromDate && runDate < fromDate) return false;
       if (toDate && runDate > toDate) return false;
@@ -420,7 +428,7 @@ export function getRunTokens(options: {
  * @param streamId - Optional stream ID to filter by (if not provided, returns aggregate)
  */
 export function getTokenTrends(
-  period: '7d' | '30d' | '90d' | 'all' = '7d',
+  period: "7d" | "30d" | "90d" | "all" = "7d",
   streamId?: string
 ): TokenTrend {
   const ralphRoot = getRalphRoot();
@@ -434,16 +442,16 @@ export function getTokenTrends(
   let startDate: Date;
 
   switch (period) {
-    case '7d':
+    case "7d":
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
-    case '30d':
+    case "30d":
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
-    case '90d':
+    case "90d":
       startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       break;
-    case 'all':
+    case "all":
     default:
       startDate = new Date(0); // Beginning of time
       break;
@@ -483,7 +491,7 @@ export function getTokenTrends(
       }
 
       // Group by date (YYYY-MM-DD)
-      const dateKey = runDate.toISOString().split('T')[0];
+      const dateKey = runDate.toISOString().split("T")[0];
 
       if (!runsByDate.has(dateKey)) {
         runsByDate.set(dateKey, {
@@ -504,8 +512,7 @@ export function getTokenTrends(
   }
 
   // Convert map to array and sort by date
-  const dataPoints = Array.from(runsByDate.values())
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const dataPoints = Array.from(runsByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 
   return { period, dataPoints, streamId };
 }
@@ -558,36 +565,48 @@ function loadBudgetConfig(): {
 
   // Navigate up from .ralph to find repo root
   const repoRoot = path.dirname(ralphRoot);
-  const configPath = path.join(repoRoot, '.agents', 'ralph', 'config.sh');
+  const configPath = path.join(repoRoot, ".agents", "ralph", "config.sh");
 
   if (!fs.existsSync(configPath)) {
     return defaultConfig;
   }
 
   try {
-    const content = fs.readFileSync(configPath, 'utf-8');
+    const content = fs.readFileSync(configPath, "utf-8");
     const config = { ...defaultConfig };
 
     // Parse budget variables from config.sh
     const patterns = [
-      { pattern: /^RALPH_BUDGET_DAILY\s*=\s*"?([0-9.]+)"?/m, key: 'dailyBudget', type: 'float' },
-      { pattern: /^RALPH_BUDGET_MONTHLY\s*=\s*"?([0-9.]+)"?/m, key: 'monthlyBudget', type: 'float' },
-      { pattern: /^RALPH_BUDGET_ALERT_THRESHOLDS\s*=\s*"?([0-9,]+)"?/m, key: 'alertThresholds', type: 'array' },
-      { pattern: /^RALPH_BUDGET_PAUSE_ON_EXCEEDED\s*=\s*"?(\w+)"?/m, key: 'pauseOnExceeded', type: 'bool' },
+      { pattern: /^RALPH_BUDGET_DAILY\s*=\s*"?([0-9.]+)"?/m, key: "dailyBudget", type: "float" },
+      {
+        pattern: /^RALPH_BUDGET_MONTHLY\s*=\s*"?([0-9.]+)"?/m,
+        key: "monthlyBudget",
+        type: "float",
+      },
+      {
+        pattern: /^RALPH_BUDGET_ALERT_THRESHOLDS\s*=\s*"?([0-9,]+)"?/m,
+        key: "alertThresholds",
+        type: "array",
+      },
+      {
+        pattern: /^RALPH_BUDGET_PAUSE_ON_EXCEEDED\s*=\s*"?(\w+)"?/m,
+        key: "pauseOnExceeded",
+        type: "bool",
+      },
     ] as const;
 
     for (const { pattern, key, type } of patterns) {
       const match = content.match(pattern);
       if (match) {
-        if (type === 'float') {
+        if (type === "float") {
           (config as Record<string, unknown>)[key] = parseFloat(match[1]);
-        } else if (type === 'array') {
+        } else if (type === "array") {
           (config as Record<string, unknown>)[key] = match[1]
-            .split(',')
+            .split(",")
             .map((n: string) => parseInt(n.trim(), 10))
             .filter((n: number) => !isNaN(n));
-        } else if (type === 'bool') {
-          (config as Record<string, unknown>)[key] = match[1].toLowerCase() === 'true';
+        } else if (type === "bool") {
+          (config as Record<string, unknown>)[key] = match[1].toLowerCase() === "true";
         }
       }
     }
@@ -768,19 +787,22 @@ export function calculateModelEfficiency(
   }
 
   // Group runs by model
-  const byModel: Record<string, {
-    model: string;
-    totalRuns: number;
-    successfulRuns: number;
-    totalTokens: number;
-    totalInputTokens: number;
-    totalOutputTokens: number;
-    totalCost: number;
-    storyIds: Set<string>;
-  }> = {};
+  const byModel: Record<
+    string,
+    {
+      model: string;
+      totalRuns: number;
+      successfulRuns: number;
+      totalTokens: number;
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalCost: number;
+      storyIds: Set<string>;
+    }
+  > = {};
 
   for (const run of runs) {
-    const model = run.model || 'unknown';
+    const model = run.model || "unknown";
 
     if (!byModel[model]) {
       byModel[model] = {
@@ -828,20 +850,22 @@ export function calculateModelEfficiency(
 
       // Efficiency metrics
       tokensPerRun: m.totalRuns > 0 ? Math.round(m.totalTokens / m.totalRuns) : 0,
-      tokensPerSuccessfulRun: m.successfulRuns > 0 ? Math.round(m.totalTokens / m.successfulRuns) : 0,
+      tokensPerSuccessfulRun:
+        m.successfulRuns > 0 ? Math.round(m.totalTokens / m.successfulRuns) : 0,
       costPerRun: m.totalRuns > 0 ? roundCost(m.totalCost / m.totalRuns) : 0,
       costPerSuccessfulRun: m.successfulRuns > 0 ? roundCost(m.totalCost / m.successfulRuns) : 0,
       costPerStory: storiesCount > 0 ? roundCost(m.totalCost / storiesCount) : 0,
       successRate: m.totalRuns > 0 ? Math.round((m.successfulRuns / m.totalRuns) * 100) : 0,
 
       // Efficiency score (lower is better)
-      efficiencyScore: storiesCount > 0 && m.successfulRuns > 0
-        ? Math.round(
-            (m.totalTokens / storiesCount) * 0.4 +
-            (m.totalCost / storiesCount) * 1000 * 0.4 +
-            ((100 - (m.successfulRuns / m.totalRuns) * 100)) * 100 * 0.2
-          )
-        : null,
+      efficiencyScore:
+        storiesCount > 0 && m.successfulRuns > 0
+          ? Math.round(
+              (m.totalTokens / storiesCount) * 0.4 +
+                (m.totalCost / storiesCount) * 1000 * 0.4 +
+                (100 - (m.successfulRuns / m.totalRuns) * 100) * 100 * 0.2
+            )
+          : null,
     };
   }
 
@@ -858,7 +882,7 @@ export function compareModels(
   if (!modelAMetrics || !modelBMetrics) {
     return {
       valid: false,
-      reason: 'Both models must have efficiency data for comparison',
+      reason: "Both models must have efficiency data for comparison",
     };
   }
 
@@ -872,11 +896,11 @@ export function compareModels(
 
   // Compare key metrics
   const metrics = [
-    { key: 'tokensPerRun', label: 'Tokens per Run', lowerBetter: true },
-    { key: 'costPerRun', label: 'Cost per Run', lowerBetter: true },
-    { key: 'costPerStory', label: 'Cost per Story', lowerBetter: true },
-    { key: 'successRate', label: 'Success Rate', lowerBetter: false },
-    { key: 'efficiencyScore', label: 'Efficiency Score', lowerBetter: true },
+    { key: "tokensPerRun", label: "Tokens per Run", lowerBetter: true },
+    { key: "costPerRun", label: "Cost per Run", lowerBetter: true },
+    { key: "costPerStory", label: "Cost per Story", lowerBetter: true },
+    { key: "successRate", label: "Success Rate", lowerBetter: false },
+    { key: "efficiencyScore", label: "Efficiency Score", lowerBetter: true },
   ] as const;
 
   for (const { key, label, lowerBetter } of metrics) {
@@ -922,13 +946,13 @@ export function compareModels(
   if (effA != null && effB != null) {
     if (effA < effB * 0.8) {
       comparison.recommendations!.push({
-        type: 'overall',
+        type: "overall",
         message: `${modelAMetrics.model} is significantly more efficient overall (${Math.round((1 - effA / effB) * 100)}% better efficiency score)`,
         recommendedModel: modelAMetrics.model,
       });
     } else if (effB < effA * 0.8) {
       comparison.recommendations!.push({
-        type: 'overall',
+        type: "overall",
         message: `${modelBMetrics.model} is significantly more efficient overall (${Math.round((1 - effB / effA) * 100)}% better efficiency score)`,
         recommendedModel: modelBMetrics.model,
       });
@@ -938,13 +962,13 @@ export function compareModels(
   if (costA > 0 && costB > 0) {
     if (costA < costB * 0.7) {
       comparison.recommendations!.push({
-        type: 'cost',
+        type: "cost",
         message: `For cost-sensitive tasks, ${modelAMetrics.model} is ${Math.round((1 - costA / costB) * 100)}% cheaper per story`,
         recommendedModel: modelAMetrics.model,
       });
     } else if (costB < costA * 0.7) {
       comparison.recommendations!.push({
-        type: 'cost',
+        type: "cost",
         message: `For cost-sensitive tasks, ${modelBMetrics.model} is ${Math.round((1 - costB / costA) * 100)}% cheaper per story`,
         recommendedModel: modelBMetrics.model,
       });
@@ -954,13 +978,13 @@ export function compareModels(
   if (successA > 0 && successB > 0) {
     if (successA > successB + 15) {
       comparison.recommendations!.push({
-        type: 'reliability',
+        type: "reliability",
         message: `For reliability-critical tasks, ${modelAMetrics.model} has ${successA - successB}% higher success rate`,
         recommendedModel: modelAMetrics.model,
       });
     } else if (successB > successA + 15) {
       comparison.recommendations!.push({
-        type: 'reliability',
+        type: "reliability",
         message: `For reliability-critical tasks, ${modelBMetrics.model} has ${successB - successA}% higher success rate`,
         recommendedModel: modelBMetrics.model,
       });
@@ -969,8 +993,8 @@ export function compareModels(
 
   if (comparison.recommendations!.length === 0) {
     comparison.recommendations!.push({
-      type: 'neutral',
-      message: 'Both models show similar efficiency. Choose based on specific requirements.',
+      type: "neutral",
+      message: "Both models show similar efficiency. Choose based on specific requirements.",
       recommendedModel: null,
     });
   }
@@ -981,14 +1005,16 @@ export function compareModels(
 /**
  * Generate model recommendations for different task types
  */
-export function getModelRecommendations(efficiencyByModel: Record<string, ModelEfficiency>): ModelRecommendations {
+export function getModelRecommendations(
+  efficiencyByModel: Record<string, ModelEfficiency>
+): ModelRecommendations {
   const models = Object.keys(efficiencyByModel);
 
   if (models.length === 0) {
     return { hasData: false, recommendations: [] };
   }
 
-  const recommendations: ModelRecommendations['recommendations'] = [];
+  const recommendations: ModelRecommendations["recommendations"] = [];
 
   // Find best model for each criterion
   let bestCostModel: string | undefined;
@@ -1023,31 +1049,31 @@ export function getModelRecommendations(efficiencyByModel: Record<string, ModelE
   // Generate recommendations
   if (bestEfficiencyModel) {
     recommendations.push({
-      taskType: 'general',
-      description: 'Best overall efficiency for typical development tasks',
+      taskType: "general",
+      description: "Best overall efficiency for typical development tasks",
       recommendedModel: bestEfficiencyModel,
       reason: `${bestEfficiencyModel} has the best balance of cost, token usage, and success rate`,
-      confidence: bestEfficiency < 50000 ? 'high' : 'medium',
+      confidence: bestEfficiency < 50000 ? "high" : "medium",
     });
   }
 
   if (bestCostModel && bestCostModel !== bestEfficiencyModel) {
     recommendations.push({
-      taskType: 'cost-sensitive',
-      description: 'Budget-conscious development with cost as primary concern',
+      taskType: "cost-sensitive",
+      description: "Budget-conscious development with cost as primary concern",
       recommendedModel: bestCostModel,
       reason: `${bestCostModel} achieves the lowest cost per completed story ($${bestCost.toFixed(4)})`,
-      confidence: bestCost < 1 ? 'high' : 'medium',
+      confidence: bestCost < 1 ? "high" : "medium",
     });
   }
 
   if (bestSuccessModel && bestSuccessModel !== bestEfficiencyModel) {
     recommendations.push({
-      taskType: 'reliability-critical',
-      description: 'Tasks where completion success is critical',
+      taskType: "reliability-critical",
+      description: "Tasks where completion success is critical",
       recommendedModel: bestSuccessModel,
       reason: `${bestSuccessModel} has the highest success rate (${bestSuccess}%)`,
-      confidence: bestSuccess > 80 ? 'high' : 'medium',
+      confidence: bestSuccess > 80 ? "high" : "medium",
     });
   }
 
@@ -1058,31 +1084,31 @@ export function getModelRecommendations(efficiencyByModel: Record<string, ModelE
 
   if (hasOpus && efficiencyByModel.opus.totalRuns >= 2) {
     recommendations.push({
-      taskType: 'complex-tasks',
-      description: 'Complex multi-file refactoring or architecture changes',
-      recommendedModel: 'opus',
-      reason: 'Opus excels at complex reasoning and large codebase understanding',
-      confidence: 'high',
+      taskType: "complex-tasks",
+      description: "Complex multi-file refactoring or architecture changes",
+      recommendedModel: "opus",
+      reason: "Opus excels at complex reasoning and large codebase understanding",
+      confidence: "high",
     });
   }
 
   if (hasSonnet && efficiencyByModel.sonnet.totalRuns >= 2) {
     recommendations.push({
-      taskType: 'standard-development',
-      description: 'Standard feature implementation and bug fixes',
-      recommendedModel: 'sonnet',
-      reason: 'Sonnet provides a good balance of capability and cost for most tasks',
-      confidence: 'high',
+      taskType: "standard-development",
+      description: "Standard feature implementation and bug fixes",
+      recommendedModel: "sonnet",
+      reason: "Sonnet provides a good balance of capability and cost for most tasks",
+      confidence: "high",
     });
   }
 
   if (hasHaiku && efficiencyByModel.haiku.totalRuns >= 2) {
     recommendations.push({
-      taskType: 'simple-tasks',
-      description: 'Simple fixes, documentation updates, or straightforward changes',
-      recommendedModel: 'haiku',
-      reason: 'Haiku offers the best cost efficiency for simpler tasks',
-      confidence: 'high',
+      taskType: "simple-tasks",
+      description: "Simple fixes, documentation updates, or straightforward changes",
+      recommendedModel: "haiku",
+      reason: "Haiku offers the best cost efficiency for simpler tasks",
+      confidence: "high",
     });
   }
 

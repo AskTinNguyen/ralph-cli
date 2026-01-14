@@ -4,7 +4,11 @@
  */
 const path = require("path");
 const fs = require("fs");
-const { executeParallel, parseAgentOutput, extractFilesFromOutput } = require("../lib/parallel/executor");
+const {
+  executeParallel,
+  parseAgentOutput,
+  extractFilesFromOutput,
+} = require("../lib/parallel/executor");
 
 const testsPassed = [];
 const testsFailed = [];

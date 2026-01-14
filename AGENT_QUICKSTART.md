@@ -19,11 +19,13 @@ This creates `.agents/tasks/prd.md` with user stories in the format:
 
 ```markdown
 ### [ ] US-001: Story title
+
 **As a** user
 **I want** feature
 **So that** benefit
 
 #### Acceptance Criteria
+
 - [ ] Criterion 1
 - [ ] Criterion 2
 ```
@@ -49,13 +51,13 @@ ralph build 1    # Run 1 iteration
 
 ## Key Files
 
-| File | Purpose | Agent Action |
-|------|---------|--------------|
-| `guardrails.md` | Safety constraints | Read FIRST, NEVER violate |
-| `prd.md` | User stories | Read to know requirements |
-| `IMPLEMENTATION_PLAN.md` | Task breakdown | Read for implementation details |
-| `progress.md` | Iteration history | Append after each iteration |
-| `errors.log` | Verification failures | Log when tests fail |
+| File                     | Purpose               | Agent Action                    |
+| ------------------------ | --------------------- | ------------------------------- |
+| `guardrails.md`          | Safety constraints    | Read FIRST, NEVER violate       |
+| `prd.md`                 | User stories          | Read to know requirements       |
+| `IMPLEMENTATION_PLAN.md` | Task breakdown        | Read for implementation details |
+| `progress.md`            | Iteration history     | Append after each iteration     |
+| `errors.log`             | Verification failures | Log when tests fail             |
 
 ## File Structure
 
@@ -100,26 +102,18 @@ When stuck after repeated attempts:
 ## Iteration Flow
 
 **READ (start of iteration):**
+
 1. `.ralph/guardrails.md` → constraints
 2. `.agents/tasks/prd.md` → requirements
 3. `.ralph/IMPLEMENTATION_PLAN.md` → breakdown
 4. `.ralph/progress.md` → what's done
 5. `.ralph/errors.log` → recent failures
 
-**WORK:**
-6. Pick next unchecked story from PRD
-7. Make code changes
-8. Run verification tests
+**WORK:** 6. Pick next unchecked story from PRD 7. Make code changes 8. Run verification tests
 
-**WRITE (end of iteration):**
-9. Update progress.md with iteration summary
-10. Update errors.log if tests failed
-11. Mark story [x] in prd.md if complete
+**WRITE (end of iteration):** 9. Update progress.md with iteration summary 10. Update errors.log if tests failed 11. Mark story [x] in prd.md if complete
 
-**CHECK:**
-12. All stories done? → output COMPLETE
-13. Stuck repeatedly? → output NEEDS_HUMAN
-14. Otherwise → next iteration
+**CHECK:** 12. All stories done? → output COMPLETE 13. Stuck repeatedly? → output NEEDS_HUMAN 14. Otherwise → next iteration
 
 ## Multi-Stream (Parallel Execution)
 

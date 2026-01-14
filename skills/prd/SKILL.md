@@ -60,13 +60,17 @@ This lets users respond with "1A, 2C, 3B" for quick iteration.
 Generate the PRD with these sections:
 
 ### 1. Introduction/Overview
+
 Brief description of the feature and the problem it solves.
 
 ### 2. Goals
+
 Specific, measurable objectives (bullet list).
 
 ### 3. User Stories
+
 Each story needs:
+
 - **Title:** Short descriptive name
 - **Description:** "As a [user], I want [feature] so that [benefit]"
 - **Acceptance Criteria:** Verifiable checklist of what "done" means
@@ -74,11 +78,14 @@ Each story needs:
 Each story should be small enough to implement in one focused session.
 
 **Format:**
+
 ```markdown
 ### US-001: [Title]
+
 **Description:** As a [user], I want [feature] so that [benefit].
 
 **Acceptance Criteria:**
+
 - [ ] Specific verifiable criterion
 - [ ] Another criterion
 - [ ] Example (if helpful): <input> -> <expected output>
@@ -88,38 +95,47 @@ Each story should be small enough to implement in one focused session.
 - [ ] **[UI stories only]** Verify in browser using dev-browser skill
 ```
 
-**Important:** 
+**Important:**
+
 - Acceptance criteria must be verifiable, not vague. "Works correctly" is bad. "Button shows confirmation dialog before deleting" is good.
 - Include explicit examples or negative cases when they clarify expected behavior.
 - If the story produces URLs/IDs/links, specify the exact canonical form.
 - **For any story with UI changes:** Always include "Verify in browser using dev-browser skill" as acceptance criteria. This ensures visual verification of frontend work.
 
 ### 4. Functional Requirements
+
 Numbered list of specific functionalities:
+
 - "FR-1: The system must allow users to..."
 - "FR-2: When a user clicks X, the system must..."
 
 Be explicit and unambiguous.
 
 ### 5. Non-Goals (Out of Scope)
+
 What this feature will NOT include. Critical for managing scope.
 
 ### 6. Design Considerations (Optional)
+
 - UI/UX requirements
 - Link to mockups if available
 - Relevant existing components to reuse
 
 ### 7. Technical Considerations (Optional)
+
 - Known constraints or dependencies
 - Integration points with existing systems
 - Performance requirements
 
 ### 8. Success Metrics
+
 How will success be measured?
+
 - "Reduce time to complete X by 50%"
 - "Increase conversion rate by 10%"
 
 ### 9. Open Questions
+
 Remaining questions or areas needing clarification.
 
 ---
@@ -163,9 +179,11 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 ## User Stories
 
 ### US-001: Add priority field to database
+
 **Description:** As a developer, I need to store task priority so it persists across sessions.
 
 **Acceptance Criteria:**
+
 - [ ] Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')
 - [ ] Example: creating a task without a priority -> defaults to 'medium'
 - [ ] Negative case: invalid priority 'urgent' -> validation error
@@ -173,9 +191,11 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 - [ ] Typecheck passes
 
 ### US-002: Display priority indicator on task cards
+
 **Description:** As a user, I want to see task priority at a glance so I know what needs attention first.
 
 **Acceptance Criteria:**
+
 - [ ] Each task card shows colored priority badge (red=high, yellow=medium, gray=low)
 - [ ] Example: task with priority 'high' shows red badge
 - [ ] Negative case: unknown priority value -> badge not shown + fallback text
@@ -184,9 +204,11 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 - [ ] Verify in browser using dev-browser skill
 
 ### US-003: Add priority selector to task edit
+
 **Description:** As a user, I want to change a task's priority when editing it.
 
 **Acceptance Criteria:**
+
 - [ ] Priority dropdown in task edit modal
 - [ ] Shows current priority as selected
 - [ ] Saves immediately on selection change
@@ -194,9 +216,11 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 - [ ] Verify in browser using dev-browser skill
 
 ### US-004: Filter tasks by priority
+
 **Description:** As a user, I want to filter the task list to see only high-priority items when I'm focused.
 
 **Acceptance Criteria:**
+
 - [ ] Filter dropdown with options: All | High | Medium | Low
 - [ ] Filter persists in URL params
 - [ ] Empty state message when no tasks match filter

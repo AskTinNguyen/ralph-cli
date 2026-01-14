@@ -84,6 +84,7 @@ ralph prd
 ```
 
 Example prompt:
+
 ```
 A lightweight uptime monitor (Hono app), deployed on Cloudflare, with email alerts via AWS SES
 ```
@@ -157,15 +158,15 @@ ralph stream cleanup 2
 
 ### Commands Reference
 
-| Command | Description |
-|---------|-------------|
-| `ralph stream new` | Create new PRD-N folder |
-| `ralph stream list` | List all streams with status |
-| `ralph stream status` | Detailed status table |
-| `ralph stream init N` | Create worktree for stream N |
-| `ralph stream build N X` | Run X iterations on stream N |
-| `ralph stream merge N` | Merge stream N to main branch |
-| `ralph stream cleanup N` | Remove worktree for stream N |
+| Command                  | Description                   |
+| ------------------------ | ----------------------------- |
+| `ralph stream new`       | Create new PRD-N folder       |
+| `ralph stream list`      | List all streams with status  |
+| `ralph stream status`    | Detailed status table         |
+| `ralph stream init N`    | Create worktree for stream N  |
+| `ralph stream build N X` | Run X iterations on stream N  |
+| `ralph stream merge N`   | Merge stream N to main branch |
+| `ralph stream cleanup N` | Remove worktree for stream N  |
 
 ## Configuration
 
@@ -219,6 +220,7 @@ project/
 ### Template Hierarchy
 
 Ralph looks for templates in this order:
+
 1. `.agents/ralph/` in your project (if present)
 2. Bundled defaults shipped with the CLI
 
@@ -226,15 +228,15 @@ State and logs always go to `.ralph/` in your project.
 
 ## State Files
 
-| File | Purpose |
-|------|---------|
-| `prd.md` | Requirements and acceptance criteria |
-| `plan.md` | Task plan grouped by story |
-| `progress.md` | Append-only progress log |
-| `guardrails.md` | Lessons learned ("Signs") |
-| `activity.log` | Activity + timing log |
-| `errors.log` | Repeated failures and notes |
-| `runs/` | Raw run logs + summaries |
+| File            | Purpose                              |
+| --------------- | ------------------------------------ |
+| `prd.md`        | Requirements and acceptance criteria |
+| `plan.md`       | Task plan grouped by story           |
+| `progress.md`   | Append-only progress log             |
+| `guardrails.md` | Lessons learned ("Signs")            |
+| `activity.log`  | Activity + timing log                |
+| `errors.log`    | Repeated failures and notes          |
+| `runs/`         | Raw run logs + summaries             |
 
 ## Tests
 

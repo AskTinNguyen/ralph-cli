@@ -24,7 +24,7 @@ const api = new Hono();
  *
  * Returns overall Ralph status including mode, progress stats, and current run info.
  */
-api.get('/status', (c) => {
+api.get("/status", (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
 
@@ -38,7 +38,7 @@ api.get('/status', (c) => {
   };
 
   // Calculate progress based on mode
-  if (mode === 'multi') {
+  if (mode === "multi") {
     const streams = getStreams();
     // Aggregate progress across all streams
     let totalStories = 0;
@@ -55,14 +55,15 @@ api.get('/status', (c) => {
       completedStories,
       inProgressStories: 0, // Would need to parse all PRDs for accurate count
       pendingStories,
-      completionPercentage: totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0,
+      completionPercentage:
+        totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0,
     };
-  } else if (mode === 'single' && rootPath) {
+  } else if (mode === "single" && rootPath) {
     // Read single PRD file
-    const prdPath = path.join(rootPath, 'prd.md');
+    const prdPath = path.join(rootPath, "prd.md");
     if (fs.existsSync(prdPath)) {
       try {
-        const prdContent = fs.readFileSync(prdPath, 'utf-8');
+        const prdContent = fs.readFileSync(prdPath, "utf-8");
         const stories = parseStories(prdContent);
         const counts = countStoriesByStatus(stories);
 
@@ -82,11 +83,11 @@ api.get('/status', (c) => {
   // Check for currently running process (by looking for lock files)
   let isRunning = false;
   if (rootPath) {
-    const locksPath = path.join(rootPath, 'locks');
+    const locksPath = path.join(rootPath, "locks");
     if (fs.existsSync(locksPath)) {
       try {
         const locks = fs.readdirSync(locksPath);
-        isRunning = locks.some((lock) => lock.endsWith('.lock'));
+        isRunning = locks.some((lock) => lock.endsWith(".lock"));
       } catch {
         // Ignore errors
       }
@@ -109,7 +110,7 @@ api.get('/status', (c) => {
  * Returns story list with completion status for the active stream.
  * In multi-stream mode, uses the most recently modified PRD.
  */
-api.get('/progress', (c) => {
+api.get("/progress", (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
 
@@ -128,7 +129,7 @@ api.get('/progress', (c) => {
 
   let stories: Story[] = [];
 
-  if (mode === 'multi') {
+  if (mode === "multi") {
     // Get the stream with the most recent activity (highest PRD number as proxy)
     const streams = getStreams();
     if (streams.length > 0) {
@@ -139,12 +140,12 @@ api.get('/progress', (c) => {
         stories = details.stories;
       }
     }
-  } else if (mode === 'single') {
+  } else if (mode === "single") {
     // Read single PRD file
-    const prdPath = path.join(rootPath, 'prd.md');
+    const prdPath = path.join(rootPath, "prd.md");
     if (fs.existsSync(prdPath)) {
       try {
-        const prdContent = fs.readFileSync(prdPath, 'utf-8');
+        const prdContent = fs.readFileSync(prdPath, "utf-8");
         stories = parseStories(prdContent);
       } catch {
         // Return empty stories
@@ -171,7 +172,7 @@ api.get('/progress', (c) => {
  *
  * Returns all streams with status information.
  */
-api.get('/streams', (c) => {
+api.get("/streams", (c) => {
   const streams = getStreams();
 
   // Map to response format with additional computed fields
@@ -201,15 +202,15 @@ api.get('/streams', (c) => {
  *
  * Returns detailed information for a specific stream.
  */
-api.get('/streams/:id', (c) => {
-  const id = c.req.param('id');
+api.get("/streams/:id", (c) => {
+  const id = c.req.param("id");
 
   const stream = getStreamDetails(id);
 
   if (!stream) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Stream PRD-${id} not found`,
       },
       404
@@ -218,12 +219,10 @@ api.get('/streams/:id', (c) => {
 
   // Compute additional stats
   const completionPercentage =
-    stream.totalStories > 0
-      ? Math.round((stream.completedStories / stream.totalStories) * 100)
-      : 0;
+    stream.totalStories > 0 ? Math.round((stream.completedStories / stream.totalStories) * 100) : 0;
 
-  const inProgressStories = stream.stories.filter((s) => s.status === 'in-progress').length;
-  const pendingStories = stream.stories.filter((s) => s.status === 'pending').length;
+  const inProgressStories = stream.stories.filter((s) => s.status === "in-progress").length;
+  const pendingStories = stream.stories.filter((s) => s.status === "pending").length;
 
   return c.json({
     id: stream.id,
@@ -383,12 +382,12 @@ api.get('/streams/:id/estimate', (c) => {
  *
  * Returns entries in reverse chronological order (newest first).
  */
-api.get('/logs/activity', (c) => {
+api.get("/logs/activity", (c) => {
   // Parse query parameters
-  const streamId = c.req.query('streamId');
-  const limit = parseInt(c.req.query('limit') || '50', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
-  const levelFilter = c.req.query('level') as LogLevel | undefined;
+  const streamId = c.req.query("streamId");
+  const limit = parseInt(c.req.query("limit") || "50", 10);
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+  const levelFilter = c.req.query("level") as LogLevel | undefined;
 
   // Validate limit and offset
   const validLimit = Math.min(Math.max(1, limit), 500); // Cap at 500
@@ -447,13 +446,13 @@ api.get('/logs/activity', (c) => {
  *
  * Returns run log data including entries and summary if available.
  */
-api.get('/logs/run/:runId', (c) => {
-  const runId = c.req.param('runId');
-  const streamId = c.req.query('streamId');
-  const iterationStr = c.req.query('iteration');
-  const limit = parseInt(c.req.query('limit') || '200', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
-  const levelFilter = c.req.query('level') as LogLevel | undefined;
+api.get("/logs/run/:runId", (c) => {
+  const runId = c.req.param("runId");
+  const streamId = c.req.query("streamId");
+  const iterationStr = c.req.query("iteration");
+  const limit = parseInt(c.req.query("limit") || "200", 10);
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+  const levelFilter = c.req.query("level") as LogLevel | undefined;
 
   // Validate limit and offset
   const validLimit = Math.min(Math.max(1, limit), 1000); // Cap at 1000 for run logs
@@ -468,7 +467,7 @@ api.get('/logs/run/:runId', (c) => {
   if (entries.length === 0) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Run log for ${runId} not found`,
       },
       404
@@ -531,14 +530,14 @@ api.get('/logs/run/:runId', (c) => {
  *
  * Returns array of run info objects.
  */
-api.get('/logs/runs', (c) => {
-  const streamId = c.req.query('streamId');
+api.get("/logs/runs", (c) => {
+  const streamId = c.req.query("streamId");
 
   if (!streamId) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'streamId query parameter is required',
+        error: "bad_request",
+        message: "streamId query parameter is required",
       },
       400
     );
@@ -567,7 +566,7 @@ api.get('/logs/runs', (c) => {
 /**
  * Valid agent types for builds
  */
-const VALID_AGENTS = ['claude', 'codex', 'droid'] as const;
+const VALID_AGENTS = ["claude", "codex", "droid"] as const;
 
 /**
  * POST /api/build/start
@@ -580,7 +579,7 @@ const VALID_AGENTS = ['claude', 'codex', 'droid'] as const;
  *   - 400 for invalid parameters
  *   - 409 Conflict if build already running
  */
-api.post('/build/start', async (c) => {
+api.post("/build/start", async (c) => {
   let body: {
     iterations?: number;
     stream?: string;
@@ -589,25 +588,25 @@ api.post('/build/start', async (c) => {
   };
 
   // Try to parse as JSON first, then fall back to form data
-  const contentType = c.req.header('content-type') || '';
+  const contentType = c.req.header("content-type") || "";
   try {
-    if (contentType.includes('application/json')) {
+    if (contentType.includes("application/json")) {
       body = await c.req.json();
     } else {
       // Parse form-encoded data
       const formData = await c.req.parseBody();
       body = {
         iterations: formData.iterations ? parseInt(formData.iterations as string, 10) : undefined,
-        stream: formData.stream && formData.stream !== '' ? (formData.stream as string) : undefined,
+        stream: formData.stream && formData.stream !== "" ? (formData.stream as string) : undefined,
         agent: formData.agent as string | undefined,
-        noCommit: formData.noCommit === 'true' || formData.noCommit === 'on',
+        noCommit: formData.noCommit === "true" || formData.noCommit === "on",
       };
     }
   } catch {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Invalid request body',
+        error: "bad_request",
+        message: "Invalid request body",
       },
       400
     );
@@ -618,18 +617,18 @@ api.post('/build/start', async (c) => {
   if (iterations === undefined || iterations === null) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Missing required parameter: iterations',
+        error: "bad_request",
+        message: "Missing required parameter: iterations",
       },
       400
     );
   }
 
-  if (typeof iterations !== 'number' || !Number.isInteger(iterations)) {
+  if (typeof iterations !== "number" || !Number.isInteger(iterations)) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Parameter iterations must be an integer',
+        error: "bad_request",
+        message: "Parameter iterations must be an integer",
       },
       400
     );
@@ -638,8 +637,8 @@ api.post('/build/start', async (c) => {
   if (iterations < 1 || iterations > 100) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Parameter iterations must be between 1 and 100',
+        error: "bad_request",
+        message: "Parameter iterations must be between 1 and 100",
       },
       400
     );
@@ -650,8 +649,8 @@ api.post('/build/start', async (c) => {
     if (!VALID_AGENTS.includes(body.agent as (typeof VALID_AGENTS)[number])) {
       return c.json(
         {
-          error: 'bad_request',
-          message: `Invalid agent: ${body.agent}. Must be one of: ${VALID_AGENTS.join(', ')}`,
+          error: "bad_request",
+          message: `Invalid agent: ${body.agent}. Must be one of: ${VALID_AGENTS.join(", ")}`,
         },
         400
       );
@@ -663,8 +662,8 @@ api.post('/build/start', async (c) => {
     const currentStatus = processManager.getBuildStatus();
     return c.json(
       {
-        error: 'conflict',
-        message: 'A build is already running. Stop it first before starting a new one.',
+        error: "conflict",
+        message: "A build is already running. Stop it first before starting a new one.",
         status: {
           state: currentStatus.state,
           pid: currentStatus.pid,
@@ -683,7 +682,7 @@ api.post('/build/start', async (c) => {
     options.stream = body.stream;
   }
   if (body.agent) {
-    options.agent = body.agent as BuildOptions['agent'];
+    options.agent = body.agent as BuildOptions["agent"];
   }
   if (body.noCommit !== undefined) {
     options.noCommit = body.noCommit;
@@ -692,7 +691,7 @@ api.post('/build/start', async (c) => {
   // Check budget before starting build
   const budgetStatus = getBudgetStatus();
   if (budgetStatus.shouldPause) {
-    let reason = 'Budget exceeded';
+    let reason = "Budget exceeded";
     if (budgetStatus.daily.exceeded && budgetStatus.daily.limit !== null) {
       reason = `Daily budget exceeded ($${budgetStatus.daily.spent.toFixed(2)}/$${budgetStatus.daily.limit.toFixed(2)})`;
     } else if (budgetStatus.monthly.exceeded && budgetStatus.monthly.limit !== null) {
@@ -700,7 +699,7 @@ api.post('/build/start', async (c) => {
     }
     return c.json(
       {
-        error: 'budget_exceeded',
+        error: "budget_exceeded",
         message: `${reason}. Set RALPH_BUDGET_PAUSE_ON_EXCEEDED=false in config.sh to override.`,
         budgetStatus: {
           daily: {
@@ -723,11 +722,11 @@ api.post('/build/start', async (c) => {
   const status = processManager.startBuild(iterations, options);
 
   // Check if there was an error starting
-  if (status.state === 'error') {
+  if (status.state === "error") {
     return c.json(
       {
-        error: 'internal_error',
-        message: status.error || 'Failed to start build',
+        error: "internal_error",
+        message: status.error || "Failed to start build",
       },
       500
     );
@@ -754,13 +753,13 @@ api.post('/build/start', async (c) => {
  *   - 200 with { success: true } on success
  *   - 404 if no build is running
  */
-api.post('/build/stop', (c) => {
+api.post("/build/stop", (c) => {
   // Check if a build is running
   if (!processManager.isRunning()) {
     return c.json(
       {
-        error: 'not_found',
-        message: 'No build is currently running',
+        error: "not_found",
+        message: "No build is currently running",
       },
       404
     );
@@ -769,10 +768,10 @@ api.post('/build/stop', (c) => {
   const status = processManager.stopBuild();
 
   // Check for errors
-  if (status.error && status.state === 'error') {
+  if (status.error && status.state === "error") {
     return c.json(
       {
-        error: 'internal_error',
+        error: "internal_error",
         message: status.error,
       },
       500
@@ -781,7 +780,7 @@ api.post('/build/stop', (c) => {
 
   return c.json({
     success: true,
-    message: 'Build stop signal sent',
+    message: "Build stop signal sent",
   });
 });
 
@@ -793,7 +792,7 @@ api.post('/build/stop', (c) => {
  * Returns:
  *   - 200 with current build state
  */
-api.get('/build/status', (c) => {
+api.get("/build/status", (c) => {
   const status = processManager.getBuildStatus();
 
   return c.json({
@@ -820,14 +819,14 @@ api.get('/build/status', (c) => {
  *   - 200 with { success: true, status: BuildStatus } on success
  *   - 409 Conflict if a process is already running
  */
-api.post('/plan/start', async (c) => {
+api.post("/plan/start", async (c) => {
   // Check if build is already running (plan and build share the process manager)
   if (processManager.isRunning()) {
     const currentStatus = processManager.getBuildStatus();
     return c.json(
       {
-        error: 'conflict',
-        message: 'A process is already running. Stop it first before starting a new one.',
+        error: "conflict",
+        message: "A process is already running. Stop it first before starting a new one.",
         status: {
           state: currentStatus.state,
           pid: currentStatus.pid,
@@ -844,7 +843,7 @@ api.post('/plan/start', async (c) => {
   if (!ralphRoot) {
     return c.json(
       {
-        error: 'internal_error',
+        error: "internal_error",
         message: 'Cannot start plan: .ralph directory not found. Run "ralph install" first.',
       },
       500
@@ -862,47 +861,47 @@ api.post('/plan/start', async (c) => {
   const projectRoot = path.dirname(ralphRoot);
 
   // Spawn the ralph plan process
-  const args = ['plan'];
+  const args = ["plan"];
   if (body.stream) {
     args.push(`--prd=${body.stream}`);
   }
 
   try {
-    const childProcess = spawn('ralph', args, {
+    const childProcess = spawn("ralph", args, {
       cwd: projectRoot,
       env: { ...process.env },
       shell: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
       detached: false,
     });
 
     if (!childProcess.pid) {
       return c.json(
         {
-          error: 'internal_error',
-          message: 'Failed to start plan process: no PID assigned',
+          error: "internal_error",
+          message: "Failed to start plan process: no PID assigned",
         },
         500
       );
     }
 
-    const command = `ralph ${args.join(' ')}`;
+    const command = `ralph ${args.join(" ")}`;
     console.log(`[API] Started plan: ${command} (PID: ${childProcess.pid})`);
 
     return c.json({
       success: true,
       status: {
-        state: 'running',
+        state: "running",
         pid: childProcess.pid,
         startedAt: new Date().toISOString(),
         command,
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return c.json(
       {
-        error: 'internal_error',
+        error: "internal_error",
         message: `Failed to start plan: ${errorMessage}`,
       },
       500
@@ -923,10 +922,10 @@ api.post('/plan/start', async (c) => {
  * Query params:
  *   - streamId: Optional stream ID to show progress for specific stream
  */
-api.get('/partials/progress', (c) => {
+api.get("/partials/progress", (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
-  const requestedStreamId = c.req.query('streamId');
+  const requestedStreamId = c.req.query("streamId");
 
   // Handle missing .ralph directory
   if (!rootPath) {
@@ -944,12 +943,12 @@ api.get('/partials/progress', (c) => {
   let inProgressStories = 0;
   let pendingStories = 0;
 
-  if (mode === 'multi') {
+  if (mode === "multi") {
     const streams = getStreams();
 
     // If a specific stream is requested, use that; otherwise aggregate all streams
     if (requestedStreamId) {
-      const stream = streams.find(s => s.id === requestedStreamId);
+      const stream = streams.find((s) => s.id === requestedStreamId);
       if (stream) {
         totalStories = stream.totalStories;
         completedStories = stream.completedStories;
@@ -970,11 +969,11 @@ api.get('/partials/progress', (c) => {
       }
       pendingStories = totalStories - completedStories;
     }
-  } else if (mode === 'single' && rootPath) {
-    const prdPath = path.join(rootPath, 'prd.md');
+  } else if (mode === "single" && rootPath) {
+    const prdPath = path.join(rootPath, "prd.md");
     if (fs.existsSync(prdPath)) {
       try {
-        const prdContent = fs.readFileSync(prdPath, 'utf-8');
+        const prdContent = fs.readFileSync(prdPath, "utf-8");
         const stories = parseStories(prdContent);
         const counts = countStoriesByStatus(stories);
         totalStories = counts.total;
@@ -1035,10 +1034,10 @@ api.get('/partials/progress', (c) => {
  * Query params:
  *   - streamId: Optional stream ID to show stories for specific stream
  */
-api.get('/partials/stories', (c) => {
+api.get("/partials/stories", (c) => {
   const rootPath = getRalphRoot();
   const mode = getMode();
-  const requestedStreamId = c.req.query('streamId');
+  const requestedStreamId = c.req.query("streamId");
 
   let stories: Story[] = [];
 
@@ -1052,7 +1051,7 @@ api.get('/partials/stories', (c) => {
 `);
   }
 
-  if (mode === 'multi') {
+  if (mode === "multi") {
     const streams = getStreams();
 
     // If a specific stream is requested, use that; otherwise use most recent stream
@@ -1068,11 +1067,11 @@ api.get('/partials/stories', (c) => {
         stories = details.stories;
       }
     }
-  } else if (mode === 'single') {
-    const prdPath = path.join(rootPath, 'prd.md');
+  } else if (mode === "single") {
+    const prdPath = path.join(rootPath, "prd.md");
     if (fs.existsSync(prdPath)) {
       try {
-        const prdContent = fs.readFileSync(prdPath, 'utf-8');
+        const prdContent = fs.readFileSync(prdPath, "utf-8");
         stories = parseStories(prdContent);
       } catch {
         // Return empty stories
@@ -1094,8 +1093,8 @@ api.get('/partials/stories', (c) => {
     .map((story) => {
       const statusClass = story.status;
       const statusLabel =
-        story.status === 'in-progress'
-          ? 'In Progress'
+        story.status === "in-progress"
+          ? "In Progress"
           : story.status.charAt(0).toUpperCase() + story.status.slice(1);
 
       const criteriaHtml =
@@ -1106,14 +1105,14 @@ api.get('/partials/stories', (c) => {
     .slice(0, 3)
     .map(
       (ac) => `
-  <div class="criteria-item ${ac.completed ? 'completed' : ''}">${escapeHtml(ac.text)}</div>
+  <div class="criteria-item ${ac.completed ? "completed" : ""}">${escapeHtml(ac.text)}</div>
 `
     )
-    .join('')}
-  ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ''}
+    .join("")}
+  ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ""}
 </div>
 `
-          : '';
+          : "";
 
       return `
 <div class="story-card">
@@ -1126,7 +1125,7 @@ api.get('/partials/stories', (c) => {
 </div>
 `;
     })
-    .join('');
+    .join("");
 
   return c.html(`<div class="stories-grid">${storyCards}</div>`);
 });
@@ -1136,24 +1135,24 @@ api.get('/partials/stories', (c) => {
  *
  * Returns HTML fragment for the status indicator in the footer.
  */
-api.get('/partials/status-indicator', (c) => {
+api.get("/partials/status-indicator", (c) => {
   const rootPath = getRalphRoot();
 
   let isRunning = false;
   if (rootPath) {
-    const locksPath = path.join(rootPath, 'locks');
+    const locksPath = path.join(rootPath, "locks");
     if (fs.existsSync(locksPath)) {
       try {
         const locks = fs.readdirSync(locksPath);
-        isRunning = locks.some((lock) => lock.endsWith('.lock'));
+        isRunning = locks.some((lock) => lock.endsWith(".lock"));
       } catch {
         // Ignore errors
       }
     }
   }
 
-  const statusClass = isRunning ? 'running' : 'idle';
-  const statusText = isRunning ? 'Running' : 'Idle';
+  const statusClass = isRunning ? "running" : "idle";
+  const statusText = isRunning ? "Running" : "Idle";
 
   return c.html(`<span class="status-indicator ${statusClass}">${statusText}</span>`);
 });
@@ -1165,8 +1164,8 @@ api.get('/partials/status-indicator', (c) => {
  * Query params:
  *   - streamId: Optional stream ID to show stream-specific commands
  */
-api.get('/partials/terminal-commands', (c) => {
-  const streamId = c.req.query('streamId');
+api.get("/partials/terminal-commands", (c) => {
+  const streamId = c.req.query("streamId");
 
   // Build commands based on whether a stream is selected
   let commands: Array<{ comment: string; command: string }> = [];
@@ -1174,31 +1173,31 @@ api.get('/partials/terminal-commands', (c) => {
   if (streamId) {
     commands = [
       {
-        comment: '# Watch live logs for this stream',
+        comment: "# Watch live logs for this stream",
         command: `tail -f .ralph/PRD-${streamId}/runs/*.log 2>/dev/null || echo "No logs yet"`,
       },
       {
-        comment: '# View latest run log',
+        comment: "# View latest run log",
         command: `ls -t .ralph/PRD-${streamId}/runs/*.log 2>/dev/null | head -1 | xargs cat`,
       },
       {
-        comment: '# Check stream progress',
+        comment: "# Check stream progress",
         command: `cat .ralph/PRD-${streamId}/progress.md`,
       },
     ];
   } else {
     commands = [
       {
-        comment: '# Watch all logs across streams',
-        command: 'tail -f .ralph/PRD-*/runs/*.log 2>/dev/null',
+        comment: "# Watch all logs across streams",
+        command: "tail -f .ralph/PRD-*/runs/*.log 2>/dev/null",
       },
       {
-        comment: '# List all run logs',
-        command: 'ls -la .ralph/PRD-*/runs/*.log 2>/dev/null | tail -20',
+        comment: "# List all run logs",
+        command: "ls -la .ralph/PRD-*/runs/*.log 2>/dev/null | tail -20",
       },
       {
-        comment: '# Check activity log',
-        command: 'cat .ralph/activity.log 2>/dev/null | tail -50',
+        comment: "# Check activity log",
+        command: "cat .ralph/activity.log 2>/dev/null | tail -50",
       },
     ];
   }
@@ -1212,7 +1211,7 @@ api.get('/partials/terminal-commands', (c) => {
 </div>
 `
     )
-    .join('');
+    .join("");
 
   return c.html(`
 <div class="terminal-commands-box">
@@ -1230,14 +1229,14 @@ api.get('/partials/terminal-commands', (c) => {
  * Query params:
  *   - level: Filter by minimum log level (error, warning, info)
  */
-api.get('/partials/activity-logs', (c) => {
+api.get("/partials/activity-logs", (c) => {
   const mode = getMode();
-  const levelFilter = c.req.query('level') as LogLevel | undefined;
-  const requestedStreamId = c.req.query('streamId');
+  const levelFilter = c.req.query("level") as LogLevel | undefined;
+  const requestedStreamId = c.req.query("streamId");
 
   // Get the stream ID (from query param or most recent in multi mode)
   let streamId: string | undefined = requestedStreamId;
-  if (!streamId && mode === 'multi') {
+  if (!streamId && mode === "multi") {
     const streams = getStreams();
     if (streams.length > 0) {
       streamId = streams[streams.length - 1].id;
@@ -1275,12 +1274,12 @@ api.get('/partials/activity-logs', (c) => {
 
   const logEntriesHtml = entries
     .map((entry) => {
-      const timestamp = entry.timestamp.toLocaleString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+      const timestamp = entry.timestamp.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
         hour12: false,
       });
 
@@ -1292,7 +1291,7 @@ api.get('/partials/activity-logs', (c) => {
 </div>
 `;
     })
-    .join('');
+    .join("");
 
   return c.html(`<div class="log-entries">${logEntriesHtml}</div>`);
 });
@@ -1302,9 +1301,9 @@ api.get('/partials/activity-logs', (c) => {
  *
  * Returns HTML fragment for the expandable run logs list.
  */
-api.get('/partials/run-list', (c) => {
+api.get("/partials/run-list", (c) => {
   const mode = getMode();
-  const requestedStreamId = c.req.query('streamId');
+  const requestedStreamId = c.req.query("streamId");
 
   // Get the stream ID and runs
   let streamId: string | undefined = requestedStreamId;
@@ -1319,7 +1318,7 @@ api.get('/partials/run-list', (c) => {
     summaryPath?: string;
   }> = [];
 
-  if (mode === 'multi') {
+  if (mode === "multi") {
     const streams = getStreams();
     if (streams.length > 0) {
       // Use requested stream or default to most recent
@@ -1347,16 +1346,21 @@ api.get('/partials/run-list', (c) => {
 
   const runListHtml = runs
     .map((run, index) => {
-      const timestamp = run.startedAt.toLocaleString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
+      const timestamp = run.startedAt.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
         hour12: false,
       });
 
-      const statusClass = run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'error' : 'in-progress';
-      const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ''}` : 'Unknown story';
+      const statusClass =
+        run.status === "completed"
+          ? "completed"
+          : run.status === "failed"
+            ? "error"
+            : "in-progress";
+      const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ""}` : "Unknown story";
 
       // Create a unique ID for the run details container
       const runDetailsId = `run-details-${index}`;
@@ -1375,7 +1379,7 @@ api.get('/partials/run-list', (c) => {
     </div>
   </div>
   <div class="run-details" id="${runDetailsId}"
-       hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${streamId || ''}&iteration=${run.iteration}"
+       hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${streamId || ""}&iteration=${run.iteration}"
        hx-trigger="intersect once"
        hx-swap="innerHTML">
     <div class="loading">Loading run log...</div>
@@ -1383,7 +1387,7 @@ api.get('/partials/run-list', (c) => {
 </div>
 `;
     })
-    .join('');
+    .join("");
 
   return c.html(`<div class="run-list">${runListHtml}</div>`);
 });
@@ -1397,10 +1401,10 @@ api.get('/partials/run-list', (c) => {
  *   - streamId: The stream ID
  *   - iteration: The iteration number
  */
-api.get('/partials/run-log-content', (c) => {
-  const runId = c.req.query('runId');
-  const streamId = c.req.query('streamId');
-  const iterationStr = c.req.query('iteration');
+api.get("/partials/run-log-content", (c) => {
+  const runId = c.req.query("runId");
+  const streamId = c.req.query("streamId");
+  const iterationStr = c.req.query("iteration");
 
   if (!runId) {
     return c.html(`<p class="empty-state">No run ID provided</p>`);
@@ -1418,10 +1422,10 @@ api.get('/partials/run-log-content', (c) => {
 
   const logContentHtml = limitedEntries
     .map((entry) => {
-      const timestamp = entry.timestamp.toLocaleString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+      const timestamp = entry.timestamp.toLocaleString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
         hour12: false,
       });
 
@@ -1433,9 +1437,12 @@ api.get('/partials/run-log-content', (c) => {
 </div>
 `;
     })
-    .join('');
+    .join("");
 
-  const hasMore = entries.length > 100 ? `<p style="color: var(--text-muted); font-size: 0.75rem; margin-top: var(--spacing-sm);">Showing first 100 of ${entries.length} entries</p>` : '';
+  const hasMore =
+    entries.length > 100
+      ? `<p style="color: var(--text-muted); font-size: 0.75rem; margin-top: var(--spacing-sm);">Showing first 100 of ${entries.length} entries</p>`
+      : "";
 
   return c.html(`<div class="run-log-content">${logContentHtml}${hasMore}</div>`);
 });
@@ -1445,13 +1452,13 @@ api.get('/partials/run-log-content', (c) => {
  *
  * Returns HTML fragment for the streams summary section showing aggregate stats.
  */
-api.get('/partials/streams-summary', (c) => {
+api.get("/partials/streams-summary", (c) => {
   const streams = getStreams();
 
   const totalStreams = streams.length;
-  const runningStreams = streams.filter((s) => s.status === 'running').length;
-  const completedStreams = streams.filter((s) => s.status === 'completed').length;
-  const idleStreams = streams.filter((s) => s.status === 'idle').length;
+  const runningStreams = streams.filter((s) => s.status === "running").length;
+  const completedStreams = streams.filter((s) => s.status === "completed").length;
+  const idleStreams = streams.filter((s) => s.status === "idle").length;
 
   // Calculate total stories across all streams
   let totalStories = 0;
@@ -1461,7 +1468,8 @@ api.get('/partials/streams-summary', (c) => {
     completedStories += stream.completedStories;
   }
 
-  const overallPercentage = totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0;
+  const overallPercentage =
+    totalStories > 0 ? Math.round((completedStories / totalStories) * 100) : 0;
 
   if (totalStreams === 0) {
     return c.html(`
@@ -1479,11 +1487,11 @@ api.get('/partials/streams-summary', (c) => {
     <div class="summary-stat-value">${totalStreams}</div>
     <div class="summary-stat-label">Total Streams</div>
   </div>
-  <div class="summary-stat ${runningStreams > 0 ? 'running' : ''}">
+  <div class="summary-stat ${runningStreams > 0 ? "running" : ""}">
     <div class="summary-stat-value">${runningStreams}</div>
     <div class="summary-stat-label">Running</div>
   </div>
-  <div class="summary-stat ${completedStreams > 0 ? 'completed' : ''}">
+  <div class="summary-stat ${completedStreams > 0 ? "completed" : ""}">
     <div class="summary-stat-value">${completedStreams}</div>
     <div class="summary-stat-label">Completed</div>
   </div>
@@ -1502,7 +1510,7 @@ api.get('/partials/streams-summary', (c) => {
  *
  * Returns HTML fragment for the streams list grid.
  */
-api.get('/partials/streams', (c) => {
+api.get("/partials/streams", (c) => {
   const streams = getStreams();
   const ralphRoot = getRalphRoot();
 
@@ -1517,7 +1525,7 @@ api.get('/partials/streams', (c) => {
   }
 
   // Check which streams have worktrees initialized
-  const worktreesPath = ralphRoot ? path.join(ralphRoot, 'worktrees') : null;
+  const worktreesPath = ralphRoot ? path.join(ralphRoot, "worktrees") : null;
   const hasWorktree = (streamId: string): boolean => {
     if (!worktreesPath) return false;
     const worktreePath = path.join(worktreesPath, `PRD-${streamId}`);
@@ -1533,11 +1541,11 @@ api.get('/partials/streams', (c) => {
 
       const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
       const worktreeInitialized = hasWorktree(stream.id);
-      const isCompleted = stream.status === 'completed';
-      const isRunning = stream.status === 'running';
+      const isCompleted = stream.status === "completed";
+      const isRunning = stream.status === "running";
 
       // Build action buttons based on stream state
-      let actionButtonsHtml = '';
+      let actionButtonsHtml = "";
 
       // Init button - show if worktree not initialized
       if (!worktreeInitialized) {
@@ -1549,13 +1557,13 @@ api.get('/partials/streams', (c) => {
 
       // Build button - always show (opens inline form)
       actionButtonsHtml += `
-        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="Start build iterations" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? 'Running...' : 'Build'}
+        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="Start build iterations" ${isRunning ? "disabled" : ""}>
+          ${isRunning ? "Running..." : "Build"}
         </button>`;
 
       // Merge button - only show when worktree exists (nothing to merge without worktree)
       if (worktreeInitialized) {
-        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
         actionButtonsHtml += `
           <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="Merge to main branch">
             Merge
@@ -1586,10 +1594,10 @@ api.get('/partials/streams', (c) => {
   </div>
   <div class="stream-meta">
     <div class="stream-files">
-      <span class="stream-file-badge ${stream.hasPrd ? 'present' : 'missing'}">PRD</span>
-      <span class="stream-file-badge ${stream.hasPlan ? 'present' : 'missing'}">Plan</span>
-      <span class="stream-file-badge ${stream.hasProgress ? 'present' : 'missing'}">Progress</span>
-      ${worktreeInitialized ? '<span class="stream-file-badge present">Worktree</span>' : ''}
+      <span class="stream-file-badge ${stream.hasPrd ? "present" : "missing"}">PRD</span>
+      <span class="stream-file-badge ${stream.hasPlan ? "present" : "missing"}">Plan</span>
+      <span class="stream-file-badge ${stream.hasProgress ? "present" : "missing"}">Progress</span>
+      ${worktreeInitialized ? '<span class="stream-file-badge present">Worktree</span>' : ""}
     </div>
   </div>
   <div class="stream-card-actions">
@@ -1599,7 +1607,7 @@ api.get('/partials/streams', (c) => {
 </div>
 `;
     })
-    .join('');
+    .join("");
 
   return c.html(`<div class="streams-grid">${streamCards}</div>`);
 });
@@ -1817,8 +1825,8 @@ api.get('/partials/streams-timeline', (c) => {
  * Query params:
  *   - id: Stream ID
  */
-api.get('/partials/stream-detail', (c) => {
-  const id = c.req.query('id');
+api.get("/partials/stream-detail", (c) => {
+  const id = c.req.query("id");
 
   if (!id) {
     return c.html(`<div class="empty-state"><p>No stream ID provided</p></div>`);
@@ -1836,32 +1844,35 @@ api.get('/partials/stream-detail', (c) => {
   }
 
   const completionPercentage =
-    stream.totalStories > 0
-      ? Math.round((stream.completedStories / stream.totalStories) * 100)
-      : 0;
+    stream.totalStories > 0 ? Math.round((stream.completedStories / stream.totalStories) * 100) : 0;
 
   const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
 
   // Build stories list HTML
-  const storiesHtml = stream.stories.length > 0
-    ? stream.stories.map((story) => {
-        const storyStatusLabel =
-          story.status === 'in-progress'
-            ? 'In Progress'
-            : story.status.charAt(0).toUpperCase() + story.status.slice(1);
+  const storiesHtml =
+    stream.stories.length > 0
+      ? stream.stories
+          .map((story) => {
+            const storyStatusLabel =
+              story.status === "in-progress"
+                ? "In Progress"
+                : story.status.charAt(0).toUpperCase() + story.status.slice(1);
 
-        const criteriaHtml =
-          story.acceptanceCriteria.length > 0
-            ? `<div class="acceptance-criteria">
+            const criteriaHtml =
+              story.acceptanceCriteria.length > 0
+                ? `<div class="acceptance-criteria">
                 ${story.acceptanceCriteria
                   .slice(0, 3)
-                  .map((ac) => `<div class="criteria-item ${ac.completed ? 'completed' : ''}">${escapeHtml(ac.text)}</div>`)
-                  .join('')}
-                ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ''}
+                  .map(
+                    (ac) =>
+                      `<div class="criteria-item ${ac.completed ? "completed" : ""}">${escapeHtml(ac.text)}</div>`
+                  )
+                  .join("")}
+                ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ""}
               </div>`
-            : '';
+                : "";
 
-        return `
+            return `
 <div class="story-card">
   <div class="story-header">
     <span class="story-id">${escapeHtml(story.id)}</span>
@@ -1871,29 +1882,41 @@ api.get('/partials/stream-detail', (c) => {
   ${criteriaHtml}
 </div>
 `;
-      }).join('')
-    : '<div class="empty-state"><p>No stories found in this PRD.</p></div>';
+          })
+          .join("")
+      : '<div class="empty-state"><p>No stories found in this PRD.</p></div>';
 
   // Build runs list HTML
-  const runsHtml = stream.runs.length > 0
-    ? stream.runs.slice(0, 10).map((run) => {
-        const timestamp = run.startedAt.toLocaleString('en-US', {
-          month: 'short',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        });
+  const runsHtml =
+    stream.runs.length > 0
+      ? stream.runs
+          .slice(0, 10)
+          .map((run) => {
+            const timestamp = run.startedAt.toLocaleString("en-US", {
+              month: "short",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
 
-        const runStatusClass = run.status === 'completed' ? 'completed' : run.status === 'failed' ? 'error' : 'in-progress';
-        const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ''}` : 'Unknown story';
+            const runStatusClass =
+              run.status === "completed"
+                ? "completed"
+                : run.status === "failed"
+                  ? "error"
+                  : "in-progress";
+            const storyInfo = run.storyId
+              ? `${run.storyId}: ${run.storyTitle || ""}`
+              : "Unknown story";
 
-        // Show retry badge if retries occurred
-        const retryBadge = (run.retryCount && run.retryCount > 0)
-          ? `<span class="retry-badge" title="Succeeded after ${run.retryCount} retry attempt(s), ${run.retryTime || 0}s total wait">&#8635; ${run.retryCount}</span>`
-          : '';
+            // Show retry badge if retries occurred
+            const retryBadge =
+              run.retryCount && run.retryCount > 0
+                ? `<span class="retry-badge" title="Succeeded after ${run.retryCount} retry attempt(s), ${run.retryTime || 0}s total wait">&#8635; ${run.retryCount}</span>`
+                : "";
 
-        return `
+            return `
 <div class="run-item">
   <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
     <div class="run-info">
@@ -1915,8 +1938,9 @@ api.get('/partials/stream-detail', (c) => {
   </div>
 </div>
 `;
-      }).join('')
-    : '<div class="empty-state"><p>No runs found for this stream.</p></div>';
+          })
+          .join("")
+      : '<div class="empty-state"><p>No runs found for this stream.</p></div>';
 
   const html = `
 <div class="stream-detail-header">
@@ -1991,40 +2015,40 @@ function switchStreamTab(btn, tabName) {
  *
  * Returns HTML fragment for the build status display in the Command Center.
  */
-api.get('/partials/build-status', (c) => {
+api.get("/partials/build-status", (c) => {
   const status = processManager.getBuildStatus();
 
-  let statusClass = 'idle';
-  let statusText = 'Idle';
-  let detailsHtml = '';
+  let statusClass = "idle";
+  let statusText = "Idle";
+  let detailsHtml = "";
 
   switch (status.state) {
-    case 'running':
-      statusClass = 'running';
-      statusText = 'Running...';
+    case "running":
+      statusClass = "running";
+      statusText = "Running...";
       if (status.command) {
         detailsHtml = `
           <div class="build-status-info">
             <div class="build-status-command">${escapeHtml(status.command)}</div>
-            ${status.startedAt ? `<div class="build-status-details">Started: ${status.startedAt.toLocaleTimeString()}</div>` : ''}
+            ${status.startedAt ? `<div class="build-status-details">Started: ${status.startedAt.toLocaleTimeString()}</div>` : ""}
           </div>
         `;
       }
       break;
-    case 'completed':
-      statusClass = 'completed';
-      statusText = 'Completed';
+    case "completed":
+      statusClass = "completed";
+      statusText = "Completed";
       break;
-    case 'error':
-      statusClass = 'error';
-      statusText = 'Error';
+    case "error":
+      statusClass = "error";
+      statusText = "Error";
       if (status.error) {
         detailsHtml = `<div class="build-status-details">${escapeHtml(status.error)}</div>`;
       }
       break;
     default:
-      statusClass = 'idle';
-      statusText = 'Idle';
+      statusClass = "idle";
+      statusText = "Idle";
   }
 
   const html = `
@@ -2043,7 +2067,7 @@ ${detailsHtml}
  *
  * Returns HTML options for the stream selector dropdown.
  */
-api.get('/partials/stream-options', (c) => {
+api.get("/partials/stream-options", (c) => {
   const streams = getStreams();
 
   let optionsHtml = '<option value="">Default (latest)</option>';
@@ -2064,11 +2088,11 @@ api.get('/partials/stream-options', (c) => {
  */
 function escapeHtml(text: string): string {
   const htmlEscapes: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
   };
   return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
 }
@@ -2090,7 +2114,7 @@ function validateFilePath(relativePath: string): string | null {
   }
 
   // Reject paths with directory traversal attempts
-  if (relativePath.includes('..')) {
+  if (relativePath.includes("..")) {
     return null;
   }
 
@@ -2098,7 +2122,7 @@ function validateFilePath(relativePath: string): string | null {
   const decodedPath = decodeURIComponent(relativePath);
 
   // Reject paths that still have traversal after decoding
-  if (decodedPath.includes('..')) {
+  if (decodedPath.includes("..")) {
     return null;
   }
 
@@ -2135,15 +2159,15 @@ function validateFilePath(relativePath: string): string | null {
  *   - 403 if path is outside .ralph directory
  *   - 404 if file not found
  */
-api.get('/files/*', (c) => {
+api.get("/files/*", (c) => {
   // Extract the path from the wildcard match
-  const requestedPath = c.req.path.replace(/^\/api\/files\//, '');
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, "");
 
   if (!requestedPath) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'File path is required',
+        error: "bad_request",
+        message: "File path is required",
       },
       400
     );
@@ -2155,8 +2179,8 @@ api.get('/files/*', (c) => {
   if (!validatedPath) {
     return c.json(
       {
-        error: 'forbidden',
-        message: 'Access denied: path is outside .ralph directory',
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
       },
       403
     );
@@ -2166,7 +2190,7 @@ api.get('/files/*', (c) => {
   if (!fs.existsSync(validatedPath)) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `File not found: ${requestedPath}`,
       },
       404
@@ -2178,21 +2202,21 @@ api.get('/files/*', (c) => {
   if (stats.isDirectory()) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Cannot read a directory',
+        error: "bad_request",
+        message: "Cannot read a directory",
       },
       400
     );
   }
 
   try {
-    const content = fs.readFileSync(validatedPath, 'utf-8');
+    const content = fs.readFileSync(validatedPath, "utf-8");
     return c.text(content);
   } catch (err) {
     return c.json(
       {
-        error: 'internal_error',
-        message: 'Failed to read file',
+        error: "internal_error",
+        message: "Failed to read file",
       },
       500
     );
@@ -2215,15 +2239,15 @@ api.get('/files/*', (c) => {
  *   - 400 if path is invalid
  *   - 403 if path is outside .ralph directory
  */
-api.put('/files/*', async (c) => {
+api.put("/files/*", async (c) => {
   // Extract the path from the wildcard match
-  const requestedPath = c.req.path.replace(/^\/api\/files\//, '');
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, "");
 
   if (!requestedPath) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'File path is required',
+        error: "bad_request",
+        message: "File path is required",
       },
       400
     );
@@ -2235,8 +2259,8 @@ api.put('/files/*', async (c) => {
   if (!validatedPath) {
     return c.json(
       {
-        error: 'forbidden',
-        message: 'Access denied: path is outside .ralph directory',
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
       },
       403
     );
@@ -2253,8 +2277,8 @@ api.put('/files/*', async (c) => {
     } catch (err) {
       return c.json(
         {
-          error: 'internal_error',
-          message: 'Failed to create parent directory',
+          error: "internal_error",
+          message: "Failed to create parent directory",
         },
         500
       );
@@ -2262,17 +2286,17 @@ api.put('/files/*', async (c) => {
   }
 
   try {
-    fs.writeFileSync(validatedPath, content, 'utf-8');
+    fs.writeFileSync(validatedPath, content, "utf-8");
     return c.json({
       success: true,
-      message: 'File updated successfully',
+      message: "File updated successfully",
       path: requestedPath,
     });
   } catch (err) {
     return c.json(
       {
-        error: 'internal_error',
-        message: 'Failed to write file',
+        error: "internal_error",
+        message: "Failed to write file",
       },
       500
     );
@@ -2294,37 +2318,37 @@ function executeRalphCommand(
   cwd: string
 ): Promise<{ success: boolean; stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve) => {
-    const childProcess = spawn('ralph', args, {
+    const childProcess = spawn("ralph", args, {
       cwd,
       shell: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
 
     if (childProcess.stdout) {
-      childProcess.stdout.on('data', (data: Buffer) => {
+      childProcess.stdout.on("data", (data: Buffer) => {
         stdout += data.toString();
       });
     }
 
     if (childProcess.stderr) {
-      childProcess.stderr.on('data', (data: Buffer) => {
+      childProcess.stderr.on("data", (data: Buffer) => {
         stderr += data.toString();
       });
     }
 
-    childProcess.on('error', (error: Error) => {
+    childProcess.on("error", (error: Error) => {
       resolve({
         success: false,
-        stdout: '',
+        stdout: "",
         stderr: error.message,
         code: null,
       });
     });
 
-    childProcess.on('exit', (code) => {
+    childProcess.on("exit", (code) => {
       resolve({
         success: code === 0,
         stdout: stdout.trim(),
@@ -2365,13 +2389,13 @@ const PRD_TEMPLATE = `# Product Requirements Document
  *   - 200 with { success: true, id: N, path: string }
  *   - 500 on error
  */
-api.post('/stream/new', (c) => {
+api.post("/stream/new", (c) => {
   const ralphRoot = getRalphRoot();
 
   if (!ralphRoot) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: '.ralph directory not found. Run "ralph install" first.',
       },
       404
@@ -2395,13 +2419,13 @@ api.post('/stream/new', (c) => {
 
     const nextId = maxId + 1;
     const streamPath = path.join(ralphRoot, `PRD-${nextId}`);
-    const prdPath = path.join(streamPath, 'prd.md');
+    const prdPath = path.join(streamPath, "prd.md");
 
     // Create the directory
     fs.mkdirSync(streamPath, { recursive: true });
 
     // Create the prd.md file with template
-    fs.writeFileSync(prdPath, PRD_TEMPLATE, 'utf-8');
+    fs.writeFileSync(prdPath, PRD_TEMPLATE, "utf-8");
 
     return c.json({
       success: true,
@@ -2409,10 +2433,10 @@ api.post('/stream/new', (c) => {
       path: streamPath,
     });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return c.json(
       {
-        error: 'internal_error',
+        error: "internal_error",
         message: `Failed to create stream: ${errorMessage}`,
       },
       500
@@ -2431,15 +2455,15 @@ api.post('/stream/new', (c) => {
  *   - 404 if stream doesn't exist
  *   - 500 on error
  */
-api.post('/stream/:id/init', async (c) => {
-  const id = c.req.param('id');
+api.post("/stream/:id/init", async (c) => {
+  const id = c.req.param("id");
 
   // Validate stream exists
   const stream = getStreamDetails(id);
   if (!stream) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Stream PRD-${id} not found`,
       },
       404
@@ -2450,8 +2474,8 @@ api.post('/stream/:id/init', async (c) => {
   if (!ralphRoot) {
     return c.json(
       {
-        error: 'not_found',
-        message: '.ralph directory not found',
+        error: "not_found",
+        message: ".ralph directory not found",
       },
       404
     );
@@ -2460,7 +2484,7 @@ api.post('/stream/:id/init', async (c) => {
   // Project root is the parent of .ralph
   const projectRoot = path.dirname(ralphRoot);
 
-  const result = await executeRalphCommand(['stream', 'init', id], projectRoot);
+  const result = await executeRalphCommand(["stream", "init", id], projectRoot);
 
   if (result.success) {
     return c.json({
@@ -2471,7 +2495,7 @@ api.post('/stream/:id/init', async (c) => {
   } else {
     return c.json(
       {
-        error: result.code === null ? 'spawn_error' : 'command_failed',
+        error: result.code === null ? "spawn_error" : "command_failed",
         message:
           result.code === null
             ? `Failed to spawn ralph command: ${result.stderr}`
@@ -2494,15 +2518,15 @@ api.post('/stream/:id/init', async (c) => {
  *   - 404 if stream doesn't exist
  *   - 500 on error
  */
-api.post('/stream/:id/merge', async (c) => {
-  const id = c.req.param('id');
+api.post("/stream/:id/merge", async (c) => {
+  const id = c.req.param("id");
 
   // Validate stream exists
   const stream = getStreamDetails(id);
   if (!stream) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Stream PRD-${id} not found`,
       },
       404
@@ -2513,8 +2537,8 @@ api.post('/stream/:id/merge', async (c) => {
   if (!ralphRoot) {
     return c.json(
       {
-        error: 'not_found',
-        message: '.ralph directory not found',
+        error: "not_found",
+        message: ".ralph directory not found",
       },
       404
     );
@@ -2523,7 +2547,7 @@ api.post('/stream/:id/merge', async (c) => {
   // Project root is the parent of .ralph
   const projectRoot = path.dirname(ralphRoot);
 
-  const result = await executeRalphCommand(['stream', 'merge', id], projectRoot);
+  const result = await executeRalphCommand(["stream", "merge", id], projectRoot);
 
   if (result.success) {
     return c.json({
@@ -2534,7 +2558,7 @@ api.post('/stream/:id/merge', async (c) => {
   } else {
     return c.json(
       {
-        error: result.code === null ? 'spawn_error' : 'command_failed',
+        error: result.code === null ? "spawn_error" : "command_failed",
         message:
           result.code === null
             ? `Failed to spawn ralph command: ${result.stderr}`
@@ -2558,15 +2582,15 @@ api.post('/stream/:id/merge', async (c) => {
  *   - 404 if stream doesn't exist
  *   - 409 if already running
  */
-api.post('/stream/:id/build', async (c) => {
-  const id = c.req.param('id');
+api.post("/stream/:id/build", async (c) => {
+  const id = c.req.param("id");
 
   // Validate stream exists
   const stream = getStreamDetails(id);
   if (!stream) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Stream PRD-${id} not found`,
       },
       404
@@ -2580,8 +2604,8 @@ api.post('/stream/:id/build', async (c) => {
   } catch {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'Invalid JSON body',
+        error: "bad_request",
+        message: "Invalid JSON body",
       },
       400
     );
@@ -2589,23 +2613,23 @@ api.post('/stream/:id/build', async (c) => {
 
   // Validate iterations
   const iterations = body.iterations;
-  if (!iterations || typeof iterations !== 'number' || iterations < 1) {
+  if (!iterations || typeof iterations !== "number" || iterations < 1) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'iterations must be a positive number',
+        error: "bad_request",
+        message: "iterations must be a positive number",
       },
       400
     );
   }
 
   // Validate agent if provided
-  const validAgents = ['claude', 'codex', 'droid'];
+  const validAgents = ["claude", "codex", "droid"];
   if (body.agent && !validAgents.includes(body.agent)) {
     return c.json(
       {
-        error: 'bad_request',
-        message: `agent must be one of: ${validAgents.join(', ')}`,
+        error: "bad_request",
+        message: `agent must be one of: ${validAgents.join(", ")}`,
       },
       400
     );
@@ -2614,14 +2638,14 @@ api.post('/stream/:id/build', async (c) => {
   // Build options with stream set
   const options: Partial<BuildOptions> = {
     stream: id,
-    agent: body.agent as BuildOptions['agent'],
+    agent: body.agent as BuildOptions["agent"],
     noCommit: body.noCommit,
   };
 
   // Check budget before starting build
   const budgetStatus = getBudgetStatus();
   if (budgetStatus.shouldPause) {
-    let reason = 'Budget exceeded';
+    let reason = "Budget exceeded";
     if (budgetStatus.daily.exceeded && budgetStatus.daily.limit !== null) {
       reason = `Daily budget exceeded ($${budgetStatus.daily.spent.toFixed(2)}/$${budgetStatus.daily.limit.toFixed(2)})`;
     } else if (budgetStatus.monthly.exceeded && budgetStatus.monthly.limit !== null) {
@@ -2629,7 +2653,7 @@ api.post('/stream/:id/build', async (c) => {
     }
     return c.json(
       {
-        error: 'budget_exceeded',
+        error: "budget_exceeded",
         message: `${reason}. Set RALPH_BUDGET_PAUSE_ON_EXCEEDED=false in config.sh to override.`,
       },
       403
@@ -2640,11 +2664,11 @@ api.post('/stream/:id/build', async (c) => {
   const status = processManager.startBuild(iterations, options);
 
   // Check if build was started successfully or if already running
-  if (status.error && status.state === 'running') {
+  if (status.error && status.state === "running") {
     return c.json(
       {
-        error: 'conflict',
-        message: 'A build is already running',
+        error: "conflict",
+        message: "A build is already running",
         status: {
           state: status.state,
           pid: status.pid,
@@ -2656,11 +2680,11 @@ api.post('/stream/:id/build', async (c) => {
     );
   }
 
-  if (status.state === 'error') {
+  if (status.state === "error") {
     return c.json(
       {
-        error: 'start_failed',
-        message: status.error || 'Failed to start build',
+        error: "start_failed",
+        message: status.error || "Failed to start build",
       },
       500
     );
@@ -2691,15 +2715,15 @@ api.post('/stream/:id/build', async (c) => {
  *   - 404 if file not found
  *   - 500 on error
  */
-api.post('/files/*/open', async (c) => {
+api.post("/files/*/open", async (c) => {
   // Extract the path from the wildcard match
-  const requestedPath = c.req.path.replace(/^\/api\/files\//, '').replace(/\/open$/, '');
+  const requestedPath = c.req.path.replace(/^\/api\/files\//, "").replace(/\/open$/, "");
 
   if (!requestedPath) {
     return c.json(
       {
-        error: 'bad_request',
-        message: 'File path is required',
+        error: "bad_request",
+        message: "File path is required",
       },
       400
     );
@@ -2711,8 +2735,8 @@ api.post('/files/*/open', async (c) => {
   if (!validatedPath) {
     return c.json(
       {
-        error: 'forbidden',
-        message: 'Access denied: path is outside .ralph directory',
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
       },
       403
     );
@@ -2722,7 +2746,7 @@ api.post('/files/*/open', async (c) => {
   if (!fs.existsSync(validatedPath)) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `File not found: ${requestedPath}`,
       },
       404
@@ -2731,14 +2755,14 @@ api.post('/files/*/open', async (c) => {
 
   try {
     // Try to open in VSCode first, fall back to system default
-    const { exec } = await import('node:child_process');
+    const { exec } = await import("node:child_process");
     const platform = process.platform;
 
     let command: string;
-    if (platform === 'darwin') {
+    if (platform === "darwin") {
       // macOS - try VSCode, then fall back to 'open'
       command = `code "${validatedPath}" 2>/dev/null || open -t "${validatedPath}"`;
-    } else if (platform === 'win32') {
+    } else if (platform === "win32") {
       // Windows - try VSCode, then fall back to notepad
       command = `code "${validatedPath}" 2>nul || notepad "${validatedPath}"`;
     } else {
@@ -2748,20 +2772,20 @@ api.post('/files/*/open', async (c) => {
 
     exec(command, (error) => {
       if (error) {
-        console.error('Failed to open file:', error);
+        console.error("Failed to open file:", error);
       }
     });
 
     return c.json({
       success: true,
-      message: 'File opened in external editor',
+      message: "File opened in external editor",
       path: requestedPath,
     });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return c.json(
       {
-        error: 'internal_error',
+        error: "internal_error",
         message: `Failed to open file: ${errorMessage}`,
       },
       500
@@ -2785,7 +2809,7 @@ api.post('/files/*/open', async (c) => {
  *   - byStream: array of per-stream summaries
  *   - byModel: object keyed by model name
  */
-api.get('/tokens/summary', (c) => {
+api.get("/tokens/summary", (c) => {
   const summary = getTokenSummary();
 
   // Calculate efficiency metrics for all runs
@@ -2814,15 +2838,15 @@ api.get('/tokens/summary', (c) => {
  * Returns detailed token metrics for a specific stream.
  * Includes per-story breakdown, per-model breakdown, and all runs.
  */
-api.get('/tokens/stream/:id', (c) => {
-  const id = c.req.param('id');
+api.get("/tokens/stream/:id", (c) => {
+  const id = c.req.param("id");
 
   const streamTokens = getStreamTokens(id);
 
   if (!streamTokens) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Stream PRD-${id} not found`,
       },
       404
@@ -2838,16 +2862,16 @@ api.get('/tokens/stream/:id', (c) => {
  * Returns token metrics for a specific story within a stream.
  * Includes all runs for that story.
  */
-api.get('/tokens/story/:streamId/:storyId', (c) => {
-  const streamId = c.req.param('streamId');
-  const storyId = c.req.param('storyId');
+api.get("/tokens/story/:streamId/:storyId", (c) => {
+  const streamId = c.req.param("streamId");
+  const storyId = c.req.param("storyId");
 
   const storyTokens = getStoryTokens(streamId, storyId);
 
   if (!storyTokens) {
     return c.json(
       {
-        error: 'not_found',
+        error: "not_found",
         message: `Story ${storyId} in stream PRD-${streamId} not found`,
       },
       404
@@ -2868,12 +2892,12 @@ api.get('/tokens/story/:streamId/:storyId', (c) => {
  *   - from: Filter runs from this date (ISO format, optional)
  *   - to: Filter runs until this date (ISO format, optional)
  */
-api.get('/tokens/runs', (c) => {
-  const streamId = c.req.query('streamId');
-  const limit = parseInt(c.req.query('limit') || '50', 10);
-  const offset = parseInt(c.req.query('offset') || '0', 10);
-  const from = c.req.query('from');
-  const to = c.req.query('to');
+api.get("/tokens/runs", (c) => {
+  const streamId = c.req.query("streamId");
+  const limit = parseInt(c.req.query("limit") || "50", 10);
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+  const from = c.req.query("from");
+  const to = c.req.query("to");
 
   // Validate limit and offset
   const validLimit = Math.min(Math.max(1, limit), 500); // Cap at 500
@@ -2909,15 +2933,15 @@ api.get('/tokens/runs', (c) => {
  * Returns data points grouped by day with:
  *   - date, inputTokens, outputTokens, totalCost, runCount
  */
-api.get('/tokens/trends', (c) => {
-  const periodParam = c.req.query('period') || '7d';
-  const streamId = c.req.query('streamId');
+api.get("/tokens/trends", (c) => {
+  const periodParam = c.req.query("period") || "7d";
+  const streamId = c.req.query("streamId");
 
   // Validate period
-  const validPeriods = ['7d', '30d', '90d', 'all'] as const;
-  const period = validPeriods.includes(periodParam as typeof validPeriods[number])
-    ? (periodParam as '7d' | '30d' | '90d' | 'all')
-    : '7d';
+  const validPeriods = ["7d", "30d", "90d", "all"] as const;
+  const period = validPeriods.includes(periodParam as (typeof validPeriods)[number])
+    ? (periodParam as "7d" | "30d" | "90d" | "all")
+    : "7d";
 
   const trends = getTokenTrends(period, streamId);
 
@@ -2929,7 +2953,7 @@ api.get('/tokens/trends', (c) => {
  *
  * Returns efficiency metrics for all models.
  */
-api.get('/tokens/efficiency', (c) => {
+api.get("/tokens/efficiency", (c) => {
   const allRuns = getAllRunsForEfficiency();
   const efficiency = calculateModelEfficiency(allRuns);
   const recommendations = getModelRecommendations(efficiency);
@@ -2950,16 +2974,19 @@ api.get('/tokens/efficiency', (c) => {
  *   - streamA: Optional stream ID for model A (for A/B stream comparison)
  *   - streamB: Optional stream ID for model B (for A/B stream comparison)
  */
-api.get('/tokens/compare', (c) => {
-  const modelA = c.req.query('modelA');
-  const modelB = c.req.query('modelB');
-  const streamA = c.req.query('streamA');
-  const streamB = c.req.query('streamB');
+api.get("/tokens/compare", (c) => {
+  const modelA = c.req.query("modelA");
+  const modelB = c.req.query("modelB");
+  const streamA = c.req.query("streamA");
+  const streamB = c.req.query("streamB");
 
   if (!modelA || !modelB) {
-    return c.json({
-      error: 'Both modelA and modelB query parameters are required',
-    }, 400);
+    return c.json(
+      {
+        error: "Both modelA and modelB query parameters are required",
+      },
+      400
+    );
   }
 
   // Get runs - optionally filtered by stream for A/B comparison
@@ -2970,12 +2997,12 @@ api.get('/tokens/compare', (c) => {
 
   if (streamA && streamB) {
     // A/B comparison between two streams (potentially using different models)
-    runsA = allRuns.filter(r => r.streamId === streamA);
-    runsB = allRuns.filter(r => r.streamId === streamB);
+    runsA = allRuns.filter((r) => r.streamId === streamA);
+    runsB = allRuns.filter((r) => r.streamId === streamB);
   } else {
     // Compare models across all streams
-    runsA = allRuns.filter(r => (r.model || 'unknown').toLowerCase() === modelA.toLowerCase());
-    runsB = allRuns.filter(r => (r.model || 'unknown').toLowerCase() === modelB.toLowerCase());
+    runsA = allRuns.filter((r) => (r.model || "unknown").toLowerCase() === modelA.toLowerCase());
+    runsB = allRuns.filter((r) => (r.model || "unknown").toLowerCase() === modelB.toLowerCase());
   }
 
   // Calculate efficiency for each set
@@ -2983,12 +3010,8 @@ api.get('/tokens/compare', (c) => {
   const efficiencyB = calculateModelEfficiency(runsB);
 
   // Get metrics for the specified models
-  const metricsA = streamA
-    ? Object.values(efficiencyA)[0]
-    : efficiencyA[modelA.toLowerCase()];
-  const metricsB = streamB
-    ? Object.values(efficiencyB)[0]
-    : efficiencyB[modelB.toLowerCase()];
+  const metricsA = streamA ? Object.values(efficiencyA)[0] : efficiencyA[modelA.toLowerCase()];
+  const metricsB = streamB ? Object.values(efficiencyB)[0] : efficiencyB[modelB.toLowerCase()];
 
   const comparison = compareModels(metricsA, metricsB);
 
@@ -3023,11 +3046,11 @@ api.get('/tokens/compare', (c) => {
  * total estimated cost with currency formatting,
  * and cost trend indicator (up/down vs previous period).
  */
-api.get('/partials/token-summary', (c) => {
+api.get("/partials/token-summary", (c) => {
   const summary = getTokenSummary();
 
   // Calculate previous period cost for trend
-  const trends = getTokenTrends('7d');
+  const trends = getTokenTrends("7d");
   let previousCost = 0;
   let currentCost = 0;
   const dataPoints = trends.dataPoints;
@@ -3044,14 +3067,14 @@ api.get('/partials/token-summary', (c) => {
   }
 
   // Determine trend direction
-  let trendDirection: 'up' | 'down' | 'neutral' = 'neutral';
+  let trendDirection: "up" | "down" | "neutral" = "neutral";
   let trendPercentage = 0;
   if (previousCost > 0 && currentCost > 0) {
     trendPercentage = Math.round(((currentCost - previousCost) / previousCost) * 100);
     if (trendPercentage > 5) {
-      trendDirection = 'up';
+      trendDirection = "up";
     } else if (trendPercentage < -5) {
-      trendDirection = 'down';
+      trendDirection = "down";
     }
   }
 
@@ -3064,7 +3087,7 @@ api.get('/partials/token-summary', (c) => {
     } else if (cost > 0) {
       return `$${cost.toFixed(4)}`;
     }
-    return '$0.00';
+    return "$0.00";
   };
 
   // Format token counts
@@ -3089,10 +3112,10 @@ api.get('/partials/token-summary', (c) => {
   }
 
   // Trend indicator HTML
-  let trendHtml = '';
-  if (trendDirection === 'up') {
+  let trendHtml = "";
+  if (trendDirection === "up") {
     trendHtml = `<span class="token-trend up" title="Cost trend vs previous period">&#9650; +${trendPercentage}%</span>`;
-  } else if (trendDirection === 'down') {
+  } else if (trendDirection === "down") {
     trendHtml = `<span class="token-trend down" title="Cost trend vs previous period">&#9660; ${trendPercentage}%</span>`;
   } else {
     trendHtml = `<span class="token-trend neutral" title="Cost trend vs previous period">&#8212; 0%</span>`;
@@ -3146,7 +3169,7 @@ api.get('/partials/token-summary', (c) => {
  * Returns HTML fragment for the token usage by stream table.
  * Includes sortable headers, clickable rows for stream detail, and efficiency score.
  */
-api.get('/partials/token-streams', (c) => {
+api.get("/partials/token-streams", (c) => {
   const summary = getTokenSummary();
   const streams = getStreams();
 
@@ -3161,7 +3184,7 @@ api.get('/partials/token-streams', (c) => {
   }
 
   // Find max cost for progress bar scaling
-  const maxCost = Math.max(...summary.byStream.map(s => s.totalCost), 0.01);
+  const maxCost = Math.max(...summary.byStream.map((s) => s.totalCost), 0.01);
 
   // Format currency
   const formatCurrency = (cost: number): string => {
@@ -3172,7 +3195,7 @@ api.get('/partials/token-streams', (c) => {
     } else if (cost > 0) {
       return `$${cost.toFixed(4)}`;
     }
-    return '$0.00';
+    return "$0.00";
   };
 
   // Format token counts
@@ -3186,9 +3209,9 @@ api.get('/partials/token-streams', (c) => {
   };
 
   // Build enriched stream data with completed stories count
-  const enrichedStreams = summary.byStream.map(stream => {
+  const enrichedStreams = summary.byStream.map((stream) => {
     // Find matching stream to get completedStories
-    const fullStream = streams.find(s => s.id === stream.streamId);
+    const fullStream = streams.find((s) => s.id === stream.streamId);
     const completedStories = fullStream?.completedStories || 0;
 
     // Calculate efficiency score (cost per completed story)
@@ -3202,15 +3225,17 @@ api.get('/partials/token-streams', (c) => {
     };
   });
 
-  const tableRows = enrichedStreams.map(stream => {
-    const costPercentage = maxCost > 0 ? Math.round((stream.totalCost / maxCost) * 100) : 0;
-    const efficiencyDisplay = stream.efficiencyScore !== null
-      ? formatCurrency(stream.efficiencyScore)
-      : '<span class="token-muted">N/A</span>';
-    // For sorting, use a high number for N/A so they sort to the end
-    const efficiencySortValue = stream.efficiencyScore !== null ? stream.efficiencyScore : 999999;
+  const tableRows = enrichedStreams
+    .map((stream) => {
+      const costPercentage = maxCost > 0 ? Math.round((stream.totalCost / maxCost) * 100) : 0;
+      const efficiencyDisplay =
+        stream.efficiencyScore !== null
+          ? formatCurrency(stream.efficiencyScore)
+          : '<span class="token-muted">N/A</span>';
+      // For sorting, use a high number for N/A so they sort to the end
+      const efficiencySortValue = stream.efficiencyScore !== null ? stream.efficiencyScore : 999999;
 
-    return `
+      return `
 <tr class="token-stream-row token-stream-clickable"
     data-stream-id="${escapeHtml(stream.streamId)}"
     data-stream-name="${escapeHtml(stream.streamName)}"
@@ -3242,7 +3267,8 @@ api.get('/partials/token-streams', (c) => {
   <td class="token-efficiency" title="Cost per completed story">${efficiencyDisplay}</td>
 </tr>
 `;
-  }).join('');
+    })
+    .join("");
 
   const html = `
 <div class="token-table-container">
@@ -3288,7 +3314,7 @@ api.get('/partials/token-streams', (c) => {
  * Returns HTML fragment for the token usage by model breakdown with efficiency metrics.
  * Shows model comparison, efficiency scores, and recommendations.
  */
-api.get('/partials/token-models', (c) => {
+api.get("/partials/token-models", (c) => {
   const summary = getTokenSummary();
 
   // Calculate efficiency metrics
@@ -3317,7 +3343,7 @@ api.get('/partials/token-models', (c) => {
     } else if (cost > 0) {
       return `$${cost.toFixed(4)}`;
     }
-    return '$0.00';
+    return "$0.00";
   };
 
   // Format token counts
@@ -3333,38 +3359,42 @@ api.get('/partials/token-models', (c) => {
   // Find max cost and best efficiency for scaling
   const maxCost = Math.max(...modelEntries.map(([, metrics]) => metrics.totalCost), 0.01);
 
-  const modelCards = modelEntries.map(([model, metrics]) => {
-    const costPercentage = maxCost > 0 ? Math.round((metrics.totalCost / maxCost) * 100) : 0;
-    const modelName = model || 'unknown';
-    const displayName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
-    const totalTokens = metrics.inputTokens + metrics.outputTokens;
+  const modelCards = modelEntries
+    .map(([model, metrics]) => {
+      const costPercentage = maxCost > 0 ? Math.round((metrics.totalCost / maxCost) * 100) : 0;
+      const modelName = model || "unknown";
+      const displayName = modelName.charAt(0).toUpperCase() + modelName.slice(1);
+      const totalTokens = metrics.inputTokens + metrics.outputTokens;
 
-    // Get efficiency data for this model
-    const efficiencyData = efficiency[modelName.toLowerCase()];
-    const successRate = efficiencyData?.successRate ?? 0;
-    const costPerStory = efficiencyData?.costPerStory ?? 0;
-    const tokensPerRun = efficiencyData?.tokensPerRun ?? 0;
-    const efficiencyScore = efficiencyData?.efficiencyScore;
+      // Get efficiency data for this model
+      const efficiencyData = efficiency[modelName.toLowerCase()];
+      const successRate = efficiencyData?.successRate ?? 0;
+      const costPerStory = efficiencyData?.costPerStory ?? 0;
+      const tokensPerRun = efficiencyData?.tokensPerRun ?? 0;
+      const efficiencyScore = efficiencyData?.efficiencyScore;
 
-    // Determine if this is the recommended model
-    const isBestOverall = recommendations.bestOverall === modelName.toLowerCase();
-    const isBestCost = recommendations.bestCost === modelName.toLowerCase();
-    const isBestSuccess = recommendations.bestSuccess === modelName.toLowerCase();
+      // Determine if this is the recommended model
+      const isBestOverall = recommendations.bestOverall === modelName.toLowerCase();
+      const isBestCost = recommendations.bestCost === modelName.toLowerCase();
+      const isBestSuccess = recommendations.bestSuccess === modelName.toLowerCase();
 
-    // Build badge HTML
-    let badges = '';
-    if (isBestOverall) {
-      badges += '<span class="model-badge model-badge-best" title="Best overall efficiency">&#9733; Best</span>';
-    }
-    if (isBestCost && !isBestOverall) {
-      badges += '<span class="model-badge model-badge-cost" title="Most cost-effective">$ Cost</span>';
-    }
-    if (isBestSuccess && !isBestOverall) {
-      badges += '<span class="model-badge model-badge-reliable" title="Highest success rate">&#10003; Reliable</span>';
-    }
+      // Build badge HTML
+      let badges = "";
+      if (isBestOverall) {
+        badges +=
+          '<span class="model-badge model-badge-best" title="Best overall efficiency">&#9733; Best</span>';
+      }
+      if (isBestCost && !isBestOverall) {
+        badges +=
+          '<span class="model-badge model-badge-cost" title="Most cost-effective">$ Cost</span>';
+      }
+      if (isBestSuccess && !isBestOverall) {
+        badges +=
+          '<span class="model-badge model-badge-reliable" title="Highest success rate">&#10003; Reliable</span>';
+      }
 
-    return `
-<div class="token-model-card${isBestOverall ? ' token-model-card-recommended' : ''}">
+      return `
+<div class="token-model-card${isBestOverall ? " token-model-card-recommended" : ""}">
   <div class="token-model-header">
     <span class="token-model-name">${escapeHtml(displayName)}</span>
     <span class="token-model-badges">${badges}</span>
@@ -3383,7 +3413,7 @@ api.get('/partials/token-models', (c) => {
   <div class="token-model-efficiency">
     <div class="token-model-metric">
       <span class="metric-label">Success Rate</span>
-      <span class="metric-value ${successRate >= 80 ? 'metric-good' : successRate >= 50 ? 'metric-ok' : 'metric-low'}">${successRate}%</span>
+      <span class="metric-value ${successRate >= 80 ? "metric-good" : successRate >= 50 ? "metric-ok" : "metric-low"}">${successRate}%</span>
     </div>
     <div class="token-model-metric">
       <span class="metric-label">Cost/Story</span>
@@ -3393,12 +3423,16 @@ api.get('/partials/token-models', (c) => {
       <span class="metric-label">Tokens/Run</span>
       <span class="metric-value">${formatTokens(tokensPerRun)}</span>
     </div>
-    ${efficiencyScore != null ? `
+    ${
+      efficiencyScore != null
+        ? `
     <div class="token-model-metric">
       <span class="metric-label" title="Lower is better - combines cost, tokens, and success rate">Efficiency</span>
       <span class="metric-value metric-score">${(efficiencyScore / 1000).toFixed(1)}K</span>
     </div>
-    ` : ''}
+    `
+        : ""
+    }
   </div>
   <div class="token-model-bar">
     <div class="token-model-bar-fill" style="width: ${costPercentage}%"></div>
@@ -3409,24 +3443,32 @@ api.get('/partials/token-models', (c) => {
   </div>
 </div>
 `;
-  }).join('');
+    })
+    .join("");
 
   // Build recommendations section
-  let recommendationsHtml = '';
+  let recommendationsHtml = "";
   if (recommendations.hasData && recommendations.recommendations.length > 0) {
-    const recItems = recommendations.recommendations.map(rec => {
-      const confidenceClass = rec.confidence === 'high' ? 'confidence-high' : rec.confidence === 'medium' ? 'confidence-medium' : 'confidence-low';
-      return `
+    const recItems = recommendations.recommendations
+      .map((rec) => {
+        const confidenceClass =
+          rec.confidence === "high"
+            ? "confidence-high"
+            : rec.confidence === "medium"
+              ? "confidence-medium"
+              : "confidence-low";
+        return `
       <div class="recommendation-item">
         <div class="recommendation-header">
-          <span class="recommendation-task-type">${escapeHtml(rec.taskType.replace(/-/g, ' '))}</span>
+          <span class="recommendation-task-type">${escapeHtml(rec.taskType.replace(/-/g, " "))}</span>
           <span class="recommendation-confidence ${confidenceClass}">${rec.confidence}</span>
         </div>
         <div class="recommendation-model">Use <strong>${escapeHtml(rec.recommendedModel)}</strong></div>
         <div class="recommendation-reason">${escapeHtml(rec.reason)}</div>
       </div>
       `;
-    }).join('');
+      })
+      .join("");
 
     recommendationsHtml = `
     <div class="model-recommendations">
@@ -3439,12 +3481,14 @@ api.get('/partials/token-models', (c) => {
   }
 
   // Build A/B comparison section if multiple models exist
-  let comparisonHtml = '';
+  let comparisonHtml = "";
   if (modelEntries.length >= 2) {
-    const modelOptions = modelEntries.map(([model]) => {
-      const displayName = model.charAt(0).toUpperCase() + model.slice(1);
-      return `<option value="${escapeHtml(model)}">${escapeHtml(displayName)}</option>`;
-    }).join('');
+    const modelOptions = modelEntries
+      .map(([model]) => {
+        const displayName = model.charAt(0).toUpperCase() + model.slice(1);
+        return `<option value="${escapeHtml(model)}">${escapeHtml(displayName)}</option>`;
+      })
+      .join("");
 
     comparisonHtml = `
     <div class="model-comparison-section">
@@ -3485,8 +3529,8 @@ ${comparisonHtml}
  * Shows story ID, title, status, runs, tokens, and cost with accordion expand/collapse.
  * Highlights stories with unusually high token consumption.
  */
-api.get('/partials/token-stories/:streamId', (c) => {
-  const streamId = c.req.param('streamId');
+api.get("/partials/token-stories/:streamId", (c) => {
+  const streamId = c.req.param("streamId");
   const streamTokens = getStreamTokens(streamId);
   const streamDetails = getStreamDetails(streamId);
 
@@ -3509,7 +3553,7 @@ api.get('/partials/token-stories/:streamId', (c) => {
     } else if (cost > 0) {
       return `$${cost.toFixed(4)}`;
     }
-    return '$0.00';
+    return "$0.00";
   };
 
   // Format token counts
@@ -3526,7 +3570,7 @@ api.get('/partials/token-stories/:streamId', (c) => {
   const stories = streamDetails.stories || [];
 
   // Map byStory data to include story title and status
-  const storyTokenData = stories.map(story => {
+  const storyTokenData = stories.map((story) => {
     const tokenData = streamTokens.byStory?.[story.id] || {
       inputTokens: 0,
       outputTokens: 0,
@@ -3538,9 +3582,8 @@ api.get('/partials/token-stories/:streamId', (c) => {
 
     // Calculate tokens per acceptance criterion
     const criteriaCount = story.acceptanceCriteria?.length || 0;
-    const tokensPerCriterion = criteriaCount > 0
-      ? Math.round(tokenData.totalTokens / criteriaCount)
-      : 0;
+    const tokensPerCriterion =
+      criteriaCount > 0 ? Math.round(tokenData.totalTokens / criteriaCount) : 0;
 
     return {
       id: story.id,
@@ -3568,38 +3611,57 @@ api.get('/partials/token-stories/:streamId', (c) => {
   }
 
   // Calculate average tokens to identify high consumption stories
-  const avgTokens = storyTokenData.reduce((sum, s) => sum + s.totalTokens, 0) / storyTokenData.length;
+  const avgTokens =
+    storyTokenData.reduce((sum, s) => sum + s.totalTokens, 0) / storyTokenData.length;
   const highConsumptionThreshold = avgTokens * 1.5; // 50% above average is "high"
 
   // Find max cost for scaling
-  const maxCost = Math.max(...storyTokenData.map(s => s.totalCost), 0.01);
+  const maxCost = Math.max(...storyTokenData.map((s) => s.totalCost), 0.01);
 
   // Get runs for this stream to link to individual run logs
   const runs = streamTokens.runs || [];
 
   // Build story accordion HTML
-  const storyItems = storyTokenData.map(story => {
-    const isHighConsumption = story.totalTokens > highConsumptionThreshold && story.totalTokens > 0;
-    const costPercentage = maxCost > 0 ? Math.round((story.totalCost / maxCost) * 100) : 0;
+  const storyItems = storyTokenData
+    .map((story) => {
+      const isHighConsumption =
+        story.totalTokens > highConsumptionThreshold && story.totalTokens > 0;
+      const costPercentage = maxCost > 0 ? Math.round((story.totalCost / maxCost) * 100) : 0;
 
-    // Status badge class
-    const statusClass = story.status === 'completed' ? 'completed' :
-                        story.status === 'in-progress' ? 'in-progress' : 'pending';
-    const statusLabel = story.status === 'in-progress' ? 'In Progress' :
-                        story.status.charAt(0).toUpperCase() + story.status.slice(1);
+      // Status badge class
+      const statusClass =
+        story.status === "completed"
+          ? "completed"
+          : story.status === "in-progress"
+            ? "in-progress"
+            : "pending";
+      const statusLabel =
+        story.status === "in-progress"
+          ? "In Progress"
+          : story.status.charAt(0).toUpperCase() + story.status.slice(1);
 
-    // Get runs for this story
-    const storyRuns = runs.filter(run => run.storyId === story.id);
+      // Get runs for this story
+      const storyRuns = runs.filter((run) => run.storyId === story.id);
 
-    // Build run list HTML for expanded view
-    const runListHtml = storyRuns.length > 0
-      ? storyRuns.map(run => {
-          const runDate = new Date(run.timestamp);
-          const dateStr = runDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const timeStr = runDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-          const estimatedLabel = run.estimated ? '<span class="token-estimated" title="Estimated tokens">~</span>' : '';
+      // Build run list HTML for expanded view
+      const runListHtml =
+        storyRuns.length > 0
+          ? storyRuns
+              .map((run) => {
+                const runDate = new Date(run.timestamp);
+                const dateStr = runDate.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                });
+                const timeStr = runDate.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const estimatedLabel = run.estimated
+                  ? '<span class="token-estimated" title="Estimated tokens">~</span>'
+                  : "";
 
-          return `
+                return `
 <div class="token-story-run">
   <div class="token-story-run-info">
     <span class="token-story-run-id">${escapeHtml(run.runId.substring(0, 15))}...</span>
@@ -3612,18 +3674,19 @@ api.get('/partials/token-stories/:streamId', (c) => {
   </div>
 </div>
 `;
-        }).join('')
-      : '<div class="token-story-no-runs">No runs recorded for this story.</div>';
+              })
+              .join("")
+          : '<div class="token-story-no-runs">No runs recorded for this story.</div>';
 
-    return `
-<div class="token-story-accordion${isHighConsumption ? ' high-consumption' : ''}" data-story-id="${escapeHtml(story.id)}">
+      return `
+<div class="token-story-accordion${isHighConsumption ? " high-consumption" : ""}" data-story-id="${escapeHtml(story.id)}">
   <div class="token-story-header" onclick="toggleTokenStory(this)">
     <div class="token-story-info">
       <span class="token-story-expand-icon">&#9654;</span>
       <span class="token-story-id">${escapeHtml(story.id)}</span>
       <span class="status-badge ${statusClass}">${statusLabel}</span>
       <span class="token-story-title">${escapeHtml(story.title)}</span>
-      ${isHighConsumption ? '<span class="token-high-badge" title="High token consumption">&#9888; High</span>' : ''}
+      ${isHighConsumption ? '<span class="token-high-badge" title="High token consumption">&#9888; High</span>' : ""}
     </div>
     <div class="token-story-summary">
       <span class="token-story-runs">${story.runs} runs</span>
@@ -3667,7 +3730,8 @@ api.get('/partials/token-stories/:streamId', (c) => {
   </div>
 </div>
 `;
-  }).join('');
+    })
+    .join("");
 
   const html = `
 <div class="token-stories-container">
@@ -3730,7 +3794,7 @@ function collapseAllTokenStories() {
  *
  * Returns budget status including daily/monthly limits and current spending.
  */
-api.get('/tokens/budget', (c) => {
+api.get("/tokens/budget", (c) => {
   const status = getBudgetStatus();
   return c.json(status);
 });
@@ -3749,11 +3813,11 @@ api.get('/tokens/budget', (c) => {
  *   - CSV: Content-Disposition attachment with filename including date range
  *   - JSON: Token data as JSON object
  */
-api.get('/tokens/export', (c) => {
-  const format = c.req.query('format') || 'csv';
-  const from = c.req.query('from');
-  const to = c.req.query('to');
-  const streamId = c.req.query('streamId');
+api.get("/tokens/export", (c) => {
+  const format = c.req.query("format") || "csv";
+  const from = c.req.query("from");
+  const to = c.req.query("to");
+  const streamId = c.req.query("streamId");
 
   // Get all runs with optional date filtering
   const result = getRunTokens({
@@ -3772,12 +3836,12 @@ api.get('/tokens/export', (c) => {
   // Build filename with date range
   const now = new Date();
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   };
 
-  let filename = 'token-report';
+  let filename = "token-report";
   if (from || to) {
-    const fromStr = from ? formatDate(new Date(from)) : 'start';
+    const fromStr = from ? formatDate(new Date(from)) : "start";
     const toStr = to ? formatDate(new Date(to)) : formatDate(now);
     filename += `-${fromStr}-to-${toStr}`;
   } else {
@@ -3787,7 +3851,7 @@ api.get('/tokens/export', (c) => {
     filename += `-stream-${streamId}`;
   }
 
-  if (format === 'json') {
+  if (format === "json") {
     // JSON export
     const exportData = {
       exportedAt: now.toISOString(),
@@ -3809,44 +3873,48 @@ api.get('/tokens/export', (c) => {
       runs: runs,
     };
 
-    c.header('Content-Disposition', `attachment; filename="${filename}.json"`);
-    c.header('Content-Type', 'application/json');
+    c.header("Content-Disposition", `attachment; filename="${filename}.json"`);
+    c.header("Content-Type", "application/json");
     return c.body(JSON.stringify(exportData, null, 2));
   } else {
     // CSV export
     const csvRows: string[] = [];
 
     // Header row
-    csvRows.push('Run ID,Stream ID,Story ID,Model,Input Tokens,Output Tokens,Total Tokens,Cost (USD),Estimated,Timestamp');
+    csvRows.push(
+      "Run ID,Stream ID,Story ID,Model,Input Tokens,Output Tokens,Total Tokens,Cost (USD),Estimated,Timestamp"
+    );
 
     // Data rows
     for (const run of runs) {
       const totalTokens = run.inputTokens + run.outputTokens;
       const row = [
         run.runId,
-        run.streamId || '',
-        run.storyId || '',
-        run.model || 'unknown',
+        run.streamId || "",
+        run.storyId || "",
+        run.model || "unknown",
         run.inputTokens.toString(),
         run.outputTokens.toString(),
         totalTokens.toString(),
         run.cost.toFixed(6),
-        run.estimated ? 'true' : 'false',
+        run.estimated ? "true" : "false",
         run.timestamp,
-      ].map(field => {
-        // Escape fields containing commas or quotes
-        if (typeof field === 'string' && (field.includes(',') || field.includes('"'))) {
-          return `"${field.replace(/"/g, '""')}"`;
-        }
-        return field;
-      }).join(',');
+      ]
+        .map((field) => {
+          // Escape fields containing commas or quotes
+          if (typeof field === "string" && (field.includes(",") || field.includes('"'))) {
+            return `"${field.replace(/"/g, '""')}"`;
+          }
+          return field;
+        })
+        .join(",");
 
       csvRows.push(row);
     }
 
     // Add summary section
-    csvRows.push('');
-    csvRows.push('Summary');
+    csvRows.push("");
+    csvRows.push("Summary");
     csvRows.push(`Total Input Tokens,${summary.totalInputTokens}`);
     csvRows.push(`Total Output Tokens,${summary.totalOutputTokens}`);
     csvRows.push(`Total Cost (USD),${summary.totalCost.toFixed(6)}`);
@@ -3854,9 +3922,9 @@ api.get('/tokens/export', (c) => {
     csvRows.push(`Average Cost per Run,${summary.avgCostPerRun.toFixed(6)}`);
     csvRows.push(`Total Runs,${runs.length}`);
 
-    c.header('Content-Disposition', `attachment; filename="${filename}.csv"`);
-    c.header('Content-Type', 'text/csv');
-    return c.body(csvRows.join('\n'));
+    c.header("Content-Disposition", `attachment; filename="${filename}.csv"`);
+    c.header("Content-Type", "text/csv");
+    return c.body(csvRows.join("\n"));
   }
 });
 
@@ -3866,7 +3934,7 @@ api.get('/tokens/export', (c) => {
  * Returns HTML fragment for budget progress bars.
  * Shows daily and monthly budget consumption with color-coded progress bars.
  */
-api.get('/partials/token-budget', (c) => {
+api.get("/partials/token-budget", (c) => {
   const status = getBudgetStatus();
 
   // If no budgets are configured, show configuration hint
@@ -3893,24 +3961,24 @@ api.get('/partials/token-budget', (c) => {
     } else if (cost > 0) {
       return `$${cost.toFixed(4)}`;
     }
-    return '$0.00';
+    return "$0.00";
   };
 
   // Get color class based on percentage
   const getColorClass = (percentage: number): string => {
-    if (percentage >= 100) return 'budget-exceeded';
-    if (percentage >= 90) return 'budget-critical';
-    if (percentage >= 80) return 'budget-warning';
-    return 'budget-ok';
+    if (percentage >= 100) return "budget-exceeded";
+    if (percentage >= 90) return "budget-critical";
+    if (percentage >= 80) return "budget-warning";
+    return "budget-ok";
   };
 
   // Build daily budget HTML
-  let dailyHtml = '';
+  let dailyHtml = "";
   if (status.daily.hasLimit && status.daily.limit !== null) {
     const dailyColorClass = getColorClass(status.daily.percentage);
     const dailyBarWidth = Math.min(status.daily.percentage, 100);
-    const dailyStatusIcon = status.daily.exceeded ? '&#9888;' : '&#10003;';
-    const dailyStatusText = status.daily.exceeded ? 'Exceeded' : 'OK';
+    const dailyStatusIcon = status.daily.exceeded ? "&#9888;" : "&#10003;";
+    const dailyStatusText = status.daily.exceeded ? "Exceeded" : "OK";
 
     dailyHtml = `
 <div class="budget-item">
@@ -3929,19 +3997,19 @@ api.get('/partials/token-budget', (c) => {
       <span class="budget-status-icon">${dailyStatusIcon}</span>
       ${dailyStatusText}
     </span>
-    ${status.daily.remaining !== null && !status.daily.exceeded ? `<span class="budget-remaining">${formatCurrency(status.daily.remaining)} remaining</span>` : ''}
+    ${status.daily.remaining !== null && !status.daily.exceeded ? `<span class="budget-remaining">${formatCurrency(status.daily.remaining)} remaining</span>` : ""}
   </div>
 </div>
 `;
   }
 
   // Build monthly budget HTML
-  let monthlyHtml = '';
+  let monthlyHtml = "";
   if (status.monthly.hasLimit && status.monthly.limit !== null) {
     const monthlyColorClass = getColorClass(status.monthly.percentage);
     const monthlyBarWidth = Math.min(status.monthly.percentage, 100);
-    const monthlyStatusIcon = status.monthly.exceeded ? '&#9888;' : '&#10003;';
-    const monthlyStatusText = status.monthly.exceeded ? 'Exceeded' : 'OK';
+    const monthlyStatusIcon = status.monthly.exceeded ? "&#9888;" : "&#10003;";
+    const monthlyStatusText = status.monthly.exceeded ? "Exceeded" : "OK";
 
     monthlyHtml = `
 <div class="budget-item">
@@ -3960,14 +4028,14 @@ api.get('/partials/token-budget', (c) => {
       <span class="budget-status-icon">${monthlyStatusIcon}</span>
       ${monthlyStatusText}
     </span>
-    ${status.monthly.remaining !== null && !status.monthly.exceeded ? `<span class="budget-remaining">${formatCurrency(status.monthly.remaining)} remaining</span>` : ''}
+    ${status.monthly.remaining !== null && !status.monthly.exceeded ? `<span class="budget-remaining">${formatCurrency(status.monthly.remaining)} remaining</span>` : ""}
   </div>
 </div>
 `;
   }
 
   // Show warning banner if build pause is enabled and budget exceeded
-  let pauseWarningHtml = '';
+  let pauseWarningHtml = "";
   if (status.pauseOnExceeded && status.shouldPause) {
     pauseWarningHtml = `
 <div class="budget-pause-warning">
@@ -3981,10 +4049,10 @@ api.get('/partials/token-budget', (c) => {
   }
 
   // Show alerts if any thresholds were crossed
-  let alertsHtml = '';
+  let alertsHtml = "";
   const allAlerts = [
-    ...status.daily.alerts.map(a => ({ ...a, period: 'daily' })),
-    ...status.monthly.alerts.map(a => ({ ...a, period: 'monthly' })),
+    ...status.daily.alerts.map((a) => ({ ...a, period: "daily" })),
+    ...status.monthly.alerts.map((a) => ({ ...a, period: "monthly" })),
   ];
 
   // Only show the highest alert for each period
@@ -3994,14 +4062,28 @@ api.get('/partials/token-budget', (c) => {
   if (highestDailyAlert || highestMonthlyAlert) {
     const alertItems = [];
     if (highestDailyAlert) {
-      const alertClass = highestDailyAlert.threshold >= 100 ? 'alert-error' : highestDailyAlert.threshold >= 90 ? 'alert-critical' : 'alert-warning';
-      alertItems.push(`<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestDailyAlert.message)}</div>`);
+      const alertClass =
+        highestDailyAlert.threshold >= 100
+          ? "alert-error"
+          : highestDailyAlert.threshold >= 90
+            ? "alert-critical"
+            : "alert-warning";
+      alertItems.push(
+        `<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestDailyAlert.message)}</div>`
+      );
     }
     if (highestMonthlyAlert) {
-      const alertClass = highestMonthlyAlert.threshold >= 100 ? 'alert-error' : highestMonthlyAlert.threshold >= 90 ? 'alert-critical' : 'alert-warning';
-      alertItems.push(`<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestMonthlyAlert.message)}</div>`);
+      const alertClass =
+        highestMonthlyAlert.threshold >= 100
+          ? "alert-error"
+          : highestMonthlyAlert.threshold >= 90
+            ? "alert-critical"
+            : "alert-warning";
+      alertItems.push(
+        `<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestMonthlyAlert.message)}</div>`
+      );
     }
-    alertsHtml = `<div class="budget-alerts">${alertItems.join('')}</div>`;
+    alertsHtml = `<div class="budget-alerts">${alertItems.join("")}</div>`;
   }
 
   const html = `
