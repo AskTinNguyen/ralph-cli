@@ -61,6 +61,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
   ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
+  ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
   ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
   ${pc.green("help")}                                Show this message
 
@@ -103,6 +104,11 @@ ${pc.bold(pc.cyan("Diagnose options:"))}
   ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
   ${pc.yellow("--json")}                             Output results as JSON
   ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max errors to analyze (default 500)
+
+${pc.bold(pc.cyan("Doctor options:"))}
+  ${pc.yellow("--verbose")} ${pc.dim("(-v)")}                      Show detailed output with file paths
+  ${pc.yellow("--json")}                             Output results as JSON
+  ${pc.yellow("--fix")}                              Attempt automatic repairs
 
 ${pc.bold(pc.cyan("UI options:"))}
   ${pc.yellow("[port]")}                             Port number (default 3000)
@@ -2497,6 +2503,64 @@ ${pc.bold(pc.cyan("Examples:"))}
     success(`Full report saved to ${pc.cyan(reportPath)}`);
 
     process.exit(0);
+  }
+
+  if (cmd === "doctor") {
+    const doctorModule = require("../lib/doctor");
+    const reporter = require("../lib/doctor/reporter");
+
+    // Parse doctor-specific flags
+    let verboseFlag = false;
+    let jsonFlag = false;
+    let fixFlag = false;
+
+    for (let i = 1; i < args.length; i++) {
+      const arg = args[i];
+      if (arg === "--verbose" || arg === "-v") {
+        verboseFlag = true;
+      } else if (arg === "--json") {
+        jsonFlag = true;
+      } else if (arg === "--fix") {
+        fixFlag = true;
+      }
+    }
+
+    // Run all diagnostics
+    const results = doctorModule.runAllChecks(cwd);
+
+    // Handle --fix flag
+    if (fixFlag) {
+      const fixResults = doctorModule.applyFixes(results, cwd);
+
+      if (jsonFlag) {
+        console.log(JSON.stringify({ diagnostics: results, fixes: fixResults }, null, 2));
+      } else {
+        // First show diagnostic results
+        if (verboseFlag) {
+          console.log(reporter.formatTerminalVerbose(results));
+        } else {
+          console.log(reporter.formatTerminal(results));
+        }
+
+        // Then show fix results
+        console.log(reporter.formatFixResults(fixResults));
+      }
+
+      process.exit(0);
+    }
+
+    // Regular output (no --fix)
+    if (jsonFlag) {
+      console.log(reporter.formatJSON(results));
+    } else if (verboseFlag) {
+      console.log(reporter.formatTerminalVerbose(results));
+    } else {
+      console.log(reporter.formatTerminal(results));
+    }
+
+    // Exit with error code if there are errors
+    const hasErrors = results.summary && results.summary.totalErrors > 0;
+    process.exit(hasErrors ? 1 : 0);
   }
 
   if (cmd === "ui") {
