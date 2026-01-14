@@ -209,21 +209,21 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test metrics tracking works correctly
 - [x] Verify ~130 lines removed from loop.sh
 
-### [ ] US-015: Extract agent functions to shared library
+### [x] US-015: Extract agent functions to shared library
 **As a** ralph-cli maintainer
 **I want** agent resolution and execution functions extracted
 **So that** agent handling is modular and consistent
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/agent.sh`
-- [ ] Extract `resolve_agent_cmd()` from loop.sh:123-148
-- [ ] Extract `require_agent()` from loop.sh:304-328
-- [ ] Extract `run_agent()` from loop.sh:330-340
-- [ ] Extract `run_agent_inline()` from loop.sh:342-354
-- [ ] Extract `get_experiment_assignment()` from loop.sh:163-208
-- [ ] Update loop.sh to source the library
-- [ ] Test all agent types work correctly
-- [ ] Verify ~150 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/agent.sh`
+- [x] Extract `resolve_agent_cmd()` from loop.sh:123-148
+- [x] Extract `require_agent()` from loop.sh:304-328
+- [x] Extract `run_agent()` from loop.sh:330-340
+- [x] Extract `run_agent_inline()` from loop.sh:342-354
+- [x] Extract `get_experiment_assignment()` from loop.sh:163-208
+- [x] Update loop.sh to source the library
+- [x] Test all agent types work correctly
+- [x] Verify ~150 lines removed from loop.sh
 
 ### [ ] US-016: Simplify write_run_meta function
 **As a** ralph-cli maintainer
