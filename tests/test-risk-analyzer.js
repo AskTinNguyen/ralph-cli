@@ -12,7 +12,13 @@ const {
   analyzeScopeRisk,
   extractFilePaths,
   formatRiskPrompt,
+  isHighRisk,
 } = require("../lib/risk/analyzer");
+
+const {
+  getRiskThreshold,
+  shouldPauseOnHighRisk,
+} = require("../lib/risk");
 
 console.log("Testing Risk Analyzer Module...\n");
 
@@ -238,6 +244,44 @@ Production deployment secrets config environment
 const extremeResult = analyzeStoryRisk(extremeStory);
 test("Score capped at 10", extremeResult.score <= 10);
 test("Extreme story is critical", extremeResult.riskLevel === "critical");
+console.log();
+
+// Test 15: isHighRisk() - High-Risk Detection (US-002)
+console.log("Test 15: isHighRisk() - High-Risk Detection (US-002)");
+const lowRiskTest = isHighRisk("Update README.md documentation");
+test("Low risk story returns false", lowRiskTest.isHighRisk === false);
+test("Low risk score is below threshold", lowRiskTest.score < lowRiskTest.threshold);
+
+const highRiskTest = isHighRisk(extremeStory);
+test("High risk story returns true", highRiskTest.isHighRisk === true);
+test("High risk score meets threshold", highRiskTest.score >= highRiskTest.threshold);
+test("isHighRisk returns analysis object", highRiskTest.analysis !== undefined);
+test("isHighRisk returns factors", Array.isArray(highRiskTest.factors));
+test("isHighRisk includes reason", typeof highRiskTest.reason === "string");
+
+// Custom threshold
+const customThreshold = isHighRisk("Database migration script", 3);
+test("Custom threshold is respected", customThreshold.threshold === 3);
+console.log();
+
+// Test 16: getRiskThreshold() - Configuration (US-002)
+console.log("Test 16: getRiskThreshold() - Configuration (US-002)");
+test("getRiskThreshold returns number", typeof getRiskThreshold() === "number");
+test("Default threshold is 7", getRiskThreshold() === 7);
+test("shouldPauseOnHighRisk returns boolean", typeof shouldPauseOnHighRisk() === "boolean");
+test("Default pause is true", shouldPauseOnHighRisk() === true);
+console.log();
+
+// Test 17: formatRiskPrompt() - Prompt with approval options (US-002)
+console.log("Test 17: formatRiskPrompt() - Prompt with approval options (US-002)");
+const lowRiskPrompt = formatRiskPrompt(analyzeStoryRisk("Simple docs update"), { showPrompt: true });
+test("Low risk prompt has no approval options", !lowRiskPrompt.includes("Options:"));
+
+const highRiskPrompt = formatRiskPrompt(analyzeStoryRisk(extremeStory), { showPrompt: true });
+test("High risk prompt has approval options", highRiskPrompt.includes("Options:"));
+test("High risk prompt shows yes option", highRiskPrompt.includes("[y] Yes"));
+test("High risk prompt shows no option", highRiskPrompt.includes("[n] No"));
+test("High risk prompt shows skip option", highRiskPrompt.includes("[s] Skip"));
 console.log();
 
 // Summary

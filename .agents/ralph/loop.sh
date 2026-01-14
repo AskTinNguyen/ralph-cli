@@ -2558,6 +2558,102 @@ reset_chain_position() {
   return 1
 }
 
+# Risk check function for high-risk story flagging (US-002)
+# Usage: check_risk <story_block_file>
+# Returns: 0 = proceed, 1 = skip story, 2 = user cancelled
+# Sets: SKIP_ALL_RISK_CHECKS=1 if user chooses to skip all checks
+check_risk() {
+  local story_block_file="$1"
+
+  # Skip if --skip-risk-check flag was passed
+  if [ "${RALPH_SKIP_RISK:-}" = "1" ]; then
+    return 0
+  fi
+
+  # Skip if already skipping all checks in this run
+  if [ "${SKIP_ALL_RISK_CHECKS:-}" = "1" ]; then
+    return 0
+  fi
+
+  # Get the risk threshold (default: 7)
+  local threshold="${RALPH_RISK_THRESHOLD:-7}"
+
+  # Run risk analysis via Node.js
+  local risk_result
+  risk_result=$(node -e "
+    const fs = require('fs');
+    const storyBlock = fs.readFileSync('$story_block_file', 'utf-8');
+    try {
+      const { isHighRisk, formatRiskPrompt } = require('${RALPH_ROOT:-$ROOT_DIR}/lib/risk');
+      const result = isHighRisk(storyBlock, $threshold);
+      console.log(JSON.stringify({
+        isHighRisk: result.isHighRisk,
+        score: result.score,
+        riskLevel: result.riskLevel,
+        prompt: formatRiskPrompt(result.analysis, { showPrompt: true }),
+        factors: result.factors
+      }));
+    } catch (e) {
+      console.log(JSON.stringify({ error: e.message, isHighRisk: false }));
+    }
+  " 2>/dev/null) || risk_result='{"isHighRisk":false}'
+
+  # Parse the JSON result
+  local is_high_risk
+  is_high_risk=$(echo "$risk_result" | python3 -c "import sys, json; d=json.load(sys.stdin); print('true' if d.get('isHighRisk') else 'false')" 2>/dev/null) || is_high_risk="false"
+
+  if [ "$is_high_risk" = "false" ]; then
+    return 0
+  fi
+
+  # Display high-risk warning
+  local score
+  local risk_level
+  local prompt_text
+  score=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('score', 0))" 2>/dev/null) || score="?"
+  risk_level=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('riskLevel', 'unknown'))" 2>/dev/null) || risk_level="unknown"
+  prompt_text=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('prompt', ''))" 2>/dev/null) || prompt_text=""
+
+  echo ""
+  printf "${C_YELLOW}╔══════════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_YELLOW}║${C_RESET}  ${C_BOLD}${C_RED}⚠  HIGH-RISK STORY DETECTED${C_RESET}                              ${C_YELLOW}║${C_RESET}\n"
+  printf "${C_YELLOW}╚══════════════════════════════════════════════════════════╝${C_RESET}\n"
+  echo ""
+  echo "$prompt_text"
+  echo ""
+
+  # Log the high-risk detection
+  log_activity "HIGH_RISK_DETECTED score=$score level=$risk_level story=${STORY_ID:-unknown}"
+
+  # Prompt for user confirmation (only in interactive mode)
+  if [ -t 0 ]; then
+    printf "${C_BOLD}? Proceed with this high-risk story? ${C_RESET}${C_DIM}[y/n/s]${C_RESET} "
+    read -r response
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        log_activity "HIGH_RISK_APPROVED story=${STORY_ID:-unknown}"
+        return 0
+        ;;
+      [sS]|[sS][kK][iI][pP])
+        export SKIP_ALL_RISK_CHECKS=1
+        log_activity "HIGH_RISK_SKIP_ALL story=${STORY_ID:-unknown}"
+        return 0
+        ;;
+      *)
+        log_activity "HIGH_RISK_REJECTED story=${STORY_ID:-unknown}"
+        return 1
+        ;;
+    esac
+  else
+    # Non-interactive mode: pause by default
+    if [ "${RALPH_RISK_PAUSE:-true}" = "true" ]; then
+      msg_warn "High-risk story detected in non-interactive mode. Use --skip-risk-check to bypass."
+      return 1
+    fi
+    return 0
+  fi
+}
+
 # Progress indicator: prints elapsed time every N seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
 PROGRESS_PID=""
@@ -2681,6 +2777,18 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Print current story being worked on
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_CYAN}  Working on: ${C_BOLD}$STORY_ID${C_RESET}${C_CYAN} - $STORY_TITLE${C_RESET}\n"
+
+    # Check for high-risk story (US-002)
+    if ! check_risk "$STORY_BLOCK"; then
+      msg_warn "Skipping high-risk story $STORY_ID (user declined or non-interactive mode)"
+      # Track skipped iteration for summary
+      ITER_END=$(date +%s)
+      ITER_DURATION=$((ITER_END - ITER_START))
+      ITERATION_COUNT=$((ITERATION_COUNT + 1))
+      TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
+      ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|$STORY_ID|$ITER_DURATION|skipped-risk|0"
+      continue
+    fi
 
     # Get model routing decision
     ROUTING_JSON="$(get_routing_decision "$STORY_BLOCK" "${RALPH_MODEL_OVERRIDE:-}")"
