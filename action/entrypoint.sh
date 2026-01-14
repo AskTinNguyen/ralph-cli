@@ -363,8 +363,232 @@ run_issue_build() {
     return $exit_code
 }
 
+# Check if this is a PR-triggered event
+is_pr_trigger() {
+    [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]
+}
+
+# Get PR info from GitHub event
+get_pr_info() {
+    local event_path="${GITHUB_EVENT_PATH:-}"
+    if [ -z "$event_path" ] || [ ! -f "$event_path" ]; then
+        log_error "GITHUB_EVENT_PATH not found or invalid"
+        return 1
+    fi
+
+    if command -v jq &> /dev/null; then
+        local pr_number pr_head_sha
+        pr_number=$(jq -r '.pull_request.number // .number // empty' "$event_path")
+        pr_head_sha=$(jq -r '.pull_request.head.sha // empty' "$event_path")
+        echo "${pr_number}:${pr_head_sha}"
+    else
+        log_error "jq is required for PR validation"
+        return 1
+    fi
+}
+
+# Run tests on PR branch
+run_tests() {
+    local test_command="${1:-npm test}"
+
+    log_info "Running tests: $test_command"
+    echo "::group::Test Output"
+
+    local test_output
+    local exit_code=0
+    test_output=$(eval "$test_command" 2>&1) || exit_code=$?
+
+    echo "$test_output"
+    echo "::endgroup::"
+
+    # Store output for later use (truncate if too long)
+    local truncated_output="${test_output:0:10000}"
+    if [ ${#test_output} -gt 10000 ]; then
+        truncated_output="${truncated_output}... (truncated)"
+    fi
+
+    # Set output for test results
+    {
+        echo "test_output<<EOF"
+        echo "$truncated_output"
+        echo "EOF"
+    } >> "$GITHUB_OUTPUT"
+
+    return $exit_code
+}
+
+# Create or update status check
+report_status_check() {
+    local success="$1"
+    local summary="$2"
+    local test_output="$3"
+
+    local script_dir="${GITHUB_ACTION_PATH:-$(dirname "$0")}"
+    local status_script="$script_dir/status-check.js"
+
+    if [ ! -f "$status_script" ]; then
+        log_warning "status-check.js not found, skipping status check"
+        return 0
+    fi
+
+    # Check if GITHUB_TOKEN is available
+    if [ -z "$GITHUB_TOKEN" ]; then
+        log_warning "GITHUB_TOKEN not set, skipping status check"
+        return 0
+    fi
+
+    log_info "Reporting status check..."
+
+    # Set environment variables for the status check script
+    CHECK_SUCCESS="$success" \
+    CHECK_SUMMARY="$summary" \
+    CHECK_OUTPUT="$test_output" \
+    node "$status_script" 2>&1 || {
+        log_warning "Failed to report status check"
+        return 0  # Don't fail the build if status check fails
+    }
+
+    log_success "Status check reported"
+}
+
+# Add review comments for test failures
+add_review_comments() {
+    local test_output="$1"
+
+    local script_dir="${GITHUB_ACTION_PATH:-$(dirname "$0")}"
+    local status_script="$script_dir/status-check.js"
+
+    if [ ! -f "$status_script" ]; then
+        log_warning "status-check.js not found, skipping review comments"
+        return 0
+    fi
+
+    # Check if GITHUB_TOKEN is available
+    if [ -z "$GITHUB_TOKEN" ]; then
+        log_warning "GITHUB_TOKEN not set, skipping review comments"
+        return 0
+    fi
+
+    log_info "Adding review comments for issues..."
+
+    # The status-check.js script handles adding review comments
+    REVIEW_COMMENTS="true" \
+    CHECK_OUTPUT="$test_output" \
+    node "$status_script" add-comments 2>&1 || {
+        log_warning "Failed to add review comments"
+        return 0  # Don't fail the build if commenting fails
+    }
+}
+
+# Run PR validation
+run_pr_validation() {
+    local test_command="${1:-npm test}"
+    local block_on_failure="${2:-false}"
+
+    log_info "=== PR Validation ==="
+
+    # Get PR info
+    local pr_info
+    pr_info=$(get_pr_info)
+    if [ -z "$pr_info" ]; then
+        log_error "Failed to get PR info"
+        echo "success=false" >> "$GITHUB_OUTPUT"
+        echo "exit_code=1" >> "$GITHUB_OUTPUT"
+        return 1
+    fi
+
+    local pr_number="${pr_info%%:*}"
+    local pr_head_sha="${pr_info##*:}"
+
+    log_info "PR Number: $pr_number"
+    log_info "Head SHA: $pr_head_sha"
+    log_info "Test Command: $test_command"
+    log_info "Block on Failure: $block_on_failure"
+
+    # Record start time
+    local start_time
+    start_time=$(get_timestamp)
+
+    # Create initial "in progress" status check
+    report_status_check "pending" "Running tests..." ""
+
+    # Run tests
+    local test_output=""
+    local test_exit_code=0
+    test_output=$(run_tests "$test_command" 2>&1) || test_exit_code=$?
+
+    # Record end time and calculate duration
+    local end_time
+    end_time=$(get_timestamp)
+    local duration=$((end_time - start_time))
+
+    # Determine success
+    local success="false"
+    local summary=""
+    if [ $test_exit_code -eq 0 ]; then
+        success="true"
+        summary="All tests passed"
+        log_success "PR validation passed"
+    else
+        summary="Tests failed with exit code $test_exit_code"
+        log_error "PR validation failed: $summary"
+
+        # Add review comments for test failures
+        add_review_comments "$test_output"
+    fi
+
+    # Report final status check
+    report_status_check "$success" "$summary" "$test_output"
+
+    # Set GitHub Action outputs
+    echo "success=$success" >> "$GITHUB_OUTPUT"
+    echo "duration=$duration" >> "$GITHUB_OUTPUT"
+    echo "exit_code=$test_exit_code" >> "$GITHUB_OUTPUT"
+
+    # Log summary
+    log_info "=== PR Validation Summary ==="
+    log_info "Success: $success"
+    log_info "Duration: ${duration}s"
+    log_info "Exit code: $test_exit_code"
+
+    # Create job summary if available
+    if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+        {
+            echo "## PR Validation Summary"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| PR Number | #$pr_number |"
+            echo "| Success | $success |"
+            echo "| Duration | ${duration}s |"
+            echo "| Exit Code | $test_exit_code |"
+            echo "| Test Command | \`$test_command\` |"
+            echo ""
+            if [ "$success" = "false" ]; then
+                echo "<details>"
+                echo "<summary>Test Output</summary>"
+                echo ""
+                echo '```'
+                echo "${test_output:0:5000}"
+                echo '```'
+                echo ""
+                echo "</details>"
+            fi
+        } >> "$GITHUB_STEP_SUMMARY"
+    fi
+
+    # Exit with appropriate code if blocking is enabled
+    if [ "$block_on_failure" = "true" ] && [ "$success" = "false" ]; then
+        log_error "Blocking merge due to validation failure"
+        return 1
+    fi
+
+    return $test_exit_code
+}
+
 # Export functions for use in action.yml
 export -f log_info log_success log_warning log_error
 export -f validate_api_key get_timestamp count_completed_stories get_latest_prd
 export -f is_issue_trigger has_ralph_label convert_issue_to_prd run_issue_build
+export -f is_pr_trigger get_pr_info run_tests report_status_check add_review_comments run_pr_validation
 export -f run_ralph
