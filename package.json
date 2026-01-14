@@ -23,7 +23,10 @@
     "test:metrics": "node tests/integration-metrics.mjs",
     "test:doctor": "node tests/integration-doctor.mjs",
     "test:watch": "node tests/integration-watch.mjs",
-    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch",
+    "test:ui-api": "node tests/integration-ui-api.mjs",
+    "test:e2e": "node tests/e2e-workflow.mjs",
+    "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e",
+    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write ."
   },
