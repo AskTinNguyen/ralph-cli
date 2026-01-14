@@ -1812,6 +1812,58 @@ print_error_summary() {
   printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
 }
 
+# Print auto-fix summary if any fixes were applied (US-003)
+# Reads AUTO_FIX entries from activity.log via fix-summary-cli.js
+print_fix_summary() {
+  local prd_folder="$1"
+
+  if [ -z "$prd_folder" ] || [ ! -d "$prd_folder" ]; then
+    return
+  fi
+
+  local activity_log="$prd_folder/activity.log"
+  if [ ! -f "$activity_log" ]; then
+    return
+  fi
+
+  # Check if there are any AUTO_FIX entries in the log
+  if ! grep -q "AUTO_FIX" "$activity_log" 2>/dev/null; then
+    return
+  fi
+
+  # Use fix-summary-cli.js to print the summary
+  local cli_path="$ROOT_DIR/lib/diagnose/fix-summary-cli.js"
+  if [ -f "$cli_path" ]; then
+    node "$cli_path" print "$activity_log"
+  fi
+}
+
+# Get auto-fix summary string for commit message (US-003)
+# Returns a line like "Auto-fixed: LINT_ERROR, FORMAT_ERROR"
+get_fix_commit_line() {
+  local prd_folder="$1"
+
+  if [ -z "$prd_folder" ] || [ ! -d "$prd_folder" ]; then
+    return
+  fi
+
+  local activity_log="$prd_folder/activity.log"
+  if [ ! -f "$activity_log" ]; then
+    return
+  fi
+
+  # Check if there are any AUTO_FIX entries in the log
+  if ! grep -q "AUTO_FIX" "$activity_log" 2>/dev/null; then
+    return
+  fi
+
+  # Use fix-summary-cli.js to get the commit line
+  local cli_path="$ROOT_DIR/lib/diagnose/fix-summary-cli.js"
+  if [ -f "$cli_path" ]; then
+    node "$cli_path" commit "$activity_log"
+  fi
+}
+
 # Format duration in human-readable form (e.g., "1m 23s" or "45s")
 format_duration() {
   local secs="$1"
@@ -3243,9 +3295,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
+        # Print auto-fix summary if any fixes were applied (US-003)
+        PRD_FOLDER="$(dirname "$PRD_PATH")"
+        print_fix_summary "$PRD_FOLDER"
         rebuild_token_cache
         # Clear checkpoint and switch state on successful completion
-        PRD_FOLDER="$(dirname "$PRD_PATH")"
         clear_checkpoint "$PRD_FOLDER"
         clear_switch_state "$PRD_FOLDER"
         msg_success "All stories complete."
@@ -3261,9 +3315,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     if [ "$REMAINING" = "0" ]; then
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
+      # Print auto-fix summary if any fixes were applied (US-003)
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
+      print_fix_summary "$PRD_FOLDER"
       rebuild_token_cache
       # Clear checkpoint and switch state on successful completion
-      PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
       clear_switch_state "$PRD_FOLDER"
       msg_success "No remaining stories."
@@ -3300,6 +3356,12 @@ fi
 
 # Print iteration summary table
 print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "$FINAL_REMAINING"
+
+# Print auto-fix summary if any fixes were applied (US-003)
+if [ -n "${PRD_PATH:-}" ]; then
+  PRD_FOLDER="$(dirname "$PRD_PATH")"
+  print_fix_summary "$PRD_FOLDER"
+fi
 
 # Rebuild token cache for dashboard
 rebuild_token_cache

@@ -48,153 +48,112 @@ function exists(p) {
 function usage() {
   console.log(`${pc.bold("ralph")} ${pc.dim("<command>")}
 
-${pc.bold(pc.cyan("Commands:"))}
-  ${pc.green("install")} ${pc.dim("[--skills] [--import-from]")}   Copy .agents/ralph into the current repo
+${pc.bold(pc.white("Autonomous coding loop for Claude Code. PRD-based workflow."))}
+
+${pc.bold("━━━ Getting Started ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
+  ${pc.green("install")} ${pc.dim("[--skills] [--import-from]")}   Copy .agents/ralph into current repo
   ${pc.green("init")}                                 Interactive setup wizard for new projects
-  ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}      Generate a PRD via agent
-  ${pc.green("ping")}                                Minimal agent health check
-  ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model] [--auto-fix]")} Run build loop (default)
-  ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
-  ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
-  ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
-  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json] [--pricing] [--accuracy]")}  Estimate time and cost for a PRD build
+  ${pc.green("ping")}                                 Verify agent connection is working
+  ${pc.green("help")}                                 Show this message
+
+${pc.bold("━━━ Core Workflow (PRD → Plan → Build) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
+  ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}       Generate a PRD via agent
+  ${pc.green("plan")} ${pc.dim("[n]")}                             Create implementation plan from PRD
+  ${pc.green("build")} ${pc.dim("[n] [--resume] [--auto-fix]")}    Execute n build iterations
+  ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}                Evaluate run quality and generate reports
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
-  ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
-  ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
-  ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
-  ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
-  ${pc.green("routing")} ${pc.dim("<subcmd>")}                     Model routing analysis and suggestions
-  ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
-  ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
-  ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
-  ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
-  ${pc.green("checkpoint")} ${pc.dim("<subcmd>")}                  Manage build checkpoints
-  ${pc.green("watch")} ${pc.dim("[--prd=N] [--build]")}              Watch files for changes (--build: auto-run on plan change)
-  ${pc.green("completions")} ${pc.dim("[bash|zsh|fish] [--install]")}  Generate shell completions
-  ${pc.green("experiment")} ${pc.dim("<subcmd>")}                  A/B testing framework for agents
-  ${pc.green("help")}                                Show this message
 
-${pc.bold(pc.cyan("Checkpoint commands:"))}
-  ${pc.green("checkpoint list")} ${pc.dim("[--prd=N]")}            List checkpoints (all PRDs or specific)
-  ${pc.green("checkpoint clear")} ${pc.dim("[--prd=N]")}           Clear checkpoint for current/specific PRD
-  ${pc.green("checkpoint clear")} ${pc.dim("--all")}               Clear all checkpoints across all PRDs
+  ${pc.dim("Typical flow: ralph prd → ralph plan → ralph build 5")}
 
-${pc.bold(pc.cyan("Registry commands:"))}
+${pc.bold("━━━ Stream Management (Parallel Execution) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
+  ${pc.green("stream list")}                          List all PRD streams
+  ${pc.green("stream status")}                        Show detailed status of all streams
+  ${pc.green("stream new")}                           Create new stream (PRD-1, PRD-2, ...)
+  ${pc.green("stream init")} ${pc.dim("<N>")}                      Initialize worktree for parallel work
+  ${pc.green("stream build")} ${pc.dim("<N> [n]")}                 Run n iterations in stream N
+  ${pc.green("stream merge")} ${pc.dim("<N>")}                     Merge completed stream to main
+  ${pc.green("stream cleanup")} ${pc.dim("<N>")}                   Remove stream worktree
+
+  ${pc.dim("Parallel: ralph stream build 1 & ralph stream build 2 &")}
+
+${pc.bold("━━━ Analytics & Estimation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
+  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json]")}          Estimate time and cost for PRD
+  ${pc.green("stats")} ${pc.dim("[--global] [--json] [--tokens]")} Performance metrics dashboard
+  ${pc.green("stats switches")} ${pc.dim("[--json]")}              Agent switch analytics
+  ${pc.green("routing analyze")} ${pc.dim("[--prd N]")}            Analyze routing outcomes
+  ${pc.green("routing suggest")} ${pc.dim("[--prd N]")}            Suggest threshold adjustments
+  ${pc.green("routing learn")} ${pc.dim("[--prd N]")}              Generate guardrails from patterns
+
+${pc.bold("━━━ Diagnostics & Experimentation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
+  ${pc.green("doctor")} ${pc.dim("[--verbose] [--fix]")}           Environment and setup diagnostics
+  ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and fixes
+
+  ${pc.green("experiment create")} ${pc.dim("<name>")}             Create a new A/B experiment
+  ${pc.green("experiment list")}                      List all experiments
+  ${pc.green("experiment status")} ${pc.dim("<name>")}             Show experiment status
+  ${pc.green("experiment start")} ${pc.dim("<name>")}              Start an experiment
+  ${pc.green("experiment pause")} ${pc.dim("<name>")}              Pause an experiment
+  ${pc.green("experiment conclude")} ${pc.dim("<name>")}           Conclude an experiment
+  ${pc.green("experiment analyze")} ${pc.dim("<name>")}            Analyze results with statistics
+
+${pc.bold("━━━ Project & Knowledge Management ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
+
   ${pc.green("registry add")} ${pc.dim("[--tags t1,t2]")}          Register current project
   ${pc.green("registry list")} ${pc.dim("[--tags t1,t2]")}         List registered projects
-  ${pc.green("registry remove")}                      Remove current project from registry
-  ${pc.green("registry update")}                      Update project metadata and stats
+  ${pc.green("registry remove")}                      Remove project from registry
+  ${pc.green("registry update")}                      Update project metadata
 
-${pc.bold(pc.cyan("Import commands:"))}
-  ${pc.green("import guardrails")} ${pc.dim("[--from project]")}   Import guardrails from another project
-  ${pc.green("import guardrails")} ${pc.dim("--all")}              Import all guardrails from selected project
+  ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
+  ${pc.green("import guardrails")} ${pc.dim("[--from proj]")}      Import guardrails from another project
+  ${pc.green("optimize prompts")} ${pc.dim("[--apply]")}           Analyze and improve prompt templates
 
-${pc.bold(pc.cyan("Optimize commands:"))}
-  ${pc.green("optimize prompts")}                    Analyze prompt effectiveness and generate suggestions
-  ${pc.green("optimize prompts")} ${pc.dim("--apply")}           Apply selected suggestions to templates
-  ${pc.green("optimize prompts")} ${pc.dim("--versions")}        Show prompt version effectiveness comparison
+${pc.bold("━━━ Utilities ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
 
-${pc.bold(pc.cyan("Stats commands:"))}
-  ${pc.green("stats")}                               Show performance metrics dashboard
-  ${pc.green("stats switches")} ${pc.dim("[--json]")}             Show agent switch analytics and recommendations
+  ${pc.green("checkpoint list")} ${pc.dim("[--prd=N]")}            List build checkpoints
+  ${pc.green("checkpoint clear")} ${pc.dim("[--prd=N|--all]")}     Clear checkpoints
+  ${pc.green("watch")} ${pc.dim("[--prd=N] [--build]")}            Watch files for changes
+  ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
+  ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to activity log
+  ${pc.green("completions")} ${pc.dim("[bash|zsh|fish]")}          Generate shell completions
 
-${pc.bold(pc.cyan("Stats options:"))}
-  ${pc.yellow("--global")} ${pc.dim("(-g)")}                       Show metrics across all registered projects
-  ${pc.yellow("--json")}                             Output metrics as JSON for tooling
-  ${pc.yellow("--no-cache")}                         Regenerate metrics (ignore cache)
-  ${pc.yellow("--tokens")}                           Show token usage and cost metrics
+${pc.bold("━━━ Global Options ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
 
-${pc.bold(pc.cyan("Routing commands:"))}
-  ${pc.green("routing analyze")} ${pc.dim("[--prd N]")}             Analyze routing outcomes and success rates
-  ${pc.green("routing suggest")} ${pc.dim("[--prd N]")}             Suggest routing threshold adjustments
-  ${pc.green("routing learn")} ${pc.dim("[--prd N]")}               Generate guardrails from routing patterns
+  ${pc.yellow("--prd")} ${pc.dim("<N|path>")}            Use PRD-N folder or custom path
+  ${pc.yellow("--agent")} ${pc.dim("<claude|codex|droid>")}  Override agent runner
+  ${pc.yellow("--model")} ${pc.dim("<opus|sonnet|haiku>")}   Model for cost calculation
+  ${pc.yellow("--json")}                   Output as JSON (where supported)
 
-${pc.bold(pc.cyan("Search options:"))}
-  ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
-  ${pc.yellow("--type")} ${pc.dim("<type>")}                       Filter by type (guardrail|progress|evaluation|run)
-  ${pc.yellow("--tags")} ${pc.dim("t1,t2")}                        Filter by project tags
-  ${pc.yellow("--since")} ${pc.dim("<date|Nd|Nw|Nm>")}             Filter by date (e.g., 7d, 2w, 1m)
-  ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max results (default 20)
-  ${pc.yellow("--rebuild")}                           Rebuild search index before searching
+${pc.bold("━━━ Build Options ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
 
-${pc.bold(pc.cyan("Estimate options:"))}
-  ${pc.yellow("--prd")} ${pc.dim("<N>")}                           Estimate specific PRD (default: active PRD)
-  ${pc.yellow("--json")}                             Output as JSON for machine parsing
-  ${pc.yellow("--pricing")} ${pc.dim("input:X,output:Y")}          Custom token pricing ($/1M tokens)
-  ${pc.yellow("--model")} ${pc.dim("<opus|sonnet|haiku>")}         Model for cost calculation (default: sonnet)
+  ${pc.yellow("--no-commit")}              Skip automatic git commits
+  ${pc.yellow("--no-retry")}               Disable automatic retries on failure
+  ${pc.yellow("--resume")}                 Resume from last checkpoint
+  ${pc.yellow("--auto-fix")} ${pc.dim("<none|safe|all>")}  Control automatic error remediation
+    ${pc.dim("none: Disable (default) | safe: Lint/format only | all: Include risky fixes")}
 
-${pc.bold(pc.cyan("Auto-fix options:"))}
-  ${pc.yellow("--auto-fix")} ${pc.dim("<none|safe|all>")}            Control automatic error remediation
-  ${pc.dim("  none:  Disable auto-fix (default)")}
-  ${pc.dim("  safe:  Auto-fix safe errors (lint, format, npm install)")}
-  ${pc.dim("  all:   Fix all errors including risky ones (skip prompts)")}
-  ${pc.dim("Fix categories: safe (auto), needs-approval (prompt), manual-only (skip)")}
+${pc.bold("━━━ Examples ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
 
-${pc.bold(pc.cyan("Retry options:"))}
-  ${pc.yellow("--no-retry")}                         Disable automatic retries on agent failure
-  ${pc.dim("Environment variables (set in config.sh or shell):")}
-  ${pc.dim("  RETRY_MAX_ATTEMPTS=3                Max retry attempts (default: 3)")}
-  ${pc.dim("  RETRY_BASE_DELAY_MS=1000            Base delay for backoff (default: 1000ms)")}
-  ${pc.dim("  RETRY_MAX_DELAY_MS=16000            Max delay cap (default: 16000ms)")}
+  ${pc.dim("# Standard workflow")}
+  ralph prd "Add user authentication"
+  ralph plan
+  ralph build 5
 
-${pc.bold(pc.cyan("Diagnose options:"))}
-  ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
-  ${pc.yellow("--json")}                             Output results as JSON
-  ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max errors to analyze (default 500)
+  ${pc.dim("# Parallel streams")}
+  ralph stream init 1 && ralph stream init 2
+  ralph stream build 1 & ralph stream build 2 &
+  ralph stream status
+  ralph stream merge 1
 
-${pc.bold(pc.cyan("Doctor options:"))}
-  ${pc.yellow("--verbose")} ${pc.dim("(-v)")}                      Show detailed output with file paths
-  ${pc.yellow("--json")}                             Output results as JSON
-  ${pc.yellow("--fix")}                              Attempt automatic repairs
+  ${pc.dim("# Estimation and analytics")}
+  ralph estimate --prd=1 --json
+  ralph stats --global --tokens
 
-${pc.bold(pc.cyan("UI options:"))}
-  ${pc.yellow("[port]")}                             Port number (default 3000)
-  ${pc.yellow("--open")}                             Open browser automatically after starting
-
-${pc.bold(pc.cyan("Watch options:"))}
-  ${pc.yellow("--prd")} ${pc.dim("<N>")}                           Watch specific PRD (default: most recent)
-  ${pc.yellow("--build")}                            Auto-run build iteration on plan change
-
-${pc.bold(pc.cyan("Completions options:"))}
-  ${pc.yellow("[shell]")}                            Shell type: bash, zsh, or fish (auto-detected if omitted)
-  ${pc.yellow("--install")}                          Auto-install completions to shell config
-
-${pc.bold(pc.cyan("Stream commands:"))}
-  ${pc.green("stream new")}                          Create new stream (prd-1, prd-2, ...)
-  ${pc.green("stream list")}                         List all streams
-  ${pc.green("stream status")}                       Show detailed status
-  ${pc.green("stream init")} ${pc.dim("<N>")}                     Initialize worktree for parallel execution
-  ${pc.green("stream build")} ${pc.dim("<N> [n]")}                Run n build iterations in stream
-  ${pc.green("stream merge")} ${pc.dim("<N>")}                    Merge completed stream to main
-  ${pc.green("stream cleanup")} ${pc.dim("<N>")}                  Remove stream worktree
-
-${pc.bold(pc.cyan("Experiment commands:"))}
-  ${pc.green("experiment create")} ${pc.dim("<name>")}            Create a new A/B experiment
-  ${pc.green("experiment list")}                     List all experiments
-  ${pc.green("experiment status")} ${pc.dim("<name>")}            Show experiment status and stats
-  ${pc.green("experiment start")} ${pc.dim("<name>")}             Start an experiment
-  ${pc.green("experiment pause")} ${pc.dim("<name>")}             Pause an experiment
-  ${pc.green("experiment conclude")} ${pc.dim("<name>")}          Conclude an experiment
-  ${pc.green("experiment analyze")} ${pc.dim("<name>")}           Analyze results with statistics
-
-${pc.bold(pc.cyan("Analyze options:"))}
-  ${pc.yellow("--json")}                             Export results as JSON
-  ${pc.yellow("--csv")}                              Export results as CSV
-  ${pc.yellow("--confidence")} ${pc.dim("<N>")}                   Min confidence % for winner (default: 95)
-
-${pc.bold(pc.cyan("Options:"))}
-  ${pc.yellow("--prd")} ${pc.dim("<N|path>")}                      Use PRD-N folder (e.g., --prd=1) or custom path
-  ${pc.yellow("--out")} ${pc.dim("<path>")}                        Override PRD output path (prd command)
-  ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
-  ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
-  ${pc.yellow("--agent")} ${pc.dim("<codex|claude|droid>")}        Override agent runner
-  ${pc.yellow("--resume")}                             Resume build from last checkpoint
-  ${pc.yellow("--import-from")} ${pc.dim("<project>")}             Import guardrails during install
-
-${pc.bold(pc.cyan("Notes:"))}
-${pc.dim("- Uses local .agents/ralph if present; otherwise uses bundled defaults.")}
-${pc.dim("- State and logs are written to .ralph/ in the project.")}
+${pc.dim("Run")} ${pc.green("ralph <command> --help")} ${pc.dim("for command-specific options.")}
 `);
 }
 

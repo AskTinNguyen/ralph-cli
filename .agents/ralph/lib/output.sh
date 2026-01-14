@@ -62,6 +62,7 @@ msg_dim() {
 
 SYM_SUCCESS="✓"
 SYM_COMPLETED="●"
+SYM_MERGED="✓"
 SYM_READY="○"
 SYM_RUNNING="▶"
 SYM_UNKNOWN="?"

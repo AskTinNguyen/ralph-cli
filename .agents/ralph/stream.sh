@@ -77,6 +77,28 @@ worktree_exists() {
   [[ -d "$WORKTREES_DIR/$stream_id" ]]
 }
 
+is_stream_merged() {
+  # Check if stream has been merged to main
+  # Returns: 0 if merged, 1 if not merged
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Check for .merged marker file
+  [[ -f "$stream_dir/.merged" ]]
+}
+
+mark_stream_merged() {
+  # Mark a stream as merged by creating .merged marker file
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Create .merged marker with timestamp
+  echo "merged_at=$(date -Iseconds)" > "$stream_dir/.merged"
+  echo "merged_by=${USER:-unknown}" >> "$stream_dir/.merged"
+}
+
 is_stream_running() {
   local stream_id="$1"
   local lock_file="$LOCKS_DIR/$stream_id.lock"
@@ -451,7 +473,12 @@ get_stream_status() {
   if [[ "$total" -eq 0 ]]; then
     echo "no_stories"
   elif [[ "$remaining" -eq 0 ]]; then
-    echo "completed"
+    # All stories completed - check if merged
+    if is_stream_merged "$stream_id"; then
+      echo "merged"
+    else
+      echo "completed"
+    fi
   else
     echo "ready"
   fi
@@ -582,15 +609,27 @@ cmd_list() {
       progress=$(count_stories "$dir/prd.md")
 
       # Use standardized symbols and colors
-      local symbol status_color
+      local symbol status_color display_status
+      display_status="$status"
       case "$status" in
         running)
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           ;;
-        completed)
-          symbol="$SYM_COMPLETED"
+        merged)
+          symbol="$SYM_MERGED"
           status_color="${C_GREEN}"
+          ;;
+        completed)
+          # Completed but not merged - check if has worktree (needs merge)
+          if worktree_exists "$stream_id"; then
+            symbol="$SYM_COMPLETED"
+            status_color="${C_YELLOW}"
+            display_status="needs merge"
+          else
+            symbol="$SYM_COMPLETED"
+            status_color="${C_GREEN}"
+          fi
           ;;
         ready)
           symbol="$SYM_READY"
@@ -602,7 +641,7 @@ cmd_list() {
           ;;
       esac
 
-      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
+      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-11s${C_RESET} %s stories\n" "$symbol" "$num" "$display_status" "$progress"
     fi
   done
 
@@ -646,9 +685,10 @@ cmd_status() {
       last_modified=$(get_human_time_diff "$dir/progress.md")
 
       # Use standardized symbols and color based on status
-      local symbol status_color row_prefix row_suffix
+      local symbol status_color row_prefix row_suffix display_status
       row_prefix=""
       row_suffix=""
+      display_status="$status"
       case "$status" in
         running)
           symbol="$SYM_RUNNING"
@@ -656,9 +696,20 @@ cmd_status() {
           row_prefix="${C_BOLD}"
           row_suffix="${C_RESET}"
           ;;
-        completed)
-          symbol="$SYM_COMPLETED"
+        merged)
+          symbol="$SYM_MERGED"
           status_color="${C_GREEN}"
+          ;;
+        completed)
+          # Completed but not merged - check if has worktree (needs merge)
+          if [[ "$has_worktree" == "yes" ]]; then
+            symbol="$SYM_COMPLETED"
+            status_color="${C_YELLOW}"
+            display_status="needs mrg"
+          else
+            symbol="$SYM_COMPLETED"
+            status_color="${C_GREEN}"
+          fi
           ;;
         ready)
           symbol="$SYM_READY"
@@ -672,7 +723,7 @@ cmd_status() {
 
       # Print row with color-coded status
       printf "${row_prefix}│ %s %-6s │ ${status_color}%-10s${C_RESET}${row_prefix} │ %-8s │ %-8s │ %-8s │${row_suffix}\n" \
-        "$symbol" "$stream_id" "$status" "$progress" "$last_modified" "$has_worktree"
+        "$symbol" "$stream_id" "$display_status" "$progress" "$last_modified" "$has_worktree"
     fi
   done
 
@@ -682,7 +733,7 @@ cmd_status() {
 
   echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
   echo ""
-  msg_dim "Legend: $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready  $SYM_UNKNOWN unknown"
+  msg_dim "Legend: $SYM_MERGED merged  $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready"
   echo ""
 }
 
@@ -1091,6 +1142,9 @@ cmd_merge() {
     msg_dim "State files synced to $(path_display "$main_state_dir")"
   fi
 
+  # Mark stream as merged
+  mark_stream_merged "$stream_id"
+
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Stream %s merged successfully${C_RESET}\n" "$stream_id"
 
   next_steps_header
@@ -1120,6 +1174,58 @@ cmd_cleanup() {
   git worktree remove "$worktree_path" --force
 
   printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Cleaned up %s\n" "$stream_id"
+}
+
+cmd_mark_merged() {
+  # Manually mark a stream as merged (for streams merged outside of ralph)
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  if ! stream_exists "$stream_id"; then
+    msg_error "Stream $stream_id does not exist" >&2
+    return 1
+  fi
+
+  local status
+  status=$(get_stream_status "$stream_id")
+
+  if [[ "$status" == "merged" ]]; then
+    msg_dim "$stream_id is already marked as merged"
+    return 0
+  fi
+
+  # Mark as merged
+  mark_stream_merged "$stream_id"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Marked %s as merged\n" "$stream_id"
+}
+
+cmd_unmark_merged() {
+  # Remove merged marker from a stream
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  if [[ ! -f "$stream_dir/.merged" ]]; then
+    msg_dim "$stream_id is not marked as merged"
+    return 0
+  fi
+
+  rm -f "$stream_dir/.merged"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Unmarked %s as merged\n" "$stream_id"
 }
 
 # ============================================================================
@@ -1245,6 +1351,20 @@ case "$cmd" in
   merge-status)
     cmd_merge_status
     ;;
+  mark-merged)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream mark-merged <N>" >&2
+      exit 1
+    fi
+    cmd_mark_merged "$1"
+    ;;
+  unmark-merged)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream unmark-merged <N>" >&2
+      exit 1
+    fi
+    cmd_unmark_merged "$1"
+    ;;
   *)
     printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
     printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
@@ -1263,6 +1383,9 @@ case "$cmd" in
     printf "                              ${C_DIM}--force-unlock: forcefully remove stale lock${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
+    printf "  ${C_GREEN}ralph stream mark-merged ${C_YELLOW}<N>${C_RESET}  Mark stream as merged manually\n"
+    printf "  ${C_GREEN}ralph stream unmark-merged ${C_YELLOW}<N>${C_RESET}\n"
+    printf "                              Remove merged marker from stream\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
     printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"
