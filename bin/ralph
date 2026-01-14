@@ -34,6 +34,7 @@ let modelOverride = null;  // For --model flag (estimate and build commands)
 let noRetry = false;  // For --no-retry flag to disable automatic retries
 let resumeMode = false;  // For --resume flag in build command
 let watchBuildMode = false;  // For --build flag in watch command
+let autoFixMode = null;  // For --auto-fix flag (none|safe|all)
 
 function exists(p) {
   try {
@@ -53,7 +54,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model]")} Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model] [--auto-fix]")} Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -117,6 +118,13 @@ ${pc.bold(pc.cyan("Estimate options:"))}
   ${pc.yellow("--json")}                             Output as JSON for machine parsing
   ${pc.yellow("--pricing")} ${pc.dim("input:X,output:Y")}          Custom token pricing ($/1M tokens)
   ${pc.yellow("--model")} ${pc.dim("<opus|sonnet|haiku>")}         Model for cost calculation (default: sonnet)
+
+${pc.bold(pc.cyan("Auto-fix options:"))}
+  ${pc.yellow("--auto-fix")} ${pc.dim("<none|safe|all>")}            Control automatic error remediation
+  ${pc.dim("  none:  Disable auto-fix (default)")}
+  ${pc.dim("  safe:  Auto-fix safe errors (lint, format, npm install)")}
+  ${pc.dim("  all:   Fix all errors including risky ones (skip prompts)")}
+  ${pc.dim("Fix categories: safe (auto), needs-approval (prompt), manual-only (skip)")}
 
 ${pc.bold(pc.cyan("Retry options:"))}
   ${pc.yellow("--no-retry")}                         Disable automatic retries on agent failure
@@ -290,6 +298,16 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--build") {
     watchBuildMode = true;
+    continue;
+  }
+  // Parse --auto-fix flag for remediation approval (none|safe|all)
+  if (arg.startsWith("--auto-fix=")) {
+    autoFixMode = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--auto-fix") {
+    autoFixMode = rawArgs[i + 1];
+    i += 1;
     continue;
   }
   args.push(arg);
@@ -596,6 +614,8 @@ async function main() {
   }
   // Pass --model flag to override automatic model selection
   if (modelOverride) env.RALPH_MODEL_OVERRIDE = modelOverride;
+  // Pass --auto-fix flag for remediation approval (none|safe|all)
+  if (autoFixMode) env.AUTO_FIX = autoFixMode;
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
