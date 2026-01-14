@@ -140,6 +140,12 @@ ${pc.bold(pc.cyan("Experiment commands:"))}
   ${pc.green("experiment start")} ${pc.dim("<name>")}             Start an experiment
   ${pc.green("experiment pause")} ${pc.dim("<name>")}             Pause an experiment
   ${pc.green("experiment conclude")} ${pc.dim("<name>")}          Conclude an experiment
+  ${pc.green("experiment analyze")} ${pc.dim("<name>")}           Analyze results with statistics
+
+${pc.bold(pc.cyan("Analyze options:"))}
+  ${pc.yellow("--json")}                             Export results as JSON
+  ${pc.yellow("--csv")}                              Export results as CSV
+  ${pc.yellow("--confidence")} ${pc.dim("<N>")}                   Min confidence % for winner (default: 95)
 
 ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--prd")} ${pc.dim("<N|path>")}                      Use PRD-N folder (e.g., --prd=1) or custom path
@@ -2753,11 +2759,19 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("start")} ${pc.dim("<name>")}                 Start an experiment (enable traffic split)
   ${pc.green("pause")} ${pc.dim("<name>")}                 Pause an experiment
   ${pc.green("conclude")} ${pc.dim("<name>")}              Conclude an experiment
+  ${pc.green("analyze")} ${pc.dim("<name> [options]")}     Analyze results with statistics
+
+${pc.bold(pc.cyan("Analyze Options:"))}
+  ${pc.yellow("--json")}                     Export results as JSON
+  ${pc.yellow("--csv")}                      Export results as CSV
+  ${pc.yellow("--confidence")} ${pc.dim("<N>")}           Min confidence % for winner (default: 95)
 
 ${pc.bold(pc.cyan("Examples:"))}
   ${pc.dim("ralph experiment create claude-vs-codex")}
   ${pc.dim("ralph experiment start claude-vs-codex")}
   ${pc.dim("ralph experiment status claude-vs-codex")}
+  ${pc.dim("ralph experiment analyze claude-vs-codex")}
+  ${pc.dim("ralph experiment analyze claude-vs-codex --json > results.json")}
   ${pc.dim("ralph experiment list --status running")}
 `);
       process.exit(0);
@@ -3068,6 +3082,63 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       success(`Experiment ${pc.bold(experimentName)} is now ${pc.cyan("concluded")}.`);
       info("No further assignments will be made. Results are final.");
+      process.exit(0);
+    }
+
+    if (subCmd === "analyze") {
+      if (!experimentName) {
+        error("Experiment name is required.");
+        info(`Usage: ${pc.cyan("ralph experiment analyze <name> [--json|--csv]")}`);
+        process.exit(1);
+      }
+
+      // Parse options
+      let outputFormat = "terminal"; // default
+      let minConfidence = 95;
+
+      for (let i = 3; i < args.length; i++) {
+        if (args[i] === "--json") {
+          outputFormat = "json";
+        } else if (args[i] === "--csv") {
+          outputFormat = "csv";
+        } else if (args[i].startsWith("--confidence=")) {
+          minConfidence = parseInt(args[i].split("=")[1], 10);
+        } else if (args[i] === "--confidence" && args[i + 1]) {
+          minConfidence = parseInt(args[++i], 10);
+        }
+      }
+
+      // Run analysis
+      const analysis = experimentModule.analyzeExperiment(cwd, experimentName, {
+        minConfidence,
+      });
+
+      if (!analysis.success) {
+        error(analysis.error);
+        process.exit(1);
+      }
+
+      // Output based on format
+      if (outputFormat === "json") {
+        console.log(experimentModule.exportAsJSON(analysis));
+      } else if (outputFormat === "csv") {
+        console.log(experimentModule.exportAsCSV(analysis));
+      } else {
+        console.log(experimentModule.formatForTerminal(analysis));
+
+        // Additional context for terminal output
+        if (!analysis.minSamplesReached) {
+          warn(`Minimum samples not reached (${analysis.totalSamples}/${analysis.minSamples}).`);
+          info("Results may not be statistically valid yet.");
+        }
+
+        if (analysis.winner.winner) {
+          success(`Winner: ${pc.bold(analysis.winner.winner)} at ${analysis.winner.confidence}% confidence`);
+        } else if (analysis.winner.proposedWinner) {
+          info(`Proposed winner: ${pc.bold(analysis.winner.proposedWinner)} (needs higher confidence)`);
+        }
+      }
+
       process.exit(0);
     }
 
