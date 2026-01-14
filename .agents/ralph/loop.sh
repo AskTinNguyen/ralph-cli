@@ -1927,6 +1927,142 @@ log_failure_event() {
   log_activity "FAILURE_DETECTED story=$story_id type=$failure_type consecutive=$consecutive_count agent=$agent threshold=$AGENT_SWITCH_THRESHOLD"
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Fallback Chain Functions (US-002)
+# ─────────────────────────────────────────────────────────────────────────────
+# Default fallback chain (from config.sh or default)
+AGENT_FALLBACK_CHAIN="${AGENT_FALLBACK_CHAIN:-claude codex droid}"
+
+# Current position in the fallback chain (0-indexed)
+CHAIN_POSITION=0
+
+# Check if an agent CLI is available in PATH
+# Usage: agent_available <agent_name>
+# Returns: 0 if available, 1 if not
+agent_available() {
+  local agent="$1"
+  if [ -z "$agent" ]; then
+    return 1
+  fi
+  command -v "$agent" >/dev/null 2>&1
+}
+
+# Get the agent at a specific position in the chain
+# Usage: get_agent_at_position <position>
+# Returns: agent name or empty string if out of bounds
+get_agent_at_position() {
+  local pos="$1"
+  local chain_array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+  local chain_length=${#chain_array[@]}
+
+  if [ "$pos" -ge "$chain_length" ] || [ "$pos" -lt 0 ]; then
+    echo ""
+  else
+    echo "${chain_array[$pos]}"
+  fi
+}
+
+# Get the chain length
+# Usage: get_chain_length
+# Returns: number of agents in the chain
+get_chain_length() {
+  local chain_array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+  echo "${#chain_array[@]}"
+}
+
+# Switch to the next available agent in the fallback chain
+# Usage: switch_to_next_agent
+# Returns: 0 if switched successfully, 1 if chain exhausted
+# Sets: AGENT_CMD to the new agent command, DEFAULT_AGENT_NAME to new agent
+switch_to_next_agent() {
+  local old_agent="$DEFAULT_AGENT_NAME"
+  local chain_array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+  local chain_length=${#chain_array[@]}
+  local start_pos=$CHAIN_POSITION
+  local attempts=0
+
+  # Try each agent in the chain starting from current position + 1
+  while [ "$attempts" -lt "$chain_length" ]; do
+    CHAIN_POSITION=$(( (CHAIN_POSITION + 1) % chain_length ))
+    attempts=$((attempts + 1))
+
+    local candidate="${chain_array[$CHAIN_POSITION]}"
+
+    # Skip if we're back at the original agent
+    if [ "$candidate" = "$old_agent" ]; then
+      continue
+    fi
+
+    # Check if this agent is available
+    if agent_available "$candidate"; then
+      DEFAULT_AGENT_NAME="$candidate"
+      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
+      log_activity "AGENT_SWITCH from=$old_agent to=$candidate chain_position=$CHAIN_POSITION"
+      return 0
+    fi
+  done
+
+  # Chain exhausted - no available agents found
+  log_activity "AGENT_SWITCH_FAILED from=$old_agent reason=chain_exhausted"
+  return 1
+}
+
+# Reset the fallback chain to the first available agent
+# Usage: reset_fallback_chain
+# Returns: 0 if reset successful, 1 if no agents available
+reset_fallback_chain() {
+  local chain_array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+
+  for pos in "${!chain_array[@]}"; do
+    local candidate="${chain_array[$pos]}"
+    if agent_available "$candidate"; then
+      CHAIN_POSITION=$pos
+      DEFAULT_AGENT_NAME="$candidate"
+      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# Perform the agent switch when threshold is reached
+# Usage: perform_agent_switch <story_id> <failure_type>
+# Returns: 0 if switched, 1 if chain exhausted
+perform_agent_switch() {
+  local story_id="$1"
+  local failure_type="$2"
+  local old_agent="$DEFAULT_AGENT_NAME"
+
+  if switch_to_next_agent; then
+    # Log the switch
+    printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_YELLOW}  Agent Switched${C_RESET}\n"
+    printf "${C_DIM}  From: ${C_RESET}$old_agent\n"
+    printf "${C_DIM}  To: ${C_RESET}$DEFAULT_AGENT_NAME\n"
+    printf "${C_DIM}  Reason: ${C_RESET}$CONSECUTIVE_FAILURES consecutive $failure_type failures\n"
+    printf "${C_DIM}  Chain position: ${C_RESET}$CHAIN_POSITION / $(get_chain_length)\n"
+    printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
+
+    # Reset failure counter for new agent
+    CONSECUTIVE_FAILURES=0
+    return 0
+  else
+    # Chain exhausted
+    printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_RED}  Agent Fallback Chain Exhausted${C_RESET}\n"
+    printf "${C_DIM}  All agents in chain tried: ${C_RESET}$AGENT_FALLBACK_CHAIN\n"
+    printf "${C_DIM}  Current agent: ${C_RESET}$old_agent\n"
+    printf "${C_DIM}  Consider checking agent installations${C_RESET}\n"
+    printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
+    return 1
+  fi
+}
+
 msg_info "Ralph mode: $MODE"
 msg_dim "Max iterations: $MAX_ITERATIONS"
 msg_dim "PRD: $PRD_PATH"
@@ -2157,14 +2293,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Update failure counter and check if switch threshold reached (US-001)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       if update_failure_counter "$STORY_ID" "$DETECTED_FAILURE_TYPE"; then
-        # Threshold reached - log switch suggestion
-        log_activity "SWITCH_SUGGESTED story=$STORY_ID consecutive=$CONSECUTIVE_FAILURES type=$DETECTED_FAILURE_TYPE agent=$DEFAULT_AGENT_NAME"
-        printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
-        printf "${C_YELLOW}  Agent Switch Suggested${C_RESET}\n"
-        printf "${C_DIM}  Consecutive failures: ${C_RESET}$CONSECUTIVE_FAILURES (threshold: $AGENT_SWITCH_THRESHOLD)\n"
-        printf "${C_DIM}  Failure type: ${C_RESET}$DETECTED_FAILURE_TYPE\n"
-        printf "${C_DIM}  Current agent: ${C_RESET}$DEFAULT_AGENT_NAME\n"
-        printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
+        # Threshold reached - perform automatic agent switch (US-002)
+        log_activity "SWITCH_TRIGGERED story=$STORY_ID consecutive=$CONSECUTIVE_FAILURES type=$DETECTED_FAILURE_TYPE agent=$DEFAULT_AGENT_NAME"
+        perform_agent_switch "$STORY_ID" "$DETECTED_FAILURE_TYPE"
       fi
       # Log the failure event for analytics
       log_failure_event "$STORY_ID" "$DETECTED_FAILURE_TYPE" "$CONSECUTIVE_FAILURES" "$DEFAULT_AGENT_NAME"
@@ -2173,11 +2304,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       save_switch_state "$PRD_FOLDER" "$DEFAULT_AGENT_NAME" "$CONSECUTIVE_FAILURES" "$DETECTED_FAILURE_TYPE" "$STORY_ID"
     fi
   else
-    # Success - reset failure counter and clear switch state (US-001)
+    # Success - reset failure counter, clear switch state, and reset chain position (US-001, US-002)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       update_failure_counter "$STORY_ID" "$FAILURE_TYPE_NONE"
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_switch_state "$PRD_FOLDER"
+      # Reset chain to first available agent on successful story (US-002)
+      if [ "$CHAIN_POSITION" -ne 0 ]; then
+        log_activity "CHAIN_RESET story=$STORY_ID from_position=$CHAIN_POSITION"
+        reset_fallback_chain
+        msg_dim "Chain reset to primary agent: $DEFAULT_AGENT_NAME"
+      fi
     fi
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
