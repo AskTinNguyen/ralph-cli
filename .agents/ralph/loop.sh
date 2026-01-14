@@ -397,6 +397,12 @@ calculate_backoff_delay() {
 LAST_RETRY_COUNT=0
 LAST_RETRY_TOTAL_TIME=0
 
+# Global variables for rollback statistics (set during rollback execution, US-004)
+# These are used by append_metrics for tracking rollback events
+LAST_ROLLBACK_COUNT=0
+LAST_ROLLBACK_REASON=""
+LAST_ROLLBACK_SUCCESS=""
+
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
@@ -1450,6 +1456,122 @@ notify_rollback() {
   printf "\n"
 }
 
+# Log rollback event to a dedicated rollback history log (US-004)
+# Provides structured logging for rollback analysis and statistics
+# Usage: log_rollback <story_id> <reason> <from_sha> <to_sha> <attempt> <success> [context_file]
+log_rollback() {
+  local story_id="$1"
+  local reason="$2"
+  local from_sha="$3"
+  local to_sha="$4"
+  local attempt="${5:-1}"
+  local success="${6:-true}"
+  local context_file="${7:-}"
+
+  local timestamp
+  timestamp=$(date '+%Y-%m-%dT%H:%M:%SZ')
+
+  # Log to activity log with structured format
+  log_activity "ROLLBACK_EVENT story=$story_id reason=$reason from=${from_sha:0:8} to=${to_sha:0:8} attempt=$attempt success=$success"
+
+  # Log to dedicated rollback history file (append-only JSONL format)
+  local rollback_log="${PRD_FOLDER:-$RALPH_DIR}/runs/rollback-history.jsonl"
+  local runs_dir
+  runs_dir="$(dirname "$rollback_log")"
+
+  # Create runs directory if needed
+  if [ ! -d "$runs_dir" ]; then
+    mkdir -p "$runs_dir"
+  fi
+
+  # Build JSON record (escape special characters)
+  local escaped_reason
+  escaped_reason=$(printf '%s' "$reason" | sed 's/"/\\"/g')
+
+  local json_record
+  json_record=$(printf '{"timestamp":"%s","storyId":"%s","reason":"%s","fromSha":"%s","toSha":"%s","attempt":%d,"success":%s,"runId":"%s","contextFile":"%s"}' \
+    "$timestamp" \
+    "$story_id" \
+    "$escaped_reason" \
+    "${from_sha:0:8}" \
+    "${to_sha:0:8}" \
+    "$attempt" \
+    "$success" \
+    "${RUN_TAG:-unknown}" \
+    "${context_file:-}")
+
+  echo "$json_record" >> "$rollback_log"
+}
+
+# Get rollback statistics from rollback history (US-004)
+# Usage: get_rollback_stats [prd_folder]
+# Returns: JSON with rollback statistics
+get_rollback_stats() {
+  local prd_folder="${1:-$PRD_FOLDER}"
+  local rollback_log="$prd_folder/runs/rollback-history.jsonl"
+
+  if [ ! -f "$rollback_log" ]; then
+    echo '{"total":0,"successful":0,"failed":0,"successRate":0,"byReason":{},"byStory":{}}'
+    return 0
+  fi
+
+  # Use Node.js for JSON aggregation if available, otherwise use shell
+  if command -v node >/dev/null 2>&1; then
+    node -e "
+const fs = require('fs');
+const lines = fs.readFileSync('$rollback_log', 'utf-8').split('\\n').filter(l => l.trim());
+const records = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+
+const stats = {
+  total: records.length,
+  successful: records.filter(r => r.success === true || r.success === 'true').length,
+  failed: records.filter(r => r.success === false || r.success === 'false').length,
+  successRate: 0,
+  avgAttempts: 0,
+  byReason: {},
+  byStory: {}
+};
+
+stats.successRate = stats.total > 0 ? Math.round((stats.successful / stats.total) * 100) : 0;
+
+// Calculate average attempts
+const totalAttempts = records.reduce((sum, r) => sum + (r.attempt || 1), 0);
+stats.avgAttempts = stats.total > 0 ? Math.round((totalAttempts / stats.total) * 100) / 100 : 0;
+
+// Group by reason
+for (const r of records) {
+  const reason = r.reason || 'unknown';
+  if (!stats.byReason[reason]) stats.byReason[reason] = { count: 0, successful: 0 };
+  stats.byReason[reason].count++;
+  if (r.success === true || r.success === 'true') stats.byReason[reason].successful++;
+}
+
+// Group by story
+for (const r of records) {
+  const story = r.storyId || 'unknown';
+  if (!stats.byStory[story]) stats.byStory[story] = { rollbacks: 0, maxAttempts: 0 };
+  stats.byStory[story].rollbacks++;
+  stats.byStory[story].maxAttempts = Math.max(stats.byStory[story].maxAttempts, r.attempt || 1);
+}
+
+console.log(JSON.stringify(stats));
+"
+  else
+    # Fallback shell implementation (basic counts only)
+    local total
+    total=$(wc -l < "$rollback_log" | tr -d ' ')
+    local successful
+    successful=$(grep -c '"success":true' "$rollback_log" 2>/dev/null || echo 0)
+    local failed=$((total - successful))
+    local rate=0
+    if [ "$total" -gt 0 ]; then
+      rate=$((successful * 100 / total))
+    fi
+    printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
+      "$total" "$successful" "$failed" "$rate"
+  fi
+}
+
 # Validate git state matches checkpoint
 # Returns: 0 if match or user confirms, 1 if user declines
 validate_git_state() {
@@ -2065,6 +2187,10 @@ local complexity_score="${14:-}"
   local exp_name="${17:-}"
   local exp_variant="${18:-}"
   local exp_excluded="${19:-}"
+  # Rollback tracking fields (US-004)
+  local rollback_count="${20:-0}"
+  local rollback_reason="${21:-}"
+  local rollback_success="${22:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -2119,8 +2245,27 @@ local escaped_reason="null"
         "$excluded_bool")
     fi
 
+    # Build rollback fields if present (US-004)
+    local rollback_fields=""
+    if [ -n "$rollback_count" ] && [ "$rollback_count" != "0" ]; then
+      local rollback_success_bool="null"
+      if [ "$rollback_success" = "true" ]; then
+        rollback_success_bool="true"
+      elif [ "$rollback_success" = "false" ]; then
+        rollback_success_bool="false"
+      fi
+      local escaped_rollback_reason="null"
+      if [ -n "$rollback_reason" ]; then
+        escaped_rollback_reason=$(printf '"%s"' "$(printf '%s' "$rollback_reason" | sed 's/"/\\"/g')")
+      fi
+      rollback_fields=$(printf ',"rollbackCount":%s,"rollbackReason":%s,"rollbackSuccess":%s' \
+        "$rollback_count" \
+        "$escaped_rollback_reason" \
+        "$rollback_success_bool")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s%s}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -2133,11 +2278,12 @@ local escaped_reason="null"
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
-"$complexity_val" \
+      "$complexity_val" \
       "$escaped_reason" \
       "$estimated_cost_val" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "$exp_fields")
+      "$exp_fields" \
+      "$rollback_fields")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
   fi
@@ -2265,6 +2411,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   STORY_BLOCK=""
   ITER_START=$(date +%s)
   ITER_START_FMT=$(date '+%Y-%m-%d %H:%M:%S')
+
+  # Reset rollback tracking for this iteration (US-004)
+  LAST_ROLLBACK_COUNT=0
+  LAST_ROLLBACK_REASON=""
+  LAST_ROLLBACK_SUCCESS=""
   if [ "$MODE" = "build" ]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
@@ -2422,12 +2573,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}"
 
-  # Append metrics to metrics.jsonl for historical tracking (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-    # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
-    PRD_FOLDER="$(dirname "$PRD_PATH")"
-append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}"
-  fi
+  # Note: append_metrics is called after rollback logic to capture rollback data (US-004)
+  # See the metrics call below the rollback section
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
@@ -2470,6 +2617,13 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
           # Notify user of successful rollback
           notify_rollback "${STORY_ID:-unknown}" "$failure_reason" "$HEAD_BEFORE" "$FAILURE_CONTEXT_FILE"
           log_activity "ROLLBACK_SUCCESS story=$STORY_ID context=$FAILURE_CONTEXT_FILE"
+          # Log rollback event for history tracking (US-004)
+          log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "true" "$FAILURE_CONTEXT_FILE"
+
+          # Update rollback tracking variables for metrics (US-004)
+          LAST_ROLLBACK_COUNT=$((LAST_ROLLBACK_COUNT + 1))
+          LAST_ROLLBACK_REASON="${ROLLBACK_TRIGGER:-test-fail}"
+          LAST_ROLLBACK_SUCCESS="true"
 
           # Update HEAD_AFTER to reflect rollback
           HEAD_AFTER="$(git_head)"
@@ -2529,9 +2683,15 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
               RETRY_DURATION=$((RETRY_END - RETRY_START))
 
               if [ "$RETRY_STATUS" -eq 0 ]; then
-                # Retry succeeded!
+                # Retry succeeded! Log success for rollback history (US-004)
+                log_rollback "${STORY_ID:-unknown}" "retry_success" "$HEAD_BEFORE" "$(git_head)" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
                 printf "${C_GREEN}${C_BOLD}  Retry $CURRENT_RETRY_COUNT SUCCEEDED${C_RESET}\n"
                 log_activity "ROLLBACK_RETRY_SUCCESS story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
+
+                # Update rollback tracking - mark as success since retry worked (US-004)
+                LAST_ROLLBACK_COUNT=$CURRENT_RETRY_COUNT
+                LAST_ROLLBACK_REASON="retry_success"
+                LAST_ROLLBACK_SUCCESS="true"
 
                 # Clear retry tracking file on success
                 rm -f "$RETRY_TRACKING_FILE"
@@ -2557,7 +2717,10 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
                   # Save new failure context
                   FAILURE_CONTEXT_FILE="$(save_failure_context "$RETRY_LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i-retry$CURRENT_RETRY_COUNT" "${STORY_ID:-unknown}")"
                   # Rollback the retry attempt
-                  rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}" || true
+                  if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}"; then
+                    # Log retry rollback for history tracking (US-004)
+                    log_rollback "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
+                  fi
                 fi
               fi
             else
@@ -2576,6 +2739,13 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
 
               log_activity "MAX_RETRIES_EXHAUSTED story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
               log_error "MAX_RETRIES_EXHAUSTED story=$STORY_ID - manual intervention required"
+              # Log max retries exhausted for history tracking (US-004)
+              log_rollback "${STORY_ID:-unknown}" "max_retries_exhausted" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "false" "$FAILURE_CONTEXT_FILE"
+
+              # Update rollback tracking - mark as failure since max retries exhausted (US-004)
+              LAST_ROLLBACK_COUNT=$CURRENT_RETRY_COUNT
+              LAST_ROLLBACK_REASON="max_retries_exhausted"
+              LAST_ROLLBACK_SUCCESS="false"
 
               # Clear retry tracking file
               rm -f "$RETRY_TRACKING_FILE"
@@ -2584,9 +2754,21 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
         else
           log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
           msg_error "Rollback failed - manual intervention may be required"
+          # Log failed rollback for history tracking (US-004)
+          log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "false" "${FAILURE_CONTEXT_FILE:-}"
+
+          # Update rollback tracking variables for metrics (US-004)
+          LAST_ROLLBACK_COUNT=$((LAST_ROLLBACK_COUNT + 1))
+          LAST_ROLLBACK_REASON="${ROLLBACK_TRIGGER:-test-fail}"
+          LAST_ROLLBACK_SUCCESS="false"
         fi
       fi
     fi
+
+    # Append metrics to metrics.jsonl for historical tracking (build mode only)
+    # Called after rollback logic to capture rollback data (US-004)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
 
     if [ "$CMD_STATUS" -ne 0 ]; then
       # Differentiate agent errors vs system errors

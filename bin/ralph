@@ -1897,8 +1897,208 @@ ${pc.bold(pc.cyan("Examples:"))}
     const registryModule = require("../lib/registry");
     const { formatDuration } = require("../lib/eval/reporter");
 
-    // Check for switches subcommand (US-004)
+    // Check for subcommands (US-004)
     const subCmd = args[1];
+
+    // Rollback stats subcommand (US-004)
+    if (subCmd === "rollback") {
+      const metricsModule = require("../lib/estimate/metrics");
+      const ralphDir = path.join(cwd, ".ralph");
+
+      if (!exists(ralphDir)) {
+        warn("No .ralph directory found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Get all PRD directories
+      const prdDirs = fs.readdirSync(ralphDir)
+        .filter(d => d.match(/^PRD-\d+$/))
+        .sort((a, b) => {
+          const numA = parseInt(a.split('-')[1]);
+          const numB = parseInt(b.split('-')[1]);
+          return numB - numA;
+        });
+
+      if (prdDirs.length === 0) {
+        warn("No PRD directories found. Run some build iterations first.");
+        process.exit(0);
+      }
+
+      // Parse flags
+      const jsonFlag = args.includes("--json");
+      const prdFlag = args.find(a => a.startsWith("--prd="));
+      const specificPrd = prdFlag ? prdFlag.split("=")[1] : null;
+
+      // Filter PRD directories if specific one requested
+      const targetDirs = specificPrd
+        ? prdDirs.filter(d => d === `PRD-${specificPrd}`)
+        : prdDirs;
+
+      if (specificPrd && targetDirs.length === 0) {
+        warn(`PRD-${specificPrd} not found.`);
+        process.exit(1);
+      }
+
+      // Aggregate rollback stats across selected PRDs
+      const aggregatedStats = {
+        totalRollbacks: 0,
+        successful: 0,
+        failed: 0,
+        recoveryRate: 0,
+        avgAttempts: 0,
+        byReason: {},
+        byStory: {},
+        byStream: {},
+      };
+
+      let totalAttempts = 0;
+
+      for (const prdDir of targetDirs) {
+        const prdPath = path.join(ralphDir, prdDir);
+        const analytics = metricsModule.getRollbackAnalytics(prdPath);
+
+        if (!analytics.hasData) continue;
+
+        const prdNum = prdDir.replace("PRD-", "");
+        aggregatedStats.byStream[prdNum] = {
+          rollbacks: analytics.total,
+          recoveryRate: analytics.successRate,
+          avgAttempts: analytics.avgAttempts,
+        };
+
+        aggregatedStats.totalRollbacks += analytics.total;
+        aggregatedStats.successful += analytics.successful;
+        aggregatedStats.failed += analytics.failed;
+        totalAttempts += analytics.total * analytics.avgAttempts;
+
+        // Aggregate by reason
+        for (const [reason, stats] of Object.entries(analytics.byReason)) {
+          if (!aggregatedStats.byReason[reason]) {
+            aggregatedStats.byReason[reason] = { count: 0, successful: 0 };
+          }
+          aggregatedStats.byReason[reason].count += stats.count;
+          aggregatedStats.byReason[reason].successful += stats.successful;
+        }
+
+        // Aggregate by story
+        for (const [storyId, stats] of Object.entries(analytics.byStory)) {
+          if (!aggregatedStats.byStory[storyId]) {
+            aggregatedStats.byStory[storyId] = { rollbacks: 0, maxAttempts: 0 };
+          }
+          aggregatedStats.byStory[storyId].rollbacks += stats.rollbacks;
+          aggregatedStats.byStory[storyId].maxAttempts = Math.max(
+            aggregatedStats.byStory[storyId].maxAttempts,
+            stats.maxAttempts
+          );
+        }
+      }
+
+      // Calculate overall rates
+      aggregatedStats.recoveryRate = aggregatedStats.totalRollbacks > 0
+        ? Math.round((aggregatedStats.successful / aggregatedStats.totalRollbacks) * 100)
+        : 0;
+      aggregatedStats.avgAttempts = aggregatedStats.totalRollbacks > 0
+        ? Math.round((totalAttempts / aggregatedStats.totalRollbacks) * 100) / 100
+        : 0;
+
+      // JSON output
+      if (jsonFlag) {
+        console.log(JSON.stringify(aggregatedStats, null, 2));
+        process.exit(0);
+      }
+
+      // Human-readable output
+      console.log("");
+      console.log(pc.bold("Rollback & Recovery Statistics"));
+      console.log(pc.dim("=".repeat(70)));
+      console.log("");
+
+      if (aggregatedStats.totalRollbacks === 0) {
+        success("No rollbacks recorded. All builds succeeded without test failures!");
+        process.exit(0);
+      }
+
+      // Summary
+      console.log(pc.bold(pc.cyan("Summary")));
+      console.log(pc.dim("-".repeat(70)));
+
+      const recoveryColor = aggregatedStats.recoveryRate >= 50 ? pc.green : pc.yellow;
+      console.log(`  Total Rollbacks:   ${pc.bold(aggregatedStats.totalRollbacks)}`);
+      console.log(`  Recovered:         ${pc.green(aggregatedStats.successful)}`);
+      console.log(`  Failed:            ${pc.red(aggregatedStats.failed)}`);
+      console.log(`  Recovery Rate:     ${recoveryColor(aggregatedStats.recoveryRate + "%")}`);
+      console.log(`  Avg Attempts:      ${aggregatedStats.avgAttempts}`);
+      console.log("");
+
+      // By Failure Type
+      if (Object.keys(aggregatedStats.byReason).length > 0) {
+        console.log(pc.bold(pc.cyan("By Failure Type")));
+        console.log(pc.dim("-".repeat(70)));
+        console.log(pc.dim(`${"TYPE".padEnd(25)} ${"COUNT".padStart(7)} ${"RECOVERED".padStart(10)} ${"RATE".padStart(8)}`));
+        console.log(pc.dim("-".repeat(70)));
+
+        const sortedReasons = Object.entries(aggregatedStats.byReason)
+          .sort(([, a], [, b]) => b.count - a.count);
+
+        for (const [reason, stats] of sortedReasons) {
+          const rate = stats.count > 0 ? Math.round((stats.successful / stats.count) * 100) : 0;
+          const rateColor = rate >= 50 ? pc.green : pc.yellow;
+          const reasonLabel = reason.replace(/-/g, " ").replace(/_/g, " ");
+          console.log(`  ${reasonLabel.padEnd(23)} ${String(stats.count).padStart(7)} ${String(stats.successful).padStart(10)} ${rateColor(`${rate}%`.padStart(8))}`);
+        }
+        console.log("");
+      }
+
+      // By Stream (if multiple)
+      if (Object.keys(aggregatedStats.byStream).length > 1) {
+        console.log(pc.bold(pc.cyan("By Stream")));
+        console.log(pc.dim("-".repeat(70)));
+        console.log(pc.dim(`${"STREAM".padEnd(15)} ${"ROLLBACKS".padStart(10)} ${"RECOVERY".padStart(10)} ${"AVG TRIES".padStart(10)}`));
+        console.log(pc.dim("-".repeat(70)));
+
+        const sortedStreams = Object.entries(aggregatedStats.byStream)
+          .sort(([, a], [, b]) => b.rollbacks - a.rollbacks);
+
+        for (const [streamId, stats] of sortedStreams) {
+          const rateColor = stats.recoveryRate >= 50 ? pc.green : pc.yellow;
+          console.log(`  PRD-${streamId.padEnd(11)} ${String(stats.rollbacks).padStart(10)} ${rateColor(`${stats.recoveryRate}%`.padStart(10))} ${String(stats.avgAttempts).padStart(10)}`);
+        }
+        console.log("");
+      }
+
+      // Top Affected Stories
+      const affectedStories = Object.entries(aggregatedStats.byStory)
+        .sort(([, a], [, b]) => b.rollbacks - a.rollbacks)
+        .slice(0, 5);
+
+      if (affectedStories.length > 0) {
+        console.log(pc.bold(pc.cyan("Most Affected Stories")));
+        console.log(pc.dim("-".repeat(70)));
+        console.log(pc.dim(`${"STORY".padEnd(15)} ${"ROLLBACKS".padStart(10)} ${"MAX ATTEMPTS".padStart(12)}`));
+        console.log(pc.dim("-".repeat(70)));
+
+        for (const [storyId, stats] of affectedStories) {
+          console.log(`  ${storyId.padEnd(13)} ${String(stats.rollbacks).padStart(10)} ${String(stats.maxAttempts).padStart(12)}`);
+        }
+        console.log("");
+      }
+
+      console.log(pc.dim("-".repeat(70)));
+
+      // Recommendations
+      if (aggregatedStats.recoveryRate < 50) {
+        warn("Low recovery rate. Consider:");
+        console.log(`  ${pc.dim("→")} Review test failure patterns in the error logs`);
+        console.log(`  ${pc.dim("→")} Check if retry prompts have enough context`);
+        console.log(`  ${pc.dim("→")} Increase ROLLBACK_MAX_RETRIES if failures are close to recovering`);
+      } else {
+        success(`Good recovery rate (${aggregatedStats.recoveryRate}%). Rollback mechanism is working well.`);
+      }
+
+      console.log("");
+      process.exit(0);
+    }
+
     if (subCmd === "switches") {
       const metricsModule = require("../lib/estimate/metrics");
       const ralphDir = path.join(cwd, ".ralph");
