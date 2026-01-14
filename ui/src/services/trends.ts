@@ -18,6 +18,9 @@ const {
   aggregateDailyCosts,
   compareToBudget,
   getAvailableModels,
+  aggregateVelocityMetrics,
+  getPrdBurndown,
+  compareVelocityAcrossStreams,
 } = require("../../../lib/metrics/aggregator.js");
 
 /**
@@ -594,6 +597,352 @@ export function formatModelBreakdownForChart(byModel: Record<string, ModelBreakd
         backgroundColor,
         borderColor,
         borderWidth: 2,
+      },
+    ],
+  };
+}
+
+// ============================================
+// Velocity Trend Functions (US-003)
+// ============================================
+
+/**
+ * Velocity data point for time series
+ */
+export interface VelocityDataPoint {
+  date: string;
+  storiesCompleted: number;
+  runsCompleted: number;
+  totalDuration: number;
+  avgDurationSeconds: number;
+  avgDurationMinutes: number;
+  cumulativeStories?: number;
+}
+
+/**
+ * Velocity trend data
+ */
+export interface VelocityTrend {
+  period: string;
+  groupBy: string;
+  startDate: string;
+  endDate: string;
+  totalStories: number;
+  totalRuns: number;
+  totalDurationSeconds: number;
+  avgTimePerStorySeconds: number;
+  avgTimePerStoryMinutes: number;
+  avgTimePerRunSeconds: number;
+  avgTimePerRunMinutes: number;
+  storiesPerDay: number;
+  storiesPerWeek: number;
+  velocityMetrics: VelocityDataPoint[];
+  filters: {
+    prd: string;
+  };
+}
+
+/**
+ * Burndown data point
+ */
+export interface BurndownDataPoint {
+  date: string;
+  completed: number;
+  remaining: number;
+  completedStories?: string[];
+}
+
+/**
+ * Burndown data for a PRD
+ */
+export interface BurndownData {
+  prdId: string;
+  totalStories: number;
+  completedStories: number;
+  remainingStories: number;
+  percentComplete: number;
+  burndownData: BurndownDataPoint[];
+  idealBurndown: Array<{ date: string; remaining: number }>;
+  velocity: number;
+  estimatedDaysRemaining: number | null;
+  estimatedCompletion: string | null;
+}
+
+/**
+ * Stream velocity data for comparison
+ */
+export interface StreamVelocity {
+  prdId: string;
+  name: string;
+  totalStories: number;
+  totalRuns: number;
+  avgTimePerStoryMinutes: number;
+  storiesPerDay: number;
+  storiesPerWeek: number;
+  percentComplete: number;
+  remainingStories: number;
+  estimatedCompletion: string | null;
+  velocityMetrics: VelocityDataPoint[];
+}
+
+/**
+ * Stream comparison data
+ */
+export interface StreamComparison {
+  period: string;
+  streamCount: number;
+  streams: StreamVelocity[];
+  overall: {
+    totalStories: number;
+    totalRuns: number;
+    avgStoriesPerDay: number;
+    avgStoriesPerWeek: number;
+  };
+}
+
+/**
+ * Velocity filter options
+ */
+export interface VelocityFilters {
+  prd?: string;
+  groupBy?: "day" | "week";
+}
+
+/**
+ * Get velocity trends
+ * @param period - Time period ("7d" or "30d")
+ * @param filters - Optional filters { prd, groupBy }
+ * @returns Velocity trend data
+ */
+export function getVelocityTrends(
+  period: "7d" | "30d" = "30d",
+  filters: VelocityFilters = {}
+): VelocityTrend {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return {
+      period,
+      groupBy: filters.groupBy || "day",
+      startDate: "",
+      endDate: "",
+      totalStories: 0,
+      totalRuns: 0,
+      totalDurationSeconds: 0,
+      avgTimePerStorySeconds: 0,
+      avgTimePerStoryMinutes: 0,
+      avgTimePerRunSeconds: 0,
+      avgTimePerRunMinutes: 0,
+      storiesPerDay: 0,
+      storiesPerWeek: 0,
+      velocityMetrics: [],
+      filters: {
+        prd: filters.prd || "all",
+      },
+    };
+  }
+
+  const days = period === "30d" ? 30 : 7;
+  const result = aggregateVelocityMetrics(ralphRoot, {
+    days,
+    prd: filters.prd,
+    groupBy: filters.groupBy || "day",
+  });
+
+  return result as VelocityTrend;
+}
+
+/**
+ * Get burndown data for a PRD
+ * @param prdId - PRD ID
+ * @returns Burndown data
+ */
+export function getBurndown(prdId: string): BurndownData | null {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return null;
+  }
+
+  return getPrdBurndown(ralphRoot, prdId) as BurndownData | null;
+}
+
+/**
+ * Compare velocity across streams
+ * @param period - Time period ("7d" or "30d")
+ * @returns Stream comparison data
+ */
+export function getStreamVelocityComparison(period: "7d" | "30d" = "30d"): StreamComparison {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return {
+      period,
+      streamCount: 0,
+      streams: [],
+      overall: {
+        totalStories: 0,
+        totalRuns: 0,
+        avgStoriesPerDay: 0,
+        avgStoriesPerWeek: 0,
+      },
+    };
+  }
+
+  const days = period === "30d" ? 30 : 7;
+  return compareVelocityAcrossStreams(ralphRoot, { days }) as StreamComparison;
+}
+
+/**
+ * Format velocity trend data for Chart.js bar chart
+ * @param trend - Velocity trend data
+ * @returns Chart.js compatible data object
+ */
+export function formatVelocityForChart(trend: VelocityTrend): {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor: string;
+    borderColor: string;
+    borderWidth: number;
+    type?: string;
+  }>;
+} {
+  const labels = trend.velocityMetrics.map((dp) => {
+    const date = new Date(dp.date);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
+
+  const storiesPerDay = trend.velocityMetrics.map((dp) => dp.storiesCompleted);
+  const cumulativeStories = trend.velocityMetrics.map((dp) => dp.cumulativeStories || 0);
+  const avgDuration = trend.velocityMetrics.map((dp) => dp.avgDurationMinutes);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: "Stories Completed",
+        data: storiesPerDay,
+        backgroundColor: "#3b82f6", // Blue
+        borderColor: "#2563eb",
+        borderWidth: 1,
+      },
+      {
+        label: "Cumulative Stories",
+        data: cumulativeStories,
+        backgroundColor: "transparent",
+        borderColor: "#10b981", // Green
+        borderWidth: 2,
+        type: "line",
+      },
+      {
+        label: "Avg Duration (min)",
+        data: avgDuration,
+        backgroundColor: "rgba(249, 115, 22, 0.6)", // Orange
+        borderColor: "#f97316",
+        borderWidth: 1,
+      },
+    ],
+  };
+}
+
+/**
+ * Format burndown data for Chart.js line chart
+ * @param burndown - Burndown data
+ * @returns Chart.js compatible data object
+ */
+export function formatBurndownForChart(burndown: BurndownData): {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+    fill: boolean;
+    tension: number;
+    borderDash?: number[];
+  }>;
+} {
+  const labels = burndown.burndownData.map((dp) => {
+    const date = new Date(dp.date);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
+
+  const remaining = burndown.burndownData.map((dp) => dp.remaining);
+  const idealRemaining = burndown.idealBurndown.map((dp) => dp.remaining);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: "Remaining Stories",
+        data: remaining,
+        borderColor: "#3b82f6", // Blue
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        fill: true,
+        tension: 0.3,
+      },
+      {
+        label: "Ideal Burndown",
+        data: idealRemaining,
+        borderColor: "#9ca3af", // Gray
+        backgroundColor: "transparent",
+        fill: false,
+        tension: 0,
+        borderDash: [5, 5],
+      },
+    ],
+  };
+}
+
+/**
+ * Format stream comparison for Chart.js horizontal bar chart
+ * @param comparison - Stream comparison data
+ * @returns Chart.js compatible data object
+ */
+export function formatStreamComparisonForChart(comparison: StreamComparison): {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor: string;
+    borderColor: string;
+    borderWidth: number;
+  }>;
+} {
+  const labels = comparison.streams.map((s) => s.name);
+  const velocities = comparison.streams.map((s) => s.storiesPerDay);
+  const completions = comparison.streams.map((s) => s.percentComplete);
+
+  // Color palette for streams
+  const colors = [
+    "#3b82f6", // Blue
+    "#10b981", // Green
+    "#f59e0b", // Amber
+    "#8b5cf6", // Purple
+    "#ef4444", // Red
+    "#06b6d4", // Cyan
+  ];
+
+  const backgroundColor = labels.map((_, i) => colors[i % colors.length]);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: "Velocity (stories/day)",
+        data: velocities,
+        backgroundColor: backgroundColor[0],
+        borderColor: backgroundColor[0],
+        borderWidth: 1,
+      },
+      {
+        label: "% Complete",
+        data: completions,
+        backgroundColor: "rgba(16, 185, 129, 0.6)",
+        borderColor: "#10b981",
+        borderWidth: 1,
       },
     ],
   };

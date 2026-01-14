@@ -13,7 +13,7 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
-import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart } from '../services/trends.js';
+import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
 // Import CommonJS accuracy and estimate modules
@@ -6193,6 +6193,267 @@ api.get("/partials/success-rate-filters", (c) => {
       <label for="trend-agent-filter">Agent:</label>
       <select id="trend-agent-filter" onchange="updateSuccessRateChart()">
         ${agentOptions}
+      </select>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+// ============================================
+// VELOCITY METRICS ENDPOINTS (US-003)
+// ============================================
+
+/**
+ * GET /api/trends/velocity
+ *
+ * Returns velocity trend data for visualization.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - prd: PRD ID to filter by (optional)
+ *   - groupBy: 'day' or 'week' (default: 'day')
+ */
+api.get("/trends/velocity", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+  const groupBy = (c.req.query("groupBy") || "day") as "day" | "week";
+
+  const filters = { prd, groupBy };
+  const trends = getVelocityTrends(period, filters);
+  const chartData = formatVelocityForChart(trends);
+
+  return c.json({
+    trends,
+    chartData,
+    period,
+    filters: trends.filters,
+  });
+});
+
+/**
+ * GET /api/trends/burndown/:prdId
+ *
+ * Returns burndown chart data for a specific PRD.
+ */
+api.get("/trends/burndown/:prdId", (c) => {
+  const prdId = c.req.param("prdId");
+
+  const burndown = getBurndown(prdId);
+
+  if (!burndown) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const chartData = formatBurndownForChart(burndown);
+
+  return c.json({
+    burndown,
+    chartData,
+  });
+});
+
+/**
+ * GET /api/trends/streams
+ *
+ * Returns velocity comparison across all streams.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ */
+api.get("/trends/streams", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+
+  const comparison = getStreamVelocityComparison(period);
+  const chartData = formatStreamComparisonForChart(comparison);
+
+  return c.json({
+    comparison,
+    chartData,
+  });
+});
+
+/**
+ * GET /api/partials/velocity-chart
+ *
+ * Returns HTML fragment for the velocity summary section.
+ */
+api.get("/partials/velocity-chart", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+
+  const trends = getVelocityTrends(period, { prd });
+
+  const html = `
+    <div class="trend-summary-grid">
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalStories}</span>
+        <span class="trend-stat-label">Stories Completed</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.storiesPerDay}</span>
+        <span class="trend-stat-label">Stories/Day</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.storiesPerWeek}</span>
+        <span class="trend-stat-label">Stories/Week</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.avgTimePerStoryMinutes} min</span>
+        <span class="trend-stat-label">Avg Time/Story</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalRuns}</span>
+        <span class="trend-stat-label">Total Runs</span>
+      </div>
+    </div>
+    <div class="trend-period-info">
+      Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.velocityMetrics.length} data points
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/burndown-chart/:prdId
+ *
+ * Returns HTML fragment for burndown chart summary.
+ */
+api.get("/partials/burndown-chart/:prdId", (c) => {
+  const prdId = c.req.param("prdId");
+
+  const burndown = getBurndown(prdId);
+
+  if (!burndown) {
+    return c.html(`<div class="no-data-message">PRD-${prdId} not found</div>`);
+  }
+
+  // Calculate status
+  let statusClass = "on-track";
+  let statusText = "On Track";
+  if (burndown.remainingStories === 0) {
+    statusClass = "complete";
+    statusText = "Complete";
+  } else if (burndown.velocity < 0.5 && burndown.remainingStories > 0) {
+    statusClass = "at-risk";
+    statusText = "At Risk";
+  }
+
+  const html = `
+    <div class="burndown-summary">
+      <div class="burndown-header">
+        <h3>PRD-${prdId} Burndown</h3>
+        <span class="burndown-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="burndown-stats">
+        <div class="stat">
+          <span class="stat-value">${burndown.completedStories}/${burndown.totalStories}</span>
+          <span class="stat-label">Stories Done</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.percentComplete}%</span>
+          <span class="stat-label">Complete</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.velocity}</span>
+          <span class="stat-label">Velocity (stories/day)</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">${burndown.estimatedCompletion || "N/A"}</span>
+          <span class="stat-label">Est. Completion</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/stream-comparison
+ *
+ * Returns HTML fragment for stream velocity comparison.
+ */
+api.get("/partials/stream-comparison", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+
+  const comparison = getStreamVelocityComparison(period);
+
+  if (comparison.streams.length === 0) {
+    return c.html(`<div class="no-data-message">No streams with velocity data found.</div>`);
+  }
+
+  const streamRows = comparison.streams
+    .map((stream) => `
+      <tr>
+        <td>${stream.name}</td>
+        <td>${stream.totalStories}</td>
+        <td>${stream.storiesPerDay}</td>
+        <td>${stream.avgTimePerStoryMinutes} min</td>
+        <td>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${stream.percentComplete}%"></div>
+            <span class="progress-text">${stream.percentComplete}%</span>
+          </div>
+        </td>
+        <td>${stream.estimatedCompletion || "N/A"}</td>
+      </tr>
+    `)
+    .join("");
+
+  const html = `
+    <div class="stream-comparison-summary">
+      <div class="comparison-header">
+        <span>Overall: ${comparison.overall.avgStoriesPerDay} stories/day across ${comparison.streamCount} streams</span>
+      </div>
+    </div>
+    <table class="stream-comparison-table">
+      <thead>
+        <tr>
+          <th>Stream</th>
+          <th>Stories</th>
+          <th>Velocity</th>
+          <th>Avg Time</th>
+          <th>Progress</th>
+          <th>Est. Completion</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${streamRows}
+      </tbody>
+    </table>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/velocity-filters
+ *
+ * Returns HTML fragment for velocity trend filter dropdowns.
+ */
+api.get("/partials/velocity-filters", (c) => {
+  const options = getFilterOptions();
+
+  const prdOptions = options.prds
+    .map((prd) => `<option value="${prd}">PRD-${prd}</option>`)
+    .join("");
+
+  const html = `
+    <div class="control-group">
+      <label for="velocity-prd-filter">PRD:</label>
+      <select id="velocity-prd-filter" onchange="updateVelocityChart()">
+        <option value="all" selected>All PRDs</option>
+        ${prdOptions}
       </select>
     </div>
   `;

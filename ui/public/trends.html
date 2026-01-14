@@ -231,6 +231,131 @@
           <div class="no-data-message">Loading story costs...</div>
         </div>
       </section>
+
+      <!-- Velocity Trends Section -->
+      <section id="velocity-trends-section">
+        <h2>
+          Velocity Metrics
+          <span class="htmx-indicator" id="velocity-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="velocity-summary-container"
+          hx-get="/api/partials/velocity-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#velocity-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading velocity data...</div>
+        </div>
+      </section>
+
+      <!-- Velocity Chart Section -->
+      <section id="velocity-chart-section">
+        <div class="trend-chart-header">
+          <h2>Stories Completed Over Time</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="velocity-period">Period:</label>
+              <select id="velocity-period" onchange="updateVelocityChart()">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="velocity-group-by">Group by:</label>
+              <select id="velocity-group-by" onchange="updateVelocityChart()">
+                <option value="day" selected>Day</option>
+                <option value="week">Week</option>
+              </select>
+            </div>
+            <div
+              id="velocity-filters-container"
+              hx-get="/api/partials/velocity-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="velocity-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Stories Completed</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #10b981"></span>
+            <span>Cumulative Stories</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #f97316"></span>
+            <span>Avg Duration (min)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Burndown Chart Section -->
+      <section id="burndown-section">
+        <h2>PRD Burndown</h2>
+        <p class="section-description">
+          Track remaining stories over time for each PRD.
+        </p>
+        <div class="burndown-controls">
+          <label for="burndown-prd-select">Select PRD:</label>
+          <select id="burndown-prd-select" onchange="updateBurndownChart()">
+            <option value="">Select a PRD...</option>
+          </select>
+        </div>
+        <div id="burndown-summary-container">
+          <div class="no-data-message">Select a PRD to view burndown chart.</div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="burndown-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend" id="burndown-legend" style="display: none;">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #3b82f6"></span>
+            <span>Remaining Stories</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #9ca3af; border-style: dashed"></span>
+            <span>Ideal Burndown</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stream Comparison Section -->
+      <section id="stream-comparison-section">
+        <h2>Velocity Across Streams</h2>
+        <p class="section-description">
+          Compare velocity and progress across all active PRD streams.
+        </p>
+        <div class="stream-comparison-controls">
+          <div class="control-group">
+            <label for="stream-comparison-period">Period:</label>
+            <select id="stream-comparison-period" onchange="updateStreamComparison()">
+              <option value="7d">Last 7 days</option>
+              <option value="30d" selected>Last 30 days</option>
+            </select>
+          </div>
+        </div>
+        <div
+          id="stream-comparison-container"
+          hx-get="/api/partials/stream-comparison"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading stream comparison...</div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="stream-comparison-chart"></canvas>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -652,6 +777,12 @@
         initCostChart();
         initModelBreakdownChart();
         updateCostChart();
+        initVelocityChart();
+        initBurndownChart();
+        initStreamComparisonChart();
+        updateVelocityChart();
+        loadBurndownPrdOptions();
+        updateStreamComparison();
       });
 
       // ============================================
@@ -1030,6 +1161,457 @@
         }
 
         htmx.ajax("GET", url, "#cost-summary-container");
+      }
+
+      // ============================================
+      // Velocity Chart
+      // ============================================
+
+      var velocityChart = null;
+      var velocityData = null;
+
+      function initVelocityChart() {
+        var ctx = document.getElementById("velocity-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        velocityChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Stories Completed",
+                data: [],
+                backgroundColor: "#3b82f6",
+                borderColor: "#2563eb",
+                borderWidth: 1,
+                yAxisID: "y",
+              },
+              {
+                label: "Cumulative Stories",
+                data: [],
+                type: "line",
+                borderColor: "#10b981",
+                backgroundColor: "transparent",
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+              },
+              {
+                label: "Avg Duration (min)",
+                data: [],
+                backgroundColor: "rgba(249, 115, 22, 0.6)",
+                borderColor: "#f97316",
+                borderWidth: 1,
+                yAxisID: "y2",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Stories/Day",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  stepSize: 1,
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Cumulative",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y2: {
+                display: false,
+              },
+            },
+          },
+        });
+      }
+
+      function updateVelocityChart() {
+        var period = document.getElementById("velocity-period").value;
+        var groupBy = document.getElementById("velocity-group-by").value;
+        var prdFilter = document.getElementById("velocity-prd-filter");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+
+        var url =
+          "/api/trends/velocity?period=" +
+          encodeURIComponent(period) +
+          "&groupBy=" +
+          encodeURIComponent(groupBy);
+
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch velocity data");
+            return response.json();
+          })
+          .then(function (data) {
+            velocityData = data;
+            renderVelocityChart(data);
+            updateVelocitySummary(period, prd);
+          })
+          .catch(function (error) {
+            console.error("Error fetching velocity data:", error);
+          });
+      }
+
+      function renderVelocityChart(data) {
+        if (!velocityChart || !data.chartData) return;
+
+        velocityChart.data.labels = data.chartData.labels;
+        velocityChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        velocityChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        velocityChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        velocityChart.update("active");
+      }
+
+      function updateVelocitySummary(period, prd) {
+        var url = "/api/partials/velocity-chart?period=" + encodeURIComponent(period);
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        htmx.ajax("GET", url, "#velocity-summary-container");
+      }
+
+      // ============================================
+      // Burndown Chart
+      // ============================================
+
+      var burndownChart = null;
+
+      function initBurndownChart() {
+        var ctx = document.getElementById("burndown-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        burndownChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Remaining Stories",
+                data: [],
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                fill: true,
+                tension: 0.3,
+              },
+              {
+                label: "Ideal Burndown",
+                data: [],
+                borderColor: "#9ca3af",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0,
+                borderDash: [5, 5],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Remaining Stories",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  stepSize: 1,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function loadBurndownPrdOptions() {
+        fetch("/api/trends/filters")
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch filters");
+            return response.json();
+          })
+          .then(function (data) {
+            var select = document.getElementById("burndown-prd-select");
+            if (!select) return;
+
+            data.prds.forEach(function (prd) {
+              var option = document.createElement("option");
+              option.value = prd;
+              option.textContent = "PRD-" + prd;
+              select.appendChild(option);
+            });
+          })
+          .catch(function (error) {
+            console.error("Error loading burndown options:", error);
+          });
+      }
+
+      function updateBurndownChart() {
+        var select = document.getElementById("burndown-prd-select");
+        var prdId = select ? select.value : "";
+
+        if (!prdId) {
+          document.getElementById("burndown-summary-container").innerHTML =
+            '<div class="no-data-message">Select a PRD to view burndown chart.</div>';
+          document.getElementById("burndown-legend").style.display = "none";
+          if (burndownChart) {
+            burndownChart.data.labels = [];
+            burndownChart.data.datasets[0].data = [];
+            burndownChart.data.datasets[1].data = [];
+            burndownChart.update("active");
+          }
+          return;
+        }
+
+        fetch("/api/trends/burndown/" + encodeURIComponent(prdId))
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch burndown data");
+            return response.json();
+          })
+          .then(function (data) {
+            renderBurndownChart(data);
+            htmx.ajax("GET", "/api/partials/burndown-chart/" + encodeURIComponent(prdId), "#burndown-summary-container");
+            document.getElementById("burndown-legend").style.display = "flex";
+          })
+          .catch(function (error) {
+            console.error("Error fetching burndown data:", error);
+            document.getElementById("burndown-summary-container").innerHTML =
+              '<div class="no-data-message">Error loading burndown data.</div>';
+          });
+      }
+
+      function renderBurndownChart(data) {
+        if (!burndownChart || !data.chartData) return;
+
+        burndownChart.data.labels = data.chartData.labels;
+        burndownChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        burndownChart.data.datasets[1].data = data.chartData.datasets[1].data;
+
+        burndownChart.update("active");
+      }
+
+      // ============================================
+      // Stream Comparison Chart
+      // ============================================
+
+      var streamComparisonChart = null;
+
+      function initStreamComparisonChart() {
+        var ctx = document.getElementById("stream-comparison-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        streamComparisonChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Velocity (stories/day)",
+                data: [],
+                backgroundColor: "#3b82f6",
+                borderColor: "#2563eb",
+                borderWidth: 1,
+              },
+              {
+                label: "% Complete",
+                data: [],
+                backgroundColor: "rgba(16, 185, 129, 0.6)",
+                borderColor: "#10b981",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: {
+                  color: textColor,
+                },
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+              y: {
+                display: true,
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: textColor,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateStreamComparison() {
+        var period = document.getElementById("stream-comparison-period").value;
+
+        fetch("/api/trends/streams?period=" + encodeURIComponent(period))
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch stream comparison data");
+            return response.json();
+          })
+          .then(function (data) {
+            renderStreamComparisonChart(data);
+            htmx.ajax("GET", "/api/partials/stream-comparison?period=" + encodeURIComponent(period), "#stream-comparison-container");
+          })
+          .catch(function (error) {
+            console.error("Error fetching stream comparison data:", error);
+          });
+      }
+
+      function renderStreamComparisonChart(data) {
+        if (!streamComparisonChart || !data.chartData) return;
+
+        streamComparisonChart.data.labels = data.chartData.labels;
+        streamComparisonChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        streamComparisonChart.data.datasets[1].data = data.chartData.datasets[1].data;
+
+        streamComparisonChart.update("active");
       }
     </script>
   </body>
