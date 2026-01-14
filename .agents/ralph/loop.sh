@@ -1884,177 +1884,56 @@ Path(path).write_text("\n".join(out).rstrip() + "\n")
 PY
 }
 
+# Write run metadata using external Python script
+# Usage: write_run_meta <output_path> <json_data>
+# Where json_data is a JSON object containing all metadata fields
 write_run_meta() {
-  local path="$1"
-  local mode="$2"
-  local iter="$3"
-  local run_id="$4"
-  local story_id="$5"
-  local story_title="$6"
-  local started="$7"
-  local ended="$8"
-  local duration="$9"
-  local status="${10}"
-  local log_file="${11}"
-  local head_before="${12}"
-  local head_after="${13}"
-  local commit_list="${14}"
-  local changed_files="${15}"
-  local dirty_files="${16}"
-  local input_tokens="${17:-}"
-  local output_tokens="${18:-}"
-  local token_model="${19:-}"
-  local token_estimated="${20:-false}"
-  local retry_count="${21:-0}"
-  local retry_time="${22:-0}"
-  # Routing and cost estimate parameters (new for US-003)
-  local routed_model="${23:-}"
-  local complexity_score="${24:-}"
-  local routing_reason="${25:-}"
-  local est_cost="${26:-}"
-  local est_tokens="${27:-}"
-  # Agent switch parameters (new for US-003 Switch Notifications)
-  local switch_count="${28:-0}"
-  local switch_from="${29:-}"
-  local switch_to="${30:-}"
-  local switch_reason="${31:-}"
-  {
-    echo "# Ralph Run Summary"
-    echo ""
-    echo "- Run ID: $run_id"
-    echo "- Iteration: $iter"
-    echo "- Mode: $mode"
-    if [ -n "$story_id" ]; then
-      echo "- Story: $story_id: $story_title"
-    fi
-    echo "- Started: $started"
-    echo "- Ended: $ended"
-    echo "- Duration: ${duration}s"
-    echo "- Status: $status"
-    echo "- Log: $log_file"
-    echo ""
-    echo "## Git"
-    echo "- Head (before): ${head_before:-unknown}"
-    echo "- Head (after): ${head_after:-unknown}"
-    echo ""
-    echo "### Commits"
-    if [ -n "$commit_list" ]; then
-      echo "$commit_list"
-    else
-      echo "- (none)"
-    fi
-    echo ""
-    echo "### Changed Files (commits)"
-    if [ -n "$changed_files" ]; then
-      echo "$changed_files"
-    else
-      echo "- (none)"
-    fi
-    echo ""
-    echo "### Uncommitted Changes"
-    if [ -n "$dirty_files" ]; then
-      echo "$dirty_files"
-    else
-      echo "- (clean)"
-    fi
-    echo ""
-    echo "## Token Usage"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ]; then
-      echo "- Input tokens: $input_tokens"
-    else
-      echo "- Input tokens: (unavailable)"
-    fi
-    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
-      echo "- Output tokens: $output_tokens"
-    else
-      echo "- Output tokens: (unavailable)"
-    fi
-    # Prefer routed_model (from routing decision) over token_model (from log extraction)
-    local display_model="${routed_model:-$token_model}"
-    if [ -n "$display_model" ] && [ "$display_model" != "null" ]; then
-      echo "- Model: $display_model"
-    fi
-    echo "- Estimated: $token_estimated"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
-      local total=$((input_tokens + output_tokens))
-      echo "- Total tokens: $total"
-    fi
-    echo ""
-    echo "## Retry Statistics"
-    if [ "$retry_count" -gt 0 ]; then
-      echo "- Retry count: $retry_count"
-      echo "- Total retry wait time: ${retry_time}s"
-    else
-      echo "- Retry count: 0 (succeeded on first attempt)"
-    fi
-    echo ""
-    echo "## Agent Switches"
-    if [ "$switch_count" -gt 0 ]; then
-      echo "- Switch count: $switch_count"
-      echo "- From: $switch_from"
-      echo "- To: $switch_to"
-      echo "- Reason: $switch_reason"
-    else
-      echo "- Switch count: 0 (no agent switches)"
-    fi
-    echo ""
-    echo "## Routing Decision"
-    if [ -n "$routed_model" ]; then
-      echo "- Model: $routed_model"
-      if [ -n "$complexity_score" ] && [ "$complexity_score" != "n/a" ]; then
-        echo "- Complexity score: ${complexity_score}/10"
+  local output_path="$1"
+  local json_data="$2"
+
+  # Create temporary JSON file
+  local json_tmp
+  json_tmp="$(mktemp)"
+  echo "$json_data" > "$json_tmp"
+
+  # Call Python script to generate markdown
+  if ! python3 "$SCRIPT_DIR/lib/run-meta-writer.py" "$json_tmp" "$output_path" 2>/dev/null; then
+    # Fallback: write minimal metadata if Python script fails
+    {
+      echo "# Ralph Run Summary"
+      echo ""
+      echo "Error: Failed to generate full metadata"
+      echo ""
+      echo "Raw JSON:"
+      echo "$json_data"
+    } > "$output_path"
+  fi
+
+  # Clean up temp file
+  rm -f "$json_tmp"
+
+  # Handle actual cost calculation if needed (requires bash routing lib)
+  # Extract values from JSON for cost calculation
+  local input_tokens output_tokens routed_model token_model
+  input_tokens="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('input_tokens',''))" 2>/dev/null || echo "")"
+  output_tokens="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('output_tokens',''))" 2>/dev/null || echo "")"
+  routed_model="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('routed_model',''))" 2>/dev/null || echo "")"
+  token_model="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('token_model',''))" 2>/dev/null || echo "")"
+
+  # Calculate and append actual cost if we have the data
+  if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
+    local cost_model="${routed_model:-$token_model}"
+    if [[ -n "$cost_model" ]] && [[ "$cost_model" != "null" ]]; then
+      local actual_cost_json actual_cost
+      actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$cost_model" 2>/dev/null || echo "")"
+      actual_cost="$(parse_routing_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
+      if [[ -n "$actual_cost" ]] && [[ "$actual_cost" != "null" ]]; then
+        # Insert actual cost into the markdown file (replace placeholder line)
+        sed -i.bak "s|- Actual tokens: \([0-9]*\) (input: \([0-9]*\), output: \([0-9]*\))|- Actual tokens: \1 (input: \2, output: \3)\n- Actual cost: \$$actual_cost|g" "$output_path"
+        rm -f "${output_path}.bak"
       fi
-      if [ -n "$routing_reason" ] && [ "$routing_reason" != "n/a" ]; then
-        echo "- Reason: $routing_reason"
-      fi
-    else
-      echo "- Model: (not routed)"
     fi
-    echo ""
-    echo "## Cost Estimate vs Actual"
-    if [ -n "$est_cost" ] && [ "$est_cost" != "n/a" ] && [ "$est_cost" != "null" ]; then
-      echo "### Pre-execution Estimate"
-      echo "- Estimated cost: \$${est_cost}"
-      if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ]; then
-        echo "- Estimated tokens: $est_tokens"
-      fi
-    else
-      echo "### Pre-execution Estimate"
-      echo "- (estimate unavailable)"
-    fi
-    echo ""
-    echo "### Actual Usage"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
-      local actual_total=$((input_tokens + output_tokens))
-      echo "- Actual tokens: $actual_total (input: $input_tokens, output: $output_tokens)"
-      # Calculate actual cost if model available (prefer routed_model over token_model)
-      local cost_model="${routed_model:-$token_model}"
-      if [ -n "$cost_model" ] && [ "$cost_model" != "null" ]; then
-        local actual_cost_json
-        actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$cost_model" 2>/dev/null || echo "")"
-        local actual_cost
-        actual_cost="$(parse_routing_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
-        if [ -n "$actual_cost" ] && [ "$actual_cost" != "null" ]; then
-          echo "- Actual cost: \$$actual_cost"
-        fi
-      fi
-    else
-      echo "- (actual usage unavailable)"
-    fi
-    echo ""
-    echo "### Estimate Accuracy"
-    if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ] && [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
-      local actual_total=$((input_tokens + output_tokens))
-      if [ "$est_tokens" -gt 0 ]; then
-        local variance_pct
-        variance_pct=$(python3 -c "print(round((($actual_total - $est_tokens) / $est_tokens) * 100, 1))" 2>/dev/null || echo "n/a")
-        echo "- Token variance: ${variance_pct}% (estimated: $est_tokens, actual: $actual_total)"
-      fi
-    else
-      echo "- (variance not available)"
-    fi
-    echo ""
-  } > "$path"
+  fi
 }
 
 # Generate context summary for a story
@@ -2953,7 +2832,41 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
-  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}" "$LAST_SWITCH_COUNT" "$LAST_SWITCH_FROM" "$LAST_SWITCH_TO" "$LAST_SWITCH_REASON"
+  # Build JSON object for run metadata
+  RUN_META_JSON=$(python3 -c "import json, sys; print(json.dumps({
+    'mode': '$MODE',
+    'iteration': '$i',
+    'run_id': '$RUN_TAG',
+    'story_id': '${STORY_ID:-}',
+    'story_title': '${STORY_TITLE:-}',
+    'started': '$ITER_START_FMT',
+    'ended': '$ITER_END_FMT',
+    'duration': '$ITER_DURATION',
+    'status': '$STATUS_LABEL',
+    'log_file': '$LOG_FILE',
+    'head_before': '$HEAD_BEFORE',
+    'head_after': '$HEAD_AFTER',
+    'commit_list': '''$COMMIT_LIST''',
+    'changed_files': '''$CHANGED_FILES''',
+    'dirty_files': '''$DIRTY_FILES''',
+    'input_tokens': '$TOKEN_INPUT',
+    'output_tokens': '$TOKEN_OUTPUT',
+    'token_model': '$TOKEN_MODEL',
+    'token_estimated': '$TOKEN_ESTIMATED',
+    'retry_count': '$LAST_RETRY_COUNT',
+    'retry_time': '$LAST_RETRY_TOTAL_TIME',
+    'routed_model': '${ROUTED_MODEL:-}',
+    'complexity_score': '${ROUTED_SCORE:-}',
+    'routing_reason': '${ROUTED_REASON:-}',
+    'est_cost': '${ESTIMATED_COST:-}',
+    'est_tokens': '${ESTIMATED_TOKENS:-}',
+    'switch_count': '$LAST_SWITCH_COUNT',
+    'switch_from': '$LAST_SWITCH_FROM',
+    'switch_to': '$LAST_SWITCH_TO',
+    'switch_reason': '$LAST_SWITCH_REASON'
+  }))" 2>/dev/null || echo '{}')
+
+  write_run_meta "$RUN_META" "$RUN_META_JSON"
 
   # Append context summary to run meta (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_BLOCK:-}" ]; then
@@ -3095,7 +3008,39 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
                 CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
 
                 # Update run meta for the retry
-                write_run_meta "$RETRY_RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-} (Retry $CURRENT_RETRY_COUNT)" "$ITER_START_FMT" "$(date '+%Y-%m-%d %H:%M:%S')" "$RETRY_DURATION" "success" "$RETRY_LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "" "" "" "" "" "" "" "" "" "" "" ""
+                RETRY_META_JSON=$(python3 -c "import json; print(json.dumps({
+                  'mode': '$MODE',
+                  'iteration': '$i',
+                  'run_id': '$RUN_TAG',
+                  'story_id': '${STORY_ID:-}',
+                  'story_title': '${STORY_TITLE:-} (Retry $CURRENT_RETRY_COUNT)',
+                  'started': '$ITER_START_FMT',
+                  'ended': '$(date '+%Y-%m-%d %H:%M:%S')',
+                  'duration': '$RETRY_DURATION',
+                  'status': 'success',
+                  'log_file': '$RETRY_LOG_FILE',
+                  'head_before': '$HEAD_BEFORE',
+                  'head_after': '$HEAD_AFTER',
+                  'commit_list': '''$COMMIT_LIST''',
+                  'changed_files': '''$CHANGED_FILES''',
+                  'dirty_files': '',
+                  'input_tokens': '',
+                  'output_tokens': '',
+                  'token_model': '',
+                  'token_estimated': 'false',
+                  'retry_count': '0',
+                  'retry_time': '0',
+                  'routed_model': '',
+                  'complexity_score': '',
+                  'routing_reason': '',
+                  'est_cost': '',
+                  'est_tokens': '',
+                  'switch_count': '0',
+                  'switch_from': '',
+                  'switch_to': '',
+                  'switch_reason': ''
+                }))" 2>/dev/null || echo '{}')
+                write_run_meta "$RETRY_RUN_META" "$RETRY_META_JSON"
               else
                 # Retry failed
                 printf "${C_YELLOW}  Retry $CURRENT_RETRY_COUNT failed${C_RESET}\n"
