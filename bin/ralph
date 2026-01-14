@@ -2123,7 +2123,7 @@ ${pc.bold(pc.cyan("Examples:"))}
       }
 
       const latestPrdDir = path.join(ralphDir, prdDirs[0]);
-      const agentStats = metricsModule.getAgentSuccessRates(latestPrdDir, { groupByStoryType: true });
+      const agentStats = metricsModule.getAgentAnalytics(latestPrdDir, { groupByStoryType: true });
 
       if (agentStats.totalRuns === 0) {
         warn("No metrics data found. Run some build iterations first.");
@@ -3409,56 +3409,71 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     // Agent recommendations (US-004)
     const metricsModule = require("../lib/estimate/metrics");
-    const classifier = require("../lib/diagnose/classifier");
 
-    // Get latest PRD for metrics
+    // Get all PRD directories for metrics
     const ralphDir = path.join(cwd, ".ralph");
     if (exists(ralphDir)) {
       const prdDirs = fs.readdirSync(ralphDir)
         .filter(d => d.match(/^PRD-\d+$/))
-        .sort((a, b) => {
-          const numA = parseInt(a.split('-')[1]);
-          const numB = parseInt(b.split('-')[1]);
-          return numB - numA;
-        });
+        .map(d => path.join(ralphDir, d));
 
-      if (prdDirs.length > 0) {
-        const latestPrdDir = path.join(ralphDir, prdDirs[0]);
-        const agentStats = metricsModule.getAgentSuccessRates(latestPrdDir, { groupByStoryType: true });
+      // Aggregate metrics across all PRDs
+      let allMetrics = [];
+      for (const prdDir of prdDirs) {
+        const result = metricsModule.loadMetrics(prdDir);
+        if (result.success && result.metrics.length > 0) {
+          allMetrics = allMetrics.concat(result.metrics);
+        }
+      }
+
+      if (allMetrics.length > 0) {
+        const agentStats = metricsModule.getAgentSuccessRates(allMetrics);
+        const switchAnalytics = metricsModule.getSwitchAnalytics(allMetrics);
+        const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "codex");
+        const agents = Object.keys(agentStats);
 
         // Only show agent recommendations if we have data
-        if (agentStats.totalRuns > 0) {
+        if (agents.length > 0) {
           console.log(pc.bold(pc.cyan("Agent Performance Analysis")));
           console.log(pc.dim("-".repeat(70)));
           console.log("");
 
           // Show overall success rates
-          const agents = Object.keys(agentStats.overall).sort((a, b) => {
-            return (agentStats.overall[b].successRate || 0) - (agentStats.overall[a].successRate || 0);
+          const sortedAgents = agents.sort((a, b) => {
+            return (agentStats[b].successRate || 0) - (agentStats[a].successRate || 0);
           });
 
-          if (agents.length > 0) {
-            console.log(pc.dim(`${"AGENT".padEnd(15)} ${"SUCCESS RATE".padStart(13)} ${"RUNS".padStart(6)} ${"AVG SWITCHES".padStart(13)}`));
-            console.log(pc.dim("-".repeat(50)));
+          console.log(pc.dim(`${"AGENT".padEnd(15)} ${"SUCCESS RATE".padStart(13)} ${"RUNS".padStart(6)} ${"STORIES".padStart(8)}`));
+          console.log(pc.dim("-".repeat(50)));
 
-            for (const agent of agents) {
-              const stats = agentStats.overall[agent];
-              const rateStr = `${stats.successRate}%`.padStart(13);
-              const runsStr = String(stats.total).padStart(6);
-              const switchStr = String(stats.avgSwitchesPerRun || 0).padStart(13);
+          for (const agent of sortedAgents) {
+            const stats = agentStats[agent];
+            const rateStr = `${stats.successRate}%`.padStart(13);
+            const runsStr = String(stats.total).padStart(6);
+            const storiesStr = String(stats.storyCount || 0).padStart(8);
 
-              const rateColor = stats.successRate >= 70 ? pc.green : stats.successRate >= 50 ? pc.yellow : pc.red;
-              console.log(`${agent.padEnd(15)} ${rateColor(rateStr)} ${runsStr} ${switchStr}`);
-            }
+            const rateColor = stats.successRate >= 70 ? pc.green : stats.successRate >= 50 ? pc.yellow : pc.red;
+            console.log(`${agent.padEnd(15)} ${rateColor(rateStr)} ${runsStr} ${storiesStr}`);
+          }
 
-            console.log("");
+          console.log("");
 
-            // Best agent recommendation
-            const bestAgent = agents[0];
-            const bestStats = agentStats.overall[bestAgent];
+          // Best agent recommendation
+          if (defaultSuggestion.shouldChange) {
+            warn(`Consider changing default agent from ${defaultSuggestion.currentDefault} to ${pc.bold(defaultSuggestion.suggestedDefault)}`);
+            console.log(`  ${pc.dim("→")} ${defaultSuggestion.reason}`);
+          } else {
+            const bestAgent = sortedAgents[0];
+            const bestStats = agentStats[bestAgent];
             if (bestStats && bestStats.total >= 3) {
-              info(`Recommend using ${pc.bold(bestAgent)} (${bestStats.successRate}% success rate over ${bestStats.total} runs)`);
+              info(`Recommended agent: ${pc.bold(bestAgent)} (${bestStats.successRate}% success rate over ${bestStats.total} runs)`);
             }
+          }
+
+          // Show switch summary if switches occurred
+          if (switchAnalytics.totalSwitches > 0) {
+            console.log("");
+            console.log(`  ${pc.dim("Switches:")} ${switchAnalytics.totalSwitches} total across ${switchAnalytics.iterationsWithSwitches} iterations`);
           }
 
           console.log("");
