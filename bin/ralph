@@ -32,6 +32,7 @@ let uiOpenBrowser = false;  // For --open flag in ui command
 let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
 let estimateModel = null;  // For --model flag in estimate command
 let noRetry = false;  // For --no-retry flag to disable automatic retries
+let resumeMode = false;  // For --resume flag in build command
 
 function exists(p) {
   try {
@@ -51,7 +52,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry]")} Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume]")} Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -65,7 +66,13 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
   ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
   ${pc.green("ui")} ${pc.dim("[port] [--open]")}                   Start the Ralph UI server
+  ${pc.green("checkpoint")} ${pc.dim("<subcmd>")}                  Manage build checkpoints
   ${pc.green("help")}                                Show this message
+
+${pc.bold(pc.cyan("Checkpoint commands:"))}
+  ${pc.green("checkpoint list")} ${pc.dim("[--prd=N]")}            List checkpoints (all PRDs or specific)
+  ${pc.green("checkpoint clear")} ${pc.dim("[--prd=N]")}           Clear checkpoint for current/specific PRD
+  ${pc.green("checkpoint clear")} ${pc.dim("--all")}               Clear all checkpoints across all PRDs
 
 ${pc.bold(pc.cyan("Registry commands:"))}
   ${pc.green("registry add")} ${pc.dim("[--tags t1,t2]")}          Register current project
@@ -138,6 +145,7 @@ ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
   ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
   ${pc.yellow("--agent")} ${pc.dim("<codex|claude|droid>")}        Override agent runner
+  ${pc.yellow("--resume")}                             Resume build from last checkpoint
   ${pc.yellow("--import-from")} ${pc.dim("<project>")}             Import guardrails during install
 
 ${pc.bold(pc.cyan("Notes:"))}
@@ -232,6 +240,10 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--open") {
     uiOpenBrowser = true;
+    continue;
+  }
+  if (arg === "--resume") {
+    resumeMode = true;
     continue;
   }
   // Parse --pricing flag for estimate command (format: "input:X,output:Y")
@@ -556,6 +568,10 @@ async function main() {
   if (progressPath) env.PROGRESS_PATH = progressPath;
   // Pass --no-retry flag to disable automatic retries
   if (noRetry) env.NO_RETRY = "true";
+  // Set resume mode env variable for loop.sh
+  if (resumeMode) {
+    env.RALPH_RESUME = "1";
+  }
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
@@ -2727,6 +2743,221 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     // Keep the process running
     return;
+  }
+
+  if (cmd === "checkpoint") {
+    const checkpointModule = require("../lib/checkpoint");
+    const ralphDir = path.join(cwd, ".ralph");
+    const subCmd = args[1];
+
+    // Helper to get PRD folders sorted by number (descending)
+    const getPRDFolders = () => {
+      if (!exists(ralphDir)) return [];
+      const entries = fs.readdirSync(ralphDir, { withFileTypes: true });
+      return entries
+        .filter((e) => e.isDirectory() && /^PRD-\d+$/i.test(e.name))
+        .map((e) => ({
+          name: e.name,
+          path: path.join(ralphDir, e.name),
+          number: parseInt(e.name.replace(/PRD-/i, ""), 10),
+        }))
+        .sort((a, b) => a.number - b.number);
+    };
+
+    // Helper to get a specific PRD folder
+    const getPRDFolder = (num) => {
+      const upperPath = path.join(ralphDir, `PRD-${num}`);
+      const lowerPath = path.join(ralphDir, `prd-${num}`);
+      if (exists(upperPath)) return { path: upperPath, name: `PRD-${num}`, number: parseInt(num, 10) };
+      if (exists(lowerPath)) return { path: lowerPath, name: `prd-${num}`, number: parseInt(num, 10) };
+      return null;
+    };
+
+    if (subCmd === "list") {
+      // ralph checkpoint list [--prd=N]
+      if (!exists(ralphDir)) {
+        dim("No .ralph directory found. Run `ralph prd` to create one.");
+        process.exit(0);
+      }
+
+      let checkpoints = [];
+
+      if (prdNumber) {
+        // List checkpoint for specific PRD
+        const prdFolder = getPRDFolder(prdNumber);
+        if (!prdFolder) {
+          error(`PRD-${prdNumber} not found.`);
+          process.exit(1);
+        }
+        const result = checkpointModule.loadCheckpoint(prdFolder.path);
+        if (result.success && result.checkpoint) {
+          checkpoints.push({
+            prdFolder: prdFolder.name,
+            prdPath: prdFolder.path,
+            ...result.checkpoint,
+          });
+        }
+      } else {
+        // List all checkpoints
+        const result = checkpointModule.listCheckpoints(ralphDir);
+        if (result.success) {
+          checkpoints = result.checkpoints;
+        } else {
+          error(result.error);
+          process.exit(1);
+        }
+      }
+
+      if (checkpoints.length === 0) {
+        dim("No checkpoints found.");
+        process.exit(0);
+      }
+
+      // Display checkpoints in a table format
+      console.log("");
+      console.log(pc.bold("Checkpoints"));
+      console.log(pc.dim("-".repeat(80)));
+      console.log(
+        pc.dim(
+          `${"PRD".padEnd(10)} ${"Iteration".padEnd(12)} ${"Story".padEnd(12)} ${"Git SHA".padEnd(10)} ${"Created"}`
+        )
+      );
+      console.log(pc.dim("-".repeat(80)));
+
+      for (const cp of checkpoints) {
+        const prdName = cp.prdFolder || `PRD-${cp.prd_id}`;
+        const iteration = String(cp.iteration || "?").padEnd(12);
+        const story = (cp.story_id || "?").padEnd(12);
+        const gitSha = (cp.git_sha || "?").slice(0, 8).padEnd(10);
+        const created = cp.created_at
+          ? new Date(cp.created_at).toLocaleString()
+          : "?";
+
+        console.log(`${pc.cyan(prdName.padEnd(10))} ${iteration} ${story} ${pc.dim(gitSha)} ${pc.dim(created)}`);
+      }
+      console.log("");
+      success(`Found ${pc.bold(checkpoints.length)} checkpoint(s).`);
+      process.exit(0);
+    }
+
+    if (subCmd === "clear") {
+      // ralph checkpoint clear [--prd=N] [--all]
+      const clearAll = args.includes("--all");
+
+      if (clearAll) {
+        // Clear all checkpoints
+        const prdFolders = getPRDFolders();
+        if (prdFolders.length === 0) {
+          dim("No PRD folders found.");
+          process.exit(0);
+        }
+
+        let clearedCount = 0;
+        for (const prdFolder of prdFolders) {
+          if (checkpointModule.hasCheckpoint(prdFolder.path)) {
+            const result = checkpointModule.clearCheckpoint(prdFolder.path);
+            if (result.success) {
+              clearedCount++;
+              dim(`Cleared checkpoint from ${prdFolder.name}`);
+            }
+          }
+        }
+
+        if (clearedCount > 0) {
+          success(`Cleared ${pc.bold(clearedCount)} checkpoint(s).`);
+        } else {
+          dim("No checkpoints to clear.");
+        }
+        process.exit(0);
+      }
+
+      // Clear specific PRD or latest
+      let prdFolder;
+      if (prdNumber) {
+        prdFolder = getPRDFolder(prdNumber);
+        if (!prdFolder) {
+          error(`PRD-${prdNumber} not found.`);
+          process.exit(1);
+        }
+      } else {
+        // Find latest PRD folder
+        const prdFolders = getPRDFolders();
+        if (prdFolders.length === 0) {
+          dim("No PRD folders found.");
+          process.exit(0);
+        }
+        prdFolder = prdFolders[prdFolders.length - 1]; // Latest (highest number)
+      }
+
+      if (!checkpointModule.hasCheckpoint(prdFolder.path)) {
+        dim(`No checkpoint found in ${prdFolder.name}.`);
+        process.exit(0);
+      }
+
+      const result = checkpointModule.clearCheckpoint(prdFolder.path);
+      if (result.success) {
+        success(`Cleared checkpoint from ${pc.cyan(prdFolder.name)}.`);
+      } else {
+        error(result.error);
+        process.exit(1);
+      }
+      process.exit(0);
+    }
+
+    // Unknown subcommand or no subcommand
+    error(`Unknown checkpoint command: ${pc.bold(subCmd || "(none)")}`);
+    console.log("");
+    info("Available checkpoint commands:");
+    dim("  checkpoint list [--prd=N]   - List checkpoints");
+    dim("  checkpoint clear [--prd=N]  - Clear checkpoint for current/specific PRD");
+    dim("  checkpoint clear --all      - Clear all checkpoints");
+    process.exit(1);
+  }
+
+  // Check for existing checkpoint and suggest --resume (build mode only)
+  if ((cmd === "build" || !cmd || args[0] === "build") && !resumeMode) {
+    const checkpointModule = require("../lib/checkpoint");
+    const ralphDir = path.join(cwd, ".ralph");
+
+    // Determine PRD folder
+    let prdFolderToCheck = null;
+    if (prdNumber) {
+      // Check uppercase first, then lowercase
+      const upperPath = path.join(ralphDir, `PRD-${prdNumber}`);
+      const lowerPath = path.join(ralphDir, `prd-${prdNumber}`);
+      if (exists(upperPath)) {
+        prdFolderToCheck = upperPath;
+      } else if (exists(lowerPath)) {
+        prdFolderToCheck = lowerPath;
+      }
+    } else {
+      // Find latest PRD folder
+      if (exists(ralphDir)) {
+        const entries = fs.readdirSync(ralphDir, { withFileTypes: true });
+        const prdFolders = entries
+          .filter((e) => e.isDirectory() && /^PRD-\d+$/i.test(e.name))
+          .sort((a, b) => {
+            const numA = parseInt(a.name.replace(/PRD-/i, ""), 10);
+            const numB = parseInt(b.name.replace(/PRD-/i, ""), 10);
+            return numB - numA; // Descending order (latest first)
+          });
+        if (prdFolders.length > 0) {
+          prdFolderToCheck = path.join(ralphDir, prdFolders[0].name);
+        }
+      }
+    }
+
+    // Check if checkpoint exists and show hint
+    if (prdFolderToCheck && checkpointModule.hasCheckpoint(prdFolderToCheck)) {
+      const result = checkpointModule.loadCheckpoint(prdFolderToCheck);
+      if (result.success && result.checkpoint) {
+        const cp = result.checkpoint;
+        console.log("");
+        info(`Checkpoint found at iteration ${pc.bold(cp.iteration)} (story ${pc.bold(cp.story_id || "unknown")}).`);
+        dim(`Use ${pc.cyan("--resume")} to continue from checkpoint.`);
+        console.log("");
+      }
+    }
   }
 
   const result = spawnSync(loopPath, loopArgs, {
