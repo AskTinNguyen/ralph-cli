@@ -40,6 +40,19 @@ RALPH_BUDGET_MONTHLY=500.00
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Rollback Configuration (US-001)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic rollback behavior when test failures are detected.
+# When tests fail, Ralph can automatically revert to pre-story git state.
+#
+# Enable/disable automatic rollback on test failure (default: true):
+ROLLBACK_ENABLED=true
+#
+# Note: Rollback is disabled when using --no-commit flag.
+# Error context is preserved in .ralph/PRD-N/runs/failure-context-*.log
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Automatically select AI model based on task complexity.

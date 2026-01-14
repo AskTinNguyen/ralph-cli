@@ -990,6 +990,162 @@ load_checkpoint() {
   fi
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback Functions (US-001: Automatic Rollback on Test Failure)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Detect test failures in build output
+# Returns: 0 if test failure detected, 1 if no test failure
+# Usage: detect_test_failure <log_file>
+detect_test_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common test failure patterns across various frameworks
+  # Jest: "Tests: X failed"
+  # Mocha: "X failing"
+  # Pytest: "X failed"
+  # npm test: "npm ERR!" with test context
+  # Go test: "FAIL" or "--- FAIL:"
+  # Vitest: "Tests: X failed"
+  # Bun test: "X fail"
+  local patterns=(
+    "Tests:.*[0-9]+ failed"           # Jest, Vitest
+    "[0-9]+ failing"                   # Mocha
+    "FAILED.*test"                     # Pytest
+    "^FAIL\t"                          # Go test (FAIL<tab>package)
+    "--- FAIL:"                        # Go test detailed
+    "npm ERR!.*test"                   # npm test failure
+    "test.*failed"                     # Generic test failure
+    "AssertionError"                   # Node.js assertion
+    "Error: expect"                    # Jest/Vitest expect failure
+    "✗.*test"                          # Various test runners
+    "[0-9]+ test.*fail"                # Bun and others
+    "FAIL.*\\.test\\."                 # Test file failure patterns
+    "FAIL.*\\.spec\\."                 # Spec file failure patterns
+    "exit status [1-9]"                # Go test exit status
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Test failure detected
+    fi
+  done
+
+  return 1  # No test failure detected
+}
+
+# Rollback to a git checkpoint (pre-story state)
+# Usage: rollback_to_checkpoint <target_sha> <story_id> <reason>
+# Returns: 0 on success, 1 on failure
+rollback_to_checkpoint() {
+  local target_sha="$1"
+  local story_id="$2"
+  local reason="${3:-test_failure}"
+
+  if [ -z "$target_sha" ]; then
+    log_error "ROLLBACK failed: no target SHA provided"
+    return 1
+  fi
+
+  local current_sha
+  current_sha=$(git_head)
+
+  # Check if we're already at target SHA
+  if [ "$current_sha" = "$target_sha" ]; then
+    msg_dim "Already at target SHA, no rollback needed"
+    return 0
+  fi
+
+  # Stash any uncommitted changes to preserve them
+  local stash_output
+  stash_output=$(git stash push -m "ralph-rollback-$story_id-$(date +%s)" 2>&1)
+  local has_stash=false
+  if ! echo "$stash_output" | grep -q "No local changes"; then
+    has_stash=true
+    msg_dim "Stashed uncommitted changes before rollback"
+  fi
+
+  # Perform the rollback using git reset
+  if ! git reset --hard "$target_sha" >/dev/null 2>&1; then
+    log_error "ROLLBACK failed: git reset --hard $target_sha failed"
+    # Attempt to restore stash if we made one
+    if [ "$has_stash" = "true" ]; then
+      git stash pop >/dev/null 2>&1 || true
+    fi
+    return 1
+  fi
+
+  # Log the rollback
+  log_activity "ROLLBACK story=$story_id reason=$reason from=${current_sha:0:8} to=${target_sha:0:8}"
+
+  return 0
+}
+
+# Save failure context for retry (preserves error information)
+# Usage: save_failure_context <log_file> <runs_dir> <run_tag> <iteration> <story_id>
+save_failure_context() {
+  local log_file="$1"
+  local runs_dir="$2"
+  local run_tag="$3"
+  local iteration="$4"
+  local story_id="$5"
+
+  local context_file="$runs_dir/failure-context-$run_tag-iter-$iteration.log"
+
+  {
+    echo "# Failure Context"
+    echo "# Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "# Story: $story_id"
+    echo "# Run: $run_tag (iteration $iteration)"
+    echo ""
+    echo "## Test Output"
+    echo ""
+
+    if [ -f "$log_file" ]; then
+      # Extract relevant error/test failure sections
+      # Look for test output, assertion failures, stack traces
+      grep -iE "(FAIL|ERROR|test.*fail|AssertionError|expect|✗|failing|failed)" "$log_file" 2>/dev/null | head -100 || true
+      echo ""
+      echo "## Full Log Tail (last 50 lines)"
+      echo ""
+      tail -50 "$log_file" 2>/dev/null || true
+    else
+      echo "(Log file not found: $log_file)"
+    fi
+  } > "$context_file"
+
+  echo "$context_file"
+}
+
+# Display rollback notification to user
+# Usage: notify_rollback <story_id> <reason> <target_sha> <context_file>
+notify_rollback() {
+  local story_id="$1"
+  local reason="$2"
+  local target_sha="$3"
+  local context_file="${4:-}"
+
+  printf "\n"
+  printf "${C_YELLOW}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_YELLOW}${C_BOLD}║              ROLLBACK TRIGGERED                       ║${C_RESET}\n"
+  printf "${C_YELLOW}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+  printf "\n"
+  printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "$story_id"
+  printf "  ${C_BOLD}Reason:${C_RESET} %s\n" "$reason"
+  printf "  ${C_BOLD}Rolled back to:${C_RESET} %s\n" "${target_sha:0:8}"
+  if [ -n "$context_file" ] && [ -f "$context_file" ]; then
+    printf "  ${C_BOLD}Error context:${C_RESET} %s\n" "$context_file"
+  fi
+  printf "\n"
+  printf "${C_DIM}  The codebase has been restored to its pre-story state.${C_RESET}\n"
+  printf "${C_DIM}  Review the error context for the next attempt.${C_RESET}\n"
+  printf "\n"
+}
+
 # Validate git state matches checkpoint
 # Returns: 0 if match or user confirms, 1 if user declines
 validate_git_state() {
@@ -1978,6 +2134,36 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
   if [ "$MODE" = "build" ]; then
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Rollback on Test Failure (US-001)
+    # Check for test failures and rollback to pre-story state if detected
+    # ─────────────────────────────────────────────────────────────────────────
+    if [ "$CMD_STATUS" -ne 0 ] && [ "${ROLLBACK_ENABLED:-true}" = "true" ] && [ "$NO_COMMIT" = "false" ]; then
+      # Check if this is a test failure (not just a transient error)
+      if detect_test_failure "$LOG_FILE"; then
+        log_activity "TEST_FAILURE_DETECTED story=$STORY_ID"
+
+        # Save failure context for retry before rollback
+        FAILURE_CONTEXT_FILE="$(save_failure_context "$LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i" "${STORY_ID:-unknown}")"
+
+        # Perform rollback to pre-story state
+        if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "test_failure"; then
+          # Notify user of successful rollback
+          notify_rollback "${STORY_ID:-unknown}" "Test failure detected" "$HEAD_BEFORE" "$FAILURE_CONTEXT_FILE"
+          log_activity "ROLLBACK_SUCCESS story=$STORY_ID context=$FAILURE_CONTEXT_FILE"
+
+          # Update HEAD_AFTER to reflect rollback
+          HEAD_AFTER="$(git_head)"
+          COMMIT_LIST=""
+          CHANGED_FILES=""
+        else
+          log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
+          msg_error "Rollback failed - manual intervention may be required"
+        fi
+      fi
+    fi
+
     if [ "$CMD_STATUS" -ne 0 ]; then
       # Differentiate agent errors vs system errors
       if [ "$CMD_STATUS" -eq 1 ]; then
