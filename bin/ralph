@@ -35,6 +35,7 @@ let noRetry = false;  // For --no-retry flag to disable automatic retries
 let resumeMode = false;  // For --resume flag in build command
 let watchBuildMode = false;  // For --build flag in watch command
 let autoFixMode = null;  // For --auto-fix flag (none|safe|all)
+let parallelConcurrency = null;  // For --parallel=N flag to enable parallel story execution
 
 function exists(p) {
   try {
@@ -54,7 +55,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model] [--auto-fix]")} Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model] [--auto-fix] [--parallel=N]")} Run build loop
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -130,6 +131,11 @@ ${pc.bold(pc.cyan("Auto-fix options:"))}
   ${pc.dim("  safe:  Auto-fix safe errors (lint, format, npm install)")}
   ${pc.dim("  all:   Fix all errors including risky ones (skip prompts)")}
   ${pc.dim("Fix categories: safe (auto), needs-approval (prompt), manual-only (skip)")}
+
+${pc.bold(pc.cyan("Parallel options:"))}
+  ${pc.yellow("--parallel")} ${pc.dim("<N>")}                      Enable parallel story execution with N concurrent agents
+  ${pc.dim("  Example: ralph build 5 --parallel=3    Run 5 iterations with 3 parallel agents")}
+  ${pc.dim("  Example: ralph build 5 --parallel=3 --no-commit  Dry run with parallel execution")}
 
 ${pc.bold(pc.cyan("Retry options:"))}
   ${pc.yellow("--no-retry")}                         Disable automatic retries on agent failure
@@ -326,6 +332,26 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--auto-fix") {
     autoFixMode = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  // Parse --parallel=N flag for parallel story execution
+  if (arg.startsWith("--parallel=")) {
+    const value = arg.split("=").slice(1).join("=");
+    parallelConcurrency = parseInt(value, 10);
+    if (isNaN(parallelConcurrency) || parallelConcurrency < 1) {
+      error(`Invalid --parallel value: ${value}. Must be a positive integer.`);
+      process.exit(1);
+    }
+    continue;
+  }
+  if (arg === "--parallel") {
+    const value = rawArgs[i + 1];
+    parallelConcurrency = parseInt(value, 10);
+    if (isNaN(parallelConcurrency) || parallelConcurrency < 1) {
+      error(`Invalid --parallel value: ${value}. Must be a positive integer.`);
+      process.exit(1);
+    }
     i += 1;
     continue;
   }
@@ -4454,6 +4480,107 @@ ${pc.bold(pc.cyan("Examples:"))}
     error(`Unknown experiment command: ${pc.bold(subCmd)}`);
     info(`Run ${pc.cyan("ralph experiment help")} for usage.`);
     process.exit(1);
+  }
+
+  // Handle parallel execution mode for build command
+  if (parallelConcurrency && (cmd === "build" || !cmd || loopArgs[0] === "build")) {
+    info(`Running parallel execution with ${parallelConcurrency} concurrent agents...`);
+
+    // Determine PRD path
+    const ralphDir = path.join(cwd, ".ralph");
+    let activePrdFolder = null;
+
+    if (prdNumber) {
+      activePrdFolder = path.join(ralphDir, `PRD-${prdNumber}`);
+    } else if (prdPath) {
+      // If prdPath is specified, use its parent as the PRD folder
+      activePrdFolder = path.dirname(prdPath);
+    } else {
+      // Find the most recent PRD folder
+      if (fs.existsSync(ralphDir)) {
+        const folders = fs.readdirSync(ralphDir)
+          .filter(f => /^PRD-\d+$/.test(f))
+          .map(f => ({
+            name: f,
+            num: parseInt(f.replace("PRD-", ""), 10)
+          }))
+          .sort((a, b) => b.num - a.num);
+        if (folders.length > 0) {
+          activePrdFolder = path.join(ralphDir, folders[0].name);
+        }
+      }
+    }
+
+    if (!activePrdFolder || !fs.existsSync(activePrdFolder)) {
+      error("No PRD folder found. Run 'ralph prd' first.");
+      process.exit(1);
+    }
+
+    const resolvedPrdPath = prdPath || path.join(activePrdFolder, "prd.md");
+    const resolvedPlanPath = planPath || path.join(activePrdFolder, "plan.md");
+    const resolvedProgressPath = progressPath || path.join(activePrdFolder, "progress.md");
+    const guardrailsPath = path.join(ralphDir, "guardrails.md");
+    const errorsLogPath = path.join(activePrdFolder, "errors.log");
+    const activityLogPath = path.join(activePrdFolder, "activity.log");
+
+    // Determine max iterations from args (e.g., "build 5" -> 5)
+    let maxIterations = Infinity;
+    const buildIdx = loopArgs.indexOf("build");
+    const numArg = loopArgs[buildIdx + 1] || loopArgs[1];
+    if (numArg && /^\d+$/.test(numArg)) {
+      maxIterations = parseInt(numArg, 10);
+    }
+
+    // Check for --no-commit flag
+    const noCommit = rawArgs.includes("--no-commit");
+
+    // Get agent command
+    const agentName = agentOverride || defaultAgent;
+    const agentCmd = agentMap[agentName];
+
+    // Generate run ID
+    const now = new Date();
+    const runId = `${now.toISOString().slice(0, 10).replace(/-/g, "")}-${now.toTimeString().slice(0, 8).replace(/:/g, "")}-${process.pid}`;
+
+    // Prompt template path
+    const promptTemplate = path.join(templateDir, "PROMPT_parallel.md");
+
+    // Load and run parallel module
+    const parallelModule = require("../lib/parallel");
+
+    parallelModule.runParallel({
+      prdPath: resolvedPrdPath,
+      planPath: resolvedPlanPath,
+      progressPath: resolvedProgressPath,
+      guardrailsPath,
+      errorsLogPath,
+      activityLogPath,
+      repoRoot: cwd,
+      maxConcurrency: parallelConcurrency,
+      maxIterations,
+      noCommit,
+      agentCmd,
+      runId,
+      promptTemplate: fs.existsSync(promptTemplate) ? promptTemplate : null,
+    }).then(result => {
+      if (result.success) {
+        success(`Parallel execution complete: ${result.commits.length} commits, ${result.failures.length} failures`);
+        process.exit(0);
+      } else {
+        error(`Parallel execution failed: ${result.error || "Unknown error"}`);
+        if (result.failures.length > 0) {
+          for (const fail of result.failures) {
+            error(`  - ${fail.storyId}: ${fail.error}`);
+          }
+        }
+        process.exit(1);
+      }
+    }).catch(err => {
+      error(`Parallel execution error: ${err.message}`);
+      process.exit(1);
+    });
+
+    return; // Don't fall through to sequential execution
   }
 
   const result = spawnSync(loopPath, loopArgs, {

@@ -577,16 +577,83 @@ check_merge_conflicts() {
   return 0
 }
 
+# ============================================================================
+# Auto-rebase before merge (US-003)
+# ============================================================================
+
+rebase_onto_main() {
+  # Rebase stream branch onto latest main/master in worktree
+  # Args: worktree_path, base_branch
+  # Returns: 0 on success, 1 on failure (rebase aborted)
+  local worktree_path="$1"
+  local base_branch="$2"
+  local branch_name
+  branch_name=$(git -C "$worktree_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+  msg_dim "Fetching latest $base_branch from origin..."
+  if ! git -C "$worktree_path" fetch origin "$base_branch" 2>/dev/null; then
+    msg_warn "Could not fetch origin/$base_branch - rebasing onto local $base_branch"
+  fi
+
+  msg_dim "Rebasing $branch_name onto origin/$base_branch..."
+
+  # Attempt the rebase
+  local rebase_output
+  if rebase_output=$(git -C "$worktree_path" rebase "origin/$base_branch" 2>&1); then
+    msg_dim "Rebase successful"
+    return 0
+  fi
+
+  # Rebase failed - check if we're in rebase state and abort
+  if git -C "$worktree_path" rev-parse --verify REBASE_HEAD >/dev/null 2>&1; then
+    msg_error "Rebase failed due to conflicts:"
+    echo "$rebase_output" | while read -r line; do
+      printf "  ${C_DIM}%s${C_RESET}\n" "$line"
+    done
+    echo ""
+
+    # Show conflicting files
+    local conflict_files
+    conflict_files=$(git -C "$worktree_path" diff --name-only --diff-filter=U 2>/dev/null)
+    if [[ -n "$conflict_files" ]]; then
+      msg_warn "Conflicting files:"
+      echo "$conflict_files" | while read -r file; do
+        printf "  ${C_RED}•${C_RESET} %s\n" "$file"
+      done
+    fi
+
+    msg_dim "Aborting rebase..."
+    git -C "$worktree_path" rebase --abort 2>/dev/null || true
+
+    echo ""
+    msg_error "Rebase aborted. To resolve manually:"
+    printf "  ${C_DIM}1. cd %s${C_RESET}\n" "$worktree_path"
+    printf "  ${C_DIM}2. git rebase origin/%s${C_RESET}\n" "$base_branch"
+    printf "  ${C_DIM}3. Resolve conflicts and: git rebase --continue${C_RESET}\n"
+    printf "  ${C_DIM}4. Then retry: ralph stream merge <N>${C_RESET}\n"
+    return 1
+  fi
+
+  # Rebase failed for another reason
+  msg_error "Rebase failed: $rebase_output"
+  return 1
+}
+
 cmd_merge() {
   local input="$1"
   shift || true
 
   # Parse flags
   local force_merge=false
+  local do_rebase=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --force)
         force_merge=true
+        shift
+        ;;
+      --rebase)
+        do_rebase=true
         shift
         ;;
       *)
@@ -636,6 +703,17 @@ cmd_merge() {
   fi
 
   section_header "Merging $stream_id to $base_branch"
+
+  # Auto-rebase before merge (US-003)
+  local worktree_path="$WORKTREES_DIR/$stream_id"
+  if [[ "$do_rebase" == "true" ]]; then
+    msg_dim "Auto-rebase enabled - rebasing onto latest $base_branch in worktree..."
+    if ! rebase_onto_main "$worktree_path" "$base_branch"; then
+      msg_error "Rebase failed. Merge aborted."
+      return 1
+    fi
+    echo ""
+  fi
 
   # Switch to base branch
   git checkout "$base_branch"
@@ -766,7 +844,7 @@ case "$cmd" in
     ;;
   merge)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream merge <N> [--force]" >&2
+      echo "Usage: ralph stream merge <N> [--rebase] [--force]" >&2
       exit 1
     fi
     cmd_merge "$@"
@@ -787,7 +865,10 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
     printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n]${C_RESET}    Run n build iterations in stream\n"
-    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[--force]${C_RESET} Merge completed stream (--force ignores conflicts)\n"
+    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[--rebase] [--force]${C_RESET}\n"
+    printf "                              Merge completed stream\n"
+    printf "                              ${C_DIM}--rebase: rebase onto main first${C_RESET}\n"
+    printf "                              ${C_DIM}--force: ignore conflicts${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
