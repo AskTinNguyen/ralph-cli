@@ -92,16 +92,16 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Resolve log-activity.sh redundancy (keep inline function, deprecate standalone script)
 - [x] Test all agent types still work after cleanup
 
-### [ ] US-006: Replace eval usage with safer alternatives
+### [x] US-006: Replace eval usage with safer alternatives
 **As a** ralph-cli maintainer
 **I want** eval usage minimized or replaced with safer alternatives
 **So that** command injection risks are reduced
 
 #### Acceptance Criteria
-- [ ] Refactor run_agent() in loop.sh:330-340 to avoid eval where possible
-- [ ] Use bash parameter expansion for {prompt} substitution
-- [ ] Add security comments where eval is still necessary
-- [ ] Test all agent types (claude, codex, droid) after changes
+- [x] Refactor run_agent() in loop.sh:330-340 to avoid eval where possible
+- [x] Use bash parameter expansion for {prompt} substitution
+- [x] Add security comments where eval is still necessary
+- [x] Test all agent types (claude, codex, droid) after changes
 
 ### [ ] US-007: Apply bash best practices improvements
 **As a** ralph-cli maintainer

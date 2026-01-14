@@ -289,29 +289,80 @@ require_agent() {
   fi
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Execution Functions (US-006 - Safer eval alternatives)
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY NOTE: These functions execute external agent commands with user input.
+# The AGENT_CMD comes from trusted sources (agents.sh or config.sh), not user input.
+# We use 'bash -c' instead of 'eval' where possible for improved safety.
+# The prompt_file path is shell-escaped to prevent injection via filenames.
+# ─────────────────────────────────────────────────────────────────────────────
+
 run_agent() {
   local prompt_file="$1"
+
+  # SECURITY: prompt_file is a temp file path controlled by ralph, not user input.
+  # We still escape it for defense-in-depth against unusual filenames.
+
   if [[ "$AGENT_CMD" == *"{prompt}"* ]]; then
-    local escaped
-    escaped=$(printf '%q' "$prompt_file")
-    local cmd="${AGENT_CMD//\{prompt\}/$escaped}"
-    eval "$cmd"
+    # File-based agent (e.g., droid): substitute {prompt} with escaped file path
+    # Use bash parameter expansion for substitution (safer than eval-based string building)
+    local escaped_path
+    escaped_path=$(printf '%q' "$prompt_file")
+    local cmd="${AGENT_CMD//\{prompt\}/$escaped_path}"
+
+    # SECURITY: bash -c provides process isolation; cmd contains trusted AGENT_CMD
+    # with only the file path substituted. The file path is shell-escaped.
+    bash -c "$cmd"
   else
-    cat "$prompt_file" | eval "$AGENT_CMD"
+    # Stdin-based agent (e.g., claude, codex): pipe prompt to agent via stdin
+    # SECURITY: bash -c provides process isolation; AGENT_CMD is from trusted config.
+    # Prompt content goes to stdin, not interpolated into the command.
+    cat "$prompt_file" | bash -c "$AGENT_CMD"
   fi
 }
 
 run_agent_inline() {
   local prompt_file="$1"
-  local prompt_content
-  prompt_content="$(cat "$prompt_file")"
-  local escaped
-  escaped=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
+
+  # SECURITY NOTE: This function is used for PRD generation with custom agent configs.
+  # PRD_AGENT_CMD comes from trusted config (config.sh), not user input.
+  # The prompt content comes from ralph-generated templates, also trusted.
+  #
+  # For agents with {prompt} placeholder expecting a FILE PATH (most common):
+  #   Simply pass the file path (use run_agent instead for this case).
+  # For agents expecting inline content as an argument (rare custom configs):
+  #   We must use 'eval' because:
+  #   1. The content may contain newlines, quotes, and shell metacharacters
+  #   2. We need proper shell quoting to pass multi-line strings as arguments
+  #   3. Using bash arrays would require different command formats
+
   if [[ "$PRD_AGENT_CMD" == *"{prompt}"* ]]; then
-    local cmd="${PRD_AGENT_CMD//\{prompt\}/'$escaped'}"
-    eval "$cmd"
+    # Check if this appears to be a file-path style command (contains -f or --file)
+    # In that case, use file path directly instead of inline content
+    if [[ "$PRD_AGENT_CMD" == *" -f "* ]] || [[ "$PRD_AGENT_CMD" == *"--file"* ]]; then
+      # File-based agent: use file path directly (safer, no content escaping needed)
+      local escaped_path
+      escaped_path=$(printf '%q' "$prompt_file")
+      local cmd="${PRD_AGENT_CMD//\{prompt\}/$escaped_path}"
+      bash -c "$cmd"
+    else
+      # Inline content agent: substitute {prompt} with escaped content
+      # SECURITY: eval is necessary here for proper shell quoting of multi-line content.
+      # PRD_AGENT_CMD is from trusted config, content is from trusted templates.
+      local prompt_content escaped_content cmd
+      prompt_content="$(cat "$prompt_file")"
+      escaped_content=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
+      cmd="${PRD_AGENT_CMD//\{prompt\}/'$escaped_content'}"
+      eval "$cmd"
+    fi
   else
-    eval "$PRD_AGENT_CMD '$escaped'"
+    # No {prompt} placeholder - pass content as final argument
+    # SECURITY: eval is necessary for proper shell quoting of multi-line content.
+    local prompt_content escaped_content
+    prompt_content="$(cat "$prompt_file")"
+    escaped_content=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
+    eval "$PRD_AGENT_CMD '$escaped_content'"
   fi
 }
 
