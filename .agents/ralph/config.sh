@@ -46,20 +46,21 @@ RALPH_BUDGET_MONTHLY=500.00
 # When an agent fails consecutively, Ralph can suggest or auto-switch to alternatives.
 #
 # Fallback chain order when switching agents (space-separated):
-# AGENT_FALLBACK_CHAIN="claude codex droid"
+# Default chain: claude → codex → droid
+AGENT_FALLBACK_CHAIN="claude codex droid"
 #
 # Number of consecutive failures before triggering switch suggestion (default: 2):
-# AGENT_SWITCH_THRESHOLD=2
+AGENT_SWITCH_THRESHOLD=2
 #
 # Enable switching on timeout failures (exit code 124/137) (default: true):
-# AGENT_SWITCH_ON_TIMEOUT=true
+AGENT_SWITCH_ON_TIMEOUT=true
 #
 # Enable switching on general errors (exit code 1) (default: true):
-# AGENT_SWITCH_ON_ERROR=true
+AGENT_SWITCH_ON_ERROR=true
 #
 # Enable switching on quality failures (test/lint/type errors) (default: false):
 # Note: Quality failures are more conservative - they may be code issues not agent issues
-# AGENT_SWITCH_ON_QUALITY=false
+AGENT_SWITCH_ON_QUALITY=false
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────

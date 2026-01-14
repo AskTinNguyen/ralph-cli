@@ -305,10 +305,16 @@ AGENT_SWITCH_ON_TIMEOUT="${AGENT_SWITCH_ON_TIMEOUT:-true}"
 AGENT_SWITCH_ON_ERROR="${AGENT_SWITCH_ON_ERROR:-true}"
 AGENT_SWITCH_ON_QUALITY="${AGENT_SWITCH_ON_QUALITY:-false}"
 
+# Agent fallback chain configuration
+# Default chain: claude → codex → droid
+AGENT_FALLBACK_CHAIN="${AGENT_FALLBACK_CHAIN:-claude codex droid}"
+
 # Failure tracking state (in-memory during run)
 CONSECUTIVE_FAILURES=0
 CURRENT_AGENT="$DEFAULT_AGENT_NAME"
 LAST_FAILURE_TYPE=""
+# Chain position tracking for fallback (0-indexed)
+CHAIN_POSITION=0
 
 # Classify failure type from exit code and log content
 # Usage: classify_failure <exit_code> <log_file> -> "timeout" | "error" | "quality" | "success"
@@ -416,6 +422,118 @@ should_switch_agent() {
   [ "$CONSECUTIVE_FAILURES" -ge "$AGENT_SWITCH_THRESHOLD" ] && return 0 || return 1
 }
 
+# Check if an agent CLI is available in PATH
+# Usage: agent_available <agent_name> -> 0 (available) | 1 (not available)
+agent_available() {
+  local agent_name="$1"
+  local agent_bin=""
+
+  # Determine the binary name for each known agent
+  case "$agent_name" in
+    claude)
+      agent_bin="claude"
+      ;;
+    codex)
+      agent_bin="codex"
+      ;;
+    droid)
+      agent_bin="droid"
+      ;;
+    *)
+      # For unknown agents, use the name directly as binary
+      agent_bin="$agent_name"
+      ;;
+  esac
+
+  # Check if the binary is available in PATH
+  if command -v "$agent_bin" >/dev/null 2>&1; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Get the next available agent from the fallback chain
+# Usage: switch_to_next_agent -> agent_name (or empty string if chain exhausted)
+# Updates CURRENT_AGENT, CHAIN_POSITION, and AGENT_CMD when a switch occurs
+switch_to_next_agent() {
+  local chain_array
+  # Convert space-separated chain to array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+  local chain_length="${#chain_array[@]}"
+
+  if [ "$chain_length" -eq 0 ]; then
+    log_activity "SWITCH_FAILED reason=empty_chain"
+    echo ""
+    return
+  fi
+
+  local start_position="$CHAIN_POSITION"
+  local old_agent="$CURRENT_AGENT"
+
+  # Try each agent in the chain starting from current position + 1
+  local attempts=0
+  while [ "$attempts" -lt "$chain_length" ]; do
+    # Move to next position in chain (wrap around)
+    CHAIN_POSITION=$(( (CHAIN_POSITION + 1) % chain_length ))
+    local candidate="${chain_array[$CHAIN_POSITION]}"
+
+    # Skip if we're back at the starting agent
+    if [ "$candidate" = "$old_agent" ]; then
+      attempts=$((attempts + 1))
+      continue
+    fi
+
+    # Check if this agent is available
+    if agent_available "$candidate"; then
+      CURRENT_AGENT="$candidate"
+      AGENT_CMD="$(resolve_agent_cmd "$candidate")"
+      log_activity "AGENT_SWITCH from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION reason=fallback"
+      echo "$CURRENT_AGENT"
+      return
+    else
+      log_activity "AGENT_SKIP agent=$candidate reason=unavailable"
+    fi
+
+    attempts=$((attempts + 1))
+  done
+
+  # All agents tried, chain exhausted
+  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$attempts"
+  echo ""
+}
+
+# Reset chain position to the beginning (first agent in chain)
+# Called when a story completes successfully to ensure next story starts fresh
+# Usage: reset_chain_position
+reset_chain_position() {
+  local chain_array
+  read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
+
+  if [ "${#chain_array[@]}" -eq 0 ]; then
+    return
+  fi
+
+  local first_agent="${chain_array[0]}"
+  local old_position="$CHAIN_POSITION"
+  local old_agent="$CURRENT_AGENT"
+
+  # Reset to first available agent in chain
+  CHAIN_POSITION=0
+  for i in "${!chain_array[@]}"; do
+    if agent_available "${chain_array[$i]}"; then
+      CHAIN_POSITION="$i"
+      CURRENT_AGENT="${chain_array[$i]}"
+      AGENT_CMD="$(resolve_agent_cmd "$CURRENT_AGENT")"
+      break
+    fi
+  done
+
+  if [ "$old_agent" != "$CURRENT_AGENT" ] || [ "$old_position" != "$CHAIN_POSITION" ]; then
+    log_activity "CHAIN_RESET from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION"
+  fi
+}
+
 # Get switch state file path for a PRD folder
 # Usage: get_switch_state_path <prd_folder> -> path
 get_switch_state_path() {
@@ -425,7 +543,7 @@ get_switch_state_path() {
 
 # Load switch state from file for cross-run persistence
 # Usage: load_switch_state <prd_folder>
-# Sets CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, CURRENT_AGENT
+# Sets CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, CURRENT_AGENT, CHAIN_POSITION
 load_switch_state() {
   local prd_folder="$1"
   local state_file
@@ -437,7 +555,10 @@ load_switch_state() {
     CONSECUTIVE_FAILURES=$(echo "$state" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('consecutiveFailures', 0))" 2>/dev/null || echo 0)
     LAST_FAILURE_TYPE=$(echo "$state" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('lastFailureType', ''))" 2>/dev/null || echo "")
     CURRENT_AGENT=$(echo "$state" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('currentAgent', '$DEFAULT_AGENT_NAME'))" 2>/dev/null || echo "$DEFAULT_AGENT_NAME")
-    log_activity "SWITCH_STATE_LOADED consecutive=$CONSECUTIVE_FAILURES lastType=$LAST_FAILURE_TYPE agent=$CURRENT_AGENT"
+    CHAIN_POSITION=$(echo "$state" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('chainPosition', 0))" 2>/dev/null || echo 0)
+    # Update AGENT_CMD to match loaded agent
+    AGENT_CMD="$(resolve_agent_cmd "$CURRENT_AGENT")"
+    log_activity "SWITCH_STATE_LOADED consecutive=$CONSECUTIVE_FAILURES lastType=$LAST_FAILURE_TYPE agent=$CURRENT_AGENT position=$CHAIN_POSITION"
   fi
 }
 
@@ -457,6 +578,7 @@ save_switch_state() {
   "consecutiveFailures": $CONSECUTIVE_FAILURES,
   "lastFailureType": "$LAST_FAILURE_TYPE",
   "currentAgent": "$CURRENT_AGENT",
+  "chainPosition": $CHAIN_POSITION,
   "storyId": "$story_id",
   "updatedAt": "$timestamp"
 }
@@ -1638,9 +1760,11 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
       fi
     fi
   else
-    # Success - reset failure tracking
+    # Success - reset failure tracking and chain position for next story
     if [ "$MODE" = "build" ]; then
       reset_failure_tracking
+      # Reset chain to first agent for the next story
+      reset_chain_position
       # Clear persisted state on success
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       save_switch_state "$PRD_FOLDER" "${STORY_ID:-}"
