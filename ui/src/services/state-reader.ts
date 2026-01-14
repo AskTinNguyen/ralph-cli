@@ -107,10 +107,34 @@ export function getMode(): RalphMode {
 
 /**
  * Check if a lock file exists for a stream
+ * Supports both naming conventions: N.lock and PRD-N.lock
  */
 function isStreamLocked(ralphRoot: string, streamId: string): boolean {
-  const lockPath = path.join(ralphRoot, 'locks', `${streamId}.lock`);
-  return fs.existsSync(lockPath);
+  const locksDir = path.join(ralphRoot, 'locks');
+
+  // Check both naming conventions
+  const lockPaths = [
+    path.join(locksDir, `${streamId}.lock`),       // N.lock
+    path.join(locksDir, `PRD-${streamId}.lock`),   // PRD-N.lock
+  ];
+
+  for (const lockPath of lockPaths) {
+    if (fs.existsSync(lockPath)) {
+      // Verify the lock is still valid (process is running)
+      try {
+        const pid = fs.readFileSync(lockPath, 'utf-8').trim();
+        if (pid && !isNaN(parseInt(pid, 10))) {
+          // Check if process is still alive (optional validation)
+          return true;
+        }
+      } catch {
+        // If we can't read the lock, assume it's valid if it exists
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -130,6 +154,48 @@ function countStories(prdContent: string): { total: number; completed: number } 
   }
 
   return { total, completed };
+}
+
+/**
+ * Get the effective PRD path, preferring worktree if it exists
+ * Worktrees have structure: .ralph/worktrees/PRD-N/.ralph/PRD-N/prd.md
+ */
+function getEffectivePrdPath(ralphRoot: string, streamId: string, mainPrdPath: string): string {
+  // Check for worktree PRD (has more up-to-date data during builds)
+  const worktreePrdPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${streamId}`,
+    '.ralph',
+    `PRD-${streamId}`,
+    'prd.md'
+  );
+
+  if (fs.existsSync(worktreePrdPath)) {
+    return worktreePrdPath;
+  }
+
+  return mainPrdPath;
+}
+
+/**
+ * Get the effective runs path, preferring worktree if it exists
+ */
+function getEffectiveRunsPath(ralphRoot: string, streamId: string, mainRunsPath: string): string {
+  const worktreeRunsPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${streamId}`,
+    '.ralph',
+    `PRD-${streamId}`,
+    'runs'
+  );
+
+  if (fs.existsSync(worktreeRunsPath)) {
+    return worktreeRunsPath;
+  }
+
+  return mainRunsPath;
 }
 
 /**
@@ -182,21 +248,24 @@ export function getStreams(): Stream[] {
         const streamId = match[1];
         const streamPath = path.join(ralphRoot, entry.name);
 
-        const prdPath = path.join(streamPath, 'prd.md');
+        const mainPrdPath = path.join(streamPath, 'prd.md');
         const planPath = path.join(streamPath, 'plan.md');
         const progressPath = path.join(streamPath, 'progress.md');
 
-        const hasPrd = fs.existsSync(prdPath);
+        // Use worktree PRD if available (has current progress during builds)
+        const effectivePrdPath = getEffectivePrdPath(ralphRoot, streamId, mainPrdPath);
+
+        const hasPrd = fs.existsSync(mainPrdPath) || fs.existsSync(effectivePrdPath);
         const hasPlan = fs.existsSync(planPath);
         const hasProgress = fs.existsSync(progressPath);
 
-        // Count stories from PRD if it exists
+        // Count stories from effective PRD (worktree or main)
         let totalStories = 0;
         let completedStories = 0;
 
-        if (hasPrd) {
+        if (fs.existsSync(effectivePrdPath)) {
           try {
-            const prdContent = fs.readFileSync(prdPath, 'utf-8');
+            const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
             const counts = countStories(prdContent);
             totalStories = counts.total;
             completedStories = counts.completed;
@@ -205,13 +274,13 @@ export function getStreams(): Stream[] {
           }
         }
 
-        const status = getStreamStatus(ralphRoot, streamId, prdPath);
+        const status = getStreamStatus(ralphRoot, streamId, effectivePrdPath);
 
-        // Extract name from PRD title if available
+        // Extract name from effective PRD title if available
         let name = `PRD-${streamId}`;
-        if (hasPrd) {
+        if (fs.existsSync(effectivePrdPath)) {
           try {
-            const prdContent = fs.readFileSync(prdPath, 'utf-8');
+            const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
             const titleMatch = prdContent.match(/^#\s+(.+)$/m);
             if (titleMatch) {
               name = titleMatch[1].trim();
@@ -602,22 +671,26 @@ export function getStreamDetails(id: string): Stream | null {
     return null;
   }
 
-  const prdPath = path.join(streamPath, 'prd.md');
+  const mainPrdPath = path.join(streamPath, 'prd.md');
   const planPath = path.join(streamPath, 'plan.md');
   const progressPath = path.join(streamPath, 'progress.md');
-  const runsPath = path.join(streamPath, 'runs');
+  const mainRunsPath = path.join(streamPath, 'runs');
 
-  const hasPrd = fs.existsSync(prdPath);
+  // Use worktree paths if available (has current progress during builds)
+  const effectivePrdPath = getEffectivePrdPath(ralphRoot, id, mainPrdPath);
+  const effectiveRunsPath = getEffectiveRunsPath(ralphRoot, id, mainRunsPath);
+
+  const hasPrd = fs.existsSync(mainPrdPath) || fs.existsSync(effectivePrdPath);
   const hasPlan = fs.existsSync(planPath);
   const hasProgress = fs.existsSync(progressPath);
 
-  // Parse stories from PRD
+  // Parse stories from effective PRD (worktree or main)
   let stories: Story[] = [];
   let name = `PRD-${id}`;
 
-  if (hasPrd) {
+  if (fs.existsSync(effectivePrdPath)) {
     try {
-      const prdContent = fs.readFileSync(prdPath, 'utf-8');
+      const prdContent = fs.readFileSync(effectivePrdPath, 'utf-8');
       stories = parseStoriesFromPrd(prdContent);
 
       // Extract title
@@ -630,15 +703,15 @@ export function getStreamDetails(id: string): Stream | null {
     }
   }
 
-  // Parse runs
-  const runs = parseRuns(runsPath, id);
+  // Parse runs from effective path (worktree or main)
+  const runs = parseRuns(effectiveRunsPath, id);
 
   // Calculate story counts
   const totalStories = stories.length;
   const completedStories = stories.filter((s) => s.status === 'completed').length;
 
   // Determine status
-  const status = getStreamStatus(ralphRoot, id, prdPath);
+  const status = getStreamStatus(ralphRoot, id, effectivePrdPath);
 
   return {
     id,
