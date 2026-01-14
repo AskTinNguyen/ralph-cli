@@ -994,6 +994,62 @@ parse_token_field() {
   python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('$field',''))" "$json" 2>/dev/null || echo ""
 }
 
+# Append metrics to metrics.jsonl for historical tracking
+# Called after each successful build iteration
+append_metrics() {
+  local prd_folder="$1"
+  local story_id="$2"
+  local story_title="$3"
+  local duration="$4"
+  local input_tokens="$5"
+  local output_tokens="$6"
+  local agent="$7"
+  local model="$8"
+  local status="$9"
+  local run_id="${10}"
+  local iteration="${11}"
+
+  local metrics_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    metrics_cli="$RALPH_ROOT/lib/estimate/metrics-cli.js"
+  else
+    metrics_cli="$SCRIPT_DIR/../../lib/estimate/metrics-cli.js"
+  fi
+
+  # Check if metrics CLI exists and Node.js is available
+  if [ -f "$metrics_cli" ] && command -v node >/dev/null 2>&1; then
+    # Build JSON data - handle null tokens gracefully
+    local input_val="null"
+    local output_val="null"
+    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ "$input_tokens" != "" ]; then
+      input_val="$input_tokens"
+    fi
+    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ] && [ "$output_tokens" != "" ]; then
+      output_val="$output_tokens"
+    fi
+
+    # Escape strings for JSON
+    local escaped_title
+    escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+
+    local json_data
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"timestamp":"%s"}' \
+      "$story_id" \
+      "$escaped_title" \
+      "$duration" \
+      "$input_val" \
+      "$output_val" \
+      "$agent" \
+      "${model:-null}" \
+      "$status" \
+      "$run_id" \
+      "$iteration" \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+
+    node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
+  fi
+}
+
 # Rebuild token cache for the current stream
 # Called at end of build to ensure dashboard has fresh data
 rebuild_token_cache() {
@@ -1180,6 +1236,14 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED"
+
+  # Append metrics to metrics.jsonl for historical tracking (build mode only)
+  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i"
+  fi
+
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   else
