@@ -59,13 +59,13 @@ That's the build loop. It's just instructions in `PROMPT_build.md`, not code.
 
 Everything lives in simple files you can read:
 
-| File | What it is |
-|------|------------|
-| `guardrails.md` | Safety rules Ralph must NEVER violate |
-| `prd.md` | Product requirements document with user stories |
-| `IMPLEMENTATION_PLAN.md` | Breakdown of stories into tasks |
-| `progress.md` | History of what happened each iteration |
-| `errors.log` | What went wrong (if anything) |
+| File                     | What it is                                      |
+| ------------------------ | ----------------------------------------------- |
+| `guardrails.md`          | Safety rules Ralph must NEVER violate           |
+| `prd.md`                 | Product requirements document with user stories |
+| `IMPLEMENTATION_PLAN.md` | Breakdown of stories into tasks                 |
+| `progress.md`            | History of what happened each iteration         |
+| `errors.log`             | What went wrong (if anything)                   |
 
 No database. No server. You can open these in Notepad and see exactly what's happening. **Transparency over magic.**
 
@@ -77,12 +77,14 @@ The `guardrails.md` file is special—it's shared across ALL tasks and contains 
 # Guardrails
 
 ## Safety Constraints (NEVER do these)
+
 - Never push directly to main/master branch
 - Never delete production data
 - Never commit secrets/credentials
 - Never skip tests
 
 ## Project-Specific Rules
+
 - Always use the existing component library
 - Never modify the database schema without migration
 ```
@@ -104,7 +106,7 @@ But the CLI doesn't contain the smarts. It just invokes the bash loop with the r
 Think of it like a recipe card vs. a cooking robot:
 
 - **Old approach**: Build a robot that knows every cooking technique, tracks ingredients, manages timers
-- **New approach**: Hand a skilled chef a recipe card. They already know how to cook. The card just tells them *what* to make.
+- **New approach**: Hand a skilled chef a recipe card. They already know how to cook. The card just tells them _what_ to make.
 
 Ralph (the agent) is the chef. The prompt is the recipe card. The CLI just hands over the card.
 
@@ -123,12 +125,12 @@ Ralph "loops" not because code forces it to, but because the bash script runs it
 
 ### Summary
 
-| Before | After |
-|--------|-------|
-| Complex state machine | Simple bash loop |
-| 26 files of code | 1 bash script + 2 prompts |
-| Code manages the loop | Bash runs iterations |
-| Opaque execution | Human-readable files |
+| Before                | After                     |
+| --------------------- | ------------------------- |
+| Complex state machine | Simple bash loop          |
+| 26 files of code      | 1 bash script + 2 prompts |
+| Code manages the loop | Bash runs iterations      |
+| Opaque execution      | Human-readable files      |
 
 **Ralph is an agent following a PRD until it's done.** The elegance is that we stopped trying to build clever software and instead used simple bash scripts with clear prompts.
 
@@ -156,11 +158,11 @@ The agent reads these instructions and follows them. No code enforces it—the a
 
 ### When Each File Gets Updated
 
-| File | When Ralph Updates It | What Goes In |
-|------|----------------------|--------------|
-| `prd.md` | When story is complete | Story checkboxes: `- [ ]` → `- [x]` |
-| `progress.md` | After every iteration | "Iteration 3: Completed US-001, tests pass" |
-| `errors.log` | When tests fail | The error output from verification |
+| File          | When Ralph Updates It  | What Goes In                                |
+| ------------- | ---------------------- | ------------------------------------------- |
+| `prd.md`      | When story is complete | Story checkboxes: `- [ ]` → `- [x]`         |
+| `progress.md` | After every iteration  | "Iteration 3: Completed US-001, tests pass" |
+| `errors.log`  | When tests fail        | The error output from verification          |
 
 ### A Concrete Example
 
@@ -189,6 +191,7 @@ The agent reads this and does exactly that. The file updates happen because the 
 ### Why This Works
 
 Claude already knows how to:
+
 - Read and write files
 - Run shell commands
 - Parse markdown
@@ -214,11 +217,13 @@ PRD stories can specify verification commands. Ralph detects your project type a
 
 ```markdown
 ### [ ] US-001: Add login button
+
 **As a** user
 **I want** a login button
 **So that** I can authenticate
 
 #### Acceptance Criteria
+
 - [ ] Button renders on page
 - [ ] Button triggers auth flow
 - [ ] All tests pass
@@ -230,25 +235,25 @@ After Ralph makes changes, it runs tests. The result determines what happens nex
 
 Ralph doesn't care what language you use. It detects your project type and suggests the right test command:
 
-| Your Project | Ralph Suggests |
-|--------------|-----------------|
+| Your Project          | Ralph Suggests           |
+| --------------------- | ------------------------ |
 | JavaScript/TypeScript | `npm test` or `bun test` |
-| Rust | `cargo test` |
-| Python | `pytest` |
-| Go | `go test ./...` |
-| C++ | `make test` or `ctest` |
+| Rust                  | `cargo test`             |
+| Python                | `pytest`                 |
+| Go                    | `go test ./...`          |
+| C++                   | `make test` or `ctest`   |
 
 You can configure verification in `.agents/ralph/config.sh`.
 
 ### What Can Cause Test Failures
 
-| Failure Type | Example | What Ralph Does |
-|--------------|---------|------------------|
-| **Code doesn't compile** | Syntax error, missing import | Fix the error, try again |
-| **Test assertions fail** | `expect(button).toExist()` fails | Investigate why, fix code |
-| **Runtime error** | `TypeError: undefined is not a function` | Debug and fix |
-| **Missing implementation** | Test expects feature that doesn't exist yet | Implement the feature |
-| **Regression** | New code broke something else | Fix without breaking other things |
+| Failure Type               | Example                                     | What Ralph Does                   |
+| -------------------------- | ------------------------------------------- | --------------------------------- |
+| **Code doesn't compile**   | Syntax error, missing import                | Fix the error, try again          |
+| **Test assertions fail**   | `expect(button).toExist()` fails            | Investigate why, fix code         |
+| **Runtime error**          | `TypeError: undefined is not a function`    | Debug and fix                     |
+| **Missing implementation** | Test expects feature that doesn't exist yet | Implement the feature             |
+| **Regression**             | New code broke something else               | Fix without breaking other things |
 
 ### The Iteration Cycle
 
@@ -283,10 +288,10 @@ You can configure verification in `.agents/ralph/config.sh`.
 
 ### Promise vs Tests: Different Things
 
-| Concept | What It Means |
-|---------|---------------|
-| **Test command** | Verification that runs every iteration |
-| **Completion promise** | The final "I'm done" declaration |
+| Concept                | What It Means                          |
+| ---------------------- | -------------------------------------- |
+| **Test command**       | Verification that runs every iteration |
+| **Completion promise** | The final "I'm done" declaration       |
 
 The promise is **not** automatically triggered by passing tests. Ralph must:
 
@@ -300,9 +305,10 @@ Tests might pass but acceptance criteria aren't met:
 
 ```markdown
 #### Acceptance Criteria
+
 - [x] Login button exists
 - [x] Button calls auth API
-- [ ] Button shows loading state   ← Tests pass, but this isn't done
+- [ ] Button shows loading state ← Tests pass, but this isn't done
 - [x] All tests pass
 ```
 
@@ -345,13 +351,13 @@ The system detects stalling.
 
 ### Good Test Commands
 
-| Approach | Examples | Why It Works |
-|----------|----------|--------------|
-| **Unit tests** | `npm test`, `cargo test`, `pytest` | Fast, specific feedback |
+| Approach               | Examples                                  | Why It Works                  |
+| ---------------------- | ----------------------------------------- | ----------------------------- |
+| **Unit tests**         | `npm test`, `cargo test`, `pytest`        | Fast, specific feedback       |
 | **Type/compile check** | `tsc --noEmit`, `cargo check`, `go build` | Catches errors before runtime |
-| **Build** | `npm run build`, `make`, `cargo build` | Ensures everything compiles |
-| **Combined** | `npm run lint && npm test` | Multiple safety nets |
-| **Custom script** | `./scripts/check-feature.sh` | Task-specific validation |
+| **Build**              | `npm run build`, `make`, `cargo build`    | Ensures everything compiles   |
+| **Combined**           | `npm run lint && npm test`                | Multiple safety nets          |
+| **Custom script**      | `./scripts/check-feature.sh`              | Task-specific validation      |
 
 ### Example: A Failing Test Flow
 
@@ -359,24 +365,27 @@ The system detects stalling.
 # errors.log
 
 ## Iteration 2 - 2024-01-15 10:23:45
+
 Command: bun test
 Exit code: 1
 Output:
-  FAIL src/components/LoginButton.test.ts
-    ✕ should show loading state when clicked
-      Expected: loading spinner visible
-      Received: button unchanged
+FAIL src/components/LoginButton.test.ts
+✕ should show loading state when clicked
+Expected: loading spinner visible
+Received: button unchanged
 ```
 
 ```markdown
 # progress.md
 
 ## Iteration 2
+
 - Attempted: Added onClick handler to button
 - Result: FAILED - Loading state not showing
 - Next: Need to add loading state to component state
 
 ## Iteration 3
+
 - Attempted: Added isLoading state, connected to button
 - Result: PASSED - All tests now pass
 - Criteria met: Button shows loading state ✓
@@ -410,6 +419,7 @@ Configure visual verification in your workflow (requires the `dev-browser` skill
 4. Saves screenshots to `.ralph/screenshots/`
 
 You can review the screenshots to see what the UI looks like at each step. This is especially useful for:
+
 - Design changes where "does it look right?" matters
 - Catching visual regressions tests might miss
 - Showing stakeholders what was built
@@ -425,6 +435,7 @@ If you're working with specialized tools like Unreal Engine, Unity, or embedded 
 ### The Problem
 
 Modern AI agents know general patterns, but your Unreal Engine 5 project might have specific:
+
 - Build commands (`RunUAT.bat` with certain flags)
 - Test commands (Automation Framework setup)
 - Verification patterns (PIE testing)
@@ -445,13 +456,13 @@ Configure project-specific commands in `.agents/ralph/config.sh` or create custo
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | SUCCESS - Task completed |
-| 1 | ERROR - Unexpected error |
-| 2 | NEEDS_HUMAN - Claude escalated |
-| 3 | MAX_ITER - Iteration limit reached |
-| 4 | STALLED - No progress for 3 iterations |
+| Code | Meaning                                |
+| ---- | -------------------------------------- |
+| 0    | SUCCESS - Task completed               |
+| 1    | ERROR - Unexpected error               |
+| 2    | NEEDS_HUMAN - Claude escalated         |
+| 3    | MAX_ITER - Iteration limit reached     |
+| 4    | STALLED - No progress for 3 iterations |
 
 ### File Structure
 

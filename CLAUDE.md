@@ -4,26 +4,26 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 
 ## Quick Reference
 
-| Use Case | Command |
-|----------|---------|
-| **Install ralph-cli** | `git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link` |
-| **Install to project** | `ralph install` |
-| **Generate PRD** | `ralph prd` |
-| **Create plan from PRD** | `ralph plan` (creates PRD-N folder) |
-| **Run build iterations** | `ralph build 5` |
-| **Build specific PRD** | `ralph build 5 --prd=1` |
-| **Dry run (no commit)** | `ralph build 1 --no-commit` |
+| Use Case                 | Command                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| **Install ralph-cli**    | `git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link` |
+| **Install to project**   | `ralph install`                                                                                |
+| **Generate PRD**         | `ralph prd`                                                                                    |
+| **Create plan from PRD** | `ralph plan` (creates PRD-N folder)                                                            |
+| **Run build iterations** | `ralph build 5`                                                                                |
+| **Build specific PRD**   | `ralph build 5 --prd=1`                                                                        |
+| **Dry run (no commit)**  | `ralph build 1 --no-commit`                                                                    |
 
 ## Stream Commands (Parallel Execution)
 
-| Use Case | Command |
-|----------|---------|
-| **List PRDs** | `ralph stream list` |
-| **Show status** | `ralph stream status` |
-| **Init worktree** | `ralph stream init 1` |
-| **Build in stream** | `ralph stream build 1 5` |
-| **Run parallel** | `ralph stream build 1 & ralph stream build 2 &` |
-| **Merge stream** | `ralph stream merge 1` |
+| Use Case            | Command                                         |
+| ------------------- | ----------------------------------------------- |
+| **List PRDs**       | `ralph stream list`                             |
+| **Show status**     | `ralph stream status`                           |
+| **Init worktree**   | `ralph stream init 1`                           |
+| **Build in stream** | `ralph stream build 1 5`                        |
+| **Run parallel**    | `ralph stream build 1 & ralph stream build 2 &` |
+| **Merge stream**    | `ralph stream merge 1`                          |
 
 ## Workflow
 
@@ -78,16 +78,19 @@ project/
 # Product Requirements Document
 
 ## Overview
+
 What we're building and why.
 
 ## User Stories
 
 ### [ ] US-001: Story title
+
 **As a** user
 **I want** feature
 **So that** benefit
 
 #### Acceptance Criteria
+
 - [ ] Criterion 1
 - [ ] Criterion 2
 ```
@@ -142,12 +145,12 @@ Ralph agents have access to MCP (Model Context Protocol) servers for external in
 
 ### Available Integrations
 
-| Server | Purpose | Env Variable |
-|--------|---------|--------------|
-| **Notion** | Docs, databases, task tracking | `NOTION_API_KEY` |
-| **Slack** | Team notifications, context search | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
-| **GitHub** | Issues, PRs, code search | `GITHUB_TOKEN` |
-| **Miro** | Visual diagrams, boards | `MIRO_API_TOKEN` |
+| Server     | Purpose                            | Env Variable                       |
+| ---------- | ---------------------------------- | ---------------------------------- |
+| **Notion** | Docs, databases, task tracking     | `NOTION_API_KEY`                   |
+| **Slack**  | Team notifications, context search | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
+| **GitHub** | Issues, PRs, code search           | `GITHUB_TOKEN`                     |
+| **Miro**   | Visual diagrams, boards            | `MIRO_API_TOKEN`                   |
 
 ### Setup
 

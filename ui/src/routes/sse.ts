@@ -5,9 +5,13 @@
  * Supports multiple concurrent connections with proper cleanup on disconnect.
  */
 
-import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
-import { fileWatcher, type FileWatcherEvent, type FileWatcherEventType } from '../services/file-watcher.js';
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import {
+  fileWatcher,
+  type FileWatcherEvent,
+  type FileWatcherEventType,
+} from "../services/file-watcher.js";
 
 const sse = new Hono();
 
@@ -35,7 +39,7 @@ let activeConnections = 0;
  *   - connected: Initial connection confirmation
  *   - heartbeat: Keep-alive ping (every 30 seconds)
  */
-sse.get('/events', (c) => {
+sse.get("/events", (c) => {
   return streamSSE(c, async (stream) => {
     // Increment connection counter
     activeConnections++;
@@ -45,9 +49,9 @@ sse.get('/events', (c) => {
     if (!fileWatcher.isActive()) {
       const started = fileWatcher.start();
       if (started) {
-        console.log('[SSE] File watcher started for first client');
+        console.log("[SSE] File watcher started for first client");
       } else {
-        console.warn('[SSE] Failed to start file watcher');
+        console.warn("[SSE] Failed to start file watcher");
       }
     }
 
@@ -56,11 +60,11 @@ sse.get('/events', (c) => {
 
     // Create event handlers for each event type
     const eventTypes: FileWatcherEventType[] = [
-      'file_changed',
-      'run_started',
-      'run_completed',
-      'progress_updated',
-      'story_updated',
+      "file_changed",
+      "run_started",
+      "run_completed",
+      "progress_updated",
+      "story_updated",
     ];
 
     // Handler function that forwards events to the SSE stream
@@ -90,7 +94,8 @@ sse.get('/events', (c) => {
     };
 
     // Create and register handlers for each event type
-    const handlers: Map<FileWatcherEventType, (event: FileWatcherEvent) => Promise<void>> = new Map();
+    const handlers: Map<FileWatcherEventType, (event: FileWatcherEvent) => Promise<void>> =
+      new Map();
     for (const eventType of eventTypes) {
       const handler = createEventHandler(eventType);
       handlers.set(eventType, handler);
@@ -100,7 +105,7 @@ sse.get('/events', (c) => {
     // Send initial connection confirmation
     try {
       await stream.writeSSE({
-        event: 'connected',
+        event: "connected",
         data: JSON.stringify({
           timestamp: new Date().toISOString(),
           watcherActive: fileWatcher.isActive(),
@@ -121,7 +126,7 @@ sse.get('/events', (c) => {
 
       try {
         await stream.writeSSE({
-          event: 'heartbeat',
+          event: "heartbeat",
           data: JSON.stringify({
             timestamp: new Date().toISOString(),
           }),
@@ -160,7 +165,7 @@ sse.get('/events', (c) => {
     if (activeConnections === 0) {
       // We could stop the watcher here, but it's lightweight to keep running
       // fileWatcher.stop();
-      console.log('[SSE] No active connections, file watcher remains active');
+      console.log("[SSE] No active connections, file watcher remains active");
     }
   });
 });
@@ -171,7 +176,7 @@ sse.get('/events', (c) => {
  * Returns the current status of the SSE service.
  * Useful for debugging and monitoring.
  */
-sse.get('/events/status', (c) => {
+sse.get("/events/status", (c) => {
   return c.json({
     activeConnections,
     watcherActive: fileWatcher.isActive(),

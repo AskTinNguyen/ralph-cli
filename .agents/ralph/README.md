@@ -54,38 +54,46 @@ If you skipped skills during `ralph install`, you can run `ralph install --skill
 
 ## Quick start (project)
 
-1) Write your PRD (default path) or generate one:
+1. Write your PRD (default path) or generate one:
+
 ```
 ralph prd
 ```
+
 Requires the **prd** skill (install via `ralph install --skills`).
 
 Example prompt text:
+
 ```
 A lightweight uptime monitor (Hono app), deployed on Cloudflare, with email alerts via AWS SES
 ```
 
 Default output:
+
 ```
 .agents/tasks/prd.md
 ```
 
-2) Generate a plan (PRD → plan):
+2. Generate a plan (PRD → plan):
+
 ```
 ralph plan
 ```
 
-3) Run one build iteration:
+3. Run one build iteration:
+
 ```
 ralph build 1 # one Ralph run
 ```
 
 No‑commit dry run:
+
 ```
 ralph build 1 --no-commit # one Ralph run
 ```
 
 Override PRD output for `ralph prd`:
+
 ```
 ralph prd --out docs/prd-api.md
 ```

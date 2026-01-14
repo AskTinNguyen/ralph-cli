@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+packages/*/node_modules/
+
+# Worktrees (contain copies of the codebase)
+.ralph/worktrees/
+
+# Build output
+dist/
+coverage/
+
+# Generated files
+*.min.js
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Markdown in .ralph (progress logs, plans - may have specific formatting)
+.ralph/**/*.md

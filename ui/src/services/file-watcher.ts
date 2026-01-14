@@ -5,21 +5,21 @@
  * Uses EventEmitter pattern for subscribe/unsubscribe interface.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { EventEmitter } from 'node:events';
-import type { FileChangedEvent, SSEEventType } from '../types.js';
-import { getRalphRoot } from './state-reader.js';
+import fs from "node:fs";
+import path from "node:path";
+import { EventEmitter } from "node:events";
+import type { FileChangedEvent, SSEEventType } from "../types.js";
+import { getRalphRoot } from "./state-reader.js";
 
 /**
  * Event types emitted by the file watcher
  */
 export type FileWatcherEventType =
-  | 'file_changed'
-  | 'run_started'
-  | 'run_completed'
-  | 'progress_updated'
-  | 'story_updated';
+  | "file_changed"
+  | "run_started"
+  | "run_completed"
+  | "progress_updated"
+  | "story_updated";
 
 /**
  * Event data for file watcher events
@@ -28,7 +28,7 @@ export interface FileWatcherEvent {
   type: FileWatcherEventType;
   timestamp: Date;
   path?: string;
-  changeType?: 'create' | 'modify' | 'delete';
+  changeType?: "create" | "modify" | "delete";
   runId?: string;
   streamId?: string;
   storyId?: string;
@@ -54,7 +54,7 @@ class FileWatcher extends EventEmitter {
 
     const ralphRoot = getRalphRoot();
     if (!ralphRoot) {
-      console.error('[FileWatcher] Cannot start: .ralph directory not found');
+      console.error("[FileWatcher] Cannot start: .ralph directory not found");
       return false;
     }
 
@@ -62,22 +62,18 @@ class FileWatcher extends EventEmitter {
       this.watchedPath = ralphRoot;
 
       // Use recursive watch for the entire .ralph directory
-      this.watcher = fs.watch(
-        ralphRoot,
-        { recursive: true },
-        (eventType, filename) => {
-          if (filename) {
-            this.handleFileChange(eventType, filename);
-          }
+      this.watcher = fs.watch(ralphRoot, { recursive: true }, (eventType, filename) => {
+        if (filename) {
+          this.handleFileChange(eventType, filename);
         }
-      );
-
-      this.watcher.on('error', (error) => {
-        console.error('[FileWatcher] Watch error:', error.message);
-        this.emit('error', error);
       });
 
-      this.watcher.on('close', () => {
+      this.watcher.on("error", (error) => {
+        console.error("[FileWatcher] Watch error:", error.message);
+        this.emit("error", error);
+      });
+
+      this.watcher.on("close", () => {
         this.isWatching = false;
         this.watchedPath = null;
       });
@@ -86,7 +82,7 @@ class FileWatcher extends EventEmitter {
       console.log(`[FileWatcher] Started watching ${ralphRoot}`);
       return true;
     } catch (error) {
-      console.error('[FileWatcher] Failed to start:', error);
+      console.error("[FileWatcher] Failed to start:", error);
       return false;
     }
   }
@@ -108,7 +104,7 @@ class FileWatcher extends EventEmitter {
 
     this.isWatching = false;
     this.watchedPath = null;
-    console.log('[FileWatcher] Stopped watching');
+    console.log("[FileWatcher] Stopped watching");
   }
 
   /**
@@ -156,14 +152,14 @@ class FileWatcher extends EventEmitter {
 
     // Create base event
     const event: FileWatcherEvent = {
-      type: 'file_changed',
+      type: "file_changed",
       timestamp: new Date(),
       path: filename,
       changeType,
     };
 
     // Emit generic file_changed event
-    this.emit('file_changed', event);
+    this.emit("file_changed", event);
 
     // Detect and emit specific events based on file patterns
     this.detectSpecificEvents(filename, changeType, event);
@@ -172,20 +168,17 @@ class FileWatcher extends EventEmitter {
   /**
    * Determine the type of change based on event and file existence
    */
-  private determineChangeType(
-    eventType: string,
-    fullPath: string
-  ): 'create' | 'modify' | 'delete' {
-    if (eventType === 'rename') {
+  private determineChangeType(eventType: string, fullPath: string): "create" | "modify" | "delete" {
+    if (eventType === "rename") {
       // rename can mean create or delete
       try {
         fs.accessSync(fullPath);
-        return 'create';
+        return "create";
       } catch {
-        return 'delete';
+        return "delete";
       }
     }
-    return 'modify';
+    return "modify";
   }
 
   /**
@@ -193,11 +186,11 @@ class FileWatcher extends EventEmitter {
    */
   private detectSpecificEvents(
     filename: string,
-    changeType: 'create' | 'modify' | 'delete',
+    changeType: "create" | "modify" | "delete",
     baseEvent: FileWatcherEvent
   ): void {
     // Normalize path separators
-    const normalizedPath = filename.replace(/\\/g, '/');
+    const normalizedPath = filename.replace(/\\/g, "/");
 
     // Detect run started: new .log file in runs/ directory
     // Pattern: PRD-N/runs/run-*.log or runs/run-*.log
@@ -205,13 +198,13 @@ class FileWatcher extends EventEmitter {
       /(?:PRD-(\d+)\/)?runs\/run-(\d{8})-(\d{6})-(\d+)-iter-(\d+)\.log$/i
     );
 
-    if (runLogMatch && changeType === 'create') {
+    if (runLogMatch && changeType === "create") {
       const streamId = runLogMatch[1] || undefined;
       const runId = `${runLogMatch[2]}-${runLogMatch[3]}-${runLogMatch[4]}`;
 
-      this.emit('run_started', {
+      this.emit("run_started", {
         ...baseEvent,
-        type: 'run_started',
+        type: "run_started",
         runId,
         streamId,
       });
@@ -224,13 +217,13 @@ class FileWatcher extends EventEmitter {
       /(?:PRD-(\d+)\/)?runs\/run-(\d{8})-(\d{6})-(\d+)-iter-(\d+)\.md$/i
     );
 
-    if (runSummaryMatch && changeType === 'create') {
+    if (runSummaryMatch && changeType === "create") {
       const streamId = runSummaryMatch[1] || undefined;
       const runId = `${runSummaryMatch[2]}-${runSummaryMatch[3]}-${runSummaryMatch[4]}`;
 
-      this.emit('run_completed', {
+      this.emit("run_completed", {
         ...baseEvent,
-        type: 'run_completed',
+        type: "run_completed",
         runId,
         streamId,
       });
@@ -241,12 +234,12 @@ class FileWatcher extends EventEmitter {
     // Pattern: PRD-N/prd.md
     const prdMatch = normalizedPath.match(/PRD-(\d+)\/prd\.md$/i);
 
-    if (prdMatch && changeType === 'modify') {
+    if (prdMatch && changeType === "modify") {
       const streamId = prdMatch[1];
 
-      this.emit('progress_updated', {
+      this.emit("progress_updated", {
         ...baseEvent,
-        type: 'progress_updated',
+        type: "progress_updated",
         streamId,
       });
       return;
@@ -256,12 +249,12 @@ class FileWatcher extends EventEmitter {
     // Pattern: PRD-N/plan.md
     const planMatch = normalizedPath.match(/PRD-(\d+)\/plan\.md$/i);
 
-    if (planMatch && changeType === 'modify') {
+    if (planMatch && changeType === "modify") {
       const streamId = planMatch[1];
 
-      this.emit('file_changed', {
+      this.emit("file_changed", {
         ...baseEvent,
-        type: 'file_changed',
+        type: "file_changed",
         streamId,
       });
       return;
@@ -271,12 +264,12 @@ class FileWatcher extends EventEmitter {
     // Pattern: PRD-N/progress.md
     const progressMatch = normalizedPath.match(/PRD-(\d+)\/progress\.md$/i);
 
-    if (progressMatch && (changeType === 'modify' || changeType === 'create')) {
+    if (progressMatch && (changeType === "modify" || changeType === "create")) {
       const streamId = progressMatch[1];
 
-      this.emit('progress_updated', {
+      this.emit("progress_updated", {
         ...baseEvent,
-        type: 'progress_updated',
+        type: "progress_updated",
         streamId,
       });
       return;
@@ -284,10 +277,10 @@ class FileWatcher extends EventEmitter {
 
     // Detect activity log update
     // Pattern: PRD-N/activity.log or activity.log
-    if (normalizedPath.endsWith('activity.log')) {
-      this.emit('file_changed', {
+    if (normalizedPath.endsWith("activity.log")) {
+      this.emit("file_changed", {
         ...baseEvent,
-        type: 'file_changed',
+        type: "file_changed",
       });
       return;
     }
@@ -298,7 +291,7 @@ class FileWatcher extends EventEmitter {
 
     if (lockMatch) {
       const streamId = lockMatch[1];
-      const eventType = changeType === 'delete' ? 'run_completed' : 'run_started';
+      const eventType = changeType === "delete" ? "run_completed" : "run_started";
 
       this.emit(eventType, {
         ...baseEvent,

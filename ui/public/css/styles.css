@@ -71,7 +71,9 @@
 }
 
 /* Reset */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -85,7 +87,8 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
@@ -134,7 +137,9 @@ nav a {
   font-size: 0.875rem;
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 nav a:hover {
@@ -222,9 +227,15 @@ section h2 {
   border-radius: 50%;
 }
 
-.dot.completed { background: var(--status-completed); }
-.dot.in-progress { background: var(--status-in-progress); }
-.dot.pending { background: var(--status-pending); }
+.dot.completed {
+  background: var(--status-completed);
+}
+.dot.in-progress {
+  background: var(--status-in-progress);
+}
+.dot.pending {
+  background: var(--status-pending);
+}
 
 /* Story cards */
 .stories-grid {
@@ -254,7 +265,7 @@ section h2 {
 }
 
 .story-id {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.75rem;
   color: var(--text-muted);
   background: var(--bg-tertiary);
@@ -317,7 +328,7 @@ section h2 {
 }
 
 .retry-badge::before {
-  content: '';
+  content: "";
 }
 
 /* Acceptance criteria */
@@ -335,13 +346,13 @@ section h2 {
 }
 
 .criteria-item::before {
-  content: '○';
+  content: "○";
   flex-shrink: 0;
   color: var(--text-muted);
 }
 
 .criteria-item.completed::before {
-  content: '●';
+  content: "●";
   color: var(--status-completed);
 }
 
@@ -403,7 +414,7 @@ footer {
 }
 
 .status-indicator::before {
-  content: '';
+  content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -420,8 +431,13 @@ footer {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* Log viewer styles */
@@ -464,7 +480,7 @@ footer {
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.4;
 }
@@ -564,7 +580,7 @@ footer {
 }
 
 .run-id {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
   color: var(--text-secondary);
 }
@@ -625,7 +641,9 @@ footer {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
-  transition: border-color 0.2s, transform 0.1s;
+  transition:
+    border-color 0.2s,
+    transform 0.1s;
   cursor: pointer;
 }
 
@@ -643,7 +661,7 @@ footer {
 }
 
 .stream-id {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.75rem;
   color: var(--text-muted);
   background: var(--bg-tertiary);
@@ -823,7 +841,9 @@ footer {
   font-size: 0.875rem;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.2s, border-color 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
 }
 
 .stream-tab:hover {
@@ -856,7 +876,9 @@ footer {
 
 /* SSE Update Animation */
 .sse-updatable {
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .sse-updated {
@@ -942,7 +964,7 @@ footer {
 }
 
 .sse-connection-status::before {
-  content: '';
+  content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -1094,7 +1116,7 @@ footer {
   background: var(--bg-primary);
   border: none;
   color: var(--text-primary);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.875rem;
   line-height: 1.6;
   resize: none;
@@ -1137,12 +1159,29 @@ footer {
   margin-top: 0;
 }
 
-.preview-content h1 { font-size: 1.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-.preview-content h2 { font-size: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-.preview-content h3 { font-size: 1.25rem; }
-.preview-content h4 { font-size: 1rem; }
-.preview-content h5 { font-size: 0.875rem; }
-.preview-content h6 { font-size: 0.8125rem; color: var(--text-secondary); }
+.preview-content h1 {
+  font-size: 1.75rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.3em;
+}
+.preview-content h2 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.3em;
+}
+.preview-content h3 {
+  font-size: 1.25rem;
+}
+.preview-content h4 {
+  font-size: 1rem;
+}
+.preview-content h5 {
+  font-size: 0.875rem;
+}
+.preview-content h6 {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
 
 .preview-content p {
   margin-bottom: 1em;
@@ -1169,7 +1208,7 @@ footer {
   background: var(--bg-tertiary);
   padding: 0.2em 0.4em;
   border-radius: var(--radius-sm);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.85em;
 }
 
@@ -1301,7 +1340,9 @@ footer {
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
   min-width: 100px;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
 }
 
 .control-input:hover:not(:disabled) {
@@ -1411,7 +1452,7 @@ footer {
 }
 
 .build-status-command {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.75rem;
   color: var(--text-muted);
   background: var(--bg-primary);
@@ -1590,7 +1631,7 @@ footer {
 }
 
 .btn.htmx-request::after {
-  content: '';
+  content: "";
   width: 12px;
   height: 12px;
   border: 2px solid currentColor;
@@ -1731,7 +1772,9 @@ footer {
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .retry-button:hover {
@@ -1754,8 +1797,12 @@ footer {
 }
 
 @keyframes retryRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Refresh Button */
@@ -1796,7 +1843,7 @@ footer {
   background: var(--bg-tertiary);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
 }
 
@@ -1805,7 +1852,7 @@ footer {
   background: var(--bg-tertiary);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
 }
 
@@ -2290,7 +2337,8 @@ footer {
   border-radius: var(--radius-sm);
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-sm);
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-family:
+    "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
 }
 
 .terminal-command:last-child {
@@ -2329,7 +2377,9 @@ footer {
   border-radius: var(--radius-md);
   padding: var(--spacing-lg);
   text-align: center;
-  transition: border-color 0.2s, transform 0.1s;
+  transition:
+    border-color 0.2s,
+    transform 0.1s;
 }
 
 .token-card:hover {
@@ -2477,7 +2527,7 @@ footer {
 }
 
 .token-cost-value {
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-weight: 500;
 }
 
@@ -2487,7 +2537,7 @@ footer {
 
 .token-stream-row .stream-id {
   display: block;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.75rem;
   color: var(--text-muted);
 }
@@ -2516,7 +2566,7 @@ footer {
 
 .token-efficiency {
   text-align: center;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-weight: 500;
 }
 
@@ -3247,7 +3297,9 @@ footer {
 .budget-progress-bar {
   height: 100%;
   border-radius: 4px;
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
 }
 
 .budget-progress-bar.budget-ok {

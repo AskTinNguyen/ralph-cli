@@ -1,4 +1,5 @@
 # 3-Way Merge Conflict Resolution
+
 <!-- Version: 1.0.0 -->
 
 You are a merge agent resolving conflicts for parallel story execution in Ralph CLI.

@@ -22,18 +22,18 @@ console.log("Testing Story Dependency Analyzer...\n");
 console.log("Test 1: parseStories()");
 const stories = parseStories(prdPath);
 console.log(`  ✓ Parsed ${stories.length} stories`);
-console.log(`  Stories found: ${stories.map(s => s.id).join(", ")}`);
+console.log(`  Stories found: ${stories.map((s) => s.id).join(", ")}`);
 console.log(`  First story: ${stories[0].id} - ${stories[0].title}`);
 console.log(`  Status format: [${stories[0].status}] (should be space or x)`);
 console.log();
 
 // Test 2: extractFilePaths
 console.log("Test 2: extractFilePaths()");
-const us001 = stories.find(s => s.id === "US-001");
+const us001 = stories.find((s) => s.id === "US-001");
 if (us001) {
   const files = extractFilePaths(us001.content);
   console.log(`  ✓ US-001 mentions ${files.length} file(s):`);
-  files.forEach(f => console.log(`    - ${f}`));
+  files.forEach((f) => console.log(`    - ${f}`));
   if (files.includes("lib/parallel/analyzer.js")) {
     console.log(`  ✓ Correctly extracted lib/parallel/analyzer.js`);
   } else {
@@ -46,12 +46,12 @@ console.log();
 
 // Test 3: detectDependencies
 console.log("Test 3: detectDependencies()");
-const us002 = stories.find(s => s.id === "US-002");
+const us002 = stories.find((s) => s.id === "US-002");
 if (us002) {
   const deps = detectDependencies(us002.content);
   console.log(`  ✓ US-002 depends on: ${deps.length > 0 ? deps.join(", ") : "none (independent)"}`);
 }
-const us007 = stories.find(s => s.id === "US-007");
+const us007 = stories.find((s) => s.id === "US-007");
 if (us007) {
   const deps = detectDependencies(us007.content);
   console.log(`  ✓ US-007 depends on: ${deps.length > 0 ? deps.join(", ") : "none"}`);
@@ -69,7 +69,9 @@ for (const id of Object.keys(graph.nodes).sort()) {
   const deps = graph.edges[id];
   console.log(`    ${id}: ${deps.length > 0 ? deps.join(", ") : "no dependencies"}`);
   if (node.files.length > 0) {
-    console.log(`      Files: ${node.files.slice(0, 3).join(", ")}${node.files.length > 3 ? "..." : ""}`);
+    console.log(
+      `      Files: ${node.files.slice(0, 3).join(", ")}${node.files.length > 3 ? "..." : ""}`
+    );
   }
 }
 console.log();
@@ -81,8 +83,8 @@ try {
   console.log(`  ✓ Generated ${batches.length} batch(es):`);
   batches.forEach((batch, i) => {
     console.log(`    Batch ${i + 1} (${batch.length} stories, can run in parallel):`);
-    batch.forEach(id => {
-      const story = stories.find(s => s.id === id);
+    batch.forEach((id) => {
+      const story = stories.find((s) => s.id === id);
       console.log(`      - ${id}: ${story.title}`);
     });
   });
@@ -95,7 +97,9 @@ try {
       const deps = graph.edges[id];
       for (const depId of deps) {
         if (!processedIds.has(depId)) {
-          console.log(`  ✗ FAILED: ${id} depends on ${depId}, but ${depId} hasn't been processed yet`);
+          console.log(
+            `  ✗ FAILED: ${id} depends on ${depId}, but ${depId} hasn't been processed yet`
+          );
           valid = false;
         }
       }

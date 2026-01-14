@@ -71,10 +71,7 @@ const resultsWithConflict = [
 
 const analysis2 = merger.detectConflicts(resultsWithConflict);
 assert(analysis2.conflictedFiles.length === 1, "One conflicted file detected");
-assert(
-  analysis2.conflictedFiles[0].file === "lib/parallel/index.js",
-  "Correct file identified"
-);
+assert(analysis2.conflictedFiles[0].file === "lib/parallel/index.js", "Correct file identified");
 assertEquals(
   analysis2.conflictedFiles[0].stories,
   ["US-001", "US-003"],
@@ -97,10 +94,7 @@ const resultsWithFailures = [
 ];
 
 const analysis3 = merger.detectConflicts(resultsWithFailures);
-assert(
-  analysis3.conflictedFiles.length === 0,
-  "Failed stories don't count as conflicts"
-);
+assert(analysis3.conflictedFiles.length === 0, "Failed stories don't count as conflicts");
 
 // Test 4: parseMergeResult - valid JSON
 console.log("\nTest 4: parseMergeResult() - parses valid JSON result");
@@ -125,10 +119,7 @@ console.log("\nTest 5: parseMergeResult() - handles missing result block");
 const invalidOutput = "Some agent output without result block";
 const parsed2 = merger.parseMergeResult(invalidOutput, "test.js", 500);
 assert(parsed2.status === "failed", "Returns failed status");
-assert(
-  parsed2.error.includes("No <merge-result> block found"),
-  "Correct error message"
-);
+assert(parsed2.error.includes("No <merge-result> block found"), "Correct error message");
 
 // Test 6: parseMergeResult - invalid JSON
 console.log("\nTest 6: parseMergeResult() - handles invalid JSON");
@@ -141,10 +132,7 @@ const malformedOutput = `<merge-result>
 
 const parsed3 = merger.parseMergeResult(malformedOutput, "test.js", 500);
 assert(parsed3.status === "failed", "Returns failed status on malformed JSON");
-assert(
-  parsed3.error.includes("Failed to parse merge result JSON"),
-  "Correct error message"
-);
+assert(parsed3.error.includes("Failed to parse merge result JSON"), "Correct error message");
 
 // Test 7: generateMergePrompt - template rendering
 console.log("\nTest 7: generateMergePrompt() - renders template correctly");
@@ -177,10 +165,7 @@ console.log("\nTest 7: generateMergePrompt() - renders template correctly");
 
   // Test 9: readFileContent - non-existent file
   console.log("\nTest 9: readFileContent() - handles non-existent file");
-  const noContent = merger.readFileContent(
-    "does-not-exist-12345.js",
-    process.cwd()
-  );
+  const noContent = merger.readFileContent("does-not-exist-12345.js", process.cwd());
   assert(noContent === null, "Returns null for missing file");
 
   // Test 10: applyMergedContent - success case
@@ -200,10 +185,7 @@ console.log("\nTest 7: generateMergePrompt() - renders template correctly");
   );
   assert(success === true, "Returns true on success");
   assert(fs.existsSync(testFile), "File created");
-  assert(
-    fs.readFileSync(testFile, "utf-8") === "merged content",
-    "Content written correctly"
-  );
+  assert(fs.readFileSync(testFile, "utf-8") === "merged content", "Content written correctly");
 
   // Clean up
   fs.unlinkSync(testFile);

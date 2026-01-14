@@ -14,6 +14,7 @@ Signs are explicit instructions added to prevent known failure modes.
 
 ```markdown
 ### Sign: [Descriptive Name]
+
 - **Trigger**: When this situation occurs
 - **Instruction**: What to do instead
 - **Added after**: When/why this was added
@@ -28,6 +29,7 @@ Stop problems before they happen:
 
 ```markdown
 ### Sign: Validate Before Trust
+
 - **Trigger**: When receiving external input
 - **Instruction**: Always validate and sanitize input before using it
 - **Added after**: Iteration 3 - SQL injection vulnerability
@@ -39,6 +41,7 @@ Fix recurring mistakes:
 
 ```markdown
 ### Sign: Check Return Values
+
 - **Trigger**: When calling functions that can fail
 - **Instruction**: Always check return values and handle errors
 - **Added after**: Iteration 7 - Null pointer exception
@@ -50,6 +53,7 @@ Enforce good practices:
 
 ```markdown
 ### Sign: Test Before Commit
+
 - **Trigger**: Before committing changes
 - **Instruction**: Run the test suite and ensure all tests pass
 - **Added after**: Iteration 2 - Broken tests committed
@@ -61,6 +65,7 @@ Guide design decisions:
 
 ```markdown
 ### Sign: Single Responsibility
+
 - **Trigger**: When a function grows beyond 50 lines
 - **Instruction**: Consider splitting into smaller, focused functions
 - **Added after**: Iteration 12 - Unmaintainable god function
@@ -81,6 +86,7 @@ Add a sign when:
 
 ```markdown
 ### Sign: [New Sign]
+
 - **Trigger**: [When it applies]
 - **Instruction**: [What to do]
 - **Added after**: Iteration N - [What happened]
@@ -89,6 +95,7 @@ Add a sign when:
 ### Refinement
 
 If a sign isn't working:
+
 - Make the trigger more specific
 - Make the instruction clearer
 - Add examples
@@ -96,6 +103,7 @@ If a sign isn't working:
 ### Retirement
 
 Signs can be removed when:
+
 - The underlying issue is fixed at a deeper level
 - The sign is no longer relevant
 - The sign is causing more problems than it solves
@@ -106,6 +114,7 @@ Signs can be removed when:
 
 ```markdown
 ### Sign: Sanitize All Input
+
 - **Trigger**: Any user-provided data
 - **Instruction**: Use parameterized queries, escape HTML, validate types
 - **Example**: `db.query("SELECT * FROM users WHERE id = ?", [userId])`
@@ -115,6 +124,7 @@ Signs can be removed when:
 
 ```markdown
 ### Sign: Graceful Degradation
+
 - **Trigger**: External service calls
 - **Instruction**: Always have a fallback for when services are unavailable
 - **Example**: Cache results, provide default values, show friendly errors
@@ -124,6 +134,7 @@ Signs can be removed when:
 
 ```markdown
 ### Sign: Test the Unhappy Path
+
 - **Trigger**: Writing tests for new functionality
 - **Instruction**: Include tests for error cases, edge cases, and invalid input
 ```
@@ -132,6 +143,7 @@ Signs can be removed when:
 
 ```markdown
 ### Sign: Explain Why, Not What
+
 - **Trigger**: Writing comments
 - **Instruction**: Comments should explain reasoning, not describe obvious code
 - **Example**: `// Using retry because API is flaky under load` not `// Call the API`
@@ -166,6 +178,7 @@ These are logged in `.ralph/failures.md` and can be promoted to guardrails.
 ## Integration with Ralph
 
 Signs are:
+
 1. Stored in `.ralph/guardrails.md`
 2. Injected into context at the start of each iteration
 3. Referenced when relevant situations arise

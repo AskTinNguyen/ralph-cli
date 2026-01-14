@@ -89,10 +89,16 @@ export async function convertMarkdownToPdf(
 
     // Replace filename placeholder (url class in Puppeteer shows full path, we want just filename)
     if (headerTemplate) {
-      headerTemplate = headerTemplate.replace(/<span class="url"><\/span>/g, `<span>${filename}</span>`);
+      headerTemplate = headerTemplate.replace(
+        /<span class="url"><\/span>/g,
+        `<span>${filename}</span>`
+      );
     }
     if (footerTemplate) {
-      footerTemplate = footerTemplate.replace(/<span class="url"><\/span>/g, `<span>${filename}</span>`);
+      footerTemplate = footerTemplate.replace(
+        /<span class="url"><\/span>/g,
+        `<span>${filename}</span>`
+      );
     }
 
     // Determine if we need to display header/footer
@@ -101,7 +107,7 @@ export async function convertMarkdownToPdf(
     // Adjust margins if we have headers/footers
     const margin = displayHeaderFooter
       ? {
-          top: "1.25in",    // More space for header
+          top: "1.25in", // More space for header
           right: "1in",
           bottom: "1.25in", // More space for footer
           left: "1in",

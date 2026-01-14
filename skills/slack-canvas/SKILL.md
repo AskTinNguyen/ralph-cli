@@ -9,25 +9,28 @@ Canvases are collaborative documents built into Slack. This skill covers API met
 
 ## API Methods
 
-| Method | Purpose |
-|--------|---------|
-| `canvases.create` | Create standalone canvas |
-| `canvases.edit` | Update existing canvas |
-| `canvases.delete` | Delete a canvas |
-| `canvases.access.set` | Set access permissions |
-| `canvases.access.delete` | Remove access |
-| `canvases.sections.lookup` | Find sections by criteria |
-| `conversations.canvases.create` | Create channel canvas |
+| Method                          | Purpose                   |
+| ------------------------------- | ------------------------- |
+| `canvases.create`               | Create standalone canvas  |
+| `canvases.edit`                 | Update existing canvas    |
+| `canvases.delete`               | Delete a canvas           |
+| `canvases.access.set`           | Set access permissions    |
+| `canvases.access.delete`        | Remove access             |
+| `canvases.sections.lookup`      | Find sections by criteria |
+| `conversations.canvases.create` | Create channel canvas     |
 
 ## Finding Canvases
 
 ### In a Channel
+
 ```
 conversations.info -> channel.properties.canvas
 ```
+
 Returns `file_id`, `is_empty`, `quip_thread_id`.
 
 ### List All Canvases
+
 ```
 files.list with type=canvas
 ```
@@ -41,7 +44,7 @@ files.list with type=canvas
     "type": "markdown",
     "markdown": "# Heading\n\nContent here"
   },
-  "channel_id": "C07L2GUNV6Y"  // optional: auto-add to channel
+  "channel_id": "C07L2GUNV6Y" // optional: auto-add to channel
 }
 ```
 
@@ -80,6 +83,7 @@ Response returns `canvas_id`.
 ## MCP Integration Note
 
 Current Slack MCP server lacks canvas methods. To add support:
+
 1. Add `canvases.*` methods to MCP server
 2. Add `conversations.info` for channel canvas lookup
 3. Add `files.list` with canvas type filter
@@ -101,12 +105,14 @@ https://app.slack.com/client/{team_id}/unified-files/doc/{canvas_id}
 ```
 
 Example:
+
 ```
 https://app.slack.com/docs/T022R9VEBPA/F0A8D6U5MV1
 https://app.slack.com/client/T022R9VEBPA/unified-files/doc/F0A8D6U5MV1
 ```
 
 **Key insights**:
+
 - Canvases are stored in `unified-files` system with type `doc`
 - Canvas IDs start with `F` (same as files)
 - Team ID starts with `T`

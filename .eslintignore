@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+packages/*/node_modules/
+
+# Worktrees (contain copies of the codebase)
+.ralph/worktrees/
+
+# Build output
+dist/
+coverage/
+
+# Generated files
+*.min.js

@@ -26,17 +26,17 @@ Reference: Task X.Y, Req N"
 
 **Format**: `type(scope): subject`
 
-| Type | Purpose |
-|------|---------|
-| `feat` | New feature or functionality |
-| `fix` | Bug fix or issue resolution |
-| `refactor` | Code refactoring without behavior change |
-| `perf` | Performance improvements |
-| `test` | Test additions or modifications |
-| `ci` | CI/CD configuration changes |
-| `docs` | Documentation updates |
-| `chore` | Maintenance, dependencies, tooling |
-| `style` | Code formatting, linting (non-functional) |
+| Type       | Purpose                                   |
+| ---------- | ----------------------------------------- |
+| `feat`     | New feature or functionality              |
+| `fix`      | Bug fix or issue resolution               |
+| `refactor` | Code refactoring without behavior change  |
+| `perf`     | Performance improvements                  |
+| `test`     | Test additions or modifications           |
+| `ci`       | CI/CD configuration changes               |
+| `docs`     | Documentation updates                     |
+| `chore`    | Maintenance, dependencies, tooling        |
+| `style`    | Code formatting, linting (non-functional) |
 | `security` | Security vulnerability fixes or hardening |
 
 ### Scope (Required, kebab-case)
@@ -69,6 +69,7 @@ git add -A  # all changes
 ```
 
 **NEVER commit**:
+
 - `.env`, `credentials.json`, secrets
 - `node_modules/`, `__pycache__/`, `.venv/`
 - Large binary files without explicit approval
@@ -76,11 +77,13 @@ git add -A  # all changes
 ### 3. Create Commit
 
 **Simple change**:
+
 ```bash
 git commit -m "fix(auth): use hmac.compare_digest for secure comparison"
 ```
 
 **Complex change (with body)**:
+
 ```bash
 git commit -m "$(cat <<'EOF'
 feat(validation): add URLValidator with domain whitelist
@@ -117,11 +120,11 @@ Addresses: Req N
 
 ## Git Trailers
 
-| Trailer | Purpose |
-|---------|---------|
-| `Fixes #N` | Links and closes issue on merge |
-| `Closes #N` | Same as Fixes |
-| `Co-authored-by: Name <email>` | Credit co-contributors |
+| Trailer                        | Purpose                         |
+| ------------------------------ | ------------------------------- |
+| `Fixes #N`                     | Links and closes issue on merge |
+| `Closes #N`                    | Same as Fixes                   |
+| `Co-authored-by: Name <email>` | Credit co-contributors          |
 
 Place trailers at end of body after blank line. See `references/commit_examples.md` for examples.
 
@@ -181,6 +184,7 @@ Addresses review comment #123456789."
 ### From github-pr-creation
 
 Before creating PR, ensure all commits follow this format. The PR skill will:
+
 1. Analyze commits for proper format
 2. Extract types for PR labels
 3. Build PR description from commit bodies
@@ -198,6 +202,7 @@ Before creating PR, ensure all commits follow this format. The PR skill will:
 ## Examples
 
 **Good**:
+
 ```
 feat(validation): add URLValidator with domain whitelist
 fix(auth): use hmac.compare_digest for secure key comparison
@@ -206,6 +211,7 @@ test(security): add 102 path traversal prevention tests
 ```
 
 **Bad**:
+
 ```
 update validation code           # no type, no scope, vague
 feat: add stuff                  # missing scope, too vague

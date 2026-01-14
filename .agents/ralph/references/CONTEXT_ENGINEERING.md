@@ -5,11 +5,13 @@ This document explains the malloc/free metaphor for LLM context management that 
 ## The malloc() Metaphor
 
 In traditional programming:
+
 - `malloc()` allocates memory
 - `free()` releases memory
 - Memory leaks occur when you allocate without freeing
 
 In LLM context:
+
 - Reading files, receiving responses, tool outputs = `malloc()`
 - **There is no `free()`** - context cannot be released
 - The only way to "free" is to start a new conversation
@@ -31,6 +33,7 @@ Result: LLM might suggest auth-related patterns when building UI
 ### Autoregressive Failure
 
 LLMs predict the next token based on ALL context. When context contains:
+
 - Unrelated information
 - Failed attempts
 - Mixed concerns
@@ -46,18 +49,21 @@ Once context is polluted with failed attempts or mixed concerns, the model will 
 ## Context Health Indicators
 
 ### 🟢 Healthy Context
+
 - Single focused task
 - Relevant files only
 - Clear progress
 - Under 60% capacity
 
 ### 🟡 Warning Signs
+
 - Multiple unrelated topics discussed
 - Several failed attempts in history
 - Approaching 80% capacity
 - Repeated similar errors
 
 ### 🔴 Critical / Gutter
+
 - Mixed concerns throughout
 - Circular failure patterns
 - Over 90% capacity
@@ -80,6 +86,7 @@ Stay under 80% of context capacity. Quality degrades as you approach limits.
 ### 4. Recognize the Gutter
 
 If you're seeing:
+
 - Same error 3+ times
 - Solutions that don't match the problem
 - Circular suggestions
@@ -104,6 +111,7 @@ This Cursor implementation aims to bring these benefits while working within Cur
 ## Measuring Context
 
 Rough estimates:
+
 - 1 token ≈ 4 characters
 - Average code file: 500-2000 tokens
 - Large file: 5000+ tokens
@@ -114,12 +122,14 @@ Track allocations in `.ralph/context-log.md` to stay aware.
 ## When to Start Fresh
 
 **Definitely start fresh when:**
+
 - Switching to unrelated task
 - Context over 90% full
 - Same error 3+ times
 - Model suggestions are off-topic
 
 **Consider starting fresh when:**
+
 - Context over 70% full
 - Significant topic shift within task
 - Feeling "stuck"

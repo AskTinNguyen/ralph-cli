@@ -1,352 +1,401 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ralph CLI - Streams</title>
-  <link rel="stylesheet" href="/css/styles.css">
-  <script src="/js/htmx.min.js"></script>
-</head>
-<body>
-  <!-- Error Toast Container -->
-  <div id="error-toast" class="error-toast hidden">
-    <div class="error-toast-header">
-      <span class="error-toast-title">Error</span>
-      <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
-    </div>
-    <div class="error-toast-message" id="error-toast-message"></div>
-    <div class="error-toast-actions">
-      <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
-        <span class="retry-icon">&#8635;</span> Retry
-      </button>
-    </div>
-  </div>
-
-  <header>
-    <div class="header-content">
-      <h1>Ralph CLI</h1>
-      <span class="subtitle">Autonomous Coding Loop</span>
-    </div>
-    <nav>
-      <a href="/">Dashboard</a>
-      <a href="/streams.html" class="active">Streams</a>
-      <a href="/logs.html">Logs</a>
-      <a href="/tokens.html">Tokens</a>
-      <a href="/editor.html">Editor</a>
-    </nav>
-  </header>
-
-  <main>
-    <!-- Streams Overview Section -->
-    <section id="streams-overview">
-      <h2>Streams Overview <span class="htmx-indicator" id="summary-indicator"><span class="loading-spinner"></span></span></h2>
-      <div id="streams-summary"
-           hx-get="/api/partials/streams-summary"
-           hx-trigger="load, every 5s"
-           hx-swap="innerHTML"
-           hx-indicator="#summary-indicator">
-        <div class="loading"><span class="loading-spinner"></span> Loading streams summary...</div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ralph CLI - Streams</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/js/htmx.min.js"></script>
+  </head>
+  <body>
+    <!-- Error Toast Container -->
+    <div id="error-toast" class="error-toast hidden">
+      <div class="error-toast-header">
+        <span class="error-toast-title">Error</span>
+        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
       </div>
-    </section>
-
-    <!-- Streams List Section -->
-    <section id="streams-section">
-      <div class="stream-actions-bar">
-        <h2>All Streams <span class="htmx-indicator" id="streams-indicator"><span class="loading-spinner"></span></span></h2>
-        <button class="btn btn-primary"
-                hx-post="/api/stream/new"
-                hx-target="#streams-container"
-                hx-swap="innerHTML"
-                hx-on::after-request="handleNewStreamResponse(event)">
-          + New Stream
+      <div class="error-toast-message" id="error-toast-message"></div>
+      <div class="error-toast-actions">
+        <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
+          <span class="retry-icon">&#8635;</span> Retry
         </button>
       </div>
-      <div id="alert-container"></div>
-      <div id="streams-container"
-           hx-get="/api/partials/streams"
-           hx-trigger="load, every 5s, newStreamCreated from:body"
-           hx-swap="innerHTML"
-           hx-indicator="#streams-indicator">
-        <div class="loading"><span class="loading-spinner"></span> Loading streams...</div>
+    </div>
+
+    <header>
+      <div class="header-content">
+        <h1>Ralph CLI</h1>
+        <span class="subtitle">Autonomous Coding Loop</span>
       </div>
-    </section>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/streams.html" class="active">Streams</a>
+        <a href="/logs.html">Logs</a>
+        <a href="/tokens.html">Tokens</a>
+        <a href="/editor.html">Editor</a>
+      </nav>
+    </header>
 
-    <!-- Stream Detail Section (shown when a stream is selected) -->
-    <section id="stream-detail-section" style="display: none;">
-      <div class="breadcrumbs">
-        <a href="#" onclick="hideStreamDetail(); return false;">Streams</a>
-        <span class="breadcrumb-separator">&rsaquo;</span>
-        <span id="stream-detail-title">Stream Detail</span>
-      </div>
-      <div id="stream-detail-container">
-        <!-- Stream detail content loaded via HTMX -->
-      </div>
-    </section>
-  </main>
+    <main>
+      <!-- Streams Overview Section -->
+      <section id="streams-overview">
+        <h2>
+          Streams Overview
+          <span class="htmx-indicator" id="summary-indicator"
+            ><span class="loading-spinner"></span
+          ></span>
+        </h2>
+        <div
+          id="streams-summary"
+          hx-get="/api/partials/streams-summary"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          hx-indicator="#summary-indicator"
+        >
+          <div class="loading">
+            <span class="loading-spinner"></span> Loading streams summary...
+          </div>
+        </div>
+      </section>
 
-  <footer>
-    <p>Ralph CLI Web UI &mdash; <span id="status-indicator" hx-get="/api/partials/status-indicator" hx-trigger="load, every 5s" hx-swap="innerHTML">checking...</span></p>
-  </footer>
+      <!-- Streams List Section -->
+      <section id="streams-section">
+        <div class="stream-actions-bar">
+          <h2>
+            All Streams
+            <span class="htmx-indicator" id="streams-indicator"
+              ><span class="loading-spinner"></span
+            ></span>
+          </h2>
+          <button
+            class="btn btn-primary"
+            hx-post="/api/stream/new"
+            hx-target="#streams-container"
+            hx-swap="innerHTML"
+            hx-on::after-request="handleNewStreamResponse(event)"
+          >
+            + New Stream
+          </button>
+        </div>
+        <div id="alert-container"></div>
+        <div
+          id="streams-container"
+          hx-get="/api/partials/streams"
+          hx-trigger="load, every 5s, newStreamCreated from:body"
+          hx-swap="innerHTML"
+          hx-indicator="#streams-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading streams...</div>
+        </div>
+      </section>
 
-  <script>
-    // Show stream detail view
-    function showStreamDetail(streamId, streamName) {
-      document.getElementById('streams-overview').style.display = 'none';
-      document.getElementById('streams-section').style.display = 'none';
-      document.getElementById('stream-detail-section').style.display = 'block';
-      document.getElementById('stream-detail-title').textContent = streamName;
+      <!-- Stream Detail Section (shown when a stream is selected) -->
+      <section id="stream-detail-section" style="display: none">
+        <div class="breadcrumbs">
+          <a
+            href="#"
+            onclick="
+              hideStreamDetail();
+              return false;
+            "
+            >Streams</a
+          >
+          <span class="breadcrumb-separator">&rsaquo;</span>
+          <span id="stream-detail-title">Stream Detail</span>
+        </div>
+        <div id="stream-detail-container">
+          <!-- Stream detail content loaded via HTMX -->
+        </div>
+      </section>
+    </main>
 
-      // Load stream detail content via HTMX
-      htmx.ajax('GET', '/api/partials/stream-detail?id=' + streamId, '#stream-detail-container');
-    }
+    <footer>
+      <p>
+        Ralph CLI Web UI &mdash;
+        <span
+          id="status-indicator"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          >checking...</span
+        >
+      </p>
+    </footer>
 
-    // Hide stream detail view and show streams list
-    function hideStreamDetail() {
-      document.getElementById('streams-overview').style.display = 'block';
-      document.getElementById('streams-section').style.display = 'block';
-      document.getElementById('stream-detail-section').style.display = 'none';
-    }
+    <script>
+      // Show stream detail view
+      function showStreamDetail(streamId, streamName) {
+        document.getElementById("streams-overview").style.display = "none";
+        document.getElementById("streams-section").style.display = "none";
+        document.getElementById("stream-detail-section").style.display = "block";
+        document.getElementById("stream-detail-title").textContent = streamName;
 
-    // Show alert message
-    function showAlert(type, message, duration) {
-      const container = document.getElementById('alert-container');
-      const alert = document.createElement('div');
-      alert.className = 'alert alert-' + type;
-      alert.textContent = message;
-      container.innerHTML = '';
-      container.appendChild(alert);
-
-      if (duration !== false) {
-        setTimeout(function() {
-          alert.remove();
-        }, duration || 5000);
+        // Load stream detail content via HTMX
+        htmx.ajax("GET", "/api/partials/stream-detail?id=" + streamId, "#stream-detail-container");
       }
-    }
 
-    // Handle new stream response
-    function handleNewStreamResponse(event) {
-      const xhr = event.detail.xhr;
-      if (xhr && xhr.status === 200) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          if (response.success) {
-            showAlert('success', 'Stream PRD-' + response.id + ' created successfully!');
-            // Trigger refresh of streams list
-            htmx.trigger(document.body, 'newStreamCreated');
-            // Also refresh the summary
-            htmx.ajax('GET', '/api/partials/streams-summary', '#streams-summary');
-          }
-        } catch (e) {
-          // Response might be HTML partial, still refresh
-          htmx.trigger(document.body, 'newStreamCreated');
+      // Hide stream detail view and show streams list
+      function hideStreamDetail() {
+        document.getElementById("streams-overview").style.display = "block";
+        document.getElementById("streams-section").style.display = "block";
+        document.getElementById("stream-detail-section").style.display = "none";
+      }
+
+      // Show alert message
+      function showAlert(type, message, duration) {
+        const container = document.getElementById("alert-container");
+        const alert = document.createElement("div");
+        alert.className = "alert alert-" + type;
+        alert.textContent = message;
+        container.innerHTML = "";
+        container.appendChild(alert);
+
+        if (duration !== false) {
+          setTimeout(function () {
+            alert.remove();
+          }, duration || 5000);
         }
-      } else if (xhr) {
-        try {
-          const response = JSON.parse(xhr.responseText);
-          showAlert('error', response.message || 'Failed to create stream');
-        } catch (e) {
-          showAlert('error', 'Failed to create stream');
-        }
-      }
-    }
-
-    // Initialize worktree for a stream
-    function initStream(streamId, event) {
-      if (event) event.stopPropagation();
-
-      fetch('/api/stream/' + streamId + '/init', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      .then(function(response) { return response.json(); })
-      .then(function(data) {
-        if (data.success) {
-          showAlert('success', 'Worktree initialized for PRD-' + streamId);
-          htmx.trigger(document.body, 'newStreamCreated');
-        } else {
-          showAlert('error', data.message || 'Failed to initialize worktree');
-        }
-      })
-      .catch(function(err) {
-        showAlert('error', 'Failed to initialize worktree: ' + err.message);
-      });
-    }
-
-    // Toggle build form visibility
-    function toggleBuildForm(streamId, event) {
-      if (event) event.stopPropagation();
-
-      const formId = 'build-form-' + streamId;
-      const form = document.getElementById(formId);
-      if (form) {
-        form.style.display = form.style.display === 'none' ? 'flex' : 'none';
-      }
-    }
-
-    // Start build for a stream
-    function startStreamBuild(streamId, event) {
-      if (event) event.preventDefault();
-      if (event) event.stopPropagation();
-
-      const input = document.getElementById('iterations-' + streamId);
-      const iterations = parseInt(input ? input.value : 1, 10);
-
-      if (isNaN(iterations) || iterations < 1 || iterations > 100) {
-        showAlert('error', 'Iterations must be between 1 and 100');
-        return;
       }
 
-      fetch('/api/stream/' + streamId + '/build', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ iterations: iterations })
-      })
-      .then(function(response) { return response.json(); })
-      .then(function(data) {
-        if (data.success) {
-          showAlert('success', 'Build started for PRD-' + streamId + ' with ' + iterations + ' iterations');
-          // Hide the build form
-          var form = document.getElementById('build-form-' + streamId);
-          if (form) form.style.display = 'none';
-          // Refresh streams list
-          htmx.trigger(document.body, 'newStreamCreated');
-        } else {
-          showAlert('error', data.message || 'Failed to start build');
-        }
-      })
-      .catch(function(err) {
-        showAlert('error', 'Failed to start build: ' + err.message);
-      });
-    }
-
-    // Merge stream to main branch
-    function mergeStream(streamId, streamName, event) {
-      if (event) event.stopPropagation();
-
-      // Show confirmation dialog
-      var confirmed = confirm('Are you sure you want to merge stream PRD-' + streamId + ' to main?\n\nThis will merge all changes from "' + streamName + '" into the main branch.');
-
-      if (!confirmed) {
-        return;
-      }
-
-      fetch('/api/stream/' + streamId + '/merge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      .then(function(response) { return response.json(); })
-      .then(function(data) {
-        if (data.success) {
-          showAlert('success', 'PRD-' + streamId + ' merged to main successfully!');
-          htmx.trigger(document.body, 'newStreamCreated');
-        } else {
-          showAlert('error', data.message || 'Failed to merge stream');
-        }
-      })
-      .catch(function(err) {
-        showAlert('error', 'Failed to merge stream: ' + err.message);
-      });
-    }
-
-    // ============================================
-    // Error Toast Handling for HTMX
-    // ============================================
-
-    var lastFailedRequest = null;
-
-    function showErrorToast(message, endpoint) {
-      console.error('[Error]', message, endpoint ? '(Endpoint: ' + endpoint + ')' : '');
-      var toast = document.getElementById('error-toast');
-      var messageEl = document.getElementById('error-toast-message');
-      var retryBtn = document.getElementById('error-toast-retry');
-
-      messageEl.textContent = message;
-
-      if (lastFailedRequest) {
-        retryBtn.style.display = 'inline-flex';
-      } else {
-        retryBtn.style.display = 'none';
-      }
-
-      toast.classList.remove('hidden', 'dismissing');
-    }
-
-    function dismissErrorToast() {
-      var toast = document.getElementById('error-toast');
-      toast.classList.add('dismissing');
-      setTimeout(function() {
-        toast.classList.add('hidden');
-        toast.classList.remove('dismissing');
-      }, 300);
-    }
-
-    function retryLastRequest() {
-      if (lastFailedRequest) {
-        var retryBtn = document.getElementById('error-toast-retry');
-        retryBtn.classList.add('loading');
-        retryBtn.disabled = true;
-
-        var element = lastFailedRequest.element;
-        htmx.trigger(element, 'load');
-
-        setTimeout(function() {
-          retryBtn.classList.remove('loading');
-          retryBtn.disabled = false;
-          lastFailedRequest = null;
-          dismissErrorToast();
-        }, 1000);
-      }
-    }
-
-    // HTMX error handlers
-    document.body.addEventListener('htmx:responseError', function(event) {
-      var xhr = event.detail.xhr;
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
-
-      var message = 'Request failed';
-      if (xhr && xhr.status) {
-        if (xhr.status === 0) {
-          message = 'Unable to connect to server. Check if the server is running.';
-        } else if (xhr.status === 404) {
-          message = 'Resource not found: ' + path;
-        } else if (xhr.status === 500) {
-          message = 'Server error occurred. Please try again.';
+      // Handle new stream response
+      function handleNewStreamResponse(event) {
+        const xhr = event.detail.xhr;
+        if (xhr && xhr.status === 200) {
           try {
-            var response = JSON.parse(xhr.responseText);
-            if (response.message) {
-              message = response.message;
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+              showAlert("success", "Stream PRD-" + response.id + " created successfully!");
+              // Trigger refresh of streams list
+              htmx.trigger(document.body, "newStreamCreated");
+              // Also refresh the summary
+              htmx.ajax("GET", "/api/partials/streams-summary", "#streams-summary");
             }
-          } catch (e) {}
-        } else {
-          message = 'Request failed with status ' + xhr.status;
+          } catch (e) {
+            // Response might be HTML partial, still refresh
+            htmx.trigger(document.body, "newStreamCreated");
+          }
+        } else if (xhr) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            showAlert("error", response.message || "Failed to create stream");
+          } catch (e) {
+            showAlert("error", "Failed to create stream");
+          }
         }
       }
 
-      lastFailedRequest = { element: event.target };
-      showErrorToast(message, path);
-    });
+      // Initialize worktree for a stream
+      function initStream(streamId, event) {
+        if (event) event.stopPropagation();
 
-    document.body.addEventListener('htmx:sendError', function(event) {
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
-      console.error('[HTMX Send Error] Failed to send request:', path, event.detail);
-      lastFailedRequest = { element: event.target };
-      showErrorToast('Network error: Unable to send request. Check your connection.', path);
-    });
-
-    document.body.addEventListener('htmx:timeout', function(event) {
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : 'unknown';
-      console.error('[HTMX Timeout] Request timed out:', path);
-      lastFailedRequest = { element: event.target };
-      showErrorToast('Request timed out. The server may be busy.', path);
-    });
-
-    // Auto-dismiss error toast after 10 seconds
-    setInterval(function() {
-      var toast = document.getElementById('error-toast');
-      if (!toast.classList.contains('hidden') && !lastFailedRequest) {
-        dismissErrorToast();
+        fetch("/api/stream/" + streamId + "/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              showAlert("success", "Worktree initialized for PRD-" + streamId);
+              htmx.trigger(document.body, "newStreamCreated");
+            } else {
+              showAlert("error", data.message || "Failed to initialize worktree");
+            }
+          })
+          .catch(function (err) {
+            showAlert("error", "Failed to initialize worktree: " + err.message);
+          });
       }
-    }, 10000);
-  </script>
-</body>
+
+      // Toggle build form visibility
+      function toggleBuildForm(streamId, event) {
+        if (event) event.stopPropagation();
+
+        const formId = "build-form-" + streamId;
+        const form = document.getElementById(formId);
+        if (form) {
+          form.style.display = form.style.display === "none" ? "flex" : "none";
+        }
+      }
+
+      // Start build for a stream
+      function startStreamBuild(streamId, event) {
+        if (event) event.preventDefault();
+        if (event) event.stopPropagation();
+
+        const input = document.getElementById("iterations-" + streamId);
+        const iterations = parseInt(input ? input.value : 1, 10);
+
+        if (isNaN(iterations) || iterations < 1 || iterations > 100) {
+          showAlert("error", "Iterations must be between 1 and 100");
+          return;
+        }
+
+        fetch("/api/stream/" + streamId + "/build", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ iterations: iterations }),
+        })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              showAlert(
+                "success",
+                "Build started for PRD-" + streamId + " with " + iterations + " iterations"
+              );
+              // Hide the build form
+              var form = document.getElementById("build-form-" + streamId);
+              if (form) form.style.display = "none";
+              // Refresh streams list
+              htmx.trigger(document.body, "newStreamCreated");
+            } else {
+              showAlert("error", data.message || "Failed to start build");
+            }
+          })
+          .catch(function (err) {
+            showAlert("error", "Failed to start build: " + err.message);
+          });
+      }
+
+      // Merge stream to main branch
+      function mergeStream(streamId, streamName, event) {
+        if (event) event.stopPropagation();
+
+        // Show confirmation dialog
+        var confirmed = confirm(
+          "Are you sure you want to merge stream PRD-" +
+            streamId +
+            ' to main?\n\nThis will merge all changes from "' +
+            streamName +
+            '" into the main branch.'
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        fetch("/api/stream/" + streamId + "/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then(function (response) {
+            return response.json();
+          })
+          .then(function (data) {
+            if (data.success) {
+              showAlert("success", "PRD-" + streamId + " merged to main successfully!");
+              htmx.trigger(document.body, "newStreamCreated");
+            } else {
+              showAlert("error", data.message || "Failed to merge stream");
+            }
+          })
+          .catch(function (err) {
+            showAlert("error", "Failed to merge stream: " + err.message);
+          });
+      }
+
+      // ============================================
+      // Error Toast Handling for HTMX
+      // ============================================
+
+      var lastFailedRequest = null;
+
+      function showErrorToast(message, endpoint) {
+        console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
+        var toast = document.getElementById("error-toast");
+        var messageEl = document.getElementById("error-toast-message");
+        var retryBtn = document.getElementById("error-toast-retry");
+
+        messageEl.textContent = message;
+
+        if (lastFailedRequest) {
+          retryBtn.style.display = "inline-flex";
+        } else {
+          retryBtn.style.display = "none";
+        }
+
+        toast.classList.remove("hidden", "dismissing");
+      }
+
+      function dismissErrorToast() {
+        var toast = document.getElementById("error-toast");
+        toast.classList.add("dismissing");
+        setTimeout(function () {
+          toast.classList.add("hidden");
+          toast.classList.remove("dismissing");
+        }, 300);
+      }
+
+      function retryLastRequest() {
+        if (lastFailedRequest) {
+          var retryBtn = document.getElementById("error-toast-retry");
+          retryBtn.classList.add("loading");
+          retryBtn.disabled = true;
+
+          var element = lastFailedRequest.element;
+          htmx.trigger(element, "load");
+
+          setTimeout(function () {
+            retryBtn.classList.remove("loading");
+            retryBtn.disabled = false;
+            lastFailedRequest = null;
+            dismissErrorToast();
+          }, 1000);
+        }
+      }
+
+      // HTMX error handlers
+      document.body.addEventListener("htmx:responseError", function (event) {
+        var xhr = event.detail.xhr;
+        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+
+        var message = "Request failed";
+        if (xhr && xhr.status) {
+          if (xhr.status === 0) {
+            message = "Unable to connect to server. Check if the server is running.";
+          } else if (xhr.status === 404) {
+            message = "Resource not found: " + path;
+          } else if (xhr.status === 500) {
+            message = "Server error occurred. Please try again.";
+            try {
+              var response = JSON.parse(xhr.responseText);
+              if (response.message) {
+                message = response.message;
+              }
+            } catch (e) {}
+          } else {
+            message = "Request failed with status " + xhr.status;
+          }
+        }
+
+        lastFailedRequest = { element: event.target };
+        showErrorToast(message, path);
+      });
+
+      document.body.addEventListener("htmx:sendError", function (event) {
+        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+        console.error("[HTMX Send Error] Failed to send request:", path, event.detail);
+        lastFailedRequest = { element: event.target };
+        showErrorToast("Network error: Unable to send request. Check your connection.", path);
+      });
+
+      document.body.addEventListener("htmx:timeout", function (event) {
+        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+        console.error("[HTMX Timeout] Request timed out:", path);
+        lastFailedRequest = { element: event.target };
+        showErrorToast("Request timed out. The server may be busy.", path);
+      });
+
+      // Auto-dismiss error toast after 10 seconds
+      setInterval(function () {
+        var toast = document.getElementById("error-toast");
+        if (!toast.classList.contains("hidden") && !lastFailedRequest) {
+          dismissErrorToast();
+        }
+      }, 10000);
+    </script>
+  </body>
 </html>

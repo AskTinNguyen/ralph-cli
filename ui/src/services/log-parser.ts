@@ -5,10 +5,10 @@
  * Returns structured LogEntry objects with timestamp, level, message.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import type { LogEntry, LogLevel } from '../types.js';
-import { getRalphRoot } from './state-reader.js';
+import fs from "node:fs";
+import path from "node:path";
+import type { LogEntry, LogLevel } from "../types.js";
+import { getRalphRoot } from "./state-reader.js";
 
 /**
  * Parse a timestamp string from activity log format.
@@ -41,32 +41,29 @@ function detectLogLevel(message: string): LogLevel {
 
   // Check for error indicators
   if (
-    lowerMessage.includes('error') ||
-    lowerMessage.includes('fail') ||
-    lowerMessage.includes('exception') ||
-    lowerMessage.startsWith('error:')
+    lowerMessage.includes("error") ||
+    lowerMessage.includes("fail") ||
+    lowerMessage.includes("exception") ||
+    lowerMessage.startsWith("error:")
   ) {
-    return 'error';
+    return "error";
   }
 
   // Check for warning indicators
   if (
-    lowerMessage.includes('warn') ||
-    lowerMessage.includes('warning') ||
-    lowerMessage.startsWith('warn:')
+    lowerMessage.includes("warn") ||
+    lowerMessage.includes("warning") ||
+    lowerMessage.startsWith("warn:")
   ) {
-    return 'warning';
+    return "warning";
   }
 
   // Check for debug indicators
-  if (
-    lowerMessage.includes('debug') ||
-    lowerMessage.startsWith('debug:')
-  ) {
-    return 'debug';
+  if (lowerMessage.includes("debug") || lowerMessage.startsWith("debug:")) {
+    return "debug";
   }
 
-  return 'info';
+  return "info";
 }
 
 /**
@@ -77,7 +74,7 @@ function parseActivityLogLine(line: string): LogEntry | null {
   const trimmed = line.trim();
 
   // Skip empty lines, comments, and section headers
-  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('-')) {
+  if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-")) {
     return null;
   }
 
@@ -92,7 +89,7 @@ function parseActivityLogLine(line: string): LogEntry | null {
         timestamp,
         level: detectLogLevel(message),
         message,
-        source: 'activity',
+        source: "activity",
       };
     }
   }
@@ -129,13 +126,14 @@ function parseRunSummaryLine(line: string): LogEntry | null {
       );
 
       const message = `Run ${runId} iteration ${iteration} (${mode}) for ${story}: ${status} (${duration}s)`;
-      const level: LogLevel = status === 'success' ? 'info' : status === 'fail' ? 'error' : 'warning';
+      const level: LogLevel =
+        status === "success" ? "info" : status === "fail" ? "error" : "warning";
 
       return {
         timestamp,
         level,
         message,
-        source: 'run-summary',
+        source: "run-summary",
         runId,
       };
     }
@@ -161,10 +159,10 @@ export function parseActivityLog(streamId?: string): LogEntry[] {
   let logPath: string;
   if (streamId) {
     // Stream-specific activity log
-    logPath = path.join(ralphRoot, `PRD-${streamId}`, 'activity.log');
+    logPath = path.join(ralphRoot, `PRD-${streamId}`, "activity.log");
   } else {
     // Global activity log
-    logPath = path.join(ralphRoot, 'activity.log');
+    logPath = path.join(ralphRoot, "activity.log");
   }
 
   if (!fs.existsSync(logPath)) {
@@ -178,8 +176,8 @@ export function parseActivityLog(streamId?: string): LogEntry[] {
   const entries: LogEntry[] = [];
 
   try {
-    const content = fs.readFileSync(logPath, 'utf-8');
-    const lines = content.split('\n');
+    const content = fs.readFileSync(logPath, "utf-8");
+    const lines = content.split("\n");
 
     for (const line of lines) {
       // Try parsing as run summary first
@@ -227,20 +225,20 @@ export function parseRunLog(runId: string, streamId?: string, iteration?: number
 
   if (streamId && iteration !== undefined) {
     // Try direct path construction in stream-specific directory
-    logPath = path.join(ralphRoot, `PRD-${streamId}`, 'runs', `run-${runId}-iter-${iteration}.log`);
+    logPath = path.join(ralphRoot, `PRD-${streamId}`, "runs", `run-${runId}-iter-${iteration}.log`);
 
     // If not found, try centralized runs directory
     if (!fs.existsSync(logPath)) {
-      logPath = path.join(ralphRoot, 'runs', `run-${runId}-iter-${iteration}.log`);
+      logPath = path.join(ralphRoot, "runs", `run-${runId}-iter-${iteration}.log`);
     }
   } else if (streamId) {
     // Search for the run log in the stream's runs directory
-    const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
+    const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, "runs");
     logPath = findRunLog(streamRunsDir, runId);
 
     // If not found, try centralized runs directory
     if (!logPath) {
-      const centralRunsDir = path.join(ralphRoot, 'runs');
+      const centralRunsDir = path.join(ralphRoot, "runs");
       logPath = findRunLog(centralRunsDir, runId);
     }
   } else {
@@ -266,7 +264,7 @@ function findRunLog(runsDir: string, runId: string): string | null {
   try {
     const entries = fs.readdirSync(runsDir);
     for (const entry of entries) {
-      if (entry.endsWith('.log') && entry.includes(runId)) {
+      if (entry.endsWith(".log") && entry.includes(runId)) {
         return path.join(runsDir, entry);
       }
     }
@@ -282,7 +280,7 @@ function findRunLog(runsDir: string, runId: string): string | null {
  */
 function findRunLogGlobally(ralphRoot: string, runId: string): string | null {
   // First check centralized runs directory
-  const centralRunsDir = path.join(ralphRoot, 'runs');
+  const centralRunsDir = path.join(ralphRoot, "runs");
   const centralLog = findRunLog(centralRunsDir, runId);
   if (centralLog) {
     return centralLog;
@@ -294,7 +292,7 @@ function findRunLogGlobally(ralphRoot: string, runId: string): string | null {
 
     for (const entry of entries) {
       if (entry.isDirectory() && /^prd-\d+$/i.test(entry.name)) {
-        const runsDir = path.join(ralphRoot, entry.name, 'runs');
+        const runsDir = path.join(ralphRoot, entry.name, "runs");
         const logPath = findRunLog(runsDir, runId);
         if (logPath) {
           return logPath;
@@ -315,8 +313,8 @@ function parseRunLogFile(logPath: string, runId: string): LogEntry[] {
   const entries: LogEntry[] = [];
 
   try {
-    const content = fs.readFileSync(logPath, 'utf-8');
-    const lines = content.split('\n');
+    const content = fs.readFileSync(logPath, "utf-8");
+    const lines = content.split("\n");
 
     // Use file modification time as base timestamp since run logs may not have timestamps
     const stats = fs.statSync(logPath);
@@ -339,7 +337,7 @@ function parseRunLogFile(logPath: string, runId: string): LogEntry[] {
         timestamp: new Date(baseTimestamp.getTime() + i),
         level,
         message: trimmed,
-        source: 'run-log',
+        source: "run-log",
         runId,
       });
     }
@@ -356,13 +354,16 @@ function parseRunLogFile(logPath: string, runId: string): LogEntry[] {
  * @param streamId - Stream ID (e.g., "3" for PRD-3)
  * @returns Array of run info objects with id, iteration, and log path
  */
-export function listRunLogs(streamId: string): Array<{ runId: string; iteration: number; logPath: string; hasSummary: boolean }> {
+export function listRunLogs(
+  streamId: string
+): Array<{ runId: string; iteration: number; logPath: string; hasSummary: boolean }> {
   const ralphRoot = getRalphRoot();
   if (!ralphRoot) {
     return [];
   }
 
-  const runs: Array<{ runId: string; iteration: number; logPath: string; hasSummary: boolean }> = [];
+  const runs: Array<{ runId: string; iteration: number; logPath: string; hasSummary: boolean }> =
+    [];
 
   // Helper function to scan a runs directory
   const scanRunsDir = (runsDir: string) => {
@@ -380,12 +381,12 @@ export function listRunLogs(streamId: string): Array<{ runId: string; iteration:
           const runId = match[1];
           const iteration = parseInt(match[2], 10);
           const logPath = path.join(runsDir, entry);
-          const summaryPath = logPath.replace('.log', '.md');
+          const summaryPath = logPath.replace(".log", ".md");
           const hasSummary = fs.existsSync(summaryPath);
 
           // Check if run belongs to this stream by looking for PRD-{streamId} references in log
           try {
-            const logContent = fs.readFileSync(logPath, 'utf-8');
+            const logContent = fs.readFileSync(logPath, "utf-8");
             const prdMarker = `PRD-${streamId}`;
             if (logContent.includes(prdMarker)) {
               runs.push({ runId, iteration, logPath, hasSummary });
@@ -401,16 +402,17 @@ export function listRunLogs(streamId: string): Array<{ runId: string; iteration:
   };
 
   // Check stream-specific runs directory first
-  const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, 'runs');
+  const streamRunsDir = path.join(ralphRoot, `PRD-${streamId}`, "runs");
   scanRunsDir(streamRunsDir);
 
   // Also check centralized runs directory
-  const centralRunsDir = path.join(ralphRoot, 'runs');
+  const centralRunsDir = path.join(ralphRoot, "runs");
   scanRunsDir(centralRunsDir);
 
   // Remove duplicates (same runId + iteration)
-  const uniqueRuns = runs.filter((run, index, self) =>
-    index === self.findIndex((r) => r.runId === run.runId && r.iteration === run.iteration)
+  const uniqueRuns = runs.filter(
+    (run, index, self) =>
+      index === self.findIndex((r) => r.runId === run.runId && r.iteration === run.iteration)
   );
 
   // Sort by run ID descending (newest first)
@@ -427,7 +429,11 @@ export function listRunLogs(streamId: string): Array<{ runId: string; iteration:
  * @param iteration - Iteration number
  * @returns Parsed summary data or null if not found
  */
-export function getRunSummary(runId: string, streamId: string, iteration: number): {
+export function getRunSummary(
+  runId: string,
+  streamId: string,
+  iteration: number
+): {
   runId: string;
   iteration: number;
   mode: string;
@@ -447,7 +453,7 @@ export function getRunSummary(runId: string, streamId: string, iteration: number
   const summaryPath = path.join(
     ralphRoot,
     `PRD-${streamId}`,
-    'runs',
+    "runs",
     `run-${runId}-iter-${iteration}.md`
   );
 
@@ -456,8 +462,8 @@ export function getRunSummary(runId: string, streamId: string, iteration: number
   }
 
   try {
-    const content = fs.readFileSync(summaryPath, 'utf-8');
-    const lines = content.split('\n');
+    const content = fs.readFileSync(summaryPath, "utf-8");
+    const lines = content.split("\n");
 
     const result: {
       runId: string;
@@ -473,12 +479,12 @@ export function getRunSummary(runId: string, streamId: string, iteration: number
     } = {
       runId,
       iteration,
-      mode: '',
-      story: '',
-      startedAt: '',
-      endedAt: '',
+      mode: "",
+      story: "",
+      startedAt: "",
+      endedAt: "",
       duration: 0,
-      status: '',
+      status: "",
       commits: [],
       changedFiles: [],
     };
@@ -489,40 +495,40 @@ export function getRunSummary(runId: string, streamId: string, iteration: number
       const trimmed = line.trim();
 
       // Parse header metadata
-      if (trimmed.startsWith('- Run ID:')) {
-        result.runId = trimmed.replace('- Run ID:', '').trim();
-      } else if (trimmed.startsWith('- Iteration:')) {
-        result.iteration = parseInt(trimmed.replace('- Iteration:', '').trim(), 10);
-      } else if (trimmed.startsWith('- Mode:')) {
-        result.mode = trimmed.replace('- Mode:', '').trim();
-      } else if (trimmed.startsWith('- Story:')) {
-        result.story = trimmed.replace('- Story:', '').trim();
-      } else if (trimmed.startsWith('- Started:')) {
-        result.startedAt = trimmed.replace('- Started:', '').trim();
-      } else if (trimmed.startsWith('- Ended:')) {
-        result.endedAt = trimmed.replace('- Ended:', '').trim();
-      } else if (trimmed.startsWith('- Duration:')) {
-        const durationStr = trimmed.replace('- Duration:', '').trim();
-        result.duration = parseInt(durationStr.replace('s', ''), 10);
-      } else if (trimmed.startsWith('- Status:')) {
-        result.status = trimmed.replace('- Status:', '').trim();
+      if (trimmed.startsWith("- Run ID:")) {
+        result.runId = trimmed.replace("- Run ID:", "").trim();
+      } else if (trimmed.startsWith("- Iteration:")) {
+        result.iteration = parseInt(trimmed.replace("- Iteration:", "").trim(), 10);
+      } else if (trimmed.startsWith("- Mode:")) {
+        result.mode = trimmed.replace("- Mode:", "").trim();
+      } else if (trimmed.startsWith("- Story:")) {
+        result.story = trimmed.replace("- Story:", "").trim();
+      } else if (trimmed.startsWith("- Started:")) {
+        result.startedAt = trimmed.replace("- Started:", "").trim();
+      } else if (trimmed.startsWith("- Ended:")) {
+        result.endedAt = trimmed.replace("- Ended:", "").trim();
+      } else if (trimmed.startsWith("- Duration:")) {
+        const durationStr = trimmed.replace("- Duration:", "").trim();
+        result.duration = parseInt(durationStr.replace("s", ""), 10);
+      } else if (trimmed.startsWith("- Status:")) {
+        result.status = trimmed.replace("- Status:", "").trim();
       }
 
       // Track sections
-      if (trimmed === '### Commits') {
-        section = 'commits';
-      } else if (trimmed === '### Changed Files (commits)') {
-        section = 'changedFiles';
-      } else if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
+      if (trimmed === "### Commits") {
+        section = "commits";
+      } else if (trimmed === "### Changed Files (commits)") {
+        section = "changedFiles";
+      } else if (trimmed.startsWith("## ") || trimmed.startsWith("### ")) {
         section = null;
       }
 
       // Parse section items
-      if (section && trimmed.startsWith('- ') && trimmed !== '- (none)') {
-        const item = trimmed.replace('- ', '');
-        if (section === 'commits') {
+      if (section && trimmed.startsWith("- ") && trimmed !== "- (none)") {
+        const item = trimmed.replace("- ", "");
+        if (section === "commits") {
           result.commits.push(item);
-        } else if (section === 'changedFiles') {
+        } else if (section === "changedFiles") {
           result.changedFiles.push(item);
         }
       }

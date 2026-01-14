@@ -12,10 +12,16 @@
   "scripts": {
     "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs",
     "test:real": "node tests/real-agents.mjs",
-    "test:ping": "node tests/agent-ping.mjs"
+    "test:ping": "node tests/agent-ping.mjs",
+    "lint": "eslint . && prettier --check .",
+    "lint:fix": "eslint --fix . && prettier --write ."
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
   },
   "license": "MIT"
 }

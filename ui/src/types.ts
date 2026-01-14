@@ -5,7 +5,7 @@
 /**
  * Status of a user story
  */
-export type StoryStatus = 'pending' | 'in-progress' | 'completed';
+export type StoryStatus = "pending" | "in-progress" | "completed";
 
 /**
  * An acceptance criterion within a user story
@@ -29,7 +29,7 @@ export interface Story {
 /**
  * Status of a stream (PRD folder)
  */
-export type StreamStatus = 'idle' | 'running' | 'completed' | 'error';
+export type StreamStatus = "idle" | "running" | "completed" | "error";
 
 /**
  * A stream represents a PRD-N folder with its associated data
@@ -68,7 +68,7 @@ export interface Run {
   startedAt: Date;
   completedAt?: Date;
   duration?: number;
-  status: 'running' | 'completed' | 'failed';
+  status: "running" | "completed" | "failed";
   storyId?: string;
   storyTitle?: string;
   commit?: string;
@@ -84,7 +84,7 @@ export interface Run {
 /**
  * Log level for activity log entries
  */
-export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
+export type LogLevel = "debug" | "info" | "warning" | "error";
 
 /**
  * An entry from the activity log or run log
@@ -100,7 +100,7 @@ export interface LogEntry {
 /**
  * Ralph operating mode
  */
-export type RalphMode = 'single' | 'multi' | 'legacy' | 'uninitialized';
+export type RalphMode = "single" | "multi" | "legacy" | "uninitialized";
 
 /**
  * Progress statistics
@@ -131,7 +131,7 @@ export interface RalphStatus {
 export interface BuildOptions {
   iterations: number;
   stream?: string;
-  agent?: 'claude' | 'codex' | 'droid';
+  agent?: "claude" | "codex" | "droid";
   noCommit?: boolean;
 }
 
@@ -139,7 +139,7 @@ export interface BuildOptions {
  * Build status response
  */
 export interface BuildStatus {
-  state: 'idle' | 'running' | 'completed' | 'error';
+  state: "idle" | "running" | "completed" | "error";
   pid?: number;
   startedAt?: Date;
   command?: string;
@@ -151,11 +151,11 @@ export interface BuildStatus {
  * Server-sent event types
  */
 export type SSEEventType =
-  | 'file_changed'
-  | 'run_started'
-  | 'run_progress'
-  | 'run_completed'
-  | 'log_line';
+  | "file_changed"
+  | "run_started"
+  | "run_progress"
+  | "run_completed"
+  | "log_line";
 
 /**
  * Server-sent event payload
@@ -171,7 +171,7 @@ export interface SSEEvent {
  */
 export interface FileChangedEvent {
   path: string;
-  changeType: 'create' | 'modify' | 'delete';
+  changeType: "create" | "modify" | "delete";
 }
 
 /**
@@ -222,25 +222,31 @@ export interface StreamTokenSummary {
   runCount: number;
   storyCount: number;
   avgCostPerStory: number;
-  byStory?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    inputCost: number;
-    outputCost: number;
-    runs: number;
-    estimatedCount: number;
-  }>;
-  byModel?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-    totalCost: number;
-    inputCost: number;
-    outputCost: number;
-    runs: number;
-  }>;
+  byStory?: Record<
+    string,
+    {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      totalCost: number;
+      inputCost: number;
+      outputCost: number;
+      runs: number;
+      estimatedCount: number;
+    }
+  >;
+  byModel?: Record<
+    string,
+    {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      totalCost: number;
+      inputCost: number;
+      outputCost: number;
+      runs: number;
+    }
+  >;
   runs?: RunTokenData[];
 }
 
@@ -286,7 +292,7 @@ export interface TokenTrendDataPoint {
  * Token trends over time for charts
  */
 export interface TokenTrend {
-  period: '7d' | '30d' | '90d' | 'all';
+  period: "7d" | "30d" | "90d" | "all";
   dataPoints: TokenTrendDataPoint[];
   streamId?: string;
 }
@@ -320,14 +326,17 @@ export interface ModelComparison {
   reason?: string;
   modelA?: string;
   modelB?: string;
-  metrics?: Record<string, {
-    label: string;
-    modelA: number;
-    modelB: number;
-    winner: string | null;
-    difference: number;
-    percentDiff: number;
-  }>;
+  metrics?: Record<
+    string,
+    {
+      label: string;
+      modelA: number;
+      modelB: number;
+      winner: string | null;
+      difference: number;
+      percentDiff: number;
+    }
+  >;
   recommendations?: Array<{
     type: string;
     message: string;
@@ -343,7 +352,7 @@ export interface ModelRecommendation {
   description: string;
   recommendedModel: string;
   reason: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
 }
 
 /**

@@ -25,11 +25,11 @@ function setupTempProject() {
   mkdirSync(path.join(base, ".ralph"), { recursive: true });
   writeFileSync(
     path.join(base, ".agents", "tasks", "prd.md"),
-    `# PRD: Smoke Test\n\n## 3. User Stories\n\n### [ ] US-001: Smoke Test Story\n**Description:** As a user, I want a placeholder story so the loop can run.\n\n**Acceptance Criteria:**\n- [ ] Example: input -> output\n- [ ] Negative case: bad input -> error\n- [ ] Typecheck passes\n\n`,
+    `# PRD: Smoke Test\n\n## 3. User Stories\n\n### [ ] US-001: Smoke Test Story\n**Description:** As a user, I want a placeholder story so the loop can run.\n\n**Acceptance Criteria:**\n- [ ] Example: input -> output\n- [ ] Negative case: bad input -> error\n- [ ] Typecheck passes\n\n`
   );
   writeFileSync(
     path.join(base, ".ralph", "IMPLEMENTATION_PLAN.md"),
-    `# Implementation Plan\n\n## Tasks\n### US-001: Smoke Test Story\n- [ ] Placeholder task\n  - Scope: none\n  - Acceptance: none\n  - Verification: none\n`,
+    `# Implementation Plan\n\n## Tasks\n### US-001: Smoke Test Story\n- [ ] Placeholder task\n  - Scope: none\n  - Acceptance: none\n  - Verification: none\n`
   );
   return base;
 }

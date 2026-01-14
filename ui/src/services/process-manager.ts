@@ -6,22 +6,22 @@
  * Uses EventEmitter pattern for streaming output.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
-import path from 'node:path';
-import { EventEmitter } from 'node:events';
-import type { BuildOptions, BuildStatus } from '../types.js';
-import { getRalphRoot } from './state-reader.js';
+import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
+import { EventEmitter } from "node:events";
+import type { BuildOptions, BuildStatus } from "../types.js";
+import { getRalphRoot } from "./state-reader.js";
 
 /**
  * Event types emitted by the process manager
  */
-export type ProcessManagerEventType = 'output' | 'exit' | 'error';
+export type ProcessManagerEventType = "output" | "exit" | "error";
 
 /**
  * Output event data
  */
 export interface OutputEvent {
-  type: 'stdout' | 'stderr';
+  type: "stdout" | "stderr";
   data: string;
   timestamp: Date;
 }
@@ -73,12 +73,12 @@ class ProcessManager extends EventEmitter {
     // Check if a build is already running
     if (this.currentProcess !== null) {
       return {
-        state: 'running',
+        state: "running",
         pid: this.currentProcess.pid,
         startedAt: this.currentProcess.startedAt,
         command: this.currentProcess.command,
         options: this.currentProcess.options,
-        error: 'A build is already running. Stop it first before starting a new one.',
+        error: "A build is already running. Stop it first before starting a new one.",
       };
     }
 
@@ -86,7 +86,7 @@ class ProcessManager extends EventEmitter {
     const ralphRoot = getRalphRoot();
     if (!ralphRoot) {
       return {
-        state: 'error',
+        state: "error",
         error: 'Cannot start build: .ralph directory not found. Run "ralph install" first.',
       };
     }
@@ -95,7 +95,7 @@ class ProcessManager extends EventEmitter {
     const projectRoot = path.dirname(ralphRoot);
 
     // Build the command arguments
-    const args = ['build', String(iterations)];
+    const args = ["build", String(iterations)];
 
     // Add optional flags
     if (options.stream) {
@@ -107,7 +107,7 @@ class ProcessManager extends EventEmitter {
     }
 
     if (options.noCommit) {
-      args.push('--no-commit');
+      args.push("--no-commit");
     }
 
     const fullOptions: BuildOptions = {
@@ -117,21 +117,21 @@ class ProcessManager extends EventEmitter {
       noCommit: options.noCommit,
     };
 
-    const command = `ralph ${args.join(' ')}`;
+    const command = `ralph ${args.join(" ")}`;
 
     try {
       // Spawn the ralph process
-      const childProcess = spawn('ralph', args, {
+      const childProcess = spawn("ralph", args, {
         cwd: projectRoot,
         env: { ...process.env },
         shell: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ["ignore", "pipe", "pipe"],
       });
 
       if (!childProcess.pid) {
         return {
-          state: 'error',
-          error: 'Failed to start build process: no PID assigned',
+          state: "error",
+          error: "Failed to start build process: no PID assigned",
         };
       }
 
@@ -150,16 +150,16 @@ class ProcessManager extends EventEmitter {
 
       // Set up stdout handler
       if (childProcess.stdout) {
-        childProcess.stdout.on('data', (data: Buffer) => {
-          const lines = data.toString().split('\n');
+        childProcess.stdout.on("data", (data: Buffer) => {
+          const lines = data.toString().split("\n");
           for (const line of lines) {
             if (line.trim()) {
               const event: OutputEvent = {
-                type: 'stdout',
+                type: "stdout",
                 data: line,
                 timestamp: new Date(),
               };
-              this.emit('output', event);
+              this.emit("output", event);
             }
           }
         });
@@ -167,23 +167,23 @@ class ProcessManager extends EventEmitter {
 
       // Set up stderr handler
       if (childProcess.stderr) {
-        childProcess.stderr.on('data', (data: Buffer) => {
-          const lines = data.toString().split('\n');
+        childProcess.stderr.on("data", (data: Buffer) => {
+          const lines = data.toString().split("\n");
           for (const line of lines) {
             if (line.trim()) {
               const event: OutputEvent = {
-                type: 'stderr',
+                type: "stderr",
                 data: line,
                 timestamp: new Date(),
               };
-              this.emit('output', event);
+              this.emit("output", event);
             }
           }
         });
       }
 
       // Set up exit handler
-      childProcess.on('exit', (code, signal) => {
+      childProcess.on("exit", (code, signal) => {
         this.lastExitCode = code;
         this.currentProcess = null;
 
@@ -192,11 +192,11 @@ class ProcessManager extends EventEmitter {
           signal,
           timestamp: new Date(),
         };
-        this.emit('exit', event);
+        this.emit("exit", event);
       });
 
       // Set up error handler
-      childProcess.on('error', (error: Error) => {
+      childProcess.on("error", (error: Error) => {
         this.lastError = error.message;
         this.currentProcess = null;
 
@@ -205,24 +205,24 @@ class ProcessManager extends EventEmitter {
           error,
           timestamp: new Date(),
         };
-        this.emit('error', event);
+        this.emit("error", event);
       });
 
       console.log(`[ProcessManager] Started build: ${command} (PID: ${childProcess.pid})`);
 
       return {
-        state: 'running',
+        state: "running",
         pid: childProcess.pid,
         startedAt: this.currentProcess.startedAt,
         command,
         options: fullOptions,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
       this.lastError = errorMessage;
 
       return {
-        state: 'error',
+        state: "error",
         error: `Failed to start build: ${errorMessage}`,
       };
     }
@@ -235,8 +235,8 @@ class ProcessManager extends EventEmitter {
   stopBuild(): BuildStatus {
     if (this.currentProcess === null) {
       return {
-        state: 'idle',
-        error: 'No build is currently running',
+        state: "idle",
+        error: "No build is currently running",
       };
     }
 
@@ -244,24 +244,24 @@ class ProcessManager extends EventEmitter {
 
     try {
       // Send SIGTERM for graceful termination
-      this.currentProcess.process.kill('SIGTERM');
+      this.currentProcess.process.kill("SIGTERM");
 
       console.log(`[ProcessManager] Sent SIGTERM to build process (PID: ${pid})`);
 
       // Note: The process state will be cleared in the 'exit' handler
       // We return a transitional state here
       return {
-        state: 'running',
+        state: "running",
         pid,
         startedAt,
         command,
         options,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
       return {
-        state: 'error',
+        state: "error",
         pid,
         startedAt,
         command,
@@ -278,8 +278,8 @@ class ProcessManager extends EventEmitter {
   killBuild(): BuildStatus {
     if (this.currentProcess === null) {
       return {
-        state: 'idle',
-        error: 'No build is currently running',
+        state: "idle",
+        error: "No build is currently running",
       };
     }
 
@@ -287,22 +287,22 @@ class ProcessManager extends EventEmitter {
 
     try {
       // Send SIGKILL for immediate termination
-      this.currentProcess.process.kill('SIGKILL');
+      this.currentProcess.process.kill("SIGKILL");
 
       console.log(`[ProcessManager] Sent SIGKILL to build process (PID: ${pid})`);
 
       return {
-        state: 'running',
+        state: "running",
         pid,
         startedAt,
         command,
         options,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
       return {
-        state: 'error',
+        state: "error",
         pid,
         startedAt,
         command,
@@ -319,7 +319,7 @@ class ProcessManager extends EventEmitter {
   getBuildStatus(): BuildStatus {
     if (this.currentProcess !== null) {
       return {
-        state: 'running',
+        state: "running",
         pid: this.currentProcess.pid,
         startedAt: this.currentProcess.startedAt,
         command: this.currentProcess.command,
@@ -330,20 +330,21 @@ class ProcessManager extends EventEmitter {
     // No process running, check last known state
     if (this.lastError !== null) {
       return {
-        state: 'error',
+        state: "error",
         error: this.lastError,
       };
     }
 
     if (this.lastExitCode !== null) {
       return {
-        state: this.lastExitCode === 0 ? 'completed' : 'error',
-        error: this.lastExitCode !== 0 ? `Process exited with code ${this.lastExitCode}` : undefined,
+        state: this.lastExitCode === 0 ? "completed" : "error",
+        error:
+          this.lastExitCode !== 0 ? `Process exited with code ${this.lastExitCode}` : undefined,
       };
     }
 
     return {
-      state: 'idle',
+      state: "idle",
     };
   }
 
