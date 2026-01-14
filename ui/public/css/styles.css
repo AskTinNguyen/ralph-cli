@@ -6034,6 +6034,176 @@ footer {
   border-radius: var(--radius-md);
 }
 
+/* Cost Trend Styles */
+#cost-trends-section,
+#cost-chart-section,
+#model-breakdown-section,
+#story-cost-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.model-breakdown-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.model-chart-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 300px;
+}
+
+.model-chart-wrapper canvas {
+  max-width: 100%;
+  max-height: 280px;
+}
+
+.model-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.model-stat-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  align-items: center;
+}
+
+.model-stat-item .model-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.model-stat-item .model-cost {
+  font-family: monospace;
+  color: var(--status-completed);
+  font-weight: 600;
+}
+
+.model-stat-item .model-runs {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* Story Cost List */
+.story-cost-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.story-cost-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  align-items: center;
+}
+
+.story-cost-item .story-id {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.story-cost-item .story-date {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.story-cost-item .story-cost {
+  font-family: monospace;
+  color: var(--status-completed);
+  font-weight: 600;
+}
+
+.story-cost-item .story-runs {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.story-cost-more {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: var(--spacing-sm);
+}
+
+/* Budget Legend */
+.legend-budget .legend-color {
+  border: 2px dashed #ef4444;
+  background: transparent !important;
+}
+
+/* Trend Summary Grid */
+.trend-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.trend-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.trend-stat.positive {
+  border: 1px solid var(--status-completed);
+}
+
+.trend-stat.negative {
+  border: 1px solid var(--status-error);
+}
+
+.trend-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+.trend-stat.positive .trend-stat-value {
+  color: var(--status-completed);
+}
+
+.trend-stat.negative .trend-stat-value {
+  color: var(--status-error);
+}
+
+.trend-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+.trend-period-info {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* Responsive Trend Styles */
 @media (max-width: 768px) {
   .trend-chart-header {

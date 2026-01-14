@@ -15,6 +15,9 @@ const {
   getAvailablePrds,
   getAvailableAgents,
   calculateWeekOverWeek,
+  aggregateDailyCosts,
+  compareToBudget,
+  getAvailableModels,
 } = require("../../../lib/metrics/aggregator.js");
 
 /**
@@ -84,6 +87,95 @@ export interface TrendFilters {
   prd?: string;
   agent?: string;
   developer?: string;
+}
+
+/**
+ * Cost data point for cost time series
+ */
+export interface CostDataPoint {
+  date: string;
+  cost: number;
+  runs: number;
+  stories: number;
+  costPerStory: number;
+  cumulativeCost: number;
+  byModel: Record<string, { cost: number; runs: number }>;
+}
+
+/**
+ * Model breakdown data
+ */
+export interface ModelBreakdown {
+  cost: number;
+  runs: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * Story cost trend data
+ */
+export interface StoryCostTrend {
+  storyId: string;
+  date: string;
+  cost: number;
+  runs: number;
+}
+
+/**
+ * Cost trend data
+ */
+export interface CostTrend {
+  period: string;
+  groupBy: string;
+  startDate: string;
+  endDate: string;
+  totalCost: number;
+  totalRuns: number;
+  totalStories: number;
+  avgCostPerRun: number;
+  avgCostPerStory: number;
+  dailyMetrics: CostDataPoint[];
+  byModel: Record<string, ModelBreakdown>;
+  storyTrends: StoryCostTrend[];
+  filters: {
+    prd: string;
+    model: string;
+  };
+}
+
+/**
+ * Budget comparison data
+ */
+export interface BudgetComparison {
+  date: string;
+  cost: number;
+  budget: number;
+  variance: number;
+  overBudget: boolean;
+  percentOfBudget: number;
+}
+
+/**
+ * Cost with budget analysis
+ */
+export interface CostWithBudget extends CostTrend {
+  dailyBudget: number;
+  totalBudget: number;
+  budgetAnalysis: BudgetComparison[];
+  overBudgetDays: number;
+  underBudgetDays: number;
+  totalVariance: number;
+  percentOfTotalBudget: number;
+}
+
+/**
+ * Filter options for cost trends
+ */
+export interface CostTrendFilters {
+  prd?: string;
+  model?: string;
+  groupBy?: "day" | "week";
 }
 
 /**
@@ -250,5 +342,259 @@ export function formatForChart(trend: SuccessRateTrend): {
       },
     ],
     significantChanges: significantChangeAnnotations,
+  };
+}
+
+// ============================================
+// Cost Trend Functions
+// ============================================
+
+/**
+ * Get cost trends
+ * @param period - Time period ("7d" or "30d")
+ * @param filters - Optional filters { prd, model, groupBy }
+ * @returns Cost trend data
+ */
+export function getCostTrends(
+  period: "7d" | "30d" = "30d",
+  filters: CostTrendFilters = {}
+): CostTrend {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return {
+      period,
+      groupBy: filters.groupBy || "day",
+      startDate: "",
+      endDate: "",
+      totalCost: 0,
+      totalRuns: 0,
+      totalStories: 0,
+      avgCostPerRun: 0,
+      avgCostPerStory: 0,
+      dailyMetrics: [],
+      byModel: {},
+      storyTrends: [],
+      filters: {
+        prd: filters.prd || "all",
+        model: filters.model || "all",
+      },
+    };
+  }
+
+  const days = period === "30d" ? 30 : 7;
+  const result = aggregateDailyCosts(ralphRoot, {
+    days,
+    prd: filters.prd,
+    model: filters.model,
+    groupBy: filters.groupBy || "day",
+  });
+
+  return result as CostTrend;
+}
+
+/**
+ * Get cost trends with budget comparison
+ * @param period - Time period ("7d" or "30d")
+ * @param dailyBudget - Daily budget in dollars
+ * @param filters - Optional filters
+ * @returns Cost trend data with budget analysis
+ */
+export function getCostTrendsWithBudget(
+  period: "7d" | "30d" = "30d",
+  dailyBudget: number,
+  filters: CostTrendFilters = {}
+): CostWithBudget {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return {
+      period,
+      groupBy: filters.groupBy || "day",
+      startDate: "",
+      endDate: "",
+      totalCost: 0,
+      totalRuns: 0,
+      totalStories: 0,
+      avgCostPerRun: 0,
+      avgCostPerStory: 0,
+      dailyMetrics: [],
+      byModel: {},
+      storyTrends: [],
+      filters: {
+        prd: filters.prd || "all",
+        model: filters.model || "all",
+      },
+      dailyBudget,
+      totalBudget: 0,
+      budgetAnalysis: [],
+      overBudgetDays: 0,
+      underBudgetDays: 0,
+      totalVariance: 0,
+      percentOfTotalBudget: 0,
+    };
+  }
+
+  const days = period === "30d" ? 30 : 7;
+  const result = compareToBudget(ralphRoot, dailyBudget, {
+    days,
+    prd: filters.prd,
+    model: filters.model,
+    groupBy: filters.groupBy || "day",
+  });
+
+  return result as CostWithBudget;
+}
+
+/**
+ * Get available models for filtering
+ * @returns Array of available model names
+ */
+export function getCostFilterOptions(): {
+  prds: string[];
+  models: string[];
+} {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return {
+      prds: [],
+      models: [],
+    };
+  }
+
+  const prds = getAvailablePrds(ralphRoot) as string[];
+  const models = getAvailableModels(ralphRoot) as string[];
+
+  return { prds, models };
+}
+
+/**
+ * Format cost trend data for Chart.js
+ * @param trend - Cost trend data
+ * @param options - Chart options { showBudget, dailyBudget }
+ * @returns Chart.js compatible data object
+ */
+export function formatCostForChart(
+  trend: CostTrend,
+  options: { showBudget?: boolean; dailyBudget?: number } = {}
+): {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+    fill: boolean;
+    tension: number;
+    type?: string;
+    borderDash?: number[];
+  }>;
+} {
+  const labels = trend.dailyMetrics.map((dp) => {
+    const date = new Date(dp.date);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
+
+  const costs = trend.dailyMetrics.map((dp) => dp.cost);
+  const cumulativeCosts = trend.dailyMetrics.map((dp) => dp.cumulativeCost);
+  const costPerStory = trend.dailyMetrics.map((dp) => dp.costPerStory);
+
+  const datasets: Array<{
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+    fill: boolean;
+    tension: number;
+    type?: string;
+    borderDash?: number[];
+  }> = [
+    {
+      label: "Daily Cost ($)",
+      data: costs,
+      borderColor: "#8b5cf6", // Purple
+      backgroundColor: "rgba(139, 92, 246, 0.1)",
+      fill: true,
+      tension: 0.3,
+    },
+    {
+      label: "Cumulative Cost ($)",
+      data: cumulativeCosts,
+      borderColor: "#f59e0b", // Amber
+      backgroundColor: "transparent",
+      fill: false,
+      tension: 0.3,
+    },
+    {
+      label: "Cost per Story ($)",
+      data: costPerStory,
+      borderColor: "#06b6d4", // Cyan
+      backgroundColor: "transparent",
+      fill: false,
+      tension: 0.3,
+    },
+  ];
+
+  // Add budget line if requested
+  if (options.showBudget && options.dailyBudget) {
+    const budgetLine = trend.dailyMetrics.map(() => options.dailyBudget as number);
+    datasets.push({
+      label: "Daily Budget ($)",
+      data: budgetLine,
+      borderColor: "#ef4444", // Red
+      backgroundColor: "transparent",
+      fill: false,
+      tension: 0,
+      borderDash: [5, 5],
+    });
+  }
+
+  return {
+    labels,
+    datasets,
+  };
+}
+
+/**
+ * Format model breakdown for pie chart
+ * @param byModel - Model breakdown data
+ * @returns Chart.js compatible pie chart data
+ */
+export function formatModelBreakdownForChart(byModel: Record<string, ModelBreakdown>): {
+  labels: string[];
+  datasets: Array<{
+    data: number[];
+    backgroundColor: string[];
+    borderColor: string[];
+    borderWidth: number;
+  }>;
+} {
+  const labels = Object.keys(byModel);
+  const costs = labels.map((model) => byModel[model].cost);
+
+  // Color palette for models
+  const colors = [
+    "#8b5cf6", // Purple (Opus)
+    "#3b82f6", // Blue (Sonnet)
+    "#10b981", // Green (Haiku)
+    "#f59e0b", // Amber
+    "#ef4444", // Red
+    "#06b6d4", // Cyan
+  ];
+
+  const backgroundColor = labels.map((_, i) => colors[i % colors.length]);
+  const borderColor = backgroundColor.map((c) => c);
+
+  return {
+    labels,
+    datasets: [
+      {
+        data: costs,
+        backgroundColor,
+        borderColor,
+        borderWidth: 2,
+      },
+    ],
   };
 }

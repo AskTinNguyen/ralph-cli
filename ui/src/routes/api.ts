@@ -13,7 +13,7 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
-import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart } from '../services/trends.js';
+import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
 // Import CommonJS accuracy and estimate modules
@@ -5893,6 +5893,187 @@ api.get("/trends/success-rate", (c) => {
 api.get("/trends/filters", (c) => {
   const options = getFilterOptions();
   return c.json(options);
+});
+
+/**
+ * GET /api/trends/cost
+ *
+ * Returns cost trend data for visualization.
+ * Query params:
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - groupBy: 'day' or 'week' (default: 'day')
+ *   - prd: PRD ID to filter by (optional)
+ *   - model: Model name to filter by (optional)
+ *   - budget: Daily budget in dollars for comparison (optional)
+ */
+api.get("/trends/cost", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const groupBy = (c.req.query("groupBy") || "day") as "day" | "week";
+  const prd = c.req.query("prd");
+  const model = c.req.query("model");
+  const budgetParam = c.req.query("budget");
+
+  const filters = { prd, model, groupBy };
+
+  // If budget is provided, return data with budget comparison
+  if (budgetParam) {
+    const dailyBudget = parseFloat(budgetParam);
+    if (isNaN(dailyBudget) || dailyBudget <= 0) {
+      return c.json(
+        {
+          error: "bad_request",
+          message: "Invalid budget parameter. Must be a positive number.",
+        },
+        400
+      );
+    }
+
+    const trends = getCostTrendsWithBudget(period, dailyBudget, filters);
+    const chartData = formatCostForChart(trends, {
+      showBudget: true,
+      dailyBudget,
+    });
+    const modelBreakdownChart = formatModelBreakdownForChart(trends.byModel);
+
+    return c.json({
+      trends,
+      chartData,
+      modelBreakdownChart,
+      period,
+      filters: trends.filters,
+    });
+  }
+
+  // Return standard cost trends
+  const trends = getCostTrends(period, filters);
+  const chartData = formatCostForChart(trends);
+  const modelBreakdownChart = formatModelBreakdownForChart(trends.byModel);
+
+  return c.json({
+    trends,
+    chartData,
+    modelBreakdownChart,
+    period,
+    filters: trends.filters,
+  });
+});
+
+/**
+ * GET /api/trends/cost/filters
+ *
+ * Returns available filter options for cost trends.
+ */
+api.get("/trends/cost/filters", (c) => {
+  const options = getCostFilterOptions();
+  return c.json(options);
+});
+
+/**
+ * GET /api/partials/cost-chart
+ *
+ * Returns HTML fragment for the cost trend summary section.
+ */
+api.get("/partials/cost-chart", (c) => {
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+  const model = c.req.query("model");
+  const budgetParam = c.req.query("budget");
+
+  const filters = { prd, model };
+  let trends;
+
+  if (budgetParam) {
+    const dailyBudget = parseFloat(budgetParam);
+    if (!isNaN(dailyBudget) && dailyBudget > 0) {
+      trends = getCostTrendsWithBudget(period, dailyBudget, filters);
+    } else {
+      trends = getCostTrends(period, filters);
+    }
+  } else {
+    trends = getCostTrends(period, filters);
+  }
+
+  // Format variance for display
+  const varianceClass = "totalVariance" in trends && trends.totalVariance >= 0 ? "positive" : "negative";
+  const varianceSign = "totalVariance" in trends && trends.totalVariance >= 0 ? "+" : "";
+
+  const html = `
+    <div class="trend-summary-grid">
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.totalCost.toFixed(2)}</span>
+        <span class="trend-stat-label">Total Cost</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalRuns}</span>
+        <span class="trend-stat-label">Total Runs</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">${trends.totalStories}</span>
+        <span class="trend-stat-label">Stories</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.avgCostPerStory.toFixed(4)}</span>
+        <span class="trend-stat-label">Avg Cost/Story</span>
+      </div>
+      <div class="trend-stat">
+        <span class="trend-stat-value">$${trends.avgCostPerRun.toFixed(4)}</span>
+        <span class="trend-stat-label">Avg Cost/Run</span>
+      </div>
+      ${"totalVariance" in trends ? `
+      <div class="trend-stat ${varianceClass}">
+        <span class="trend-stat-value">${varianceSign}$${Math.abs((trends as any).totalVariance).toFixed(2)}</span>
+        <span class="trend-stat-label">vs Budget</span>
+      </div>
+      ` : ""}
+    </div>
+    <div class="trend-period-info">
+      Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.dailyMetrics.length} data points
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/cost-filters
+ *
+ * Returns HTML fragment for cost trend filter dropdowns.
+ */
+api.get("/partials/cost-filters", (c) => {
+  const options = getCostFilterOptions();
+
+  const prdOptions = options.prds
+    .map((prd) => `<option value="${prd}">PRD-${prd}</option>`)
+    .join("");
+
+  const modelOptions = options.models
+    .map((model) => `<option value="${model}">${model}</option>`)
+    .join("");
+
+  const html = `
+    <div class="control-group">
+      <label for="cost-prd-filter">PRD:</label>
+      <select id="cost-prd-filter" onchange="updateCostChart()">
+        <option value="all" selected>All PRDs</option>
+        ${prdOptions}
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="cost-model-filter">Model:</label>
+      <select id="cost-model-filter" onchange="updateCostChart()">
+        <option value="all" selected>All Models</option>
+        ${modelOptions}
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="cost-budget-input">Budget ($/day):</label>
+      <input type="number" id="cost-budget-input" min="0" step="0.01" placeholder="Optional" onchange="updateCostChart()" style="width: 80px;">
+    </div>
+  `;
+
+  return c.html(html);
 });
 
 /**

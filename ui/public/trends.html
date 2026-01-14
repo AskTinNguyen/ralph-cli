@@ -133,6 +133,104 @@
           <div class="no-data-message">No significant changes detected in the selected period.</div>
         </div>
       </section>
+
+      <!-- Cost Trends Section -->
+      <section id="cost-trends-section">
+        <h2>
+          Cost Trends
+          <span class="htmx-indicator" id="cost-indicator">
+            <span class="loading-spinner"></span>
+          </span>
+        </h2>
+        <div
+          id="cost-summary-container"
+          hx-get="/api/partials/cost-chart"
+          hx-trigger="load"
+          hx-swap="innerHTML"
+          hx-indicator="#cost-indicator"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading cost data...</div>
+        </div>
+      </section>
+
+      <!-- Cost Chart Section -->
+      <section id="cost-chart-section">
+        <div class="trend-chart-header">
+          <h2>Cost Timeline</h2>
+          <div class="trend-chart-controls">
+            <div class="control-group">
+              <label for="cost-period">Period:</label>
+              <select id="cost-period" onchange="updateCostChart()">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="cost-group-by">Group by:</label>
+              <select id="cost-group-by" onchange="updateCostChart()">
+                <option value="day" selected>Day</option>
+                <option value="week">Week</option>
+              </select>
+            </div>
+            <div
+              id="cost-filters-container"
+              hx-get="/api/partials/cost-filters"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <!-- Filters loaded via HTMX -->
+            </div>
+          </div>
+        </div>
+        <div class="trend-chart-container">
+          <canvas id="cost-chart"></canvas>
+        </div>
+        <div class="trend-chart-legend">
+          <div class="legend-item">
+            <span class="legend-color" style="background: #8b5cf6"></span>
+            <span>Daily Cost ($)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #f59e0b"></span>
+            <span>Cumulative Cost ($)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: #06b6d4"></span>
+            <span>Cost per Story ($)</span>
+          </div>
+          <div class="legend-item legend-budget hidden" id="budget-legend">
+            <span class="legend-color" style="background: #ef4444; border-style: dashed"></span>
+            <span>Daily Budget ($)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Cost Breakdown Section -->
+      <section id="model-breakdown-section">
+        <h2>Cost by Model</h2>
+        <p class="section-description">
+          Breakdown of costs by AI model to understand spending patterns.
+        </p>
+        <div class="model-breakdown-container">
+          <div class="model-chart-wrapper">
+            <canvas id="model-breakdown-chart"></canvas>
+          </div>
+          <div id="model-breakdown-stats">
+            <div class="no-data-message">Loading model breakdown...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cost per Story Section -->
+      <section id="story-cost-section">
+        <h2>Cost per Story</h2>
+        <p class="section-description">
+          Track how much each story costs over time.
+        </p>
+        <div id="story-cost-container">
+          <div class="no-data-message">Loading story costs...</div>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -551,7 +649,388 @@
       document.addEventListener("DOMContentLoaded", function () {
         initSuccessRateChart();
         updateSuccessRateChart();
+        initCostChart();
+        initModelBreakdownChart();
+        updateCostChart();
       });
+
+      // ============================================
+      // Cost Chart
+      // ============================================
+
+      var costChart = null;
+      var modelBreakdownChart = null;
+      var costData = null;
+
+      function initCostChart() {
+        var ctx = document.getElementById("cost-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var gridColor = isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        costChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Daily Cost ($)",
+                data: [],
+                borderColor: "#8b5cf6",
+                backgroundColor: "rgba(139, 92, 246, 0.1)",
+                fill: true,
+                tension: 0.3,
+                yAxisID: "y",
+              },
+              {
+                label: "Cumulative Cost ($)",
+                data: [],
+                borderColor: "#f59e0b",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y1",
+              },
+              {
+                label: "Cost per Story ($)",
+                data: [],
+                borderColor: "#06b6d4",
+                backgroundColor: "transparent",
+                fill: false,
+                tension: 0.3,
+                yAxisID: "y",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                backgroundColor: isDarkMode ? "#1f2937" : "#ffffff",
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: gridColor,
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                  label: function (context) {
+                    var label = context.dataset.label || "";
+                    var value = context.parsed.y;
+                    return label + ": $" + value.toFixed(4);
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  maxTicksLimit: 10,
+                },
+              },
+              y: {
+                type: "linear",
+                display: true,
+                position: "left",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Daily Cost ($)",
+                  color: textColor,
+                },
+                grid: {
+                  color: gridColor,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return "$" + value.toFixed(2);
+                  },
+                },
+              },
+              y1: {
+                type: "linear",
+                display: true,
+                position: "right",
+                min: 0,
+                title: {
+                  display: true,
+                  text: "Cumulative Cost ($)",
+                  color: textColor,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  color: textColor,
+                  callback: function (value) {
+                    return "$" + value.toFixed(2);
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function initModelBreakdownChart() {
+        var ctx = document.getElementById("model-breakdown-chart");
+        if (!ctx) return;
+
+        var isDarkMode =
+          document.body.classList.contains("dark-mode") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        var textColor = isDarkMode ? "#e5e7eb" : "#374151";
+
+        modelBreakdownChart = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                data: [],
+                backgroundColor: ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+                borderColor: ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: "right",
+                labels: {
+                  color: textColor,
+                  padding: 15,
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    var label = context.label || "";
+                    var value = context.parsed;
+                    return label + ": $" + value.toFixed(4);
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function updateCostChart() {
+        var period = document.getElementById("cost-period").value;
+        var groupBy = document.getElementById("cost-group-by").value;
+        var prdFilter = document.getElementById("cost-prd-filter");
+        var modelFilter = document.getElementById("cost-model-filter");
+        var budgetInput = document.getElementById("cost-budget-input");
+
+        var prd = prdFilter ? prdFilter.value : "all";
+        var model = modelFilter ? modelFilter.value : "all";
+        var budget = budgetInput ? budgetInput.value : "";
+
+        var url =
+          "/api/trends/cost?period=" +
+          encodeURIComponent(period) +
+          "&groupBy=" +
+          encodeURIComponent(groupBy);
+
+        if (prd && prd !== "all") {
+          url += "&prd=" + encodeURIComponent(prd);
+        }
+        if (model && model !== "all") {
+          url += "&model=" + encodeURIComponent(model);
+        }
+        if (budget && parseFloat(budget) > 0) {
+          url += "&budget=" + encodeURIComponent(budget);
+        }
+
+        fetch(url)
+          .then(function (response) {
+            if (!response.ok) throw new Error("Failed to fetch cost data");
+            return response.json();
+          })
+          .then(function (data) {
+            costData = data;
+            renderCostChart(data);
+            renderModelBreakdown(data);
+            renderStoryCosts(data.trends.storyTrends);
+            updateCostSummary(data.trends, period);
+
+            // Show/hide budget legend
+            var budgetLegend = document.getElementById("budget-legend");
+            if (budgetLegend) {
+              if (budget && parseFloat(budget) > 0) {
+                budgetLegend.classList.remove("hidden");
+              } else {
+                budgetLegend.classList.add("hidden");
+              }
+            }
+          })
+          .catch(function (error) {
+            console.error("Error fetching cost data:", error);
+          });
+      }
+
+      function renderCostChart(data) {
+        if (!costChart || !data.chartData) return;
+
+        costChart.data.labels = data.chartData.labels;
+        costChart.data.datasets[0].data = data.chartData.datasets[0].data;
+        costChart.data.datasets[1].data = data.chartData.datasets[1].data;
+        costChart.data.datasets[2].data = data.chartData.datasets[2].data;
+
+        // Handle budget line (4th dataset if present)
+        if (data.chartData.datasets.length > 3) {
+          if (costChart.data.datasets.length < 4) {
+            costChart.data.datasets.push({
+              label: "Daily Budget ($)",
+              data: data.chartData.datasets[3].data,
+              borderColor: "#ef4444",
+              backgroundColor: "transparent",
+              fill: false,
+              tension: 0,
+              borderDash: [5, 5],
+              yAxisID: "y",
+            });
+          } else {
+            costChart.data.datasets[3].data = data.chartData.datasets[3].data;
+          }
+        } else if (costChart.data.datasets.length > 3) {
+          costChart.data.datasets.splice(3, 1);
+        }
+
+        costChart.update("active");
+      }
+
+      function renderModelBreakdown(data) {
+        if (!modelBreakdownChart || !data.modelBreakdownChart) return;
+
+        modelBreakdownChart.data.labels = data.modelBreakdownChart.labels;
+        modelBreakdownChart.data.datasets[0].data = data.modelBreakdownChart.datasets[0].data;
+        modelBreakdownChart.data.datasets[0].backgroundColor =
+          data.modelBreakdownChart.datasets[0].backgroundColor;
+        modelBreakdownChart.data.datasets[0].borderColor =
+          data.modelBreakdownChart.datasets[0].borderColor;
+
+        modelBreakdownChart.update("active");
+
+        // Update model stats
+        var statsContainer = document.getElementById("model-breakdown-stats");
+        if (!statsContainer || !data.trends.byModel) return;
+
+        var models = Object.entries(data.trends.byModel);
+        if (models.length === 0) {
+          statsContainer.innerHTML =
+            '<div class="no-data-message">No model data available.</div>';
+          return;
+        }
+
+        var html = '<div class="model-stats-list">';
+        models.forEach(function (entry) {
+          var model = entry[0];
+          var stats = entry[1];
+          html +=
+            '<div class="model-stat-item">' +
+            '<span class="model-name">' +
+            model +
+            "</span>" +
+            '<span class="model-cost">$' +
+            stats.cost.toFixed(4) +
+            "</span>" +
+            '<span class="model-runs">' +
+            stats.runs +
+            " runs</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        statsContainer.innerHTML = html;
+      }
+
+      function renderStoryCosts(storyTrends) {
+        var container = document.getElementById("story-cost-container");
+
+        if (!storyTrends || storyTrends.length === 0) {
+          container.innerHTML =
+            '<div class="no-data-message">No story cost data available.</div>';
+          return;
+        }
+
+        // Sort by cost descending
+        var sorted = storyTrends.slice().sort(function (a, b) {
+          return b.cost - a.cost;
+        });
+
+        var html = '<div class="story-cost-list">';
+        sorted.slice(0, 10).forEach(function (story) {
+          html +=
+            '<div class="story-cost-item">' +
+            '<span class="story-id">' +
+            story.storyId +
+            "</span>" +
+            '<span class="story-date">' +
+            story.date +
+            "</span>" +
+            '<span class="story-cost">$' +
+            story.cost.toFixed(4) +
+            "</span>" +
+            '<span class="story-runs">' +
+            story.runs +
+            " runs</span>" +
+            "</div>";
+        });
+        html += "</div>";
+
+        if (sorted.length > 10) {
+          html +=
+            '<div class="story-cost-more">Showing top 10 of ' +
+            sorted.length +
+            " stories</div>";
+        }
+
+        container.innerHTML = html;
+      }
+
+      function updateCostSummary(trends, period) {
+        var url = "/api/partials/cost-chart?period=" + encodeURIComponent(period);
+
+        var prdFilter = document.getElementById("cost-prd-filter");
+        var modelFilter = document.getElementById("cost-model-filter");
+        var budgetInput = document.getElementById("cost-budget-input");
+
+        if (prdFilter && prdFilter.value !== "all") {
+          url += "&prd=" + encodeURIComponent(prdFilter.value);
+        }
+        if (modelFilter && modelFilter.value !== "all") {
+          url += "&model=" + encodeURIComponent(modelFilter.value);
+        }
+        if (budgetInput && budgetInput.value) {
+          url += "&budget=" + encodeURIComponent(budgetInput.value);
+        }
+
+        htmx.ajax("GET", url, "#cost-summary-container");
+      }
     </script>
   </body>
 </html>
