@@ -1236,6 +1236,40 @@ append_metrics() {
   fi
 }
 
+# Print fix summary from activity.log (US-003: Fix Execution Tracking)
+# Called after build iterations to show auto-fix results in build output
+print_fix_summary() {
+  local fix_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    fix_cli="$RALPH_ROOT/lib/diagnose/fix-summary-cli.js"
+  else
+    fix_cli="$SCRIPT_DIR/../../lib/diagnose/fix-summary-cli.js"
+  fi
+
+  # Check if fix CLI exists and Node.js is available
+  if [ -f "$fix_cli" ] && command -v node >/dev/null 2>&1; then
+    node "$fix_cli" print "$ACTIVITY_LOG_PATH" 2>/dev/null || true
+  fi
+}
+
+# Get fix message for commit (US-003: Fix Execution Tracking)
+# Returns a string like "Auto-fixed: LINT_ERROR, FORMAT_ERROR" for commit messages
+get_fix_commit_message() {
+  local fix_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    fix_cli="$RALPH_ROOT/lib/diagnose/fix-summary-cli.js"
+  else
+    fix_cli="$SCRIPT_DIR/../../lib/diagnose/fix-summary-cli.js"
+  fi
+
+  # Check if fix CLI exists and Node.js is available
+  if [ -f "$fix_cli" ] && command -v node >/dev/null 2>&1; then
+    node "$fix_cli" commit "$ACTIVITY_LOG_PATH" 2>/dev/null || echo ""
+  else
+    echo ""
+  fi
+}
+
 # Rebuild token cache for the current stream
 # Called at end of build to ensure dashboard has fresh data
 rebuild_token_cache() {
@@ -1456,6 +1490,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
         printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+        # Print fix summary if any fixes were applied (US-003)
+        print_fix_summary
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
         rebuild_token_cache
@@ -1464,6 +1500,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
       fi
       msg_info "Completion signal received; stories remaining: $REMAINING"
     fi
+    # Print fix summary if any fixes were applied (US-003)
+    print_fix_summary
     # Iteration completion separator
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
