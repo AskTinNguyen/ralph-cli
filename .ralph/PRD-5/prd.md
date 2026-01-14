@@ -155,20 +155,20 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test checkpoint save/load/resume works correctly
 - [x] Verify ~175 lines removed from loop.sh
 
-### [ ] US-011: Extract routing and cost estimation functions
+### [x] US-011: Extract routing and cost estimation functions
 **As a** ralph-cli maintainer
 **I want** model routing and cost estimation extracted
 **So that** routing logic is modular and loop.sh is simplified
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/routing.sh`
-- [ ] Extract `get_routing_decision()` from loop.sh:1067-1088
-- [ ] Extract `estimate_execution_cost()` from loop.sh:1107-1128
-- [ ] Extract `calculate_actual_cost()` from loop.sh:1133-1162
-- [ ] Move `parse_json_field()` (consolidated from US-005) to this library
-- [ ] Update loop.sh to source the library
-- [ ] Test routing and cost estimation work correctly
-- [ ] Verify ~100 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/routing.sh`
+- [x] Extract `get_routing_decision()` from loop.sh:1067-1088
+- [x] Extract `estimate_execution_cost()` from loop.sh:1107-1128
+- [x] Extract `calculate_actual_cost()` from loop.sh:1133-1162
+- [x] Move `parse_json_field()` (consolidated from US-005) to this library
+- [x] Update loop.sh to source the library
+- [x] Test routing and cost estimation work correctly
+- [x] Verify ~100 lines removed from loop.sh
 
 ### [ ] US-012: Extract error display functions to output.sh
 **As a** ralph-cli maintainer

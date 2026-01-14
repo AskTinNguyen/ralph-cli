@@ -45,6 +45,12 @@ source "$SCRIPT_DIR/lib/retry.sh"
 # shellcheck source=lib/checkpoint.sh
 source "$SCRIPT_DIR/lib/checkpoint.sh"
 
+# Routing and cost estimation utilities - sourced from shared library
+# Provides: get_routing_decision, estimate_execution_cost, calculate_actual_cost, parse_json_field
+# Note: Depends on SCRIPT_DIR, ROOT_DIR, and optionally RALPH_ROOT
+# shellcheck source=lib/routing.sh
+source "$SCRIPT_DIR/lib/routing.sh"
+
 # Determine active PRD number from env or auto-detect
 if [[ -n "${PRD_NUMBER:-}" ]]; then
   ACTIVE_PRD_NUMBER="$PRD_NUMBER"
@@ -1137,108 +1143,6 @@ console.log(JSON.stringify(stats));
     fi
     printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
       "$total" "$successful" "$failed" "$rate"
-  fi
-}
-
-# Get model routing decision for a story
-# Usage: get_routing_decision <story_block_file> [override_model]
-# Returns JSON: {"model": "sonnet", "score": 5.2, "reason": "...", "override": false}
-get_routing_decision() {
-  local story_file="$1"
-  local override="${2:-}"
-  local router_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    router_cli="$RALPH_ROOT/lib/tokens/router-cli.js"
-  else
-    router_cli="$SCRIPT_DIR/../../lib/tokens/router-cli.js"
-  fi
-
-  # Check if router CLI exists and Node.js is available
-  if [[ -f "$router_cli" ]] && command -v node >/dev/null 2>&1; then
-    local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
-    if [[ -n "$override" ]]; then
-      args+=("--override" "$override")
-    fi
-    node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
-  else
-    # Fallback when router not available
-    echo '{"model":"sonnet","score":null,"reason":"router not installed","override":false}'
-  fi
-}
-
-# Parse JSON field from any JSON object
-# Usage: parse_json_field <json_string> <field_name>
-# Returns: The value of the field, or empty string if not found/null
-parse_json_field() {
-  local json="$1"
-  local field="$2"
-  local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
-  # Handle None, null, and empty - return empty string to prevent arithmetic errors
-  if [[ -z "$result" ]] || [[ "$result" = "None" ]] || [[ "$result" = "null" ]]; then
-    echo ""
-  else
-    echo "$result"
-  fi
-}
-
-# Estimate execution cost before running
-# Usage: estimate_execution_cost <model> <complexity_score>
-# Returns JSON: {"estimatedCost": "0.15", "costRange": "$0.10-0.25", "estimatedTokens": 15000, "comparison": "vs $0.75 if using Opus"}
-estimate_execution_cost() {
-  local model="$1"
-  local score="$2"
-  local estimator_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    estimator_cli="$RALPH_ROOT/lib/tokens/estimator-cli.js"
-  else
-    estimator_cli="$SCRIPT_DIR/../../lib/tokens/estimator-cli.js"
-  fi
-
-  # Check if estimator CLI exists and Node.js is available
-  if [[ -f "$estimator_cli" ]] && command -v node >/dev/null 2>&1; then
-    local args=("--model" "$model" "--repo-root" "$ROOT_DIR")
-    if [[ -n "$score" ]]; then
-      args+=("--complexity" "$score")
-    fi
-    node "$estimator_cli" "${args[@]}" 2>/dev/null || echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
-  else
-    # Fallback when estimator not available
-    echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
-  fi
-}
-
-# Calculate actual cost from token usage
-# Usage: calculate_actual_cost <input_tokens> <output_tokens> <model>
-# Returns JSON: {"totalCost": "0.15", "inputCost": "0.05", "outputCost": "0.10"}
-calculate_actual_cost() {
-  local input_tokens="$1"
-  local output_tokens="$2"
-  local model="$3"
-
-  # Use Node.js for cost calculation
-  if command -v node >/dev/null 2>&1; then
-    local calculator_path
-    if [[ -n "${RALPH_ROOT:-}" ]]; then
-      calculator_path="$RALPH_ROOT/lib/tokens/calculator.js"
-    else
-      calculator_path="$SCRIPT_DIR/../../lib/tokens/calculator.js"
-    fi
-
-    if [[ -f "$calculator_path" ]]; then
-      node -e "
-        const calc = require('$calculator_path');
-        const result = calc.calculateCost(
-          { inputTokens: $input_tokens, outputTokens: $output_tokens },
-          '$model'
-        );
-        console.log(JSON.stringify(result));
-      " 2>/dev/null || echo '{"totalCost":null}'
-    else
-      echo '{"totalCost":null}'
-    fi
-  else
-    echo '{"totalCost":null}'
   fi
 }
 
