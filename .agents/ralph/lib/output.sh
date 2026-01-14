@@ -109,3 +109,70 @@ numbered_step() {
   local text="$2"
   printf "  ${C_YELLOW}%d.${C_RESET} %s\n" "$num" "$text"
 }
+
+# ============================================================================
+# Error display functions
+# These functions provide consistent error formatting across ralph scripts
+# Note: ERRORS_LOG_PATH and GUARDRAILS_PATH must be defined by the caller
+# ============================================================================
+
+# Enhanced error display with path highlighting
+# Usage: show_error "message" ["log_path"]
+show_error() {
+  local message="$1"
+  local log_path="${2:-}"
+  msg_error "$message"
+  if [[ -n "$log_path" ]]; then
+    printf "  ${C_RED}Review logs at: ${C_BOLD}%s${C_RESET}\n" "$log_path"
+  fi
+}
+
+# Show helpful suggestions when errors occur
+# Usage: show_error_suggestions ["agent"|"system"]
+# Note: Requires ERRORS_LOG_PATH and GUARDRAILS_PATH to be set in calling context
+show_error_suggestions() {
+  local error_type="${1:-agent}"  # agent or system
+  printf "\n${C_YELLOW}${C_BOLD}Suggested next steps:${C_RESET}\n"
+  if [[ "$error_type" = "agent" ]]; then
+    printf "  ${C_DIM}1)${C_RESET} Review the run log for agent output and errors\n"
+    printf "  ${C_DIM}2)${C_RESET} Check ${C_CYAN}%s${C_RESET} for repeated failures\n" "$ERRORS_LOG_PATH"
+    printf "  ${C_DIM}3)${C_RESET} Try: ${C_CYAN}ralph build 1 --no-commit${C_RESET} for a test run\n"
+  else
+    printf "  ${C_DIM}1)${C_RESET} Verify the agent CLI is installed and authenticated\n"
+    printf "  ${C_DIM}2)${C_RESET} Check system resources (disk space, memory)\n"
+    printf "  ${C_DIM}3)${C_RESET} Review ${C_CYAN}%s${C_RESET} for patterns\n" "$GUARDRAILS_PATH"
+  fi
+}
+
+# Print error summary at end of run if any iterations failed
+# Usage: print_error_summary "iter:story:logfile,..." count
+# Note: Requires ERRORS_LOG_PATH to be set in calling context
+print_error_summary() {
+  local failed_data="$1"
+  local count="$2"
+
+  if [[ -z "$failed_data" ]] || [[ "$count" -eq 0 ]]; then
+    return
+  fi
+
+  echo ""
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+  printf "${C_BOLD}${C_RED}  ERROR SUMMARY: %d iteration(s) failed${C_RESET}\n" "$count"
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+
+  # Parse and display each failed iteration
+  IFS=',' read -ra FAILURES <<< "$failed_data"
+  for failure in "${FAILURES[@]}"; do
+    IFS=':' read -r iter story logfile <<< "$failure"
+    printf "${C_RED}  ✗ Iteration %s${C_RESET}" "$iter"
+    if [[ -n "$story" ]] && [[ "$story" != "plan" ]]; then
+      printf " ${C_DIM}(%s)${C_RESET}" "$story"
+    fi
+    printf "\n"
+    printf "    ${C_RED}Log: ${C_BOLD}%s${C_RESET}\n" "$logfile"
+  done
+
+  printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
+  printf "  ${C_YELLOW}Check: ${C_CYAN}%s${C_RESET}\n" "$ERRORS_LOG_PATH"
+  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
+}

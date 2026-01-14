@@ -170,18 +170,18 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test routing and cost estimation work correctly
 - [x] Verify ~100 lines removed from loop.sh
 
-### [ ] US-012: Extract error display functions to output.sh
+### [x] US-012: Extract error display functions to output.sh
 **As a** ralph-cli maintainer
 **I want** error display functions in the shared output library
 **So that** error formatting is consistent across scripts
 
 #### Acceptance Criteria
-- [ ] Move `show_error()` from loop.sh:1166-1173 to lib/output.sh
-- [ ] Move `show_error_suggestions()` from loop.sh:1176-1188 to lib/output.sh
-- [ ] Move `print_error_summary()` from loop.sh:1192-1220 to lib/output.sh
-- [ ] Update loop.sh to use functions from lib/output.sh
-- [ ] Test error display works correctly
-- [ ] Verify ~60 lines removed from loop.sh
+- [x] Move `show_error()` from loop.sh:1166-1173 to lib/output.sh
+- [x] Move `show_error_suggestions()` from loop.sh:1176-1188 to lib/output.sh
+- [x] Move `print_error_summary()` from loop.sh:1192-1220 to lib/output.sh
+- [x] Update loop.sh to use functions from lib/output.sh
+- [x] Test error display works correctly
+- [x] Verify ~60 lines removed from loop.sh
 
 ### [ ] US-013: Extract summary table functions to output.sh
 **As a** ralph-cli maintainer
