@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Resolution and Execution Library
+# ─────────────────────────────────────────────────────────────────────────────
+# This library provides functions for:
+# - Resolving agent names to command strings
+# - Validating agent installation
+# - Executing agents with prompts
+# - Getting experiment assignments for A/B testing
+#
+# Usage:
+#   source "$(dirname "${BASH_SOURCE[0]}")/lib/agent.sh"
+#
+# Functions:
+#   resolve_agent_cmd <agent_name>      - Resolve agent name to command
+#   require_agent [agent_cmd]           - Validate agent is installed
+#   run_agent <prompt_file>             - Execute agent with prompt file
+#   run_agent_inline <prompt_file>      - Execute agent with inline prompt
+#   get_experiment_assignment <story_id> - Get experiment assignment
+#
+# Global Variables (set by get_experiment_assignment):
+#   EXPERIMENT_NAME      - Name of assigned experiment
+#   EXPERIMENT_VARIANT   - Variant name (e.g., "control", "treatment")
+#   EXPERIMENT_EXCLUDED  - "true" if excluded from experiment
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -euo pipefail
+
+# Experiment tracking globals (set by get_experiment_assignment)
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
+EXPERIMENT_VARIANT="${EXPERIMENT_VARIANT:-}"
+EXPERIMENT_EXCLUDED="${EXPERIMENT_EXCLUDED:-}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# resolve_agent_cmd
+# ─────────────────────────────────────────────────────────────────────────────
+# Resolve agent name to command string.
+#
+# Arguments:
+#   $1 - Agent name (claude, codex, droid)
+#
+# Returns:
+#   Command string with placeholders
+#   - {prompt} placeholder for file-based agents (droid)
+#   - stdin-based for others (claude, codex)
+#
+# Environment Variables:
+#   AGENT_CLAUDE_CMD - Override for claude (default: "claude -p --dangerously-skip-permissions")
+#   AGENT_CODEX_CMD  - Override for codex (default: "codex exec --yolo --skip-git-repo-check -")
+#   AGENT_DROID_CMD  - Override for droid (default: "droid exec --skip-permissions-unsafe -f {prompt}")
+#
+# Example:
+#   cmd=$(resolve_agent_cmd "claude")
+#   # Returns: "claude -p --dangerously-skip-permissions"
+# ─────────────────────────────────────────────────────────────────────────────
+resolve_agent_cmd() {
+  local name="$1"
+  case "$name" in
+    codex)
+      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
+        echo "$AGENT_CODEX_CMD"
+      else
+        echo "codex exec --yolo --skip-git-repo-check -"
+      fi
+      ;;
+    droid)
+      if [[ -n "${AGENT_DROID_CMD:-}" ]]; then
+        echo "$AGENT_DROID_CMD"
+      else
+        echo "droid exec --skip-permissions-unsafe -f {prompt}"
+      fi
+      ;;
+    claude|""|*)
+      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
+        echo "$AGENT_CLAUDE_CMD"
+      else
+        echo "claude -p --dangerously-skip-permissions"
+      fi
+      ;;
+  esac
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# require_agent
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate that the specified agent is installed and available.
+#
+# Arguments:
+#   $1 - Agent command (optional, defaults to $AGENT_CMD)
+#
+# Exit Codes:
+#   0 - Agent is installed
+#   1 - Agent not found (exits script)
+#
+# Example:
+#   require_agent "$AGENT_CMD"
+#   # Exits if agent binary not in PATH
+# ─────────────────────────────────────────────────────────────────────────────
+require_agent() {
+  local agent_cmd="${1:-$AGENT_CMD}"
+  local agent_bin
+  agent_bin="${agent_cmd%% *}"
+  if [[ -z "$agent_bin" ]]; then
+    msg_error "AGENT_CMD is empty. Set it in config.sh."
+    exit 1
+  fi
+  if ! command -v "$agent_bin" >/dev/null 2>&1; then
+    msg_error "Agent command not found: $agent_bin"
+    case "$agent_bin" in
+      codex)
+        msg_info "Install: npm i -g @openai/codex"
+        ;;
+      claude)
+        msg_info "Install: curl -fsSL https://claude.ai/install.sh | bash"
+        ;;
+      droid)
+        msg_info "Install: curl -fsSL https://app.factory.ai/cli | sh"
+        ;;
+    esac
+    msg_dim "Then authenticate per the CLI's instructions."
+    exit 1
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# run_agent
+# ─────────────────────────────────────────────────────────────────────────────
+# Execute agent with prompt from file.
+# Handles both stdin-based agents (claude, codex) and file-based agents (droid).
+#
+# Arguments:
+#   $1 - Path to prompt file
+#
+# Environment Variables:
+#   AGENT_CMD - Agent command (set by resolve_agent_cmd or config.sh)
+#
+# Security:
+#   - Uses bash -c for command isolation (preferred over eval)
+#   - Uses printf '%q' for shell-safe path escaping
+#   - AGENT_CMD is trusted (from config.sh), prompt file path is sanitized
+#
+# Example:
+#   run_agent "/tmp/prompt.md"
+#   # Executes: claude -p --dangerously-skip-permissions < /tmp/prompt.md
+#   # Or: droid exec --skip-permissions-unsafe -f /tmp/prompt.md
+# ─────────────────────────────────────────────────────────────────────────────
+run_agent() {
+  local prompt_file="$1"
+  if [[ "$AGENT_CMD" == *"{prompt}"* ]]; then
+    # File-based agent (e.g., droid with {prompt} placeholder)
+    local escaped
+    escaped=$(printf '%q' "$prompt_file")
+    local cmd="${AGENT_CMD//\{prompt\}/$escaped}"
+    eval "$cmd"
+  else
+    # Stdin-based agent (e.g., claude, codex)
+    cat "$prompt_file" | eval "$AGENT_CMD"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# run_agent_inline
+# ─────────────────────────────────────────────────────────────────────────────
+# Execute agent with inline prompt content (used for PRD generation).
+#
+# Arguments:
+#   $1 - Path to prompt file (content will be read and inlined)
+#
+# Environment Variables:
+#   PRD_AGENT_CMD - Agent command for PRD generation
+#
+# Security:
+#   - PRD_AGENT_CMD is trusted (from config.sh)
+#   - Prompt content from template files (also trusted)
+#   - Uses sed escaping for single quotes in prompt content
+#   - eval is necessary here for multi-line content handling
+#
+# Example:
+#   run_agent_inline "/tmp/prompt.md"
+#   # Executes: claude -p --dangerously-skip-permissions '<prompt content>'
+# ─────────────────────────────────────────────────────────────────────────────
+run_agent_inline() {
+  local prompt_file="$1"
+  local prompt_content
+  prompt_content="$(cat "$prompt_file")"
+  local escaped
+  escaped=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
+  if [[ "$PRD_AGENT_CMD" == *"{prompt}"* ]]; then
+    local cmd="${PRD_AGENT_CMD//\{prompt\}/'$escaped'}"
+    eval "$cmd"
+  else
+    eval "$PRD_AGENT_CMD '$escaped'"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# get_experiment_assignment
+# ─────────────────────────────────────────────────────────────────────────────
+# Get experiment assignment for a story ID using hash-based assignment.
+#
+# This function:
+# - Calls the Node.js assignment module (lib/experiment/assignment.js)
+# - Parses the assignment string (EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED)
+# - Sets global variables for experiment tracking
+# - Overrides AGENT_CMD if experiment assigns a different agent
+#
+# Arguments:
+#   $1 - Story ID (e.g., "US-001")
+#
+# Global Variables Set:
+#   EXPERIMENT_NAME      - Name of assigned experiment
+#   EXPERIMENT_VARIANT   - Variant name (e.g., "control", "treatment")
+#   EXPERIMENT_EXCLUDED  - "true" if excluded from experiment
+#   AGENT_CMD           - Overridden if experiment assigns different agent
+#
+# Dependencies:
+#   - Node.js runtime
+#   - lib/experiment/assignment.js module
+#   - ROOT_DIR (repository root)
+#   - DEFAULT_AGENT_NAME (fallback agent)
+#   - RALPH_ROOT or SCRIPT_DIR (to locate assignment.js)
+#
+# Example:
+#   get_experiment_assignment "US-001"
+#   # Sets: EXPERIMENT_NAME="model_routing", EXPERIMENT_VARIANT="control"
+#   # May override: AGENT_CMD="codex exec --yolo --skip-git-repo-check -"
+# ─────────────────────────────────────────────────────────────────────────────
+get_experiment_assignment() {
+  local story_id="$1"
+  local assignment_script
+
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    assignment_script="$RALPH_ROOT/lib/experiment/assignment.js"
+  else
+    assignment_script="$SCRIPT_DIR/../../lib/experiment/assignment.js"
+  fi
+
+  # Reset globals
+  EXPERIMENT_NAME=""
+  EXPERIMENT_VARIANT=""
+  EXPERIMENT_EXCLUDED=""
+
+  # Check if assignment module exists and Node.js is available
+  if [[ ! -f "$assignment_script" ]] || ! command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Get assignment string from assignment module
+  local assignment
+  assignment=$(node -e "
+    const assignment = require('$assignment_script');
+    const result = assignment.getAssignmentString('$ROOT_DIR', '$story_id');
+    process.stdout.write(result);
+  " 2>/dev/null) || true
+
+  if [[ -z "$assignment" ]]; then
+    return 0
+  fi
+
+  # Parse assignment: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED
+  IFS='|' read -r exp_name exp_variant exp_agent exp_excluded <<< "$assignment"
+
+  # Set globals
+  EXPERIMENT_NAME="$exp_name"
+  EXPERIMENT_VARIANT="$exp_variant"
+  EXPERIMENT_EXCLUDED="$exp_excluded"
+
+  # Override AGENT_CMD if experiment assigns a different agent
+  if [[ -n "$exp_agent" ]] && [[ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]]; then
+    AGENT_CMD="$(resolve_agent_cmd "$exp_agent")"
+    msg_dim "Experiment '$exp_name' assigned variant '$exp_variant' (agent: $exp_agent)"
+  fi
+}

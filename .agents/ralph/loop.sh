@@ -19,6 +19,10 @@ CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
+# Source agent utilities (resolve, require, run, experiments)
+# shellcheck source=lib/agent.sh
+source "$SCRIPT_DIR/lib/agent.sh"
+
 # PRD folder helpers - sourced from shared library
 # Sets RALPH_DIR and provides: get_next_prd_number, get_latest_prd_number, get_prd_dir
 RALPH_DIR=".ralph"
@@ -109,92 +113,15 @@ if [[ -f "$CONFIG_FILE" ]]; then
 fi
 
 DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-claude}"
-resolve_agent_cmd() {
-  local name="$1"
-  case "$name" in
-    codex)
-      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
-        echo "$AGENT_CODEX_CMD"
-      else
-        echo "codex exec --yolo --skip-git-repo-check -"
-      fi
-      ;;
-    droid)
-      if [[ -n "${AGENT_DROID_CMD:-}" ]]; then
-        echo "$AGENT_DROID_CMD"
-      else
-        echo "droid exec --skip-permissions-unsafe -f {prompt}"
-      fi
-      ;;
-    claude|""|*)
-      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
-        echo "$AGENT_CLAUDE_CMD"
-      else
-        echo "claude -p --dangerously-skip-permissions"
-      fi
-      ;;
-  esac
-}
+# resolve_agent_cmd() now in lib/agent.sh
 DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Experiment Assignment
+# Experiment Assignment (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # Global variables for experiment tracking (set by get_experiment_assignment)
-EXPERIMENT_NAME=""
-EXPERIMENT_VARIANT=""
-EXPERIMENT_EXCLUDED=""
-
-# Get experiment assignment for a story ID
-# Uses hash-based assignment from lib/experiment/assignment.js
-# Returns: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED (pipe-delimited)
-# Sets global vars: EXPERIMENT_NAME, EXPERIMENT_VARIANT, EXPERIMENT_EXCLUDED
-get_experiment_assignment() {
-  local story_id="$1"
-  local assignment_script
-
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    assignment_script="$RALPH_ROOT/lib/experiment/assignment.js"
-  else
-    assignment_script="$SCRIPT_DIR/../../lib/experiment/assignment.js"
-  fi
-
-  # Reset globals
-  EXPERIMENT_NAME=""
-  EXPERIMENT_VARIANT=""
-  EXPERIMENT_EXCLUDED=""
-
-  # Check if assignment module exists and Node.js is available
-  if [[ ! -f "$assignment_script" ]] || ! command -v node >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # Get assignment string from assignment module
-  local assignment
-  assignment=$(node -e "
-    const assignment = require('$assignment_script');
-    const result = assignment.getAssignmentString('$ROOT_DIR', '$story_id');
-    process.stdout.write(result);
-  " 2>/dev/null) || true
-
-  if [[ -z "$assignment" ]]; then
-    return 0
-  fi
-
-  # Parse assignment: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED
-  IFS='|' read -r exp_name exp_variant exp_agent exp_excluded <<< "$assignment"
-
-  # Set globals
-  EXPERIMENT_NAME="$exp_name"
-  EXPERIMENT_VARIANT="$exp_variant"
-  EXPERIMENT_EXCLUDED="$exp_excluded"
-
-  # Override AGENT_CMD if experiment assigns a different agent
-  if [[ -n "$exp_agent" ]] && [[ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]]; then
-    AGENT_CMD="$(resolve_agent_cmd "$exp_agent")"
-    msg_dim "Experiment '$exp_name' assigned variant '$exp_variant' (agent: $exp_agent)"
-  fi
-}
+# These are declared in lib/agent.sh but referenced here
+# EXPERIMENT_NAME, EXPERIMENT_VARIANT, EXPERIMENT_EXCLUDED
 
 # Path resolution with PRD-N folder support
 # If explicit paths are set via environment, use them
@@ -295,108 +222,10 @@ GUARDRAILS_REF="$(abs_path "$GUARDRAILS_REF")"
 CONTEXT_REF="$(abs_path "$CONTEXT_REF")"
 ACTIVITY_CMD="$(abs_path "$ACTIVITY_CMD")"
 
-require_agent() {
-  local agent_cmd="${1:-$AGENT_CMD}"
-  local agent_bin
-  agent_bin="${agent_cmd%% *}"
-  if [[ -z "$agent_bin" ]]; then
-    msg_error "AGENT_CMD is empty. Set it in config.sh."
-    exit 1
-  fi
-  if ! command -v "$agent_bin" >/dev/null 2>&1; then
-    msg_error "Agent command not found: $agent_bin"
-    case "$agent_bin" in
-      codex)
-        msg_info "Install: npm i -g @openai/codex"
-        ;;
-      claude)
-        msg_info "Install: curl -fsSL https://claude.ai/install.sh | bash"
-        ;;
-      droid)
-        msg_info "Install: curl -fsSL https://app.factory.ai/cli | sh"
-        ;;
-    esac
-    msg_dim "Then authenticate per the CLI's instructions."
-    exit 1
-  fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Agent Execution Functions (US-006 - Safer eval alternatives)
+# Agent Functions (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
-# SECURITY NOTE: These functions execute external agent commands with user input.
-# The AGENT_CMD comes from trusted sources (agents.sh or config.sh), not user input.
-# We use 'bash -c' instead of 'eval' where possible for improved safety.
-# The prompt_file path is shell-escaped to prevent injection via filenames.
-# ─────────────────────────────────────────────────────────────────────────────
-
-run_agent() {
-  local prompt_file="$1"
-
-  # SECURITY: prompt_file is a temp file path controlled by ralph, not user input.
-  # We still escape it for defense-in-depth against unusual filenames.
-
-  if [[ "$AGENT_CMD" == *"{prompt}"* ]]; then
-    # File-based agent (e.g., droid): substitute {prompt} with escaped file path
-    # Use bash parameter expansion for substitution (safer than eval-based string building)
-    local escaped_path
-    escaped_path=$(printf '%q' "$prompt_file")
-    local cmd="${AGENT_CMD//\{prompt\}/$escaped_path}"
-
-    # SECURITY: bash -c provides process isolation; cmd contains trusted AGENT_CMD
-    # with only the file path substituted. The file path is shell-escaped.
-    bash -c "$cmd"
-  else
-    # Stdin-based agent (e.g., claude, codex): pipe prompt to agent via stdin
-    # SECURITY: bash -c provides process isolation; AGENT_CMD is from trusted config.
-    # Prompt content goes to stdin, not interpolated into the command.
-    cat "$prompt_file" | bash -c "$AGENT_CMD"
-  fi
-}
-
-run_agent_inline() {
-  local prompt_file="$1"
-
-  # SECURITY NOTE: This function is used for PRD generation with custom agent configs.
-  # PRD_AGENT_CMD comes from trusted config (config.sh), not user input.
-  # The prompt content comes from ralph-generated templates, also trusted.
-  #
-  # For agents with {prompt} placeholder expecting a FILE PATH (most common):
-  #   Simply pass the file path (use run_agent instead for this case).
-  # For agents expecting inline content as an argument (rare custom configs):
-  #   We must use 'eval' because:
-  #   1. The content may contain newlines, quotes, and shell metacharacters
-  #   2. We need proper shell quoting to pass multi-line strings as arguments
-  #   3. Using bash arrays would require different command formats
-
-  if [[ "$PRD_AGENT_CMD" == *"{prompt}"* ]]; then
-    # Check if this appears to be a file-path style command (contains -f or --file)
-    # In that case, use file path directly instead of inline content
-    if [[ "$PRD_AGENT_CMD" == *" -f "* ]] || [[ "$PRD_AGENT_CMD" == *"--file"* ]]; then
-      # File-based agent: use file path directly (safer, no content escaping needed)
-      local escaped_path
-      escaped_path=$(printf '%q' "$prompt_file")
-      local cmd="${PRD_AGENT_CMD//\{prompt\}/$escaped_path}"
-      bash -c "$cmd"
-    else
-      # Inline content agent: substitute {prompt} with escaped content
-      # SECURITY: eval is necessary here for proper shell quoting of multi-line content.
-      # PRD_AGENT_CMD is from trusted config, content is from trusted templates.
-      local prompt_content escaped_content cmd
-      prompt_content="$(cat "$prompt_file")"
-      escaped_content=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
-      cmd="${PRD_AGENT_CMD//\{prompt\}/'$escaped_content'}"
-      eval "$cmd"
-    fi
-  else
-    # No {prompt} placeholder - pass content as final argument
-    # SECURITY: eval is necessary for proper shell quoting of multi-line content.
-    local prompt_content escaped_content
-    prompt_content="$(cat "$prompt_file")"
-    escaped_content=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
-    eval "$PRD_AGENT_CMD '$escaped_content'"
-  fi
-}
+# require_agent(), run_agent(), run_agent_inline() are now in lib/agent.sh
 
 # Global variables for rollback statistics (set during rollback execution, US-004)
 # These are used by append_metrics for tracking rollback events
