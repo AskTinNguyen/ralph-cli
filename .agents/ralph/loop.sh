@@ -19,6 +19,10 @@ CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
+# Source agent utilities (resolve, require, run, experiments)
+# shellcheck source=lib/agent.sh
+source "$SCRIPT_DIR/lib/agent.sh"
+
 # PRD folder helpers - each plan gets its own PRD-N folder
 RALPH_DIR=".ralph"
 
@@ -121,92 +125,15 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-claude}"
-resolve_agent_cmd() {
-  local name="$1"
-  case "$name" in
-    codex)
-      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
-        echo "$AGENT_CODEX_CMD"
-      else
-        echo "codex exec --yolo --skip-git-repo-check -"
-      fi
-      ;;
-    droid)
-      if [[ -n "${AGENT_DROID_CMD:-}" ]]; then
-        echo "$AGENT_DROID_CMD"
-      else
-        echo "droid exec --skip-permissions-unsafe -f {prompt}"
-      fi
-      ;;
-    claude|""|*)
-      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
-        echo "$AGENT_CLAUDE_CMD"
-      else
-        echo "claude -p --dangerously-skip-permissions"
-      fi
-      ;;
-  esac
-}
+# resolve_agent_cmd() now in lib/agent.sh
 DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Experiment Assignment
+# Experiment Assignment (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # Global variables for experiment tracking (set by get_experiment_assignment)
-EXPERIMENT_NAME=""
-EXPERIMENT_VARIANT=""
-EXPERIMENT_EXCLUDED=""
-
-# Get experiment assignment for a story ID
-# Uses hash-based assignment from lib/experiment/assignment.js
-# Returns: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED (pipe-delimited)
-# Sets global vars: EXPERIMENT_NAME, EXPERIMENT_VARIANT, EXPERIMENT_EXCLUDED
-get_experiment_assignment() {
-  local story_id="$1"
-  local assignment_script
-
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    assignment_script="$RALPH_ROOT/lib/experiment/assignment.js"
-  else
-    assignment_script="$SCRIPT_DIR/../../lib/experiment/assignment.js"
-  fi
-
-  # Reset globals
-  EXPERIMENT_NAME=""
-  EXPERIMENT_VARIANT=""
-  EXPERIMENT_EXCLUDED=""
-
-  # Check if assignment module exists and Node.js is available
-  if [ ! -f "$assignment_script" ] || ! command -v node >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # Get assignment string from assignment module
-  local assignment
-  assignment=$(node -e "
-    const assignment = require('$assignment_script');
-    const result = assignment.getAssignmentString('$ROOT_DIR', '$story_id');
-    process.stdout.write(result);
-  " 2>/dev/null) || true
-
-  if [ -z "$assignment" ]; then
-    return 0
-  fi
-
-  # Parse assignment: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED
-  IFS='|' read -r exp_name exp_variant exp_agent exp_excluded <<< "$assignment"
-
-  # Set globals
-  EXPERIMENT_NAME="$exp_name"
-  EXPERIMENT_VARIANT="$exp_variant"
-  EXPERIMENT_EXCLUDED="$exp_excluded"
-
-  # Override AGENT_CMD if experiment assigns a different agent
-  if [ -n "$exp_agent" ] && [ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]; then
-    AGENT_CMD="$(resolve_agent_cmd "$exp_agent")"
-    msg_dim "Experiment '$exp_name' assigned variant '$exp_variant' (agent: $exp_agent)"
-  fi
-}
+# These are declared in lib/agent.sh but referenced here
+# EXPERIMENT_NAME, EXPERIMENT_VARIANT, EXPERIMENT_EXCLUDED
 
 # Path resolution with PRD-N folder support
 # If explicit paths are set via environment, use them
@@ -304,57 +231,10 @@ GUARDRAILS_REF="$(abs_path "$GUARDRAILS_REF")"
 CONTEXT_REF="$(abs_path "$CONTEXT_REF")"
 ACTIVITY_CMD="$(abs_path "$ACTIVITY_CMD")"
 
-require_agent() {
-  local agent_cmd="${1:-$AGENT_CMD}"
-  local agent_bin
-  agent_bin="${agent_cmd%% *}"
-  if [ -z "$agent_bin" ]; then
-    msg_error "AGENT_CMD is empty. Set it in config.sh."
-    exit 1
-  fi
-  if ! command -v "$agent_bin" >/dev/null 2>&1; then
-    msg_error "Agent command not found: $agent_bin"
-    case "$agent_bin" in
-      codex)
-        msg_info "Install: npm i -g @openai/codex"
-        ;;
-      claude)
-        msg_info "Install: curl -fsSL https://claude.ai/install.sh | bash"
-        ;;
-      droid)
-        msg_info "Install: curl -fsSL https://app.factory.ai/cli | sh"
-        ;;
-    esac
-    msg_dim "Then authenticate per the CLI's instructions."
-    exit 1
-  fi
-}
-
-run_agent() {
-  local prompt_file="$1"
-  if [[ "$AGENT_CMD" == *"{prompt}"* ]]; then
-    local escaped
-    escaped=$(printf '%q' "$prompt_file")
-    local cmd="${AGENT_CMD//\{prompt\}/$escaped}"
-    eval "$cmd"
-  else
-    cat "$prompt_file" | eval "$AGENT_CMD"
-  fi
-}
-
-run_agent_inline() {
-  local prompt_file="$1"
-  local prompt_content
-  prompt_content="$(cat "$prompt_file")"
-  local escaped
-  escaped=$(printf "%s" "$prompt_content" | sed "s/'/'\\\\''/g")
-  if [[ "$PRD_AGENT_CMD" == *"{prompt}"* ]]; then
-    local cmd="${PRD_AGENT_CMD//\{prompt\}/'$escaped'}"
-    eval "$cmd"
-  else
-    eval "$PRD_AGENT_CMD '$escaped'"
-  fi
-}
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Functions (now in lib/agent.sh)
+# ─────────────────────────────────────────────────────────────────────────────
+# require_agent(), run_agent(), run_agent_inline() are now in lib/agent.sh
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Retry Configuration
