@@ -301,6 +301,25 @@ section h2 {
   background: var(--status-error-bg);
 }
 
+/* Retry badge */
+.retry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 999px;
+  white-space: nowrap;
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
+  cursor: help;
+}
+
+.retry-badge::before {
+  content: '';
+}
+
 /* Acceptance criteria */
 .acceptance-criteria {
   margin-top: var(--spacing-sm);

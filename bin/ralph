@@ -31,6 +31,7 @@ let prdOutPath = null;
 let uiOpenBrowser = false;  // For --open flag in ui command
 let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
 let estimateModel = null;  // For --model flag in estimate command
+let noRetry = false;  // For --no-retry flag to disable automatic retries
 
 function exists(p) {
   try {
@@ -50,7 +51,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit]")}             Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry]")} Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -100,6 +101,13 @@ ${pc.bold(pc.cyan("Estimate options:"))}
   ${pc.yellow("--json")}                             Output as JSON for machine parsing
   ${pc.yellow("--pricing")} ${pc.dim("input:X,output:Y")}          Custom token pricing ($/1M tokens)
   ${pc.yellow("--model")} ${pc.dim("<opus|sonnet|haiku>")}         Model for cost calculation (default: sonnet)
+
+${pc.bold(pc.cyan("Retry options:"))}
+  ${pc.yellow("--no-retry")}                         Disable automatic retries on agent failure
+  ${pc.dim("Environment variables (set in config.sh or shell):")}
+  ${pc.dim("  RETRY_MAX_ATTEMPTS=3                Max retry attempts (default: 3)")}
+  ${pc.dim("  RETRY_BASE_DELAY_MS=1000            Base delay for backoff (default: 1000ms)")}
+  ${pc.dim("  RETRY_MAX_DELAY_MS=16000            Max delay cap (default: 16000ms)")}
 
 ${pc.bold(pc.cyan("Diagnose options:"))}
   ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
@@ -244,6 +252,11 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   if (arg === "--model") {
     estimateModel = rawArgs[i + 1];
     i += 1;
+    continue;
+  }
+  // Parse --no-retry flag to disable automatic retries
+  if (arg === "--no-retry") {
+    noRetry = true;
     continue;
   }
   args.push(arg);
@@ -541,6 +554,8 @@ async function main() {
   if (resolvedPrdPath) env.PRD_PATH = resolvedPrdPath;
   if (planPath) env.PLAN_PATH = planPath;
   if (progressPath) env.PROGRESS_PATH = progressPath;
+  // Pass --no-retry flag to disable automatic retries
+  if (noRetry) env.NO_RETRY = "true";
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");

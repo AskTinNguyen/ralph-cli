@@ -294,6 +294,157 @@ run_agent_inline() {
   fi
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Retry Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Retry wrapper for agent calls with exponential backoff
+# Defaults: 3 retries, 1s base delay, 16s max delay
+RETRY_MAX_ATTEMPTS="${RETRY_MAX_ATTEMPTS:-3}"
+RETRY_BASE_DELAY_MS="${RETRY_BASE_DELAY_MS:-1000}"
+RETRY_MAX_DELAY_MS="${RETRY_MAX_DELAY_MS:-16000}"
+NO_RETRY="${NO_RETRY:-false}"
+
+# Calculate exponential backoff delay with jitter
+# Usage: calculate_backoff_delay <attempt> -> delay_seconds (float)
+calculate_backoff_delay() {
+  local attempt="$1"
+  # Exponential backoff: base_delay * 2^(attempt-1)
+  # Attempt 1: 1s, Attempt 2: 2s, Attempt 3: 4s, etc.
+  local base_ms="$RETRY_BASE_DELAY_MS"
+  local max_ms="$RETRY_MAX_DELAY_MS"
+  local multiplier=$((1 << (attempt - 1)))  # 2^(attempt-1)
+  local delay_ms=$((base_ms * multiplier))
+
+  # Cap at max delay
+  if [ "$delay_ms" -gt "$max_ms" ]; then
+    delay_ms="$max_ms"
+  fi
+
+  # Add jitter (0-1000ms) to prevent thundering herd
+  local jitter_ms=$((RANDOM % 1000))
+  delay_ms=$((delay_ms + jitter_ms))
+
+  # Convert to seconds with decimal (bash sleep accepts decimals)
+  local delay_sec
+  delay_sec=$(printf "%.3f" "$(echo "scale=3; $delay_ms / 1000" | bc)")
+  echo "$delay_sec"
+}
+
+# Global variables for retry statistics (set by run_agent_with_retry)
+# These are used by write_run_meta and append_metrics
+LAST_RETRY_COUNT=0
+LAST_RETRY_TOTAL_TIME=0
+
+# Retry wrapper for agent execution
+# Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
+# Handles tee internally and manages retry output to log file
+# Sets LAST_RETRY_COUNT and LAST_RETRY_TOTAL_TIME for metrics
+run_agent_with_retry() {
+  local prompt_file="$1"
+  local log_file="$2"
+  local iteration="$3"
+  local attempt=1
+  local exit_status=0
+  local max_attempts="$RETRY_MAX_ATTEMPTS"
+  local retry_count=0
+  local total_retry_time=0
+
+  # Reset global retry stats
+  LAST_RETRY_COUNT=0
+  LAST_RETRY_TOTAL_TIME=0
+
+  # If retry is disabled, just run once
+  if [ "$NO_RETRY" = "true" ]; then
+    run_agent "$prompt_file" 2>&1 | tee "$log_file"
+    return "${PIPESTATUS[0]}"
+  fi
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    # Run the agent with tee for logging
+    if [ "$attempt" -eq 1 ]; then
+      # First attempt: create/overwrite log file
+      run_agent "$prompt_file" 2>&1 | tee "$log_file"
+      exit_status="${PIPESTATUS[0]}"
+    else
+      # Retry attempts: append retry header and output to log
+      {
+        echo ""
+        echo "=== RETRY ATTEMPT $attempt/$max_attempts ($(date '+%Y-%m-%d %H:%M:%S')) ==="
+        echo ""
+      } | tee -a "$log_file"
+      run_agent "$prompt_file" 2>&1 | tee -a "$log_file"
+      exit_status="${PIPESTATUS[0]}"
+    fi
+
+    # Success - no retry needed
+    if [ "$exit_status" -eq 0 ]; then
+      if [ "$retry_count" -gt 0 ]; then
+        log_activity "RETRY_SUCCESS iteration=$iteration succeeded_after=$retry_count retries total_retry_time=${total_retry_time}s"
+        printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
+        printf "${C_GREEN}  Succeeded after %d retries (total retry wait: %ds)${C_RESET}\n" "$retry_count" "$total_retry_time"
+        printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
+      fi
+      # Set global stats for metrics
+      LAST_RETRY_COUNT=$retry_count
+      LAST_RETRY_TOTAL_TIME=$total_retry_time
+      return 0
+    fi
+
+    # User interruption (SIGINT=130, SIGTERM=143) - don't retry
+    if [ "$exit_status" -eq 130 ] || [ "$exit_status" -eq 143 ]; then
+      return "$exit_status"
+    fi
+
+    retry_count=$((retry_count + 1))
+
+    # Check if we have more attempts
+    if [ "$attempt" -lt "$max_attempts" ]; then
+      local delay
+      delay=$(calculate_backoff_delay "$attempt")
+      local delay_int="${delay%.*}"  # Integer part for accumulation
+      total_retry_time=$((total_retry_time + delay_int))
+      local next_attempt=$((attempt + 1))
+
+      # Log retry attempt to terminal with enhanced visibility
+      printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
+      printf "${C_YELLOW}  Agent failed (exit code: %d)${C_RESET}\n" "$exit_status"
+      printf "${C_YELLOW}  Retry %d/%d in %ss...${C_RESET}\n" "$next_attempt" "$max_attempts" "$delay"
+      printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
+
+      # Log retry to activity log with cumulative stats
+      log_activity "RETRY iteration=$iteration attempt=$next_attempt/$max_attempts delay=${delay}s exit_code=$exit_status cumulative_retry_time=${total_retry_time}s"
+
+      # Append retry info to run log
+      {
+        echo ""
+        echo "[RETRY] Attempt $attempt failed with exit code $exit_status"
+        echo "[RETRY] Waiting ${delay}s before retry $next_attempt/$max_attempts"
+        echo "[RETRY] Cumulative retry wait time: ${total_retry_time}s"
+        echo ""
+      } >> "$log_file"
+
+      # Wait before retry
+      sleep "$delay"
+    else
+      # All retries exhausted - log final failure
+      log_activity "RETRY_EXHAUSTED iteration=$iteration total_attempts=$max_attempts final_exit_code=$exit_status total_retry_time=${total_retry_time}s"
+      {
+        echo ""
+        echo "[RETRY] All $max_attempts attempts exhausted. Final exit code: $exit_status"
+        echo "[RETRY] Total retry wait time: ${total_retry_time}s"
+      } >> "$log_file"
+      # Set global stats even on exhaustion
+      LAST_RETRY_COUNT=$retry_count
+      LAST_RETRY_TOTAL_TIME=$total_retry_time
+    fi
+
+    attempt=$((attempt + 1))
+  done
+
+  # All retries exhausted
+  return "$exit_status"
+}
+
 MODE="build"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -760,18 +911,27 @@ print_summary_table() {
   fi
 
   echo ""
-  printf "${C_CYAN}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
-  printf "${C_CYAN}║${C_RESET}${C_BOLD}${C_CYAN}            ITERATION SUMMARY                          ${C_RESET}${C_CYAN}║${C_RESET}\n"
-  printf "${C_CYAN}╠═════╤════════════╤════════════╤════════════════════════╣${C_RESET}\n"
-  printf "${C_CYAN}║${C_RESET}${C_BOLD} Iter│   Story    │  Duration  │         Status         ${C_RESET}${C_CYAN}║${C_RESET}\n"
-  printf "${C_CYAN}╟─────┼────────────┼────────────┼────────────────────────╢${C_RESET}\n"
+  printf "${C_CYAN}╔═══════════════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_CYAN}║${C_RESET}${C_BOLD}${C_CYAN}                    ITERATION SUMMARY                          ${C_RESET}${C_CYAN}║${C_RESET}\n"
+  printf "${C_CYAN}╠═════╤════════════╤════════════╤═════════╤══════════════════════╣${C_RESET}\n"
+  printf "${C_CYAN}║${C_RESET}${C_BOLD} Iter│   Story    │  Duration  │ Retries │       Status         ${C_RESET}${C_CYAN}║${C_RESET}\n"
+  printf "${C_CYAN}╟─────┼────────────┼────────────┼─────────┼──────────────────────╢${C_RESET}\n"
 
   # Parse and display each iteration result
   IFS=',' read -ra RESULTS <<< "$results"
+  local total_retries=0
   for result in "${RESULTS[@]}"; do
-    IFS='|' read -r iter story duration status <<< "$result"
+    # Handle both old format (4 fields) and new format (5 fields with retries)
+    local iter story duration status retries_field
+    IFS='|' read -r iter story duration status retries_field <<< "$result"
     local dur_str
     dur_str=$(format_duration "$duration")
+    # Handle missing/empty retries field gracefully (backwards compatibility)
+    local retries=0
+    if [ -n "$retries_field" ] && [ "$retries_field" != "" ]; then
+      retries="$retries_field"
+    fi
+    total_retries=$((total_retries + retries))
 
     # Status symbol and color
     local status_display
@@ -781,16 +941,24 @@ print_summary_table() {
       status_display="${C_RED}✗ error${C_RESET}"
     fi
 
+    # Retry display with color
+    local retry_display
+    if [ "$retries" -gt 0 ]; then
+      retry_display="${C_YELLOW}${retries}${C_RESET}"
+    else
+      retry_display="${C_DIM}0${C_RESET}"
+    fi
+
     # Truncate story ID if too long (max 10 chars)
     local story_display="${story:-plan}"
     if [ "${#story_display}" -gt 10 ]; then
       story_display="${story_display:0:10}"
     fi
 
-    printf "${C_CYAN}║${C_RESET} %3s │ %-10s │ %10s │ %-22b ${C_CYAN}║${C_RESET}\n" "$iter" "$story_display" "$dur_str" "$status_display"
+    printf "${C_CYAN}║${C_RESET} %3s │ %-10s │ %10s │   %-5b │ %-20b ${C_CYAN}║${C_RESET}\n" "$iter" "$story_display" "$dur_str" "$retry_display" "$status_display"
   done
 
-  printf "${C_CYAN}╠═════╧════════════╧════════════╧════════════════════════╣${C_RESET}\n"
+  printf "${C_CYAN}╠═════╧════════════╧════════════╧═════════╧══════════════════════╣${C_RESET}\n"
 
   # Aggregate stats
   local total_dur_str
@@ -811,11 +979,15 @@ print_summary_table() {
     rate_color="$C_RED"
   fi
 
-  printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Total time:${C_RESET} %-12s ${C_BOLD}Success rate:${C_RESET} ${rate_color}%d/%d (%d%%)${C_RESET}    ${C_CYAN}║${C_RESET}\n" "$total_dur_str" "$success_count" "$total_count" "$success_rate"
-  if [ -n "$remaining" ] && [ "$remaining" != "unknown" ] && [ "$remaining" != "0" ]; then
-    printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Stories remaining:${C_RESET} %-35s ${C_CYAN}║${C_RESET}\n" "$remaining"
+  printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Total time:${C_RESET} %-10s ${C_BOLD}Success:${C_RESET} ${rate_color}%d/%d (%d%%)${C_RESET}  " "$total_dur_str" "$success_count" "$total_count" "$success_rate"
+  if [ "$total_retries" -gt 0 ]; then
+    printf "${C_BOLD}Retries:${C_RESET} ${C_YELLOW}%d${C_RESET}  " "$total_retries"
   fi
-  printf "${C_CYAN}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+  printf "${C_CYAN}║${C_RESET}\n"
+  if [ -n "$remaining" ] && [ "$remaining" != "unknown" ] && [ "$remaining" != "0" ]; then
+    printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Stories remaining:${C_RESET} %-41s ${C_CYAN}║${C_RESET}\n" "$remaining"
+  fi
+  printf "${C_CYAN}╚═══════════════════════════════════════════════════════════════╝${C_RESET}\n"
 }
 
 append_run_summary() {
@@ -869,6 +1041,8 @@ write_run_meta() {
   local output_tokens="${18:-}"
   local token_model="${19:-}"
   local token_estimated="${20:-false}"
+  local retry_count="${21:-0}"
+  local retry_time="${22:-0}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -927,6 +1101,14 @@ write_run_meta() {
     if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
       local total=$((input_tokens + output_tokens))
       echo "- Total tokens: $total"
+    fi
+    echo ""
+    echo "## Retry Statistics"
+    if [ "$retry_count" -gt 0 ]; then
+      echo "- Retry count: $retry_count"
+      echo "- Total retry wait time: ${retry_time}s"
+    else
+      echo "- Retry count: 0 (succeeded on first attempt)"
     fi
     echo ""
   } > "$path"
@@ -1008,6 +1190,8 @@ append_metrics() {
   local status="$9"
   local run_id="${10}"
   local iteration="${11}"
+  local retry_count="${12:-0}"
+  local retry_time="${13:-0}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1033,7 +1217,7 @@ append_metrics() {
     escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
 
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"timestamp":"%s"}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"timestamp":"%s"}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1044,6 +1228,8 @@ append_metrics() {
       "$status" \
       "$run_id" \
       "$iteration" \
+      "$retry_count" \
+      "$retry_time" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
@@ -1187,7 +1373,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
   else
-    run_agent "$PROMPT_RENDERED" 2>&1 | tee "$LOG_FILE"
+    # Use retry wrapper for automatic retries with exponential backoff
+    run_agent_with_retry "$PROMPT_RENDERED" "$LOG_FILE" "$i"
     CMD_STATUS=$?
   fi
   # Stop progress indicator after agent execution
@@ -1221,7 +1408,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   # Track iteration result for summary table
   ITERATION_COUNT=$((ITERATION_COUNT + 1))
   TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
-  ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-plan}|$ITER_DURATION|$STATUS_LABEL"
+  ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-plan}|$ITER_DURATION|$STATUS_LABEL|$LAST_RETRY_COUNT"
 
   if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
@@ -1235,13 +1422,13 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
-  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED"
+  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
 
   # Append metrics to metrics.jsonl for historical tracking (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
