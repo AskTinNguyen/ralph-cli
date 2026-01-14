@@ -1732,6 +1732,200 @@ TOTAL_DURATION=0
 SUCCESS_COUNT=0
 ITERATION_COUNT=0
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Failure Pattern Detection (US-001)
+# ─────────────────────────────────────────────────────────────────────────────
+# Track consecutive failures per agent for automatic agent switching
+CONSECUTIVE_FAILURES=0
+CURRENT_AGENT="$DEFAULT_AGENT_NAME"
+LAST_FAILURE_TYPE=""
+LAST_FAILED_STORY_ID=""
+
+# Classify failure type from exit code and log contents
+# Usage: classify_failure_type <exit_code> <log_file>
+# Returns: "timeout", "error", or "quality"
+classify_failure_type() {
+  local exit_code="$1"
+  local log_file="$2"
+
+  # Timeout failures (SIGALRM=124, SIGKILL=137)
+  if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
+    echo "timeout"
+    return
+  fi
+
+  # Quality failures - check log for test/lint/type errors
+  if [ -f "$log_file" ]; then
+    # Check for test failures
+    if grep -qiE "(test(s)? (failed|failing)|FAIL |✗ |AssertionError|expect\(.*\)\.to)" "$log_file" 2>/dev/null; then
+      echo "quality"
+      return
+    fi
+    # Check for lint errors
+    if grep -qiE "(eslint|prettier|lint).*error|linting failed" "$log_file" 2>/dev/null; then
+      echo "quality"
+      return
+    fi
+    # Check for TypeScript type errors
+    if grep -qiE "error TS[0-9]+:|type error|TypeError:" "$log_file" 2>/dev/null; then
+      echo "quality"
+      return
+    fi
+  fi
+
+  # Default to general error
+  echo "error"
+}
+
+# Check if failure type should trigger agent switch based on config
+# Usage: should_trigger_switch <failure_type>
+# Returns: 0 (true) if switch should be triggered, 1 (false) otherwise
+should_trigger_switch() {
+  local failure_type="$1"
+
+  case "$failure_type" in
+    timeout)
+      [ "${AGENT_SWITCH_ON_TIMEOUT:-true}" = "true" ] && return 0
+      ;;
+    error)
+      [ "${AGENT_SWITCH_ON_ERROR:-true}" = "true" ] && return 0
+      ;;
+    quality)
+      [ "${AGENT_SWITCH_ON_QUALITY:-false}" = "true" ] && return 0
+      ;;
+  esac
+  return 1
+}
+
+# Update consecutive failure tracking
+# Usage: track_failure <exit_code> <log_file> <story_id>
+# Sets: CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, LAST_FAILED_STORY_ID
+track_failure() {
+  local exit_code="$1"
+  local log_file="$2"
+  local story_id="$3"
+
+  LAST_FAILURE_TYPE="$(classify_failure_type "$exit_code" "$log_file")"
+  LAST_FAILED_STORY_ID="$story_id"
+
+  # Only increment if the failure type should trigger a switch
+  if should_trigger_switch "$LAST_FAILURE_TYPE"; then
+    CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
+    log_activity "FAILURE_TRACKED agent=$CURRENT_AGENT type=$LAST_FAILURE_TYPE consecutive=$CONSECUTIVE_FAILURES story=$story_id threshold=${AGENT_SWITCH_THRESHOLD:-2}"
+  else
+    # Log but don't count towards switch threshold
+    log_activity "FAILURE_LOGGED agent=$CURRENT_AGENT type=$LAST_FAILURE_TYPE story=$story_id (not counting towards switch)"
+  fi
+}
+
+# Reset consecutive failure tracking (called on success)
+# Usage: reset_failure_tracking
+reset_failure_tracking() {
+  if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+    log_activity "FAILURE_RESET agent=$CURRENT_AGENT previous_consecutive=$CONSECUTIVE_FAILURES (story completed successfully)"
+  fi
+  CONSECUTIVE_FAILURES=0
+  LAST_FAILURE_TYPE=""
+  LAST_FAILED_STORY_ID=""
+}
+
+# Check if switch threshold has been reached
+# Usage: switch_threshold_reached
+# Returns: 0 if threshold reached, 1 otherwise
+switch_threshold_reached() {
+  local threshold="${AGENT_SWITCH_THRESHOLD:-2}"
+  [ "$CONSECUTIVE_FAILURES" -ge "$threshold" ]
+}
+
+# Get switch state file path for the current PRD
+# Usage: get_switch_state_file <prd_folder>
+get_switch_state_file() {
+  local prd_folder="$1"
+  echo "$prd_folder/switch-state.json"
+}
+
+# Save switch state to JSON file for cross-run persistence
+# Usage: save_switch_state <prd_folder>
+save_switch_state() {
+  local prd_folder="$1"
+  local state_file
+  state_file="$(get_switch_state_file "$prd_folder")"
+
+  # Create JSON state
+  local timestamp
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  cat > "$state_file" <<EOF
+{
+  "agent": "$CURRENT_AGENT",
+  "failures": $CONSECUTIVE_FAILURES,
+  "lastFailureType": "$LAST_FAILURE_TYPE",
+  "storyId": "$LAST_FAILED_STORY_ID",
+  "updatedAt": "$timestamp"
+}
+EOF
+  msg_dim "Switch state saved: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT"
+}
+
+# Load switch state from JSON file
+# Usage: load_switch_state <prd_folder>
+# Sets: CURRENT_AGENT, CONSECUTIVE_FAILURES, LAST_FAILURE_TYPE, LAST_FAILED_STORY_ID
+load_switch_state() {
+  local prd_folder="$1"
+  local state_file
+  state_file="$(get_switch_state_file "$prd_folder")"
+
+  if [ ! -f "$state_file" ]; then
+    return 1
+  fi
+
+  # Parse JSON using Python
+  local parsed
+  parsed=$(python3 -c "
+import json
+import sys
+try:
+    with open('$state_file', 'r') as f:
+        d = json.load(f)
+    print(d.get('agent', ''))
+    print(d.get('failures', 0))
+    print(d.get('lastFailureType', ''))
+    print(d.get('storyId', ''))
+except Exception:
+    sys.exit(1)
+" 2>/dev/null) || return 1
+
+  # Read parsed values line by line
+  CURRENT_AGENT=$(echo "$parsed" | sed -n '1p')
+  CONSECUTIVE_FAILURES=$(echo "$parsed" | sed -n '2p')
+  LAST_FAILURE_TYPE=$(echo "$parsed" | sed -n '3p')
+  LAST_FAILED_STORY_ID=$(echo "$parsed" | sed -n '4p')
+
+  # Validate
+  if [ -z "$CURRENT_AGENT" ]; then
+    CURRENT_AGENT="$DEFAULT_AGENT_NAME"
+  fi
+  if [ -z "$CONSECUTIVE_FAILURES" ] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
+    CONSECUTIVE_FAILURES=0
+  fi
+
+  msg_dim "Switch state loaded: $CONSECUTIVE_FAILURES failures for $CURRENT_AGENT"
+  return 0
+}
+
+# Clear switch state file (on successful completion of all stories)
+# Usage: clear_switch_state <prd_folder>
+clear_switch_state() {
+  local prd_folder="$1"
+  local state_file
+  state_file="$(get_switch_state_file "$prd_folder")"
+
+  if [ -f "$state_file" ]; then
+    rm -f "$state_file"
+    msg_dim "Switch state cleared (build complete)"
+  fi
+}
+
 # Progress indicator: prints elapsed time every N seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
 PROGRESS_PID=""
@@ -1792,6 +1986,17 @@ if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
   else
     msg_warn "No checkpoint found. Starting fresh build."
   fi
+
+  # Load switch state for failure tracking persistence (US-001)
+  if load_switch_state "$PRD_FOLDER"; then
+    if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+      msg_info "Previous run had $CONSECUTIVE_FAILURES consecutive failure(s) for agent $CURRENT_AGENT"
+    fi
+  fi
+elif [ "$MODE" = "build" ]; then
+  # Non-resume build mode - load switch state to continue tracking
+  PRD_FOLDER="$(dirname "$PRD_PATH")"
+  load_switch_state "$PRD_FOLDER" 2>/dev/null || true
 fi
 
 for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
@@ -1815,9 +2020,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       exit 1
     fi
     if [ "$REMAINING" = "0" ]; then
-      # Clear checkpoint on successful completion
+      # Clear checkpoint and switch state on successful completion
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
+      clear_switch_state "$PRD_FOLDER"
       msg_success "No remaining stories."
       exit 0
     fi
@@ -1933,6 +2139,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Track failed iteration details for summary
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
+    # Track failure for agent switching (US-001)
+    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+      track_failure "$CMD_STATUS" "$LOG_FILE" "$STORY_ID"
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
+      save_switch_state "$PRD_FOLDER"
+    fi
   fi
   COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
   CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
@@ -1942,6 +2154,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     STATUS_LABEL="error"
   else
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    # Reset failure tracking on success (US-001)
+    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+      reset_failure_tracking
+    fi
   fi
   # Track iteration result for summary table
   ITERATION_COUNT=$((ITERATION_COUNT + 1))
@@ -1997,9 +2213,10 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
         rebuild_token_cache
-        # Clear checkpoint on successful completion
+        # Clear checkpoint and switch state on successful completion
         PRD_FOLDER="$(dirname "$PRD_PATH")"
         clear_checkpoint "$PRD_FOLDER"
+        clear_switch_state "$PRD_FOLDER"
         msg_success "All stories complete."
         exit 0
       fi
@@ -2014,9 +2231,10 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
       rebuild_token_cache
-      # Clear checkpoint on successful completion
+      # Clear checkpoint and switch state on successful completion
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
+      clear_switch_state "$PRD_FOLDER"
       msg_success "No remaining stories."
       exit 0
     fi
