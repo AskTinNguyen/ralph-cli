@@ -394,6 +394,13 @@ calculate_backoff_delay() {
 LAST_RETRY_COUNT=0
 LAST_RETRY_TOTAL_TIME=0
 
+# Global variables for agent switch tracking (US-003)
+# These are used by write_run_meta to record switches in run summary
+LAST_SWITCH_COUNT=0
+LAST_SWITCH_FROM=""
+LAST_SWITCH_TO=""
+LAST_SWITCH_REASON=""
+
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
@@ -1388,6 +1395,11 @@ write_run_meta() {
   local routing_reason="${25:-}"
   local est_cost="${26:-}"
   local est_tokens="${27:-}"
+  # Agent switch parameters (new for US-003 Switch Notifications)
+  local switch_count="${28:-0}"
+  local switch_from="${29:-}"
+  local switch_to="${30:-}"
+  local switch_reason="${31:-}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -1454,6 +1466,16 @@ write_run_meta() {
       echo "- Total retry wait time: ${retry_time}s"
     else
       echo "- Retry count: 0 (succeeded on first attempt)"
+    fi
+    echo ""
+    echo "## Agent Switches"
+    if [ "$switch_count" -gt 0 ]; then
+      echo "- Switch count: $switch_count"
+      echo "- From: $switch_from"
+      echo "- To: $switch_to"
+      echo "- Reason: $switch_reason"
+    else
+      echo "- Switch count: 0 (no agent switches)"
     fi
     echo ""
     echo "## Routing Decision"
@@ -1984,14 +2006,19 @@ switch_to_next_agent() {
       CHAIN_POSITION=$next_pos
       CURRENT_AGENT="$candidate"
       AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      log_activity "AGENT_SWITCH from=$old_agent to=$CURRENT_AGENT reason=$LAST_FAILURE_TYPE chain_position=$CHAIN_POSITION"
+      log_activity "AGENT_SWITCH from=$old_agent to=$CURRENT_AGENT reason=$LAST_FAILURE_TYPE story=${STORY_ID:-unknown} failures=$CONSECUTIVE_FAILURES chain_position=$CHAIN_POSITION"
       msg_warn "Switching agent: $old_agent → $CURRENT_AGENT (after $CONSECUTIVE_FAILURES $LAST_FAILURE_TYPE failure(s))"
+      # Track switch for run summary (US-003)
+      LAST_SWITCH_COUNT=$((LAST_SWITCH_COUNT + 1))
+      LAST_SWITCH_FROM="$old_agent"
+      LAST_SWITCH_TO="$CURRENT_AGENT"
+      LAST_SWITCH_REASON="$LAST_FAILURE_TYPE"
       return 0
     fi
   done
 
   # Chain exhausted - no available agents found
-  log_activity "AGENT_SWITCH_EXHAUSTED from=$old_agent tried_all_agents chain=$chain_str"
+  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$chain_length story=${STORY_ID:-unknown}"
   msg_error "Agent fallback chain exhausted. No available agents found."
   return 1
 }
@@ -2111,6 +2138,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   STORY_BLOCK=""
   ITER_START=$(date +%s)
   ITER_START_FMT=$(date '+%Y-%m-%d %H:%M:%S')
+  # Reset switch tracking for this iteration (US-003)
+  LAST_SWITCH_COUNT=0
+  LAST_SWITCH_FROM=""
+  LAST_SWITCH_TO=""
+  LAST_SWITCH_REASON=""
   if [ "$MODE" = "build" ]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
@@ -2288,7 +2320,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
-  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}"
+  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}" "$LAST_SWITCH_COUNT" "$LAST_SWITCH_FROM" "$LAST_SWITCH_TO" "$LAST_SWITCH_REASON"
 
   # Append metrics to metrics.jsonl for historical tracking (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
