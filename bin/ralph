@@ -175,7 +175,10 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     continue;
   }
   if (arg === "--force") {
+    // Only consume --force for install command, pass through for others (like stream build)
     installForce = true;
+    // Still add to args for stream build --force
+    args.push(arg);
     continue;
   }
   if (arg.startsWith("--import-from=")) {

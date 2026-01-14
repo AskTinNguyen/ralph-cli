@@ -1798,10 +1798,10 @@ case "$cmd" in
     ;;
   build)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream build <N> [iterations]" >&2
+      echo "Usage: ralph stream build <N> [iterations] [--no-worktree|--force]" >&2
       exit 1
     fi
-    cmd_build "$1" "${2:-1}"
+    cmd_build "$@"
     ;;
   merge)
     if [[ -z "${1:-}" ]]; then
