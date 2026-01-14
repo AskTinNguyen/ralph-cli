@@ -165,6 +165,119 @@ is_merge_lock_held() {
   return 1
 }
 
+get_merge_lock_info() {
+  # Returns lock holder info: "STREAM_ID (PID PID) started Xs ago"
+  if [[ ! -f "$MERGE_LOCK_FILE" ]]; then
+    echo ""
+    return
+  fi
+
+  local holder_stream holder_pid holder_time now elapsed
+  holder_stream=$(grep '^STREAM_ID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+  holder_pid=$(grep '^PID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+  holder_time=$(grep '^TIMESTAMP=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+
+  if [[ -z "$holder_stream" || -z "$holder_pid" ]]; then
+    echo "unknown holder"
+    return
+  fi
+
+  # Calculate elapsed time
+  now=$(date +%s)
+  elapsed=$((now - holder_time))
+
+  if [[ $elapsed -lt 60 ]]; then
+    echo "$holder_stream (PID $holder_pid) started ${elapsed}s ago"
+  elif [[ $elapsed -lt 3600 ]]; then
+    echo "$holder_stream (PID $holder_pid) started $((elapsed / 60))m ago"
+  else
+    echo "$holder_stream (PID $holder_pid) started $((elapsed / 3600))h ago"
+  fi
+}
+
+# ============================================================================
+# Retry with backoff (US-004)
+# ============================================================================
+
+SPINNER_CHARS='|/-\'
+
+show_wait_spinner() {
+  # Display spinner with elapsed time and lock holder info
+  # Args: elapsed_seconds, total_wait, lock_holder_info
+  local elapsed="$1"
+  local max_wait="$2"
+  local lock_info="$3"
+  local spinner_idx=$((elapsed % 4))
+  local spinner_char="${SPINNER_CHARS:$spinner_idx:1}"
+
+  # Format elapsed time nicely
+  local elapsed_str
+  if [[ $elapsed -lt 60 ]]; then
+    elapsed_str="${elapsed}s"
+  else
+    elapsed_str="$((elapsed / 60))m $((elapsed % 60))s"
+  fi
+
+  # Clear line and print spinner
+  printf "\r${C_YELLOW}%s${C_RESET} Waiting for merge lock... ${C_DIM}[%s / %ss]${C_RESET} ${C_DIM}Held by: %s${C_RESET}  " \
+    "$spinner_char" "$elapsed_str" "$max_wait" "$lock_info"
+}
+
+wait_for_merge_lock() {
+  # Wait for merge lock with exponential backoff
+  # Args: stream_id, max_wait_seconds (default 300)
+  # Returns: 0 if lock acquired, 1 if timeout exceeded
+  local stream_id="$1"
+  local max_wait="${2:-300}"
+  local elapsed=0
+  local backoff=1
+  local max_backoff=30
+
+  msg_dim "Merge lock is held. Waiting with exponential backoff..."
+
+  while [[ $elapsed -lt $max_wait ]]; do
+    # Check if lock is now available
+    if ! is_merge_lock_held; then
+      # Clear spinner line
+      printf "\r%80s\r" " "
+      msg_dim "Lock released. Attempting to acquire..."
+      if acquire_merge_lock "$stream_id"; then
+        return 0
+      fi
+      # Someone else grabbed it - keep waiting
+      msg_dim "Lock acquired by another process. Continuing to wait..."
+    fi
+
+    # Show spinner with current status
+    local lock_info
+    lock_info=$(get_merge_lock_info)
+    show_wait_spinner "$elapsed" "$max_wait" "$lock_info"
+
+    # Sleep for current backoff interval
+    local sleep_time=$backoff
+    # Don't sleep past max wait
+    if [[ $((elapsed + sleep_time)) -gt $max_wait ]]; then
+      sleep_time=$((max_wait - elapsed))
+    fi
+    sleep "$sleep_time"
+    elapsed=$((elapsed + sleep_time))
+
+    # Exponential backoff with cap
+    backoff=$((backoff * 2))
+    if [[ $backoff -gt $max_backoff ]]; then
+      backoff=$max_backoff
+    fi
+  done
+
+  # Clear spinner line
+  printf "\r%80s\r" " "
+  msg_error "Max wait time exceeded (${max_wait}s). Merge lock still held."
+  local lock_info
+  lock_info=$(get_merge_lock_info)
+  msg_dim "Current holder: $lock_info"
+  return 1
+}
+
 get_stream_status() {
   local stream_id="$1"
   local stream_dir
@@ -646,6 +759,8 @@ cmd_merge() {
   # Parse flags
   local force_merge=false
   local do_rebase=false
+  local do_wait=false
+  local max_wait=300
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --force)
@@ -654,6 +769,19 @@ cmd_merge() {
         ;;
       --rebase)
         do_rebase=true
+        shift
+        ;;
+      --wait)
+        do_wait=true
+        shift
+        ;;
+      --max-wait=*)
+        max_wait="${1#--max-wait=}"
+        shift
+        ;;
+      --max-wait)
+        shift
+        max_wait="${1:-300}"
         shift
         ;;
       *)
@@ -685,8 +813,15 @@ cmd_merge() {
 
   # Acquire global merge lock to prevent concurrent merges
   if ! acquire_merge_lock "$stream_id"; then
-    msg_dim "Another merge is in progress. Wait for it to complete or use --force-unlock."
-    return 1
+    if [[ "$do_wait" == "true" ]]; then
+      # Wait for lock with exponential backoff
+      if ! wait_for_merge_lock "$stream_id" "$max_wait"; then
+        return 1
+      fi
+    else
+      msg_dim "Another merge is in progress. Use --wait to wait, or --force-unlock to force."
+      return 1
+    fi
   fi
 
   # Set up trap to release merge lock on exit (success or failure)
@@ -844,7 +979,7 @@ case "$cmd" in
     ;;
   merge)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream merge <N> [--rebase] [--force]" >&2
+      echo "Usage: ralph stream merge <N> [--rebase] [--force] [--wait] [--max-wait=N]" >&2
       exit 1
     fi
     cmd_merge "$@"
@@ -865,10 +1000,12 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
     printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n]${C_RESET}    Run n build iterations in stream\n"
-    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[--rebase] [--force]${C_RESET}\n"
+    printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[options]${C_RESET}\n"
     printf "                              Merge completed stream\n"
     printf "                              ${C_DIM}--rebase: rebase onto main first${C_RESET}\n"
     printf "                              ${C_DIM}--force: ignore conflicts${C_RESET}\n"
+    printf "                              ${C_DIM}--wait: wait if lock is held${C_RESET}\n"
+    printf "                              ${C_DIM}--max-wait=N: max wait seconds (default: 300)${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
