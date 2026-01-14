@@ -21,6 +21,8 @@ const { generateAccuracyReport, loadEstimates, saveEstimate } = require('../../.
 const { estimate } = require('../../../lib/estimate/index.js');
 // Rollback analytics (US-004)
 const { getRollbackAnalytics, getRollbackStats, loadMetrics } = require('../../../lib/estimate/metrics.js');
+// Risk analysis (US-003: Risk Visualization)
+const { analyzeStoryRisk, formatRiskDisplay, getRiskThreshold, getRiskColorClass, getRiskLabel } = require('../../../lib/risk/index.js');
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1490,6 +1492,7 @@ api.get("/partials/stories", (c) => {
 `);
   }
 
+  const threshold = getRiskThreshold();
   const storyCards = stories
     .map((story) => {
       const statusClass = story.status;
@@ -1497,6 +1500,14 @@ api.get("/partials/stories", (c) => {
         story.status === "in-progress"
           ? "In Progress"
           : story.status.charAt(0).toUpperCase() + story.status.slice(1);
+
+      // Analyze risk for the story
+      const storyText = story.title + " " + (story.description || "");
+      const riskResult = analyzeStoryRisk(storyText);
+      const riskScore = riskResult.score;
+      const riskColorClass = getRiskColorClass(riskScore, threshold);
+      const riskLabel = getRiskLabel(riskScore, threshold);
+      const isHighRisk = riskScore >= threshold;
 
       const criteriaHtml =
         story.acceptanceCriteria.length > 0
@@ -1515,11 +1526,19 @@ api.get("/partials/stories", (c) => {
 `
           : "";
 
+      // Risk badge with tooltip showing factors
+      const riskFactorsTooltip = riskResult.factors.length > 0
+        ? riskResult.factors.slice(0, 3).map((f: any) => f.description).join("; ")
+        : "No significant risk factors";
+
       return `
-<div class="story-card">
+<div class="story-card${isHighRisk ? " high-risk" : ""}">
   <div class="story-header">
     <span class="story-id">${escapeHtml(story.id)}</span>
-    <span class="status-badge ${statusClass}">${statusLabel}</span>
+    <div class="story-badges">
+      <span class="risk-badge ${riskColorClass}" title="${escapeHtml(riskFactorsTooltip)}">${riskScore}/10</span>
+      <span class="status-badge ${statusClass}">${statusLabel}</span>
+    </div>
   </div>
   <div class="story-title">${escapeHtml(story.title)}</div>
   ${criteriaHtml}
@@ -5849,6 +5868,150 @@ api.get('/rollback-stats', (c) => {
     recoveryRate: overallRecoveryRate,
     byStream: allStats.byStream,
     byReason: allStats.byReason,
+  });
+});
+
+/**
+ * GET /api/risk
+ *
+ * Returns risk overview for all stories across streams.
+ * Query params:
+ *   - streamId: Optional stream ID to filter by
+ *   - sortByRisk: Sort stories by risk score (default: true)
+ */
+api.get("/risk", (c) => {
+  const rootPath = getRalphRoot();
+  const streamId = c.req.query("streamId");
+  const sortByRisk = c.req.query("sortByRisk") !== "false";
+
+  if (!rootPath) {
+    return c.json({
+      success: false,
+      error: "Ralph not initialized",
+    });
+  }
+
+  const threshold = getRiskThreshold();
+  let allStories: Array<{
+    id: string;
+    title: string;
+    status: string;
+    streamId: string;
+    risk: { score: number; level: string; factors: any[] };
+  }> = [];
+
+  if (streamId) {
+    // Get stories for specific stream
+    const details = getStreamDetails(streamId);
+    if (details && details.stories) {
+      for (const story of details.stories) {
+        const storyText = story.title + " " + (story.description || "");
+        const riskResult = analyzeStoryRisk(storyText);
+        allStories.push({
+          id: story.id,
+          title: story.title,
+          status: story.status,
+          streamId: streamId,
+          risk: {
+            score: riskResult.score,
+            level: riskResult.riskLevel,
+            factors: riskResult.factors,
+          },
+        });
+      }
+    }
+  } else {
+    // Get stories from all streams
+    const streams = getStreams();
+    for (const stream of streams) {
+      const details = getStreamDetails(stream.id);
+      if (details && details.stories) {
+        for (const story of details.stories) {
+          const storyText = story.title + " " + (story.description || "");
+          const riskResult = analyzeStoryRisk(storyText);
+          allStories.push({
+            id: story.id,
+            title: story.title,
+            status: story.status,
+            streamId: stream.id,
+            risk: {
+              score: riskResult.score,
+              level: riskResult.riskLevel,
+              factors: riskResult.factors,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  // Sort by risk if requested
+  if (sortByRisk) {
+    allStories.sort((a, b) => b.risk.score - a.risk.score);
+  }
+
+  // Calculate summary
+  const summary = {
+    total: allStories.length,
+    highRisk: allStories.filter((s) => s.risk.score >= threshold).length,
+    mediumRisk: allStories.filter((s) => s.risk.score >= 4 && s.risk.score < threshold).length,
+    lowRisk: allStories.filter((s) => s.risk.score < 4).length,
+    avgScore: allStories.length > 0
+      ? Math.round(allStories.reduce((sum, s) => sum + s.risk.score, 0) / allStories.length)
+      : 0,
+  };
+
+  return c.json({
+    success: true,
+    threshold,
+    summary,
+    stories: allStories,
+  });
+});
+
+/**
+ * GET /api/risk/:streamId/:storyId
+ *
+ * Returns detailed risk analysis for a specific story.
+ */
+api.get("/risk/:streamId/:storyId", (c) => {
+  const { streamId, storyId } = c.req.param();
+  const details = getStreamDetails(streamId);
+
+  if (!details) {
+    return c.json({
+      success: false,
+      error: `Stream PRD-${streamId} not found`,
+    });
+  }
+
+  const story = details.stories?.find((s) => s.id.toUpperCase() === storyId.toUpperCase());
+  if (!story) {
+    return c.json({
+      success: false,
+      error: `Story ${storyId} not found in PRD-${streamId}`,
+    });
+  }
+
+  const storyText = story.title + " " + (story.description || "");
+  const riskResult = analyzeStoryRisk(storyText);
+
+  return c.json({
+    success: true,
+    story: {
+      id: story.id,
+      title: story.title,
+      status: story.status,
+      streamId,
+    },
+    risk: {
+      score: riskResult.score,
+      level: riskResult.riskLevel,
+      threshold: getRiskThreshold(),
+      isHighRisk: riskResult.score >= getRiskThreshold(),
+      factors: riskResult.factors,
+      breakdown: riskResult.breakdown,
+    },
   });
 });
 
