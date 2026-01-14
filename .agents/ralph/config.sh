@@ -69,6 +69,27 @@ ROLLBACK_RETRY_ENABLED=true
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Rollback Trigger Configuration (US-003)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure what types of failures trigger automatic rollback.
+#
+# Rollback trigger policy (choose one):
+#   test-fail  - Only test failures (Jest, Pytest, Mocha, Go test, Vitest, etc.)
+#   lint-fail  - Only lint failures (ESLint, Prettier, Ruff, Pylint, etc.)
+#   type-fail  - Only type check failures (TypeScript, mypy, pyright, etc.)
+#   any-fail   - Any non-zero exit code triggers rollback (most aggressive)
+#
+# Default: test-fail (most conservative, only rollback on test failures)
+ROLLBACK_TRIGGER=test-fail
+#
+# Override via CLI: ralph build 1 --rollback-trigger=any-fail
+# Disable rollback via CLI: ralph build 1 --no-rollback
+#
+# Story-level skip: Add <!-- no-rollback --> to a story block in the PRD
+# to exclude that specific story from rollback even if failures occur.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Automatically select AI model based on task complexity.

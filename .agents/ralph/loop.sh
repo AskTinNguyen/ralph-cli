@@ -523,6 +523,14 @@ while [ $# -gt 0 ]; do
       NO_COMMIT=true
       shift
       ;;
+    --no-rollback)
+      ROLLBACK_ENABLED=false
+      shift
+      ;;
+    --rollback-trigger=*)
+      ROLLBACK_TRIGGER="${1#*=}"
+      shift
+      ;;
     --resume)
       RESUME_MODE="1"
       shift
@@ -1202,6 +1210,136 @@ detect_test_failure() {
   done
 
   return 1  # No test failure detected
+}
+
+# Detect lint failures in build output (US-003)
+# Returns: 0 if lint failure detected, 1 if no lint failure
+# Usage: detect_lint_failure <log_file>
+detect_lint_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common lint failure patterns across various linters
+  local patterns=(
+    "error.*eslint"                    # ESLint
+    "eslint.*error"                    # ESLint (alternate order)
+    "[0-9]+ error"                     # ESLint summary
+    "prettier.*failed"                 # Prettier
+    "prettier.*check.*failed"          # Prettier check mode
+    "ruff.*error"                      # Ruff (Python)
+    "pylint.*error"                    # Pylint
+    "flake8.*error"                    # Flake8
+    "rubocop.*offense"                 # RuboCop (Ruby)
+    "stylelint.*error"                 # Stylelint (CSS)
+    "golangci-lint.*error"             # golangci-lint (Go)
+    "lint.*failed"                     # Generic lint failure
+    "linting.*failed"                  # Generic linting failure
+    "Linting errors"                   # Generic linting errors
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Lint failure detected
+    fi
+  done
+
+  return 1  # No lint failure detected
+}
+
+# Detect type check failures in build output (US-003)
+# Returns: 0 if type failure detected, 1 if no type failure
+# Usage: detect_type_failure <log_file>
+detect_type_failure() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Common type check failure patterns
+  local patterns=(
+    "error TS[0-9]+"                   # TypeScript errors
+    "tsc.*error"                       # TypeScript compiler
+    "Type.*is not assignable"          # TypeScript type error
+    "Cannot find module"               # TypeScript/JavaScript import error
+    "Cannot find name"                 # TypeScript undefined error
+    "mypy.*error"                      # mypy (Python)
+    "pyright.*error"                   # Pyright (Python)
+    "type.*mismatch"                   # Generic type mismatch
+    "incompatible type"                # Generic incompatible type
+    "error\\[E[0-9]+"                  # Rust compiler errors
+    "flow.*error"                      # Flow (JavaScript)
+  )
+
+  for pattern in "${patterns[@]}"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0  # Type failure detected
+    fi
+  done
+
+  return 1  # No type failure detected
+}
+
+# Unified failure detection based on ROLLBACK_TRIGGER config (US-003)
+# Returns: 0 if relevant failure detected (based on config), 1 otherwise
+# Usage: detect_failure <log_file> <trigger_policy>
+detect_failure() {
+  local log_file="$1"
+  local trigger_policy="${2:-test-fail}"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  case "$trigger_policy" in
+    test-fail)
+      detect_test_failure "$log_file"
+      return $?
+      ;;
+    lint-fail)
+      detect_lint_failure "$log_file"
+      return $?
+      ;;
+    type-fail)
+      detect_type_failure "$log_file"
+      return $?
+      ;;
+    any-fail)
+      # any-fail triggers on any non-zero exit, no log analysis needed
+      # The caller already checks CMD_STATUS != 0, so we always return 0 here
+      return 0
+      ;;
+    *)
+      # Unknown trigger policy, fall back to test-fail
+      detect_test_failure "$log_file"
+      return $?
+      ;;
+  esac
+}
+
+# Check if story has rollback disabled via <!-- no-rollback --> comment (US-003)
+# Returns: 0 if rollback should be skipped, 1 if rollback is allowed
+# Usage: story_has_no_rollback <story_block_file>
+story_has_no_rollback() {
+  local story_block_file="$1"
+
+  if [ -z "$story_block_file" ]; then
+    return 1  # No file, allow rollback
+  fi
+
+  if [ ! -f "$story_block_file" ]; then
+    return 1  # File doesn't exist, allow rollback
+  fi
+
+  # Check for <!-- no-rollback --> comment in story block file
+  if grep -qiE "<!--[[:space:]]*no-rollback[[:space:]]*-->" "$story_block_file" 2>/dev/null; then
+    return 0  # Rollback disabled for this story
+  fi
+
+  return 1  # Rollback is allowed
 }
 
 # Rollback to a git checkpoint (pre-story state)
@@ -2302,21 +2440,35 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
     REMAINING="$(remaining_stories "$STORY_META")"
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Rollback on Test Failure (US-001)
-    # Check for test failures and rollback to pre-story state if detected
+    # Rollback on Failure (US-001 + US-003)
+    # Check for failures based on ROLLBACK_TRIGGER config and rollback to pre-story state
     # ─────────────────────────────────────────────────────────────────────────
     if [ "$CMD_STATUS" -ne 0 ] && [ "${ROLLBACK_ENABLED:-true}" = "true" ] && [ "$NO_COMMIT" = "false" ]; then
-      # Check if this is a test failure (not just a transient error)
-      if detect_test_failure "$LOG_FILE"; then
-        log_activity "TEST_FAILURE_DETECTED story=$STORY_ID"
+      # US-003: Check for story-level rollback skip via <!-- no-rollback --> comment
+      if story_has_no_rollback "${STORY_BLOCK:-}"; then
+        log_activity "ROLLBACK_SKIPPED story=$STORY_ID reason=no-rollback-directive"
+        msg_dim "Rollback skipped: story has <!-- no-rollback --> directive"
+      # Check if failure matches configured trigger policy (US-003)
+      elif detect_failure "$LOG_FILE" "${ROLLBACK_TRIGGER:-test-fail}"; then
+        log_activity "FAILURE_DETECTED story=$STORY_ID trigger=${ROLLBACK_TRIGGER:-test-fail}"
 
         # Save failure context for retry before rollback
         FAILURE_CONTEXT_FILE="$(save_failure_context "$LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i" "${STORY_ID:-unknown}")"
 
+        # Determine failure reason based on trigger policy for notification
+        local failure_reason
+        case "${ROLLBACK_TRIGGER:-test-fail}" in
+          test-fail) failure_reason="Test failure detected" ;;
+          lint-fail) failure_reason="Lint failure detected" ;;
+          type-fail) failure_reason="Type check failure detected" ;;
+          any-fail)  failure_reason="Build failure detected (any-fail policy)" ;;
+          *)         failure_reason="Failure detected" ;;
+        esac
+
         # Perform rollback to pre-story state
-        if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "test_failure"; then
+        if rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}"; then
           # Notify user of successful rollback
-          notify_rollback "${STORY_ID:-unknown}" "Test failure detected" "$HEAD_BEFORE" "$FAILURE_CONTEXT_FILE"
+          notify_rollback "${STORY_ID:-unknown}" "$failure_reason" "$HEAD_BEFORE" "$FAILURE_CONTEXT_FILE"
           log_activity "ROLLBACK_SUCCESS story=$STORY_ID context=$FAILURE_CONTEXT_FILE"
 
           # Update HEAD_AFTER to reflect rollback
@@ -2399,13 +2551,13 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
                 printf "${C_YELLOW}  Retry $CURRENT_RETRY_COUNT failed${C_RESET}\n"
                 log_activity "ROLLBACK_RETRY_FAILED story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
 
-                # Check if we should rollback this retry too
-                if detect_test_failure "$RETRY_LOG_FILE"; then
-                  log_activity "RETRY_TEST_FAILURE story=$STORY_ID attempt=$CURRENT_RETRY_COUNT"
+                # Check if we should rollback this retry too (use same trigger policy)
+                if detect_failure "$RETRY_LOG_FILE" "${ROLLBACK_TRIGGER:-test-fail}"; then
+                  log_activity "RETRY_FAILURE story=$STORY_ID attempt=$CURRENT_RETRY_COUNT trigger=${ROLLBACK_TRIGGER:-test-fail}"
                   # Save new failure context
                   FAILURE_CONTEXT_FILE="$(save_failure_context "$RETRY_LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i-retry$CURRENT_RETRY_COUNT" "${STORY_ID:-unknown}")"
                   # Rollback the retry attempt
-                  rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_test_failure" || true
+                  rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_${ROLLBACK_TRIGGER:-test-fail}" || true
                 fi
               fi
             else
