@@ -1776,6 +1776,7 @@ ${pc.bold(pc.cyan("Examples:"))}
     // Handle --tokens flag - show token/cost metrics
     if (tokensFlag) {
       const tokensModule = require("../lib/tokens");
+      const metricsModule = require("../lib/estimate/metrics");
       const ralphDir = path.join(cwd, ".ralph");
 
       if (!exists(ralphDir)) {
@@ -1804,6 +1805,9 @@ ${pc.bold(pc.cyan("Examples:"))}
       let totalEstimated = 0;
       const byModel = {};
       const byStream = [];
+
+      // Aggregate success/failure by model from metrics
+      const modelSuccessRates = {};
 
       for (const prdDir of prdDirs) {
         const cache = tokensModule.loadTokenCache(prdDir.path);
@@ -1841,6 +1845,23 @@ ${pc.bold(pc.cyan("Examples:"))}
             byModel[model].runs += data.runs || 0;
           }
         }
+
+        // Load metrics to get success/failure rates by model
+        const metricsResult = metricsModule.loadMetrics(prdDir.path);
+        if (metricsResult.success && metricsResult.metrics.length > 0) {
+          for (const m of metricsResult.metrics) {
+            const model = m.model || "unknown";
+            if (!modelSuccessRates[model]) {
+              modelSuccessRates[model] = { success: 0, error: 0, total: 0 };
+            }
+            modelSuccessRates[model].total++;
+            if (m.status === "success") {
+              modelSuccessRates[model].success++;
+            } else {
+              modelSuccessRates[model].error++;
+            }
+          }
+        }
       }
 
       // Format cost for display
@@ -1858,6 +1879,16 @@ ${pc.bold(pc.cyan("Examples:"))}
         return num.toString();
       };
 
+      // Merge success rates into byModel for output
+      for (const [model, rates] of Object.entries(modelSuccessRates)) {
+        if (!byModel[model]) {
+          byModel[model] = { inputTokens: 0, outputTokens: 0, cost: 0, runs: 0 };
+        }
+        byModel[model].successCount = rates.success;
+        byModel[model].errorCount = rates.error;
+        byModel[model].successRate = rates.total > 0 ? Math.round((rates.success / rates.total) * 100) : null;
+      }
+
       if (jsonFlag) {
         console.log(JSON.stringify({
           totalInputTokens,
@@ -1868,6 +1899,7 @@ ${pc.bold(pc.cyan("Examples:"))}
           avgCostPerRun: totalRuns > 0 ? totalCost / totalRuns : 0,
           byModel,
           byStream,
+          modelSuccessRates,
         }, null, 2));
         process.exit(0);
       }
@@ -1895,21 +1927,23 @@ ${pc.bold(pc.cyan("Examples:"))}
       const models = Object.keys(byModel);
       if (models.length > 0) {
         console.log(pc.bold(pc.cyan("By Model")));
-        console.log(pc.dim("-".repeat(60)));
+        console.log(pc.dim("-".repeat(70)));
         console.log(
           pc.dim(
-            `${"MODEL".padEnd(15)} ${"TOKENS".padStart(12)} ${"COST".padStart(10)} ${"RUNS".padStart(6)}`
+            `${"MODEL".padEnd(12)} ${"TOKENS".padStart(10)} ${"COST".padStart(10)} ${"RUNS".padStart(6)} ${"SUCCESS".padStart(10)}`
           )
         );
-        console.log(pc.dim("-".repeat(60)));
+        console.log(pc.dim("-".repeat(70)));
 
         for (const model of models) {
           const data = byModel[model];
           const tokens = formatTokens(data.inputTokens + data.outputTokens);
           const cost = formatCost(data.cost);
           const runs = String(data.runs).padStart(6);
+          const successRate = data.successRate != null ? `${data.successRate}%` : "N/A";
+          const successColor = data.successRate >= 80 ? pc.green : data.successRate >= 60 ? pc.yellow : pc.red;
           console.log(
-            `${model.padEnd(15)} ${tokens.padStart(12)} ${cost.padStart(10)} ${runs}`
+            `${model.padEnd(12)} ${tokens.padStart(10)} ${cost.padStart(10)} ${runs} ${data.successRate != null ? successColor(successRate.padStart(10)) : pc.dim(successRate.padStart(10))}`
           );
         }
         console.log("");
