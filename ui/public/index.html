@@ -171,6 +171,18 @@
           <div class="loading"><span class="loading-spinner"></span> Loading stories...</div>
         </div>
       </section>
+
+      <!-- Accuracy Metrics Section -->
+      <section id="accuracy-section">
+        <div
+          id="accuracy-container"
+          hx-get="/api/partials/accuracy-widget"
+          hx-trigger="load, every 60s, sse:run_completed"
+          hx-swap="innerHTML transition:true"
+        >
+          <div class="loading"><span class="loading-spinner"></span> Loading accuracy metrics...</div>
+        </div>
+      </section>
     </main>
 
     <footer>

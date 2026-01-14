@@ -4761,4 +4761,206 @@ api.get('/partials/estimate-comparison', (c) => {
   return c.html(html);
 });
 
+/**
+ * GET /api/partials/accuracy-widget
+ *
+ * Returns a compact widget showing overall estimation accuracy metrics.
+ * Displays: average deviation %, trend indicator, sample count
+ * Links to detailed accuracy view.
+ *
+ * Shows "Insufficient data" state when < 3 samples.
+ */
+api.get('/partials/accuracy-widget', (c) => {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.html(`
+<div class="accuracy-widget">
+  <div class="accuracy-widget-header">
+    <h3>Estimation Accuracy</h3>
+  </div>
+  <div class="accuracy-widget-content">
+    <div class="empty-state-small">
+      <p>Ralph root not found</p>
+    </div>
+  </div>
+</div>
+`);
+  }
+
+  // Get all streams and collect accuracy data
+  const streams = getStreams();
+  let allComparisons: any[] = [];
+
+  for (const stream of streams) {
+    const prdFolder = path.join(ralphRoot, `PRD-${stream.id}`);
+    if (fs.existsSync(prdFolder)) {
+      const report = generateAccuracyReport(prdFolder);
+      if (report.success && report.hasData && report.comparisons) {
+        allComparisons = allComparisons.concat(report.comparisons);
+      }
+    }
+  }
+
+  // Need at least 3 samples for meaningful metrics
+  if (allComparisons.length < 3) {
+    return c.html(`
+<div class="accuracy-widget">
+  <div class="accuracy-widget-header">
+    <h3>Estimation Accuracy</h3>
+  </div>
+  <div class="accuracy-widget-content">
+    <div class="empty-state-small">
+      <p>Insufficient data</p>
+      <p class="text-muted">Need at least 3 completed stories with estimates</p>
+    </div>
+  </div>
+</div>
+`);
+  }
+
+  // Calculate overall accuracy metrics
+  const calculateAccuracy = (comparisons: any[]) => {
+    const validComparisons = comparisons.filter(
+      (c: any) => c.estimated.duration > 0 && c.estimated.tokens > 0
+    );
+
+    if (validComparisons.length === 0) {
+      return { mape: { duration: null }, sampleCount: 0 };
+    }
+
+    const durationDeviations = validComparisons.map((c: any) => Math.abs(c.deviation.duration));
+    const sum = durationDeviations.reduce((a: number, b: number) => a + b, 0);
+    const avg = sum / durationDeviations.length;
+
+    return {
+      mape: { duration: avg },
+      sampleCount: validComparisons.length,
+    };
+  };
+
+  // Detect trend
+  const detectTrend = (comparisons: any[]) => {
+    if (comparisons.length < 3) {
+      return { trend: 'insufficient_data', trendIndicator: '?', description: 'Not enough data' };
+    }
+
+    // Sort by timestamp
+    const sorted = [...comparisons].sort(
+      (a: any, b: any) => new Date(a.actualTimestamp).getTime() - new Date(b.actualTimestamp).getTime()
+    );
+
+    // Split into recent and older
+    const recentCount = Math.max(5, Math.floor(sorted.length / 3));
+    const splitPoint = Math.max(sorted.length - recentCount, Math.floor(sorted.length / 2));
+    const recent = sorted.slice(splitPoint);
+    const older = sorted.slice(0, splitPoint);
+
+    if (older.length === 0) {
+      return { trend: 'insufficient_data', trendIndicator: '?', description: 'Not enough older data' };
+    }
+
+    const recentAccuracy = calculateAccuracy(recent);
+    const olderAccuracy = calculateAccuracy(older);
+
+    const recentMape = recentAccuracy.mape.duration;
+    const olderMape = olderAccuracy.mape.duration;
+
+    if (recentMape === null || olderMape === null) {
+      return { trend: 'insufficient_data', trendIndicator: '?', description: 'Cannot calculate trend' };
+    }
+
+    // Determine trend based on improvement threshold (10% change)
+    const improvement = ((olderMape - recentMape) / olderMape) * 100;
+
+    let trend, trendIndicator, description;
+    if (improvement > 10) {
+      trend = 'improving';
+      trendIndicator = '↑';
+      description = 'improving';
+    } else if (improvement < -10) {
+      trend = 'degrading';
+      trendIndicator = '↓';
+      description = 'degrading';
+    } else {
+      trend = 'stable';
+      trendIndicator = '→';
+      description = 'stable';
+    }
+
+    return { trend, trendIndicator, description, improvement };
+  };
+
+  const accuracy = calculateAccuracy(allComparisons);
+  const trend = detectTrend(allComparisons);
+
+  const avgDeviation = accuracy.mape.duration !== null ? accuracy.mape.duration.toFixed(1) : 'N/A';
+
+  // Generate sparkline data (last 20 comparisons)
+  const sparklineComparisons = [...allComparisons]
+    .sort((a: any, b: any) => new Date(a.actualTimestamp).getTime() - new Date(b.actualTimestamp).getTime())
+    .slice(-20);
+
+  let sparklineSvg = '';
+  if (sparklineComparisons.length >= 2) {
+    const sparklineData = sparklineComparisons.map((c: any) => Math.abs(c.deviation.duration));
+    const maxDeviation = Math.max(...sparklineData);
+    const minDeviation = Math.min(...sparklineData);
+    const range = maxDeviation - minDeviation || 1;
+
+    const width = 100;
+    const height = 30;
+    const padding = 2;
+
+    // Normalize points to SVG coordinates
+    const points = sparklineData.map((value: number, index: number) => {
+      const x = (index / (sparklineData.length - 1)) * (width - 2 * padding) + padding;
+      const y = height - padding - ((value - minDeviation) / range) * (height - 2 * padding);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+
+    sparklineSvg = `
+<svg class="accuracy-sparkline" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <polyline
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.5"
+    points="${points}"
+  />
+</svg>
+`;
+  }
+
+  const trendClass = trend.trend === 'improving' ? 'trend-good' :
+                     trend.trend === 'degrading' ? 'trend-bad' :
+                     'trend-stable';
+
+  const html = `
+<div class="accuracy-widget">
+  <div class="accuracy-widget-header">
+    <h3>Estimation Accuracy</h3>
+    <a href="/streams.html" class="accuracy-widget-link" title="View details">Details →</a>
+  </div>
+  <div class="accuracy-widget-content">
+    <div class="accuracy-widget-main">
+      <div class="accuracy-widget-metric">
+        <span class="accuracy-widget-label">Average Deviation</span>
+        <span class="accuracy-widget-value">±${avgDeviation}%</span>
+      </div>
+      <div class="accuracy-widget-trend ${trendClass}">
+        <span class="accuracy-widget-trend-indicator">${trend.trendIndicator}</span>
+        <span class="accuracy-widget-trend-label">${escapeHtml(trend.description)}</span>
+      </div>
+    </div>
+    ${sparklineSvg}
+    <div class="accuracy-widget-footer">
+      <span class="accuracy-widget-sample-count">${accuracy.sampleCount} samples</span>
+    </div>
+  </div>
+</div>
+`;
+
+  return c.html(html);
+});
+
 export { api };
