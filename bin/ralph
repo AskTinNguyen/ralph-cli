@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 const { spawnSync } = require("child_process");
+
+// Helper to spawn bash scripts cross-platform (Windows needs explicit bash)
+const spawnBashScript = (scriptPath, args, options) => {
+  if (process.platform === "win32") {
+    return spawnSync("bash", [scriptPath, ...args], options);
+  }
+  return spawnSync(scriptPath, args, options);
+};
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -661,7 +669,7 @@ async function main() {
       env.PRD_AGENT_CMD = prdAgent;
     }
     const prdArgs = ["prd", "--prompt", requestFile];
-    const result = spawnSync(loopPath, prdArgs, {
+    const result = spawnBashScript(loopPath, prdArgs, {
       stdio: "inherit",
       env,
     });
@@ -675,7 +683,7 @@ async function main() {
       process.exit(1);
     }
     const streamArgs = args.slice(1);
-    const result = spawnSync(streamPath, streamArgs, {
+    const result = spawnBashScript(streamPath, streamArgs, {
       stdio: "inherit",
       env,
     });
@@ -3279,7 +3287,7 @@ ${pc.bold(pc.cyan("Examples:"))}
     }
   }
 
-  const result = spawnSync(loopPath, loopArgs, {
+  const result = spawnBashScript(loopPath, loopArgs, {
     stdio: "inherit",
     env,
   });
