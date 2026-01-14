@@ -11,6 +11,7 @@ import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
+import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -258,6 +259,109 @@ api.get('/streams/:id', (c) => {
           status: stream.lastRun.status,
         }
       : null,
+  });
+});
+
+/**
+ * Estimate API Endpoints
+ *
+ * REST API endpoints for PRD estimation data.
+ */
+
+/**
+ * GET /api/estimate/:prdId
+ *
+ * Returns JSON estimate for the specified PRD.
+ * Query params:
+ *   - model: Model for cost calculation ('sonnet' or 'opus', default: 'sonnet')
+ *   - force: Force fresh calculation, bypass cache (default: false)
+ *
+ * Response includes all fields from `ralph estimate --json`:
+ *   - estimates[]: Array of story estimates with complexity, duration, tokens, cost
+ *   - totals: Aggregate totals for pending stories
+ *   - cached: Whether result was served from cache
+ *   - cachedAt: Cache timestamp if applicable
+ */
+api.get('/estimate/:prdId', (c) => {
+  const prdId = c.req.param('prdId');
+  const model = c.req.query('model') || 'sonnet';
+  const force = c.req.query('force') === 'true';
+
+  // Validate model parameter
+  if (model !== 'sonnet' && model !== 'opus') {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Invalid model parameter. Must be "sonnet" or "opus".',
+      },
+      400
+    );
+  }
+
+  const result = getStreamEstimate(prdId, { model, force });
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: result.error || `PRD-${prdId} not found or missing plan.md`,
+      },
+      404
+    );
+  }
+
+  return c.json({
+    prdId,
+    estimates: result.estimates,
+    totals: result.totals,
+    cached: result.cached,
+    cachedAt: result.cachedAt,
+    planModifiedAt: result.planModifiedAt,
+  });
+});
+
+/**
+ * GET /api/streams/:id/estimate
+ *
+ * Alternative endpoint for getting PRD estimates.
+ * Consistent with existing streams API pattern.
+ * Query params same as /api/estimate/:prdId
+ */
+api.get('/streams/:id/estimate', (c) => {
+  const id = c.req.param('id');
+  const model = c.req.query('model') || 'sonnet';
+  const force = c.req.query('force') === 'true';
+
+  // Validate model parameter
+  if (model !== 'sonnet' && model !== 'opus') {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Invalid model parameter. Must be "sonnet" or "opus".',
+      },
+      400
+    );
+  }
+
+  const result = getStreamEstimate(id, { model, force });
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: result.error || `PRD-${id} not found or missing plan.md`,
+      },
+      404
+    );
+  }
+
+  return c.json({
+    prdId: id,
+    estimates: result.estimates,
+    totals: result.totals,
+    cached: result.cached,
+    cachedAt: result.cachedAt,
+    planModifiedAt: result.planModifiedAt,
   });
 });
 
