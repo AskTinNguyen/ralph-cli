@@ -38,6 +38,13 @@ source "$SCRIPT_DIR/lib/git-utils.sh"
 # shellcheck source=lib/retry.sh
 source "$SCRIPT_DIR/lib/retry.sh"
 
+# Checkpoint utilities - sourced from shared library
+# Provides: save_checkpoint, clear_checkpoint, load_checkpoint, validate_git_state, prompt_resume_confirmation
+# Global state: CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA, CHECKPOINT_AGENT
+# Note: Depends on git_head from git-utils.sh and msg_* from output.sh
+# shellcheck source=lib/checkpoint.sh
+source "$SCRIPT_DIR/lib/checkpoint.sh"
+
 # Determine active PRD number from env or auto-detect
 if [[ -n "${PRD_NUMBER:-}" ]]; then
   ACTIVE_PRD_NUMBER="$PRD_NUMBER"
@@ -731,110 +738,6 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
-# Save checkpoint before story execution for resumable builds
-# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent]
-save_checkpoint() {
-  local prd_folder="$1"
-  local prd_id="$2"
-  local iteration="$3"
-  local story_id="$4"
-  local git_sha="$5"
-  local agent="${6:-codex}"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
-    msg_dim "Checkpoint CLI not available, skipping checkpoint save"
-    return 0
-  fi
-
-  # Build JSON data
-  local json_data
-  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s"}}' \
-    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent")
-
-  # Save checkpoint via CLI
-  if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
-    msg_dim "Checkpoint saved: iteration=$iteration story=$story_id"
-    return 0
-  else
-    msg_warn "Failed to save checkpoint"
-    return 1
-  fi
-}
-
-# Clear checkpoint from PRD folder (called on successful completion)
-# Usage: clear_checkpoint <prd-folder>
-clear_checkpoint() {
-  local prd_folder="$1"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # Clear checkpoint via CLI (silent - don't warn on failure)
-  if node "$checkpoint_cli" clear "$prd_folder" >/dev/null 2>&1; then
-    msg_dim "Checkpoint cleared (build complete)"
-    return 0
-  else
-    return 1
-  fi
-}
-
-# Load checkpoint from PRD folder for resumable builds
-# Returns: Sets CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA
-# Exit code: 0 if checkpoint loaded, 1 if not found or error
-load_checkpoint() {
-  local prd_folder="$1"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [[ ! -f "$checkpoint_cli" ]] || ! command -v node >/dev/null 2>&1; then
-    return 1
-  fi
-
-  # Load checkpoint via CLI
-  local output
-  output=$(node "$checkpoint_cli" load "$prd_folder" 2>/dev/null)
-  local status=$?
-
-  if [[ $status -ne 0 ]]; then
-    return 1
-  fi
-
-  # Parse JSON output using Python (more reliable than bash parsing)
-  CHECKPOINT_ITERATION=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
-  CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
-  CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
-  CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
-
-  if [[ -n "$CHECKPOINT_ITERATION" ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Rollback Functions (US-001: Automatic Rollback on Test Failure)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1234,77 +1137,6 @@ console.log(JSON.stringify(stats));
     fi
     printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
       "$total" "$successful" "$failed" "$rate"
-  fi
-}
-
-# Validate git state matches checkpoint
-# Returns: 0 if match or user confirms, 1 if user declines
-validate_git_state() {
-  local expected_sha="$1"
-  local current_sha
-
-  current_sha=$(git_head)
-
-  if [[ -z "$expected_sha" ]]; then
-    # No checkpoint SHA to validate
-    return 0
-  fi
-
-  if [[ "$current_sha" = "$expected_sha" ]]; then
-    return 0
-  fi
-
-  # Git state has diverged - warn user
-  printf "\n${C_YELLOW}${C_BOLD}Warning: Git state has diverged from checkpoint${C_RESET}\n"
-  printf "  ${C_DIM}Checkpoint SHA: ${C_RESET}${expected_sha:0:8}\n"
-  printf "  ${C_DIM}Current SHA:    ${C_RESET}${current_sha:0:8}\n"
-  printf "\n"
-
-  # Prompt user if in TTY mode
-  if [[ -t 0 ]]; then
-    printf "${C_YELLOW}Resume anyway? [y/N]: ${C_RESET}"
-    read -r response
-    case "$response" in
-      [yY]|[yY][eE][sS])
-        return 0
-        ;;
-      *)
-        return 1
-        ;;
-    esac
-  else
-    # Non-interactive mode - fail safe
-    msg_error "Git state diverged. Use --resume in interactive mode to override."
-    return 1
-  fi
-}
-
-# Prompt user to confirm resume from checkpoint
-# Returns: 0 if user confirms, 1 if user declines
-prompt_resume_confirmation() {
-  local iteration="$1"
-  local story_id="$2"
-
-  printf "\n${C_CYAN}${C_BOLD}Checkpoint found${C_RESET}\n"
-  printf "  ${C_DIM}Iteration:${C_RESET} $iteration\n"
-  printf "  ${C_DIM}Story:${C_RESET}     ${story_id:-unknown}\n"
-  printf "\n"
-
-  # Prompt user if in TTY mode
-  if [[ -t 0 ]]; then
-    printf "${C_CYAN}Resume from iteration $iteration? [Y/n]: ${C_RESET}"
-    read -r response
-    case "$response" in
-      [nN]|[nN][oO])
-        return 1
-        ;;
-      *)
-        return 0
-        ;;
-    esac
-  else
-    # Non-interactive mode - proceed with resume
-    return 0
   fi
 }
 
@@ -2880,7 +2712,7 @@ for ((i = START_ITERATION; i <= MAX_ITERATIONS; i++)); do
 
   # Configurable delay between iterations (US-007)
   # Configure via ITERATION_DELAY in config.sh (default: 0, minimum: 2)
-  local iter_delay="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
+  iter_delay="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
   if [[ "$iter_delay" -lt 2 ]]; then
     iter_delay=2  # Minimum 2 second delay for stability
   fi

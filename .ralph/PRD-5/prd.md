@@ -139,21 +139,21 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test retry logic works with exponential backoff
 - [x] Verify ~140 lines removed from loop.sh
 
-### [ ] US-010: Extract checkpoint functions to shared library
+### [x] US-010: Extract checkpoint functions to shared library
 **As a** ralph-cli maintainer
 **I want** checkpoint/resume logic extracted
 **So that** checkpoint behavior is modular and testable
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/checkpoint.sh`
-- [ ] Extract `save_checkpoint()` from loop.sh:891-925
-- [ ] Extract `clear_checkpoint()` from loop.sh:929-951
-- [ ] Extract `load_checkpoint()` from loop.sh:956-991
-- [ ] Extract `validate_git_state()` from loop.sh:995-1033
-- [ ] Extract `prompt_resume_confirmation()` from loop.sh:1037-1062
-- [ ] Update loop.sh to source the library
-- [ ] Test checkpoint save/load/resume works correctly
-- [ ] Verify ~175 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/checkpoint.sh`
+- [x] Extract `save_checkpoint()` from loop.sh:891-925
+- [x] Extract `clear_checkpoint()` from loop.sh:929-951
+- [x] Extract `load_checkpoint()` from loop.sh:956-991
+- [x] Extract `validate_git_state()` from loop.sh:995-1033
+- [x] Extract `prompt_resume_confirmation()` from loop.sh:1037-1062
+- [x] Update loop.sh to source the library
+- [x] Test checkpoint save/load/resume works correctly
+- [x] Verify ~175 lines removed from loop.sh
 
 ### [ ] US-011: Extract routing and cost estimation functions
 **As a** ralph-cli maintainer
