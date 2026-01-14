@@ -703,6 +703,41 @@ fi
 
 RUN_TAG="$(date +%Y%m%d-%H%M%S)-$$"
 
+# Path to the Python PRD parser library
+PRD_PARSER_PY="$SCRIPT_DIR/lib/prd-parser.py"
+
+# Generate template variables JSON file for prompt rendering
+# Usage: write_template_vars <output_file> <run_id> <iteration> <run_log> <run_meta>
+write_template_vars() {
+  local output_file="$1"
+  local run_id="$2"
+  local iter="$3"
+  local run_log="$4"
+  local run_meta="$5"
+  cat > "$output_file" <<EOF
+{
+  "PRD_PATH": "$PRD_PATH",
+  "PLAN_PATH": "$PLAN_PATH",
+  "AGENTS_PATH": "$AGENTS_PATH",
+  "PROGRESS_PATH": "$PROGRESS_PATH",
+  "REPO_ROOT": "$ROOT_DIR",
+  "GUARDRAILS_PATH": "$GUARDRAILS_PATH",
+  "ERRORS_LOG_PATH": "$ERRORS_LOG_PATH",
+  "ACTIVITY_LOG_PATH": "$ACTIVITY_LOG_PATH",
+  "GUARDRAILS_REF": "$GUARDRAILS_REF",
+  "CONTEXT_REF": "$CONTEXT_REF",
+  "ACTIVITY_CMD": "$ACTIVITY_CMD",
+  "NO_COMMIT": "$NO_COMMIT",
+  "RUN_ID": "$run_id",
+  "ITERATION": "$iter",
+  "RUN_LOG_PATH": "$run_log",
+  "RUN_META_PATH": "$run_meta"
+}
+EOF
+}
+
+# Render prompt template using external Python script
+# Usage: render_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta>
 render_prompt() {
   local src="$1"
   local dst="$2"
@@ -712,64 +747,14 @@ render_prompt() {
   local iter="$6"
   local run_log="$7"
   local run_meta="$8"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
-import sys
-from pathlib import Path
-
-src = Path(sys.argv[1]).read_text()
-prd, plan, agents, progress, root = sys.argv[3:8]
-guardrails = sys.argv[8]
-errors_log = sys.argv[9]
-activity_log = sys.argv[10]
-guardrails_ref = sys.argv[11]
-context_ref = sys.argv[12]
-activity_cmd = sys.argv[13]
-no_commit = sys.argv[14]
-meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
-block_path = sys.argv[16] if len(sys.argv) > 16 else ""
-run_id = sys.argv[17] if len(sys.argv) > 17 else ""
-iteration = sys.argv[18] if len(sys.argv) > 18 else ""
-run_log = sys.argv[19] if len(sys.argv) > 19 else ""
-run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
-repl = {
-    "PRD_PATH": prd,
-    "PLAN_PATH": plan,
-    "AGENTS_PATH": agents,
-    "PROGRESS_PATH": progress,
-    "REPO_ROOT": root,
-    "GUARDRAILS_PATH": guardrails,
-    "ERRORS_LOG_PATH": errors_log,
-    "ACTIVITY_LOG_PATH": activity_log,
-    "GUARDRAILS_REF": guardrails_ref,
-    "CONTEXT_REF": context_ref,
-    "ACTIVITY_CMD": activity_cmd,
-    "NO_COMMIT": no_commit,
-    "RUN_ID": run_id,
-    "ITERATION": iteration,
-    "RUN_LOG_PATH": run_log,
-    "RUN_META_PATH": run_meta,
-}
-story = {"id": "", "title": "", "block": ""}
-if meta_path:
-    try:
-        import json
-        meta = json.loads(Path(meta_path).read_text())
-        story["id"] = meta.get("id", "") or ""
-        story["title"] = meta.get("title", "") or ""
-    except Exception:
-        pass
-if block_path and Path(block_path).exists():
-    story["block"] = Path(block_path).read_text()
-repl["STORY_ID"] = story["id"]
-repl["STORY_TITLE"] = story["title"]
-repl["STORY_BLOCK"] = story["block"]
-for k, v in repl.items():
-    src = src.replace("{{" + k + "}}", v)
-Path(sys.argv[2]).write_text(src)
-PY
+  local vars_file
+  vars_file="$(mktemp)"
+  write_template_vars "$vars_file" "$run_id" "$iter" "$run_log" "$run_meta"
+  python3 "$PRD_PARSER_PY" render_prompt "$src" "$dst" "$vars_file" "$story_meta" "$story_block"
+  rm -f "$vars_file"
 }
 
-# Render retry prompt with failure context variables (US-002)
+# Render retry prompt with failure context variables using external Python script
 # Usage: render_retry_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta> \
 #                            <failure_context_file> <retry_attempt> <retry_max>
 render_retry_prompt() {
@@ -784,237 +769,34 @@ render_retry_prompt() {
   local failure_context_file="${9:-}"
   local retry_attempt="${10:-1}"
   local retry_max="${11:-3}"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
-import sys
-from pathlib import Path
-
-src = Path(sys.argv[1]).read_text()
-prd, plan, agents, progress, root = sys.argv[3:8]
-guardrails = sys.argv[8]
-errors_log = sys.argv[9]
-activity_log = sys.argv[10]
-guardrails_ref = sys.argv[11]
-context_ref = sys.argv[12]
-activity_cmd = sys.argv[13]
-no_commit = sys.argv[14]
-meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
-block_path = sys.argv[16] if len(sys.argv) > 16 else ""
-run_id = sys.argv[17] if len(sys.argv) > 17 else ""
-iteration = sys.argv[18] if len(sys.argv) > 18 else ""
-run_log = sys.argv[19] if len(sys.argv) > 19 else ""
-run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
-failure_context_file = sys.argv[21] if len(sys.argv) > 21 else ""
-retry_attempt = sys.argv[22] if len(sys.argv) > 22 else "1"
-retry_max = sys.argv[23] if len(sys.argv) > 23 else "3"
-
-def analyze_previous_approach(context):
-    """Analyze what the previous approach tried based on failure context."""
-    if not context:
-        return "No previous failure context available."
-
-    lines = context.split('\n')
-    analysis = []
-
-    # Look for common patterns
-    for line in lines:
-        line_lower = line.lower()
-        if 'import' in line_lower and ('error' in line_lower or 'fail' in line_lower):
-            analysis.append("- Import statements may have issues")
-        if 'route' in line_lower and ('not found' in line_lower or '404' in line_lower):
-            analysis.append("- Route registration may be missing")
-        if 'expect' in line_lower and 'received' in line_lower:
-            analysis.append("- Test assertions did not match expected values")
-        if 'undefined' in line_lower or 'null' in line_lower:
-            analysis.append("- Some variables or properties were undefined/null")
-        if 'type' in line_lower and 'error' in line_lower:
-            analysis.append("- Type mismatches were detected")
-
-    if not analysis:
-        analysis.append("- Review the full log for specific failure details")
-
-    return '\n'.join(list(set(analysis))[:5])  # Dedupe and limit to 5
-
-def suggest_alternatives(context):
-    """Suggest alternative approaches based on failure patterns."""
-    if not context:
-        return "- Try a simpler approach first\n- Double-check the requirements"
-
-    context_lower = context.lower()
-    suggestions = []
-
-    # Pattern-based suggestions
-    if 'import' in context_lower and ('error' in context_lower or 'module' in context_lower):
-        suggestions.append("- Verify all import paths are correct and modules exist")
-        suggestions.append("- Check for circular dependencies")
-
-    if 'route' in context_lower or '404' in context_lower:
-        suggestions.append("- Ensure the route is registered in the router/app")
-        suggestions.append("- Check route path spelling and parameters")
-
-    if 'expect' in context_lower or 'assert' in context_lower:
-        suggestions.append("- Match the expected output format exactly")
-        suggestions.append("- Check data types (string vs number, etc.)")
-
-    if 'undefined' in context_lower or 'null' in context_lower:
-        suggestions.append("- Add null checks and default values")
-        suggestions.append("- Verify object properties exist before accessing")
-
-    if 'timeout' in context_lower:
-        suggestions.append("- Reduce operation complexity or add pagination")
-        suggestions.append("- Check for infinite loops or blocking operations")
-
-    if 'permission' in context_lower or 'access' in context_lower:
-        suggestions.append("- Check file/directory permissions")
-        suggestions.append("- Verify authentication/authorization is set up")
-
-    if 'syntax' in context_lower:
-        suggestions.append("- Check for missing brackets, semicolons, or quotes")
-        suggestions.append("- Validate JSON/YAML/config file formats")
-
-    if not suggestions:
-        suggestions.append("- Read the failing test/verification command carefully")
-        suggestions.append("- Check if dependencies are installed")
-        suggestions.append("- Try a more incremental approach")
-
-    return '\n'.join(suggestions[:4])  # Limit to 4 suggestions
-
-# Read failure context from file
-failure_context = ""
-if failure_context_file and Path(failure_context_file).exists():
-    failure_context = Path(failure_context_file).read_text()
-
-# Analyze previous approach from failure context
-previous_approach = analyze_previous_approach(failure_context)
-
-# Generate suggestions based on failure patterns
-suggestions = suggest_alternatives(failure_context)
-
-repl = {
-    "PRD_PATH": prd,
-    "PLAN_PATH": plan,
-    "AGENTS_PATH": agents,
-    "PROGRESS_PATH": progress,
-    "REPO_ROOT": root,
-    "GUARDRAILS_PATH": guardrails,
-    "ERRORS_LOG_PATH": errors_log,
-    "ACTIVITY_LOG_PATH": activity_log,
-    "GUARDRAILS_REF": guardrails_ref,
-    "CONTEXT_REF": context_ref,
-    "ACTIVITY_CMD": activity_cmd,
-    "NO_COMMIT": no_commit,
-    "RUN_ID": run_id,
-    "ITERATION": iteration,
-    "RUN_LOG_PATH": run_log,
-    "RUN_META_PATH": run_meta,
-    "FAILURE_CONTEXT": failure_context,
-    "PREVIOUS_APPROACH": previous_approach,
-    "SUGGESTIONS": suggestions,
-    "RETRY_ATTEMPT": retry_attempt,
-    "RETRY_MAX": retry_max,
-}
-story = {"id": "", "title": "", "block": ""}
-if meta_path:
-    try:
-        import json
-        meta = json.loads(Path(meta_path).read_text())
-        story["id"] = meta.get("id", "") or ""
-        story["title"] = meta.get("title", "") or ""
-    except Exception:
-        pass
-if block_path and Path(block_path).exists():
-    story["block"] = Path(block_path).read_text()
-repl["STORY_ID"] = story["id"]
-repl["STORY_TITLE"] = story["title"]
-repl["STORY_BLOCK"] = story["block"]
-for k, v in repl.items():
-    src = src.replace("{{" + k + "}}", v)
-Path(sys.argv[2]).write_text(src)
-PY
+  local vars_file
+  vars_file="$(mktemp)"
+  write_template_vars "$vars_file" "$run_id" "$iter" "$run_log" "$run_meta"
+  python3 "$PRD_PARSER_PY" render_retry_prompt "$src" "$dst" "$vars_file" "$story_meta" "$story_block" "$failure_context_file" "$retry_attempt" "$retry_max"
+  rm -f "$vars_file"
 }
 
+# Select next uncompleted story from PRD using external Python script
+# Usage: select_story <meta_out> <block_out>
 select_story() {
   local meta_out="$1"
   local block_out="$2"
-  python3 - "$PRD_PATH" "$meta_out" "$block_out" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-prd_path = Path(sys.argv[1])
-meta_out = Path(sys.argv[2])
-block_out = Path(sys.argv[3])
-
-text = prd_path.read_text().splitlines()
-pattern = re.compile(r'^###\s+(\[(?P<status>[ xX])\]\s+)?(?P<id>US-\d+):\s*(?P<title>.+)$')
-
-stories = []
-current = None
-for line in text:
-    m = pattern.match(line)
-    if m:
-        if current:
-            stories.append(current)
-        current = {
-            "id": m.group("id"),
-            "title": m.group("title").strip(),
-            "status": (m.group("status") or " "),
-            "lines": [line],
-        }
-    elif current is not None:
-        current["lines"].append(line)
-if current:
-    stories.append(current)
-
-if not stories:
-    meta_out.write_text(json.dumps({"ok": False, "error": "No stories found in PRD"}, indent=2) + "\n")
-    block_out.write_text("")
-    sys.exit(0)
-
-def is_done(story):
-    return str(story.get("status", "")).strip().lower() == "x"
-
-remaining = [s for s in stories if not is_done(s)]
-meta = {"ok": True, "total": len(stories), "remaining": len(remaining)}
-
-if remaining:
-    target = remaining[0]
-    meta.update({
-        "id": target["id"],
-        "title": target["title"],
-    })
-    block_out.write_text("\n".join(target["lines"]))
-else:
-    block_out.write_text("")
-
-meta_out.write_text(json.dumps(meta, indent=2) + "\n")
-PY
+  python3 "$PRD_PARSER_PY" select_story "$PRD_PATH" "$meta_out" "$block_out"
 }
 
+# Get remaining story count from metadata file using external Python script
+# Usage: remaining_stories <meta_file>
 remaining_stories() {
   local meta_file="$1"
-  python3 - "$meta_file" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-data = json.loads(Path(sys.argv[1]).read_text())
-print(data.get("remaining", "unknown"))
-PY
+  python3 "$PRD_PARSER_PY" remaining_stories "$meta_file"
 }
 
+# Get a field value from story metadata file using external Python script
+# Usage: story_field <meta_file> <field>
 story_field() {
   local meta_file="$1"
   local field="$2"
-  python3 - "$meta_file" "$field" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-data = json.loads(Path(sys.argv[1]).read_text())
-field = sys.argv[2]
-print(data.get(field, ""))
-PY
+  python3 "$PRD_PARSER_PY" story_field "$meta_file" "$field"
 }
 
 log_activity() {
@@ -1876,34 +1658,11 @@ print_summary_table() {
   printf "${C_CYAN}╚═══════════════════════════════════════════════════════════════╝${C_RESET}\n"
 }
 
+# Append a run summary line to the activity log using external Python script
+# Usage: append_run_summary <line>
 append_run_summary() {
   local line="$1"
-  python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-line = sys.argv[2]
-text = path.read_text().splitlines()
-out = []
-inserted = False
-for l in text:
-    out.append(l)
-    if not inserted and l.strip() == "## Run Summary":
-        out.append(f"- {line}")
-        inserted = True
-if not inserted:
-    out = [
-        "# Activity Log",
-        "",
-        "## Run Summary",
-        f"- {line}",
-        "",
-        "## Events",
-        "",
-    ] + text
-Path(path).write_text("\n".join(out).rstrip() + "\n")
-PY
+  python3 "$PRD_PARSER_PY" append_run_summary "$ACTIVITY_LOG_PATH" "$line"
 }
 
 write_run_meta() {

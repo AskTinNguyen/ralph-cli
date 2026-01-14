@@ -53,21 +53,21 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Update both loop.sh and stream.sh to source the library
 - [x] Test PRD folder resolution works correctly
 
-### [ ] US-003: Extract embedded Python to separate files
+### [x] US-003: Extract embedded Python to separate files
 **As a** ralph-cli maintainer
 **I want** embedded Python code moved to standalone files
 **So that** Python logic is testable, maintainable, and reduces loop.sh token count
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/prd-parser.py` with all PRD parsing logic
-- [ ] Extract `render_prompt()` Python from loop.sh:733-788 (~55 lines)
-- [ ] Extract `select_story()` Python from loop.sh:793-847 (~55 lines)
-- [ ] Extract `remaining_stories()` Python from loop.sh:849-859 (~10 lines)
-- [ ] Extract `story_field()` Python from loop.sh:861-873 (~12 lines)
-- [ ] Extract `append_run_summary()` Python from loop.sh:1332-1360 (~28 lines)
-- [ ] Simplify loop.sh functions to single-line calls to external script
-- [ ] Test prompt rendering, story selection work correctly
-- [ ] Verify ~140 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/prd-parser.py` with all PRD parsing logic
+- [x] Extract `render_prompt()` Python from loop.sh:733-788 (~55 lines)
+- [x] Extract `select_story()` Python from loop.sh:793-847 (~55 lines)
+- [x] Extract `remaining_stories()` Python from loop.sh:849-859 (~10 lines)
+- [x] Extract `story_field()` Python from loop.sh:861-873 (~12 lines)
+- [x] Extract `append_run_summary()` Python from loop.sh:1332-1360 (~28 lines)
+- [x] Simplify loop.sh functions to single-line calls to external script
+- [x] Test prompt rendering, story selection work correctly
+- [x] Verify ~140 lines removed from loop.sh
 
 ### [ ] US-004: Extract git utilities to shared library
 **As a** ralph-cli maintainer
