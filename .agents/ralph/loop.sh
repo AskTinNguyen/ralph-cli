@@ -222,6 +222,12 @@ GUARDRAILS_REF="$(abs_path "$GUARDRAILS_REF")"
 CONTEXT_REF="$(abs_path "$CONTEXT_REF")"
 ACTIVITY_CMD="$(abs_path "$ACTIVITY_CMD")"
 
+# Auto-derive missing paths from PRD_PATH directory (RALPH-001)
+if [[ -n "$PRD_PATH" ]] && [[ -z "$PROGRESS_PATH" ]]; then
+  _prd_dir="$(dirname "$PRD_PATH")"
+  [[ -d "$_prd_dir" ]] && { PROGRESS_PATH="$_prd_dir/progress.md"; RUNS_DIR="$_prd_dir/runs"; }
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent Functions (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
