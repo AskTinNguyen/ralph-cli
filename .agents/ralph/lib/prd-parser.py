@@ -239,7 +239,22 @@ def select_story(prd_path: str, meta_out: str, block_out: str) -> None:
 
     stories = []
     current = None
+    in_code_block = False
+
     for line in text:
+        # Track code fences (``` or ```language)
+        if line.strip().startswith('```'):
+            in_code_block = not in_code_block
+            if current is not None:
+                current["lines"].append(line)
+            continue
+
+        # Skip story detection inside code blocks
+        if in_code_block:
+            if current is not None:
+                current["lines"].append(line)
+            continue
+
         m = pattern.match(line)
         if m:
             if current:
