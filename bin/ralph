@@ -46,6 +46,7 @@ function usage() {
 
 ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("install")} ${pc.dim("[--skills] [--import-from]")}   Copy .agents/ralph into the current repo
+  ${pc.green("init")}                                 Interactive setup wizard for new projects
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
@@ -409,6 +410,26 @@ async function main() {
     }
 
     process.exit(0);
+  }
+
+  if (cmd === "init") {
+    const initModule = require("../lib/init");
+
+    try {
+      const result = await initModule.runWizard(cwd);
+      if (result.cancelled) {
+        process.exit(0);
+      }
+      process.exit(0);
+    } catch (err) {
+      // Handle non-TTY gracefully
+      if (err.code === "ERR_USE_AFTER_CLOSE" || !process.stdin.isTTY) {
+        error("init requires an interactive terminal.");
+        dim("Run this command in a terminal that supports user input.");
+        process.exit(1);
+      }
+      throw err;
+    }
   }
 
   const templateDir = exists(localDir) ? localDir : globalDir;
