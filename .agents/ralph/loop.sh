@@ -1514,6 +1514,56 @@ write_run_meta() {
   } > "$path"
 }
 
+# Generate context summary for a story
+# Returns markdown-formatted context selection summary
+generate_context_summary() {
+  local story_block="$1"
+  local model="${2:-sonnet}"
+  local limit="${3:-15}"
+  local project_root="${4:-$ROOT_DIR}"
+
+  # Check if context CLI is available
+  local context_cli="$SCRIPT_DIR/../../lib/context/cli.js"
+  if [ ! -f "$context_cli" ]; then
+    echo ""
+    return 0
+  fi
+
+  # Generate context summary using the CLI
+  # Write story to temp file to handle multi-line content
+  local story_tmp
+  story_tmp="$(mktemp)"
+  echo "$story_block" > "$story_tmp"
+
+  local summary
+  summary=$(node "$context_cli" \
+    --story-file "$story_tmp" \
+    --project-root "$project_root" \
+    --model "$model" \
+    --limit "$limit" \
+    --format markdown 2>/dev/null || echo "")
+
+  rm -f "$story_tmp"
+  echo "$summary"
+}
+
+# Append context summary to run metadata file
+append_context_to_run_meta() {
+  local run_meta_path="$1"
+  local context_summary="$2"
+
+  if [ -z "$context_summary" ]; then
+    return 0
+  fi
+
+  # Append context summary section
+  {
+    echo ""
+    echo "$context_summary"
+    echo ""
+  } >> "$run_meta_path"
+}
+
 git_head() {
   if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || true
@@ -1961,6 +2011,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
   write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}"
+
+  # Append context summary to run meta (build mode only)
+  if [ "$MODE" = "build" ] && [ -n "${STORY_BLOCK:-}" ]; then
+    CONTEXT_SUMMARY="$(generate_context_summary "$STORY_BLOCK" "${ROUTED_MODEL:-sonnet}" 15 "$ROOT_DIR")"
+    if [ -n "$CONTEXT_SUMMARY" ]; then
+      append_context_to_run_meta "$RUN_META" "$CONTEXT_SUMMARY"
+    fi
+  fi
 
   # Append metrics to metrics.jsonl for historical tracking (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
