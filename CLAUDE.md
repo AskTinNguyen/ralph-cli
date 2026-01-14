@@ -208,3 +208,44 @@ mcp__miro__get_boards()
 ```
 
 See `.agents/ralph/MCP_TOOLS.md` for full documentation.
+
+## UI Testing
+
+**IMPORTANT**: All UI-related testing MUST use the `chromemcp` MCP server for browser automation.
+
+### Why ChromeMCP?
+
+- **Live browser interaction**: Test actual UI behavior, not just API responses
+- **Visual validation**: Verify charts, layouts, and interactive elements render correctly
+- **User flow testing**: Simulate real user interactions (clicks, form fills, navigation)
+- **Screenshot verification**: Capture visual evidence of UI state
+- **Error detection**: Catch JavaScript errors, failed network requests, console warnings
+
+### Usage
+
+The Ralph UI server (`ui/`) should be tested using browser automation tools via MCP:
+
+```bash
+# Start the UI server (usually runs on http://localhost:3000)
+cd ui && npm run dev
+
+# Use chromemcp tools via MCP for testing:
+# - mcp__plugin_playwright_playwright__browser_navigate(url)
+# - mcp__plugin_playwright_playwright__browser_snapshot()
+# - mcp__plugin_playwright_playwright__browser_click(element, ref)
+# - mcp__plugin_playwright_playwright__browser_take_screenshot(filename)
+# - mcp__plugin_playwright_playwright__browser_evaluate(function)
+```
+
+### Testing Checklist
+
+When testing UI features:
+1. ✅ Navigate to the page using `browser_navigate`
+2. ✅ Take snapshot using `browser_snapshot` to see page structure
+3. ✅ Verify elements are visible and functional
+4. ✅ Test user interactions (clicks, form fills, etc.)
+5. ✅ Check for JavaScript errors in console
+6. ✅ Validate data loads correctly from API endpoints
+7. ✅ Take screenshots for visual verification
+
+**Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.

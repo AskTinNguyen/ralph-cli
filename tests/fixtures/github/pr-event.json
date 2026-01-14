@@ -1,0 +1,40 @@
+{
+  "action": "opened",
+  "number": 42,
+  "pull_request": {
+    "id": 123456789,
+    "number": 42,
+    "state": "open",
+    "title": "Add new feature",
+    "body": "This PR adds a new feature to the application.\n\nFixes #123",
+    "user": {
+      "login": "testuser",
+      "id": 987654,
+      "type": "User"
+    },
+    "head": {
+      "ref": "feature-branch",
+      "sha": "abc123def456"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "def456abc123"
+    },
+    "created_at": "2026-01-14T10:00:00Z",
+    "updated_at": "2026-01-14T10:00:00Z"
+  },
+  "repository": {
+    "id": 456789123,
+    "name": "test-repo",
+    "full_name": "testuser/test-repo",
+    "owner": {
+      "login": "testuser",
+      "id": 987654
+    },
+    "default_branch": "main"
+  },
+  "sender": {
+    "login": "testuser",
+    "id": 987654
+  }
+}

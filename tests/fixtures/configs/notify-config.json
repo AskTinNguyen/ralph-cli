@@ -1,0 +1,35 @@
+{
+  "slack": {
+    "enabled": true,
+    "botToken": "xoxb-test-token-123456",
+    "teamId": "T12345678",
+    "channels": {
+      "builds": "C_BUILDS_123",
+      "alerts": "C_ALERTS_456",
+      "summaries": "C_SUMMARIES_789"
+    },
+    "quietHours": {
+      "enabled": true,
+      "start": "22:00",
+      "end": "08:00",
+      "timezone": "America/Los_Angeles"
+    }
+  },
+  "discord": {
+    "enabled": true,
+    "webhookUrl": "https://discord.com/api/webhooks/123456/test-webhook-token",
+    "channels": {
+      "builds": "builds-channel-id",
+      "alerts": "alerts-channel-id"
+    },
+    "embedColor": "#4287f5"
+  },
+  "notifications": {
+    "events": ["build_start", "build_complete", "build_failed", "high_risk"],
+    "summaries": {
+      "daily": true,
+      "weekly": true,
+      "hour": 9
+    }
+  }
+}

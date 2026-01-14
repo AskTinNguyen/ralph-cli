@@ -1,0 +1,37 @@
+{
+  "action": "opened",
+  "issue": {
+    "id": 789456123,
+    "number": 15,
+    "title": "Feature Request: Add dark mode",
+    "body": "## User Story\n\n**As a** user\n**I want** dark mode\n**So that** I can use the app at night\n\n### Acceptance Criteria\n- [ ] Add dark mode toggle\n- [ ] Persist preference\n- [ ] Apply to all pages",
+    "state": "open",
+    "user": {
+      "login": "contributor",
+      "id": 654321,
+      "type": "User"
+    },
+    "labels": [
+      {
+        "id": 111222333,
+        "name": "enhancement",
+        "color": "a2eeef"
+      }
+    ],
+    "created_at": "2026-01-14T09:00:00Z",
+    "updated_at": "2026-01-14T09:00:00Z"
+  },
+  "repository": {
+    "id": 456789123,
+    "name": "test-repo",
+    "full_name": "testuser/test-repo",
+    "owner": {
+      "login": "testuser",
+      "id": 987654
+    }
+  },
+  "sender": {
+    "login": "contributor",
+    "id": 654321
+  }
+}

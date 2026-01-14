@@ -1,0 +1,24 @@
+{
+  "risk": {
+    "enabled": true,
+    "pauseOnHighRisk": true,
+    "thresholds": {
+      "low": 3,
+      "medium": 6,
+      "high": 8
+    },
+    "patterns": {
+      "auth": 5,
+      "payment": 8,
+      "database": 6,
+      "migration": 7,
+      "security": 7,
+      "encryption": 6,
+      "production": 5
+    },
+    "autoApprove": {
+      "enabled": false,
+      "maxScore": 5
+    }
+  }
+}

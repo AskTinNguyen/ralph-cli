@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-01-14T10:30:00.000Z",
+  "prd": 1,
+  "runId": "20260114-103000-12345",
+  "iteration": 3,
+  "story": {
+    "id": "US-003",
+    "title": "Add Version Command",
+    "status": "in_progress"
+  },
+  "state": {
+    "completedStories": ["US-001", "US-002"],
+    "remainingStories": ["US-003", "US-004", "US-005"],
+    "lastCommit": "abc1234",
+    "workingTree": "clean"
+  },
+  "metrics": {
+    "tokensUsed": 45678,
+    "costAccrued": 0.068,
+    "timeElapsed": "15m 23s"
+  },
+  "context": {
+    "agent": "claude",
+    "model": "claude-sonnet-4-5",
+    "dryRun": false
+  }
+}
