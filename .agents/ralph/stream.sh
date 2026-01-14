@@ -1556,6 +1556,48 @@ $completed_stories
 
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}PR created:${C_RESET} %s\n" "$pr_url"
 
+  # Auto-assign reviewers and labels (US-003)
+  local assign_script="$SCRIPT_DIR/../../lib/github/assign-reviewers.js"
+  if [[ -f "$assign_script" ]] && command -v node &> /dev/null; then
+    msg_dim "Assigning reviewers and labels..."
+    local assign_output
+    assign_output=$(node "$assign_script" "$stream_id" "$pr_url" "$ROOT_DIR" "$base_branch" 2>&1)
+    local assign_exit=$?
+
+    if [[ $assign_exit -eq 0 ]]; then
+      # Parse and display results
+      if echo "$assign_output" | grep -q "reviewers:"; then
+        local reviewers
+        reviewers=$(echo "$assign_output" | grep "reviewers:" | sed 's/reviewers: //')
+        if [[ -n "$reviewers" && "$reviewers" != "none" ]]; then
+          msg_dim "Assigned reviewers: $reviewers"
+        fi
+      fi
+      if echo "$assign_output" | grep -q "teams:"; then
+        local teams
+        teams=$(echo "$assign_output" | grep "teams:" | sed 's/teams: //')
+        if [[ -n "$teams" && "$teams" != "none" ]]; then
+          msg_dim "Assigned teams: $teams"
+        fi
+      fi
+      if echo "$assign_output" | grep -q "labels:"; then
+        local labels
+        labels=$(echo "$assign_output" | grep "labels:" | sed 's/labels: //')
+        if [[ -n "$labels" ]]; then
+          msg_dim "Added labels: $labels"
+        fi
+      fi
+      # Show any warnings
+      if echo "$assign_output" | grep -q "warning:"; then
+        echo "$assign_output" | grep "warning:" | while read -r warning_line; do
+          msg_warn "${warning_line#warning: }"
+        done
+      fi
+    else
+      msg_warn "Could not auto-assign reviewers: $assign_output"
+    fi
+  fi
+
   next_steps_header
   numbered_step 1 "Review the PR at: ${C_CYAN}${pr_url}${C_RESET}"
   numbered_step 2 "After approval, merge the PR"
