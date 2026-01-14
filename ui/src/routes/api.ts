@@ -611,6 +611,53 @@ api.get('/estimate/:prdId/accuracy', (c) => {
 });
 
 /**
+ * POST /api/estimate/:prdId/run
+ *
+ * Triggers a fresh estimate calculation and updates the cache.
+ * Query params:
+ *   - model: Model for cost calculation ('sonnet' or 'opus', default: 'sonnet')
+ *   - force: Always true for POST (forces recalculation)
+ * Returns: JSON estimate with cached: false and fresh cachedAt timestamp
+ */
+api.post('/estimate/:prdId/run', (c) => {
+  const prdId = c.req.param('prdId');
+  const model = c.req.query('model') || 'sonnet';
+
+  // Validate model parameter
+  if (model !== 'sonnet' && model !== 'opus') {
+    return c.json(
+      {
+        error: 'bad_request',
+        message: 'Invalid model parameter. Must be "sonnet" or "opus".',
+      },
+      400
+    );
+  }
+
+  // Force fresh calculation
+  const result = getStreamEstimate(prdId, { model, force: true });
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: result.error || `PRD-${prdId} not found or missing plan.md`,
+      },
+      404
+    );
+  }
+
+  return c.json({
+    prdId,
+    estimates: result.estimates,
+    totals: result.totals,
+    cached: false,
+    cachedAt: result.cachedAt,
+    planModifiedAt: result.planModifiedAt,
+  });
+});
+
+/**
  * Log API Endpoints
  *
  * REST API endpoints for activity and run logs.
@@ -1806,6 +1853,17 @@ api.get("/partials/streams", (c) => {
         <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="Start build iterations" ${isRunning ? "disabled" : ""}>
           ${isRunning ? "Running..." : "Build"}
         </button>`;
+
+      // Estimate button - show if plan exists
+      if (stream.hasPlan) {
+        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        actionButtonsHtml += `
+        <button class="btn btn-secondary btn-sm"
+                onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
+                title="View estimates for this PRD">
+          Estimate
+        </button>`;
+      }
 
       // Merge button - only show when worktree exists (nothing to merge without worktree)
       if (worktreeInitialized) {
@@ -4456,16 +4514,14 @@ api.get('/partials/estimate-summary', (c) => {
     <h4>Pre-run Estimate</h4>
     <div class="estimate-actions">
       <select class="estimate-model-select"
-              onchange="htmx.ajax('GET', '/api/partials/estimate-summary?id=${id}&model=' + this.value, '#estimate-summary-container')"
+              onchange="htmx.ajax('GET', '/api/partials/estimate-summary?id=${id}&model=' + this.value, '#estimate-summary-container'); htmx.ajax('GET', '/api/partials/estimate-breakdown?id=${id}&model=' + this.value, '#estimate-breakdown-container');"
               title="Select pricing model">
         <option value="sonnet" ${model === 'sonnet' ? 'selected' : ''}>Sonnet</option>
         <option value="opus" ${model === 'opus' ? 'selected' : ''}>Opus</option>
       </select>
       <button class="btn-icon estimate-refresh"
-              hx-get="/api/partials/estimate-summary?id=${id}&model=${model}&force=true"
-              hx-target="#estimate-summary-container"
-              hx-indicator=".estimate-loading"
-              title="Refresh estimate">
+              onclick="htmx.ajax('GET', '/api/partials/estimate-summary?id=${id}&model=${model}&force=true', '#estimate-summary-container'); htmx.ajax('GET', '/api/partials/estimate-breakdown?id=${id}&model=${model}&force=true', '#estimate-breakdown-container');"
+              title="Refresh estimate (bypass cache)">
         &#8635;
       </button>
     </div>

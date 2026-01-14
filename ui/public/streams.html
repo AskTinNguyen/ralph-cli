@@ -134,6 +134,19 @@
         htmx.ajax("GET", "/api/partials/stream-detail?id=" + streamId, "#stream-detail-container");
       }
 
+      // Show stream detail view and switch to estimate tab
+      function showStreamDetailAndEstimate(streamId, streamName) {
+        showStreamDetail(streamId, streamName);
+
+        // Wait for HTMX to load the content, then switch to estimate tab
+        setTimeout(function() {
+          var estimateTab = document.querySelector('.stream-tab[onclick*="estimate"]');
+          if (estimateTab) {
+            estimateTab.click();
+          }
+        }, 300);
+      }
+
     // Current view state
     var currentView = 'grid';
 

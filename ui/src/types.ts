@@ -123,6 +123,8 @@ export interface RalphStatus {
   progress: ProgressStats;
   currentRun?: Run;
   isRunning: boolean;
+  /** Fix statistics for auto-remediation tracking (US-003) */
+  fixStats?: FixStats;
 }
 
 /**
@@ -364,4 +366,45 @@ export interface ModelRecommendations {
   bestOverall?: string;
   bestCost?: string;
   bestSuccess?: string;
+}
+
+/**
+ * Fix execution record for tracking auto-remediation (US-003)
+ */
+export interface FixRecord {
+  id: string;
+  type: string;
+  command: string | null;
+  status: 'success' | 'failure' | 'skipped';
+  duration: number | null;
+  error: string | null;
+  startTime: number;
+  endTime: number | null;
+  stateChanges?: {
+    changedFiles: string[];
+    newFiles: string[];
+    deletedFiles: string[];
+    summary: string;
+  } | null;
+}
+
+/**
+ * Fix statistics by type
+ */
+export interface FixTypeStats {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+}
+
+/**
+ * Overall fix statistics for UI dashboard (US-003)
+ */
+export interface FixStats {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  byType: Record<string, FixTypeStats>;
+  totalDuration: number;
+  records: FixRecord[];
 }
