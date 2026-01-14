@@ -20,127 +20,23 @@ LOCKS_DIR="$RALPH_DIR/locks"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
+# Source shared PRD utilities (stream/PRD folder management)
+# Provides: get_next_stream_id, normalize_stream_id, stream_exists, get_stream_dir
+# (aliases for: get_next_prd_number, normalize_prd_id, prd_exists, get_prd_dir)
+# shellcheck source=lib/prd-utils.sh
+source "$SCRIPT_DIR/lib/prd-utils.sh"
+
+# Git helper functions (git_head, git_commit_list, git_changed_files, git_dirty_files)
+# shellcheck source=lib/git-utils.sh
+source "$SCRIPT_DIR/lib/git-utils.sh"
+
 # ============================================================================
 # Helpers
 # ============================================================================
 
-get_next_stream_id() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  echo $((max + 1))
-}
-
-normalize_stream_id() {
-  local input="$1"
-  if [[ "$input" =~ ^[0-9]+$ ]]; then
-    echo "PRD-$input"
-  elif [[ "$input" =~ ^[Pp][Rr][Dd]-[0-9]+$ ]]; then
-    # Normalize to uppercase PRD-N
-    local num="${input##*[Pp][Rr][Dd]-}"
-    echo "PRD-$num"
-  else
-    echo ""
-  fi
-}
-
-stream_exists() {
-  local stream_id="$1"
-  # Check both uppercase and legacy lowercase
-  [[ -d "$RALPH_DIR/$stream_id" ]] || [[ -d "$RALPH_DIR/${stream_id,,}" ]]
-}
-
-get_stream_dir() {
-  local stream_id="$1"
-  # Check uppercase first (new), then legacy lowercase
-  if [[ -d "$RALPH_DIR/$stream_id" ]]; then
-    echo "$RALPH_DIR/$stream_id"
-  elif [[ -d "$RALPH_DIR/${stream_id,,}" ]]; then
-    echo "$RALPH_DIR/${stream_id,,}"
-  else
-    # Default to the given stream_id (should be uppercase for new)
-    echo "$RALPH_DIR/$stream_id"
-  fi
-}
-
 worktree_exists() {
   local stream_id="$1"
   [[ -d "$WORKTREES_DIR/$stream_id" ]]
-}
-
-is_stream_merged() {
-  # Check if stream has been merged to main
-  # Returns: 0 if merged, 1 if not merged
-  local stream_id="$1"
-  local stream_dir
-  stream_dir="$(get_stream_dir "$stream_id")"
-
-  # First check git history for actual merge (source of truth)
-  if is_branch_merged_in_git "$stream_id"; then
-    # Auto-create .merged marker if git shows it's merged but marker is missing
-    if [[ ! -f "$stream_dir/.merged" ]]; then
-      mark_stream_merged "$stream_id"
-    fi
-    return 0
-  fi
-
-  # Fallback: Check for .merged marker file (legacy or manual marking)
-  [[ -f "$stream_dir/.merged" ]]
-}
-
-is_branch_merged_in_git() {
-  # Verify if a stream's branch has been merged to main/master via git
-  # Returns: 0 if merged, 1 if not merged or branch doesn't exist
-  local stream_id="$1"
-  local branch="ralph/$stream_id"
-  local base_branch="main"
-
-  # Check if main exists, otherwise use master
-  if ! git show-ref --verify --quiet "refs/heads/main"; then
-    if git show-ref --verify --quiet "refs/heads/master"; then
-      base_branch="master"
-    else
-      # No main or master branch - can't verify
-      return 1
-    fi
-  fi
-
-  # Check if the branch exists in git
-  if ! git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
-    # Branch doesn't exist locally - check if there's a merge commit in history
-    # Look for merge commits mentioning this stream
-    if git log --all --oneline --grep="$stream_id" --merges | grep -qi "merge"; then
-      return 0
-    fi
-    return 1
-  fi
-
-  # Branch exists - check if it's been merged to base branch
-  if git merge-base --is-ancestor "$branch" "$base_branch" 2>/dev/null; then
-    return 0
-  fi
-
-  return 1
-}
-
-mark_stream_merged() {
-  # Mark a stream as merged by creating .merged marker file
-  local stream_id="$1"
-  local stream_dir
-  stream_dir="$(get_stream_dir "$stream_id")"
-
-  # Create .merged marker with timestamp
-  echo "merged_at=$(date -Iseconds)" > "$stream_dir/.merged"
-  echo "merged_by=${USER:-unknown}" >> "$stream_dir/.merged"
 }
 
 is_stream_running() {
@@ -492,26 +388,19 @@ get_stream_status() {
   stream_dir="$(get_stream_dir "$stream_id")"
 
   if [[ ! -d "$stream_dir" ]]; then
-    echo "not_found"
+    echo "$STATUS_NOT_FOUND"
     return
   fi
 
   if is_stream_running "$stream_id"; then
-    echo "running"
-    return
-  fi
-
-  # IMPORTANT: Check git history FIRST (source of truth)
-  # This catches cases where PRD was merged but checkboxes weren't updated
-  if is_stream_merged "$stream_id"; then
-    echo "merged"
+    echo "$STATUS_RUNNING"
     return
   fi
 
   # Check if all stories are done by looking at PRD
   local prd_file="$stream_dir/prd.md"
   if [[ ! -f "$prd_file" ]]; then
-    echo "no_prd"
+    echo "$STATUS_NO_PRD"
     return
   fi
 
@@ -522,13 +411,11 @@ get_stream_status() {
   remaining=${remaining:-0}
 
   if [[ "$total" -eq 0 ]]; then
-    echo "no_stories"
+    echo "$STATUS_NO_STORIES"
   elif [[ "$remaining" -eq 0 ]]; then
-    # All stories completed in prd.md but not merged yet
-    echo "completed"
+    echo "$STATUS_COMPLETED"
   else
-    # Stories remain unchecked
-    echo "ready"
+    echo "$STATUS_READY"
   fi
 }
 
@@ -657,29 +544,17 @@ cmd_list() {
       progress=$(count_stories "$dir/prd.md")
 
       # Use standardized symbols and colors
-      local symbol status_color display_status
-      display_status="$status"
+      local symbol status_color
       case "$status" in
-        running)
+        "$STATUS_RUNNING")
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           ;;
-        merged)
-          symbol="$SYM_MERGED"
+        "$STATUS_COMPLETED")
+          symbol="$SYM_COMPLETED"
           status_color="${C_GREEN}"
           ;;
-        completed)
-          # Completed but not merged - check if has worktree (needs merge)
-          if worktree_exists "$stream_id"; then
-            symbol="$SYM_COMPLETED"
-            status_color="${C_YELLOW}"
-            display_status="needs merge"
-          else
-            symbol="$SYM_COMPLETED"
-            status_color="${C_GREEN}"
-          fi
-          ;;
-        ready)
+        "$STATUS_READY")
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -689,7 +564,7 @@ cmd_list() {
           ;;
       esac
 
-      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-11s${C_RESET} %s stories\n" "$symbol" "$num" "$display_status" "$progress"
+      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
     fi
   done
 
@@ -733,33 +608,21 @@ cmd_status() {
       last_modified=$(get_human_time_diff "$dir/progress.md")
 
       # Use standardized symbols and color based on status
-      local symbol status_color row_prefix row_suffix display_status
+      local symbol status_color row_prefix row_suffix
       row_prefix=""
       row_suffix=""
-      display_status="$status"
       case "$status" in
-        running)
+        "$STATUS_RUNNING")
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           row_prefix="${C_BOLD}"
           row_suffix="${C_RESET}"
           ;;
-        merged)
-          symbol="$SYM_MERGED"
+        "$STATUS_COMPLETED")
+          symbol="$SYM_COMPLETED"
           status_color="${C_GREEN}"
           ;;
-        completed)
-          # Completed but not merged - check if has worktree (needs merge)
-          if [[ "$has_worktree" == "yes" ]]; then
-            symbol="$SYM_COMPLETED"
-            status_color="${C_YELLOW}"
-            display_status="needs mrg"
-          else
-            symbol="$SYM_COMPLETED"
-            status_color="${C_GREEN}"
-          fi
-          ;;
-        ready)
+        "$STATUS_READY")
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -771,7 +634,7 @@ cmd_status() {
 
       # Print row with color-coded status
       printf "${row_prefix}│ %s %-6s │ ${status_color}%-10s${C_RESET}${row_prefix} │ %-8s │ %-8s │ %-8s │${row_suffix}\n" \
-        "$symbol" "$stream_id" "$display_status" "$progress" "$last_modified" "$has_worktree"
+        "$symbol" "$stream_id" "$status" "$progress" "$last_modified" "$has_worktree"
     fi
   done
 
@@ -781,7 +644,7 @@ cmd_status() {
 
   echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
   echo ""
-  msg_dim "Legend: $SYM_MERGED merged  $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready"
+  msg_dim "Legend: $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready  $SYM_UNKNOWN unknown"
   echo ""
 }
 
@@ -1081,7 +944,7 @@ cmd_merge() {
 
   local status
   status=$(get_stream_status "$stream_id")
-  if [[ "$status" != "completed" ]]; then
+  if [[ "$status" != "$STATUS_COMPLETED" ]]; then
     msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
   fi
@@ -1190,9 +1053,6 @@ cmd_merge() {
     msg_dim "State files synced to $(path_display "$main_state_dir")"
   fi
 
-  # Mark stream as merged
-  mark_stream_merged "$stream_id"
-
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Stream %s merged successfully${C_RESET}\n" "$stream_id"
 
   next_steps_header
@@ -1222,58 +1082,6 @@ cmd_cleanup() {
   git worktree remove "$worktree_path" --force
 
   printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Cleaned up %s\n" "$stream_id"
-}
-
-cmd_mark_merged() {
-  # Manually mark a stream as merged (for streams merged outside of ralph)
-  local input="$1"
-  local stream_id
-  stream_id=$(normalize_stream_id "$input")
-
-  if [[ -z "$stream_id" ]]; then
-    msg_error "Invalid stream ID: $input" >&2
-    return 1
-  fi
-
-  if ! stream_exists "$stream_id"; then
-    msg_error "Stream $stream_id does not exist" >&2
-    return 1
-  fi
-
-  local status
-  status=$(get_stream_status "$stream_id")
-
-  if [[ "$status" == "merged" ]]; then
-    msg_dim "$stream_id is already marked as merged"
-    return 0
-  fi
-
-  # Mark as merged
-  mark_stream_merged "$stream_id"
-  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Marked %s as merged\n" "$stream_id"
-}
-
-cmd_unmark_merged() {
-  # Remove merged marker from a stream
-  local input="$1"
-  local stream_id
-  stream_id=$(normalize_stream_id "$input")
-
-  if [[ -z "$stream_id" ]]; then
-    msg_error "Invalid stream ID: $input" >&2
-    return 1
-  fi
-
-  local stream_dir
-  stream_dir="$(get_stream_dir "$stream_id")"
-
-  if [[ ! -f "$stream_dir/.merged" ]]; then
-    msg_dim "$stream_id is not marked as merged"
-    return 0
-  fi
-
-  rm -f "$stream_dir/.merged"
-  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Unmarked %s as merged\n" "$stream_id"
 }
 
 # ============================================================================
@@ -1399,20 +1207,6 @@ case "$cmd" in
   merge-status)
     cmd_merge_status
     ;;
-  mark-merged)
-    if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream mark-merged <N>" >&2
-      exit 1
-    fi
-    cmd_mark_merged "$1"
-    ;;
-  unmark-merged)
-    if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream unmark-merged <N>" >&2
-      exit 1
-    fi
-    cmd_unmark_merged "$1"
-    ;;
   *)
     printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
     printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
@@ -1431,9 +1225,6 @@ case "$cmd" in
     printf "                              ${C_DIM}--force-unlock: forcefully remove stale lock${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
-    printf "  ${C_GREEN}ralph stream mark-merged ${C_YELLOW}<N>${C_RESET}  Mark stream as merged manually\n"
-    printf "  ${C_GREEN}ralph stream unmark-merged ${C_YELLOW}<N>${C_RESET}\n"
-    printf "                              Remove merged marker from stream\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
     printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"

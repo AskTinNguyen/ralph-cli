@@ -23,57 +23,43 @@ source "$SCRIPT_DIR/lib/output.sh"
 # shellcheck source=lib/agent.sh
 source "$SCRIPT_DIR/lib/agent.sh"
 
-# PRD folder helpers - each plan gets its own PRD-N folder
+# PRD folder helpers - sourced from shared library
+# Sets RALPH_DIR and provides: get_next_prd_number, get_latest_prd_number, get_prd_dir
 RALPH_DIR=".ralph"
+# shellcheck source=lib/prd-utils.sh
+source "$SCRIPT_DIR/lib/prd-utils.sh"
 
-get_next_prd_number() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  echo $((max + 1))
-}
+# Git helper functions - sourced from shared library
+# Provides: git_head, git_commit_list, git_changed_files, git_dirty_files
+# shellcheck source=lib/git-utils.sh
+source "$SCRIPT_DIR/lib/git-utils.sh"
 
-get_latest_prd_number() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  if (( max == 0 )); then
-    echo ""
-  else
-    echo "$max"
-  fi
-}
+# Retry utilities - sourced from shared library
+# Provides: calculate_backoff_delay, run_agent_with_retry
+# Configuration: RETRY_MAX_ATTEMPTS, RETRY_BASE_DELAY_MS, RETRY_MAX_DELAY_MS, NO_RETRY
+# Global stats: LAST_RETRY_COUNT, LAST_RETRY_TOTAL_TIME
+# Note: Depends on run_agent and log_activity which are defined later in this file
+# shellcheck source=lib/retry.sh
+source "$SCRIPT_DIR/lib/retry.sh"
 
-get_prd_dir() {
-  local num="$1"
-  # Check uppercase first (new), then legacy lowercase
-  if [[ -d "$RALPH_DIR/PRD-$num" ]]; then
-    echo "$RALPH_DIR/PRD-$num"
-  elif [[ -d "$RALPH_DIR/prd-$num" ]]; then
-    echo "$RALPH_DIR/prd-$num"
-  else
-    # Default to uppercase for new folders
-    echo "$RALPH_DIR/PRD-$num"
-  fi
-}
+# Checkpoint utilities - sourced from shared library
+# Provides: save_checkpoint, clear_checkpoint, load_checkpoint, validate_git_state, prompt_resume_confirmation
+# Global state: CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA, CHECKPOINT_AGENT
+# Note: Depends on git_head from git-utils.sh and msg_* from output.sh
+# shellcheck source=lib/checkpoint.sh
+source "$SCRIPT_DIR/lib/checkpoint.sh"
+
+# Routing and cost estimation utilities - sourced from shared library
+# Provides: get_routing_decision, estimate_execution_cost, calculate_actual_cost, parse_json_field
+# Note: Depends on SCRIPT_DIR, ROOT_DIR, and optionally RALPH_ROOT
+# shellcheck source=lib/routing.sh
+source "$SCRIPT_DIR/lib/routing.sh"
+
+# Metrics tracking utilities - sourced from shared library
+# Provides: extract_tokens_from_log, parse_token_field, append_metrics, rebuild_token_cache
+# Note: Depends on SCRIPT_DIR, MODE, PRD_PATH, and optionally RALPH_ROOT
+# shellcheck source=lib/metrics.sh
+source "$SCRIPT_DIR/lib/metrics.sh"
 
 # Determine active PRD number from env or auto-detect
 if [[ -n "${PRD_NUMBER:-}" ]]; then
@@ -115,11 +101,13 @@ fi
 
 DEFAULT_MAX_ITERATIONS=25
 DEFAULT_NO_COMMIT=false
+DEFAULT_ITERATION_DELAY=0
+DEFAULT_PROGRESS_INTERVAL=30
 PRD_REQUEST_PATH=""
 PRD_INLINE=""
 
 # Optional config overrides (simple shell vars)
-if [ -f "$CONFIG_FILE" ]; then
+if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck source=/dev/null
   . "$CONFIG_FILE"
 fi
@@ -189,6 +177,9 @@ fi
 
 TMP_DIR="${TMP_DIR:-$DEFAULT_TMP_DIR}"
 
+# Timing configuration (US-007)
+ITERATION_DELAY="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
+
 if [[ -n "${RUNS_DIR:-}" ]]; then
   :
 elif [[ -n "$ACTIVE_PRD_NUMBER" ]]; then
@@ -231,51 +222,16 @@ GUARDRAILS_REF="$(abs_path "$GUARDRAILS_REF")"
 CONTEXT_REF="$(abs_path "$CONTEXT_REF")"
 ACTIVITY_CMD="$(abs_path "$ACTIVITY_CMD")"
 
+# Auto-derive missing paths from PRD_PATH directory (RALPH-001)
+if [[ -n "$PRD_PATH" ]] && [[ -z "$PROGRESS_PATH" ]]; then
+  _prd_dir="$(dirname "$PRD_PATH")"
+  [[ -d "$_prd_dir" ]] && { PROGRESS_PATH="$_prd_dir/progress.md"; RUNS_DIR="$_prd_dir/runs"; }
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent Functions (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # require_agent(), run_agent(), run_agent_inline() are now in lib/agent.sh
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Retry Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-# Retry wrapper for agent calls with exponential backoff
-# Defaults: 3 retries, 1s base delay, 16s max delay
-RETRY_MAX_ATTEMPTS="${RETRY_MAX_ATTEMPTS:-3}"
-RETRY_BASE_DELAY_MS="${RETRY_BASE_DELAY_MS:-1000}"
-RETRY_MAX_DELAY_MS="${RETRY_MAX_DELAY_MS:-16000}"
-NO_RETRY="${NO_RETRY:-false}"
-
-# Calculate exponential backoff delay with jitter
-# Usage: calculate_backoff_delay <attempt> -> delay_seconds (float)
-calculate_backoff_delay() {
-  local attempt="$1"
-  # Exponential backoff: base_delay * 2^(attempt-1)
-  # Attempt 1: 1s, Attempt 2: 2s, Attempt 3: 4s, etc.
-  local base_ms="$RETRY_BASE_DELAY_MS"
-  local max_ms="$RETRY_MAX_DELAY_MS"
-  local multiplier=$((1 << (attempt - 1)))  # 2^(attempt-1)
-  local delay_ms=$((base_ms * multiplier))
-
-  # Cap at max delay
-  if [ "$delay_ms" -gt "$max_ms" ]; then
-    delay_ms="$max_ms"
-  fi
-
-  # Add jitter (0-1000ms) to prevent thundering herd
-  local jitter_ms=$((RANDOM % 1000))
-  delay_ms=$((delay_ms + jitter_ms))
-
-  # Convert to seconds with decimal (bash sleep accepts decimals)
-  local delay_sec
-  delay_sec=$(printf "%.3f" "$(echo "scale=3; $delay_ms / 1000" | bc)")
-  echo "$delay_sec"
-}
-
-# Global variables for retry statistics (set by run_agent_with_retry)
-# These are used by write_run_meta and append_metrics
-LAST_RETRY_COUNT=0
-LAST_RETRY_TOTAL_TIME=0
 
 # Global variables for rollback statistics (set during rollback execution, US-004)
 # These are used by append_metrics for tracking rollback events
@@ -293,116 +249,6 @@ LAST_SWITCH_REASON=""
 # Global variable to track agents tried during this iteration (US-004)
 # Comma-separated list of agent names (e.g., "claude,codex,droid")
 AGENTS_TRIED_THIS_ITERATION=""
-
-# Retry wrapper for agent execution
-# Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
-# Handles tee internally and manages retry output to log file
-# Sets LAST_RETRY_COUNT and LAST_RETRY_TOTAL_TIME for metrics
-run_agent_with_retry() {
-  local prompt_file="$1"
-  local log_file="$2"
-  local iteration="$3"
-  local attempt=1
-  local exit_status=0
-  local max_attempts="$RETRY_MAX_ATTEMPTS"
-  local retry_count=0
-  local total_retry_time=0
-
-  # Reset global retry stats
-  LAST_RETRY_COUNT=0
-  LAST_RETRY_TOTAL_TIME=0
-
-  # If retry is disabled, just run once
-  if [ "$NO_RETRY" = "true" ]; then
-    run_agent "$prompt_file" 2>&1 | tee "$log_file"
-    return "${PIPESTATUS[0]}"
-  fi
-
-  while [ "$attempt" -le "$max_attempts" ]; do
-    # Run the agent with tee for logging
-    if [ "$attempt" -eq 1 ]; then
-      # First attempt: create/overwrite log file
-      run_agent "$prompt_file" 2>&1 | tee "$log_file"
-      exit_status="${PIPESTATUS[0]}"
-    else
-      # Retry attempts: append retry header and output to log
-      {
-        echo ""
-        echo "=== RETRY ATTEMPT $attempt/$max_attempts ($(date '+%Y-%m-%d %H:%M:%S')) ==="
-        echo ""
-      } | tee -a "$log_file"
-      run_agent "$prompt_file" 2>&1 | tee -a "$log_file"
-      exit_status="${PIPESTATUS[0]}"
-    fi
-
-    # Success - no retry needed
-    if [ "$exit_status" -eq 0 ]; then
-      if [ "$retry_count" -gt 0 ]; then
-        log_activity "RETRY_SUCCESS iteration=$iteration succeeded_after=$retry_count retries total_retry_time=${total_retry_time}s"
-        printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
-        printf "${C_GREEN}  Succeeded after %d retries (total retry wait: %ds)${C_RESET}\n" "$retry_count" "$total_retry_time"
-        printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
-      fi
-      # Set global stats for metrics
-      LAST_RETRY_COUNT=$retry_count
-      LAST_RETRY_TOTAL_TIME=$total_retry_time
-      return 0
-    fi
-
-    # User interruption (SIGINT=130, SIGTERM=143) - don't retry
-    if [ "$exit_status" -eq 130 ] || [ "$exit_status" -eq 143 ]; then
-      return "$exit_status"
-    fi
-
-    retry_count=$((retry_count + 1))
-
-    # Check if we have more attempts
-    if [ "$attempt" -lt "$max_attempts" ]; then
-      local delay
-      delay=$(calculate_backoff_delay "$attempt")
-      local delay_int="${delay%.*}"  # Integer part for accumulation
-      total_retry_time=$((total_retry_time + delay_int))
-      local next_attempt=$((attempt + 1))
-
-      # Log retry attempt to terminal with enhanced visibility
-      printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
-      printf "${C_YELLOW}  Agent failed (exit code: %d)${C_RESET}\n" "$exit_status"
-      printf "${C_YELLOW}  Retry %d/%d in %ss...${C_RESET}\n" "$next_attempt" "$max_attempts" "$delay"
-      printf "${C_YELLOW}───────────────────────────────────────────────────────${C_RESET}\n"
-
-      # Log retry to activity log with cumulative stats
-      log_activity "RETRY iteration=$iteration attempt=$next_attempt/$max_attempts delay=${delay}s exit_code=$exit_status cumulative_retry_time=${total_retry_time}s"
-
-      # Append retry info to run log
-      {
-        echo ""
-        echo "[RETRY] Attempt $attempt failed with exit code $exit_status"
-        echo "[RETRY] Waiting ${delay}s before retry $next_attempt/$max_attempts"
-        echo "[RETRY] Cumulative retry wait time: ${total_retry_time}s"
-        echo ""
-      } >> "$log_file"
-
-      # Wait before retry
-      sleep "$delay"
-    else
-      # All retries exhausted - log final failure
-      log_activity "RETRY_EXHAUSTED iteration=$iteration total_attempts=$max_attempts final_exit_code=$exit_status total_retry_time=${total_retry_time}s"
-      {
-        echo ""
-        echo "[RETRY] All $max_attempts attempts exhausted. Final exit code: $exit_status"
-        echo "[RETRY] Total retry wait time: ${total_retry_time}s"
-      } >> "$log_file"
-      # Set global stats even on exhaustion
-      LAST_RETRY_COUNT=$retry_count
-      LAST_RETRY_TOTAL_TIME=$total_retry_time
-    fi
-
-    attempt=$((attempt + 1))
-  done
-
-  # All retries exhausted
-  return "$exit_status"
-}
 
 MODE="build"
 RESUME_MODE="${RALPH_RESUME:-}"
@@ -433,7 +279,7 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     *)
-      if [ "$MODE" = "prd" ]; then
+      if [[ "$MODE" = "prd" ]]; then
         PRD_INLINE="${PRD_INLINE:+$PRD_INLINE }$1"
         shift
       elif [[ "$1" =~ ^[0-9]+$ ]]; then
@@ -446,13 +292,13 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
-if [ "$MODE" = "plan" ] && [ "$MAX_ITERATIONS" = "$DEFAULT_MAX_ITERATIONS" ]; then
+if [[ "$MODE" = "plan" ]] && [[ "$MAX_ITERATIONS" = "$DEFAULT_MAX_ITERATIONS" ]]; then
   MAX_ITERATIONS=1
 fi
 
 # Set up PRD-N folder paths based on mode
-if [ -z "$PRD_PATH" ]; then
-  if [ "$MODE" = "prd" ]; then
+if [[ -z "$PRD_PATH" ]]; then
+  if [[ "$MODE" = "prd" ]]; then
     # PRD mode: always create a new PRD-N folder
     NEW_PRD_NUM=$(get_next_prd_number)
     ACTIVE_PRD_NUMBER="$NEW_PRD_NUM"
@@ -467,17 +313,17 @@ if [ -z "$PRD_PATH" ]; then
   else
     # plan/build mode: use latest PRD-N folder
     LATEST_PRD_NUM=$(get_latest_prd_number)
-    if [ -z "$LATEST_PRD_NUM" ]; then
+    if [[ -z "$LATEST_PRD_NUM" ]]; then
       msg_error "No PRD folder found. Run 'ralph prd' first to create one."
       exit 1
     fi
     ACTIVE_PRD_NUMBER="$LATEST_PRD_NUM"
     PRD_DIR="$(get_prd_dir "$LATEST_PRD_NUM")"
     PRD_PATH="$PRD_DIR/prd.md"
-    if [ -z "$PLAN_PATH" ]; then
+    if [[ -z "$PLAN_PATH" ]]; then
       PLAN_PATH="$PRD_DIR/plan.md"
     fi
-    if [ -z "$PROGRESS_PATH" ]; then
+    if [[ -z "$PROGRESS_PATH" ]]; then
       PROGRESS_PATH="$PRD_DIR/progress.md"
     fi
     RUNS_DIR="${RUNS_DIR:-$PRD_DIR/runs}"
@@ -488,17 +334,17 @@ if [ -z "$PRD_PATH" ]; then
 fi
 
 PROMPT_FILE="$PROMPT_BUILD"
-if [ "$MODE" = "plan" ]; then
+if [[ "$MODE" = "plan" ]]; then
   PROMPT_FILE="$PROMPT_PLAN"
 fi
 
-if [ "$MODE" = "prd" ]; then
+if [[ "$MODE" = "prd" ]]; then
   PRD_USE_INLINE=1
-  if [ -z "$PRD_AGENT_CMD" ]; then
+  if [[ -z "$PRD_AGENT_CMD" ]]; then
     PRD_AGENT_CMD="$AGENT_CMD"
     PRD_USE_INLINE=0
   fi
-  if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" != "1" ]]; then
     require_agent "$PRD_AGENT_CMD"
   fi
 
@@ -506,18 +352,18 @@ if [ "$MODE" = "prd" ]; then
   mkdir -p "$(dirname "$PRD_PATH")" "$TMP_DIR" "$RUNS_DIR"
   touch "$PROGRESS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" 2>/dev/null || true
 
-  if [ -z "$PRD_REQUEST_PATH" ] && [ -n "$PRD_INLINE" ]; then
+  if [[ -z "$PRD_REQUEST_PATH" ]] && [[ -n "$PRD_INLINE" ]]; then
     PRD_REQUEST_PATH="$TMP_DIR/prd-request-$(date +%Y%m%d-%H%M%S)-$$.txt"
     printf '%s\n' "$PRD_INLINE" > "$PRD_REQUEST_PATH"
   fi
 
-  if [ -z "$PRD_REQUEST_PATH" ] || [ ! -f "$PRD_REQUEST_PATH" ]; then
+  if [[ -z "$PRD_REQUEST_PATH" ]] || [[ ! -f "$PRD_REQUEST_PATH" ]]; then
     msg_error "PRD request missing. Provide a prompt string or --prompt <file>."
     exit 1
   fi
 
-  if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
-    if [ ! -f "$PRD_PATH" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" = "1" ]]; then
+    if [[ ! -f "$PRD_PATH" ]]; then
       {
         echo "# PRD (dry run)"
         echo ""
@@ -539,7 +385,7 @@ if [ "$MODE" = "prd" ]; then
     cat "$PRD_REQUEST_PATH"
   } > "$PRD_PROMPT_FILE"
 
-  if [ "$PRD_USE_INLINE" -eq 1 ]; then
+  if [[ "$PRD_USE_INLINE" -eq 1 ]]; then
     run_agent_inline "$PRD_PROMPT_FILE"
   else
     run_agent "$PRD_PROMPT_FILE"
@@ -547,21 +393,21 @@ if [ "$MODE" = "prd" ]; then
   exit 0
 fi
 
-if [ "${RALPH_DRY_RUN:-}" != "1" ]; then
+if [[ "${RALPH_DRY_RUN:-}" != "1" ]]; then
   require_agent
 fi
 
-if [ ! -f "$PROMPT_FILE" ]; then
+if [[ ! -f "$PROMPT_FILE" ]]; then
   msg_warn "Prompt not found: $PROMPT_FILE"
   exit 1
 fi
 
-if [ "$MODE" != "prd" ] && [ ! -f "$PRD_PATH" ]; then
+if [[ "$MODE" != "prd" ]] && [[ ! -f "$PRD_PATH" ]]; then
   msg_warn "PRD not found: $PRD_PATH"
   exit 1
 fi
 
-if [ "$MODE" = "build" ] && [ ! -f "$PLAN_PATH" ]; then
+if [[ "$MODE" = "build" ]] && [[ ! -f "$PLAN_PATH" ]]; then
   msg_warn "Plan not found: $PLAN_PATH"
   echo "Create it first with:"
   msg_info "  ./.agents/ralph/loop.sh plan"
@@ -570,7 +416,7 @@ fi
 
 mkdir -p "$(dirname "$PROGRESS_PATH")" "$TMP_DIR" "$RUNS_DIR"
 
-if [ ! -f "$PROGRESS_PATH" ]; then
+if [[ ! -f "$PROGRESS_PATH" ]]; then
   {
     echo "# Progress Log"
     echo "Started: $(date)"
@@ -582,7 +428,7 @@ if [ ! -f "$PROGRESS_PATH" ]; then
   } > "$PROGRESS_PATH"
 fi
 
-if [ ! -f "$GUARDRAILS_PATH" ]; then
+if [[ ! -f "$GUARDRAILS_PATH" ]]; then
   {
     echo "# Guardrails (Signs)"
     echo ""
@@ -607,7 +453,7 @@ if [ ! -f "$GUARDRAILS_PATH" ]; then
   } > "$GUARDRAILS_PATH"
 fi
 
-if [ ! -f "$ERRORS_LOG_PATH" ]; then
+if [[ ! -f "$ERRORS_LOG_PATH" ]]; then
   {
     echo "# Error Log"
     echo ""
@@ -616,7 +462,7 @@ if [ ! -f "$ERRORS_LOG_PATH" ]; then
   } > "$ERRORS_LOG_PATH"
 fi
 
-if [ ! -f "$ACTIVITY_LOG_PATH" ]; then
+if [[ ! -f "$ACTIVITY_LOG_PATH" ]]; then
   {
     echo "# Activity Log"
     echo ""
@@ -629,6 +475,41 @@ fi
 
 RUN_TAG="$(date +%Y%m%d-%H%M%S)-$$"
 
+# Path to the Python PRD parser library
+PRD_PARSER_PY="$SCRIPT_DIR/lib/prd-parser.py"
+
+# Generate template variables JSON file for prompt rendering
+# Usage: write_template_vars <output_file> <run_id> <iteration> <run_log> <run_meta>
+write_template_vars() {
+  local output_file="$1"
+  local run_id="$2"
+  local iter="$3"
+  local run_log="$4"
+  local run_meta="$5"
+  cat > "$output_file" <<EOF
+{
+  "PRD_PATH": "$PRD_PATH",
+  "PLAN_PATH": "$PLAN_PATH",
+  "AGENTS_PATH": "$AGENTS_PATH",
+  "PROGRESS_PATH": "$PROGRESS_PATH",
+  "REPO_ROOT": "$ROOT_DIR",
+  "GUARDRAILS_PATH": "$GUARDRAILS_PATH",
+  "ERRORS_LOG_PATH": "$ERRORS_LOG_PATH",
+  "ACTIVITY_LOG_PATH": "$ACTIVITY_LOG_PATH",
+  "GUARDRAILS_REF": "$GUARDRAILS_REF",
+  "CONTEXT_REF": "$CONTEXT_REF",
+  "ACTIVITY_CMD": "$ACTIVITY_CMD",
+  "NO_COMMIT": "$NO_COMMIT",
+  "RUN_ID": "$run_id",
+  "ITERATION": "$iter",
+  "RUN_LOG_PATH": "$run_log",
+  "RUN_META_PATH": "$run_meta"
+}
+EOF
+}
+
+# Render prompt template using external Python script
+# Usage: render_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta>
 render_prompt() {
   local src="$1"
   local dst="$2"
@@ -638,64 +519,14 @@ render_prompt() {
   local iter="$6"
   local run_log="$7"
   local run_meta="$8"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
-import sys
-from pathlib import Path
-
-src = Path(sys.argv[1]).read_text()
-prd, plan, agents, progress, root = sys.argv[3:8]
-guardrails = sys.argv[8]
-errors_log = sys.argv[9]
-activity_log = sys.argv[10]
-guardrails_ref = sys.argv[11]
-context_ref = sys.argv[12]
-activity_cmd = sys.argv[13]
-no_commit = sys.argv[14]
-meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
-block_path = sys.argv[16] if len(sys.argv) > 16 else ""
-run_id = sys.argv[17] if len(sys.argv) > 17 else ""
-iteration = sys.argv[18] if len(sys.argv) > 18 else ""
-run_log = sys.argv[19] if len(sys.argv) > 19 else ""
-run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
-repl = {
-    "PRD_PATH": prd,
-    "PLAN_PATH": plan,
-    "AGENTS_PATH": agents,
-    "PROGRESS_PATH": progress,
-    "REPO_ROOT": root,
-    "GUARDRAILS_PATH": guardrails,
-    "ERRORS_LOG_PATH": errors_log,
-    "ACTIVITY_LOG_PATH": activity_log,
-    "GUARDRAILS_REF": guardrails_ref,
-    "CONTEXT_REF": context_ref,
-    "ACTIVITY_CMD": activity_cmd,
-    "NO_COMMIT": no_commit,
-    "RUN_ID": run_id,
-    "ITERATION": iteration,
-    "RUN_LOG_PATH": run_log,
-    "RUN_META_PATH": run_meta,
-}
-story = {"id": "", "title": "", "block": ""}
-if meta_path:
-    try:
-        import json
-        meta = json.loads(Path(meta_path).read_text())
-        story["id"] = meta.get("id", "") or ""
-        story["title"] = meta.get("title", "") or ""
-    except Exception:
-        pass
-if block_path and Path(block_path).exists():
-    story["block"] = Path(block_path).read_text()
-repl["STORY_ID"] = story["id"]
-repl["STORY_TITLE"] = story["title"]
-repl["STORY_BLOCK"] = story["block"]
-for k, v in repl.items():
-    src = src.replace("{{" + k + "}}", v)
-Path(sys.argv[2]).write_text(src)
-PY
+  local vars_file
+  vars_file="$(mktemp)"
+  write_template_vars "$vars_file" "$run_id" "$iter" "$run_log" "$run_meta"
+  python3 "$PRD_PARSER_PY" render_prompt "$src" "$dst" "$vars_file" "$story_meta" "$story_block"
+  rm -f "$vars_file"
 }
 
-# Render retry prompt with failure context variables (US-002)
+# Render retry prompt with failure context variables using external Python script
 # Usage: render_retry_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta> \
 #                            <failure_context_file> <retry_attempt> <retry_max>
 render_retry_prompt() {
@@ -710,237 +541,34 @@ render_retry_prompt() {
   local failure_context_file="${9:-}"
   local retry_attempt="${10:-1}"
   local retry_max="${11:-3}"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
-import sys
-from pathlib import Path
-
-src = Path(sys.argv[1]).read_text()
-prd, plan, agents, progress, root = sys.argv[3:8]
-guardrails = sys.argv[8]
-errors_log = sys.argv[9]
-activity_log = sys.argv[10]
-guardrails_ref = sys.argv[11]
-context_ref = sys.argv[12]
-activity_cmd = sys.argv[13]
-no_commit = sys.argv[14]
-meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
-block_path = sys.argv[16] if len(sys.argv) > 16 else ""
-run_id = sys.argv[17] if len(sys.argv) > 17 else ""
-iteration = sys.argv[18] if len(sys.argv) > 18 else ""
-run_log = sys.argv[19] if len(sys.argv) > 19 else ""
-run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
-failure_context_file = sys.argv[21] if len(sys.argv) > 21 else ""
-retry_attempt = sys.argv[22] if len(sys.argv) > 22 else "1"
-retry_max = sys.argv[23] if len(sys.argv) > 23 else "3"
-
-def analyze_previous_approach(context):
-    """Analyze what the previous approach tried based on failure context."""
-    if not context:
-        return "No previous failure context available."
-
-    lines = context.split('\n')
-    analysis = []
-
-    # Look for common patterns
-    for line in lines:
-        line_lower = line.lower()
-        if 'import' in line_lower and ('error' in line_lower or 'fail' in line_lower):
-            analysis.append("- Import statements may have issues")
-        if 'route' in line_lower and ('not found' in line_lower or '404' in line_lower):
-            analysis.append("- Route registration may be missing")
-        if 'expect' in line_lower and 'received' in line_lower:
-            analysis.append("- Test assertions did not match expected values")
-        if 'undefined' in line_lower or 'null' in line_lower:
-            analysis.append("- Some variables or properties were undefined/null")
-        if 'type' in line_lower and 'error' in line_lower:
-            analysis.append("- Type mismatches were detected")
-
-    if not analysis:
-        analysis.append("- Review the full log for specific failure details")
-
-    return '\n'.join(list(set(analysis))[:5])  # Dedupe and limit to 5
-
-def suggest_alternatives(context):
-    """Suggest alternative approaches based on failure patterns."""
-    if not context:
-        return "- Try a simpler approach first\n- Double-check the requirements"
-
-    context_lower = context.lower()
-    suggestions = []
-
-    # Pattern-based suggestions
-    if 'import' in context_lower and ('error' in context_lower or 'module' in context_lower):
-        suggestions.append("- Verify all import paths are correct and modules exist")
-        suggestions.append("- Check for circular dependencies")
-
-    if 'route' in context_lower or '404' in context_lower:
-        suggestions.append("- Ensure the route is registered in the router/app")
-        suggestions.append("- Check route path spelling and parameters")
-
-    if 'expect' in context_lower or 'assert' in context_lower:
-        suggestions.append("- Match the expected output format exactly")
-        suggestions.append("- Check data types (string vs number, etc.)")
-
-    if 'undefined' in context_lower or 'null' in context_lower:
-        suggestions.append("- Add null checks and default values")
-        suggestions.append("- Verify object properties exist before accessing")
-
-    if 'timeout' in context_lower:
-        suggestions.append("- Reduce operation complexity or add pagination")
-        suggestions.append("- Check for infinite loops or blocking operations")
-
-    if 'permission' in context_lower or 'access' in context_lower:
-        suggestions.append("- Check file/directory permissions")
-        suggestions.append("- Verify authentication/authorization is set up")
-
-    if 'syntax' in context_lower:
-        suggestions.append("- Check for missing brackets, semicolons, or quotes")
-        suggestions.append("- Validate JSON/YAML/config file formats")
-
-    if not suggestions:
-        suggestions.append("- Read the failing test/verification command carefully")
-        suggestions.append("- Check if dependencies are installed")
-        suggestions.append("- Try a more incremental approach")
-
-    return '\n'.join(suggestions[:4])  # Limit to 4 suggestions
-
-# Read failure context from file
-failure_context = ""
-if failure_context_file and Path(failure_context_file).exists():
-    failure_context = Path(failure_context_file).read_text()
-
-# Analyze previous approach from failure context
-previous_approach = analyze_previous_approach(failure_context)
-
-# Generate suggestions based on failure patterns
-suggestions = suggest_alternatives(failure_context)
-
-repl = {
-    "PRD_PATH": prd,
-    "PLAN_PATH": plan,
-    "AGENTS_PATH": agents,
-    "PROGRESS_PATH": progress,
-    "REPO_ROOT": root,
-    "GUARDRAILS_PATH": guardrails,
-    "ERRORS_LOG_PATH": errors_log,
-    "ACTIVITY_LOG_PATH": activity_log,
-    "GUARDRAILS_REF": guardrails_ref,
-    "CONTEXT_REF": context_ref,
-    "ACTIVITY_CMD": activity_cmd,
-    "NO_COMMIT": no_commit,
-    "RUN_ID": run_id,
-    "ITERATION": iteration,
-    "RUN_LOG_PATH": run_log,
-    "RUN_META_PATH": run_meta,
-    "FAILURE_CONTEXT": failure_context,
-    "PREVIOUS_APPROACH": previous_approach,
-    "SUGGESTIONS": suggestions,
-    "RETRY_ATTEMPT": retry_attempt,
-    "RETRY_MAX": retry_max,
-}
-story = {"id": "", "title": "", "block": ""}
-if meta_path:
-    try:
-        import json
-        meta = json.loads(Path(meta_path).read_text())
-        story["id"] = meta.get("id", "") or ""
-        story["title"] = meta.get("title", "") or ""
-    except Exception:
-        pass
-if block_path and Path(block_path).exists():
-    story["block"] = Path(block_path).read_text()
-repl["STORY_ID"] = story["id"]
-repl["STORY_TITLE"] = story["title"]
-repl["STORY_BLOCK"] = story["block"]
-for k, v in repl.items():
-    src = src.replace("{{" + k + "}}", v)
-Path(sys.argv[2]).write_text(src)
-PY
+  local vars_file
+  vars_file="$(mktemp)"
+  write_template_vars "$vars_file" "$run_id" "$iter" "$run_log" "$run_meta"
+  python3 "$PRD_PARSER_PY" render_retry_prompt "$src" "$dst" "$vars_file" "$story_meta" "$story_block" "$failure_context_file" "$retry_attempt" "$retry_max"
+  rm -f "$vars_file"
 }
 
+# Select next uncompleted story from PRD using external Python script
+# Usage: select_story <meta_out> <block_out>
 select_story() {
   local meta_out="$1"
   local block_out="$2"
-  python3 - "$PRD_PATH" "$meta_out" "$block_out" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-prd_path = Path(sys.argv[1])
-meta_out = Path(sys.argv[2])
-block_out = Path(sys.argv[3])
-
-text = prd_path.read_text().splitlines()
-pattern = re.compile(r'^###\s+(\[(?P<status>[ xX])\]\s+)?(?P<id>US-\d+):\s*(?P<title>.+)$')
-
-stories = []
-current = None
-for line in text:
-    m = pattern.match(line)
-    if m:
-        if current:
-            stories.append(current)
-        current = {
-            "id": m.group("id"),
-            "title": m.group("title").strip(),
-            "status": (m.group("status") or " "),
-            "lines": [line],
-        }
-    elif current is not None:
-        current["lines"].append(line)
-if current:
-    stories.append(current)
-
-if not stories:
-    meta_out.write_text(json.dumps({"ok": False, "error": "No stories found in PRD"}, indent=2) + "\n")
-    block_out.write_text("")
-    sys.exit(0)
-
-def is_done(story):
-    return str(story.get("status", "")).strip().lower() == "x"
-
-remaining = [s for s in stories if not is_done(s)]
-meta = {"ok": True, "total": len(stories), "remaining": len(remaining)}
-
-if remaining:
-    target = remaining[0]
-    meta.update({
-        "id": target["id"],
-        "title": target["title"],
-    })
-    block_out.write_text("\n".join(target["lines"]))
-else:
-    block_out.write_text("")
-
-meta_out.write_text(json.dumps(meta, indent=2) + "\n")
-PY
+  python3 "$PRD_PARSER_PY" select_story "$PRD_PATH" "$meta_out" "$block_out"
 }
 
+# Get remaining story count from metadata file using external Python script
+# Usage: remaining_stories <meta_file>
 remaining_stories() {
   local meta_file="$1"
-  python3 - "$meta_file" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-data = json.loads(Path(sys.argv[1]).read_text())
-print(data.get("remaining", "unknown"))
-PY
+  python3 "$PRD_PARSER_PY" remaining_stories "$meta_file"
 }
 
+# Get a field value from story metadata file using external Python script
+# Usage: story_field <meta_file> <field>
 story_field() {
   local meta_file="$1"
   local field="$2"
-  python3 - "$meta_file" "$field" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-data = json.loads(Path(sys.argv[1]).read_text())
-field = sys.argv[2]
-print(data.get(field, ""))
-PY
+  python3 "$PRD_PARSER_PY" story_field "$meta_file" "$field"
 }
 
 log_activity() {
@@ -957,110 +585,6 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
-# Save checkpoint before story execution for resumable builds
-# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent]
-save_checkpoint() {
-  local prd_folder="$1"
-  local prd_id="$2"
-  local iteration="$3"
-  local story_id="$4"
-  local git_sha="$5"
-  local agent="${6:-codex}"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
-    msg_dim "Checkpoint CLI not available, skipping checkpoint save"
-    return 0
-  fi
-
-  # Build JSON data
-  local json_data
-  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s"}}' \
-    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent")
-
-  # Save checkpoint via CLI
-  if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
-    msg_dim "Checkpoint saved: iteration=$iteration story=$story_id"
-    return 0
-  else
-    msg_warn "Failed to save checkpoint"
-    return 1
-  fi
-}
-
-# Clear checkpoint from PRD folder (called on successful completion)
-# Usage: clear_checkpoint <prd-folder>
-clear_checkpoint() {
-  local prd_folder="$1"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # Clear checkpoint via CLI (silent - don't warn on failure)
-  if node "$checkpoint_cli" clear "$prd_folder" >/dev/null 2>&1; then
-    msg_dim "Checkpoint cleared (build complete)"
-    return 0
-  else
-    return 1
-  fi
-}
-
-# Load checkpoint from PRD folder for resumable builds
-# Returns: Sets CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA
-# Exit code: 0 if checkpoint loaded, 1 if not found or error
-load_checkpoint() {
-  local prd_folder="$1"
-
-  local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
-    return 1
-  fi
-
-  # Load checkpoint via CLI
-  local output
-  output=$(node "$checkpoint_cli" load "$prd_folder" 2>/dev/null)
-  local status=$?
-
-  if [ $status -ne 0 ]; then
-    return 1
-  fi
-
-  # Parse JSON output using Python (more reliable than bash parsing)
-  CHECKPOINT_ITERATION=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
-  CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
-  CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
-  CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
-
-  if [ -n "$CHECKPOINT_ITERATION" ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Rollback Functions (US-001: Automatic Rollback on Test Failure)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1071,7 +595,7 @@ load_checkpoint() {
 detect_test_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1115,7 +639,7 @@ detect_test_failure() {
 detect_lint_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1152,7 +676,7 @@ detect_lint_failure() {
 detect_type_failure() {
   local log_file="$1"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1187,7 +711,7 @@ detect_failure() {
   local log_file="$1"
   local trigger_policy="${2:-test-fail}"
 
-  if [ ! -f "$log_file" ]; then
+  if [[ ! -f "$log_file" ]]; then
     return 1
   fi
 
@@ -1223,11 +747,11 @@ detect_failure() {
 story_has_no_rollback() {
   local story_block_file="$1"
 
-  if [ -z "$story_block_file" ]; then
+  if [[ -z "$story_block_file" ]]; then
     return 1  # No file, allow rollback
   fi
 
-  if [ ! -f "$story_block_file" ]; then
+  if [[ ! -f "$story_block_file" ]]; then
     return 1  # File doesn't exist, allow rollback
   fi
 
@@ -1247,7 +771,7 @@ rollback_to_checkpoint() {
   local story_id="$2"
   local reason="${3:-test_failure}"
 
-  if [ -z "$target_sha" ]; then
+  if [[ -z "$target_sha" ]]; then
     log_error "ROLLBACK failed: no target SHA provided"
     return 1
   fi
@@ -1256,7 +780,7 @@ rollback_to_checkpoint() {
   current_sha=$(git_head)
 
   # Check if we're already at target SHA
-  if [ "$current_sha" = "$target_sha" ]; then
+  if [[ "$current_sha" = "$target_sha" ]]; then
     msg_dim "Already at target SHA, no rollback needed"
     return 0
   fi
@@ -1274,7 +798,7 @@ rollback_to_checkpoint() {
   if ! git reset --hard "$target_sha" >/dev/null 2>&1; then
     log_error "ROLLBACK failed: git reset --hard $target_sha failed"
     # Attempt to restore stash if we made one
-    if [ "$has_stash" = "true" ]; then
+    if [[ "$has_stash" = "true" ]]; then
       git stash pop >/dev/null 2>&1 || true
     fi
     return 1
@@ -1306,7 +830,7 @@ save_failure_context() {
     echo "## Test Output"
     echo ""
 
-    if [ -f "$log_file" ]; then
+    if [[ -f "$log_file" ]]; then
       # Extract relevant error/test failure sections
       # Look for test output, assertion failures, stack traces
       grep -iE "(FAIL|ERROR|test.*fail|AssertionError|expect|✗|failing|failed)" "$log_file" 2>/dev/null | head -100 || true
@@ -1338,7 +862,7 @@ notify_rollback() {
   printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "$story_id"
   printf "  ${C_BOLD}Reason:${C_RESET} %s\n" "$reason"
   printf "  ${C_BOLD}Rolled back to:${C_RESET} %s\n" "${target_sha:0:8}"
-  if [ -n "$context_file" ] && [ -f "$context_file" ]; then
+  if [[ -n "$context_file" ]] && [[ -f "$context_file" ]]; then
     printf "  ${C_BOLD}Error context:${C_RESET} %s\n" "$context_file"
   fi
   printf "\n"
@@ -1371,7 +895,7 @@ log_rollback() {
   runs_dir="$(dirname "$rollback_log")"
 
   # Create runs directory if needed
-  if [ ! -d "$runs_dir" ]; then
+  if [[ ! -d "$runs_dir" ]]; then
     mkdir -p "$runs_dir"
   fi
 
@@ -1401,7 +925,7 @@ get_rollback_stats() {
   local prd_folder="${1:-$PRD_FOLDER}"
   local rollback_log="$prd_folder/runs/rollback-history.jsonl"
 
-  if [ ! -f "$rollback_log" ]; then
+  if [[ ! -f "$rollback_log" ]]; then
     echo '{"total":0,"successful":0,"failed":0,"successRate":0,"byReason":{},"byStory":{}}'
     return 0
   fi
@@ -1455,7 +979,7 @@ console.log(JSON.stringify(stats));
     successful=$(grep -c '"success":true' "$rollback_log" 2>/dev/null || echo 0)
     local failed=$((total - successful))
     local rate=0
-    if [ "$total" -gt 0 ]; then
+    if [[ "$total" -gt 0 ]]; then
       rate=$((successful * 100 / total))
     fi
     printf '{"total":%d,"successful":%d,"failed":%d,"successRate":%d,"byReason":{},"byStory":{}}' \
@@ -1463,425 +987,17 @@ console.log(JSON.stringify(stats));
   fi
 }
 
-# Validate git state matches checkpoint
-# Returns: 0 if match or user confirms, 1 if user declines
-validate_git_state() {
-  local expected_sha="$1"
-  local current_sha
+# Note: show_error(), show_error_suggestions(), and print_error_summary()
+# have been extracted to lib/output.sh (US-012)
 
-  current_sha=$(git_head)
+# Note: format_duration() and print_summary_table()
+# have been extracted to lib/output.sh (US-013)
 
-  if [ -z "$expected_sha" ]; then
-    # No checkpoint SHA to validate
-    return 0
-  fi
-
-  if [ "$current_sha" = "$expected_sha" ]; then
-    return 0
-  fi
-
-  # Git state has diverged - warn user
-  printf "\n${C_YELLOW}${C_BOLD}Warning: Git state has diverged from checkpoint${C_RESET}\n"
-  printf "  ${C_DIM}Checkpoint SHA: ${C_RESET}${expected_sha:0:8}\n"
-  printf "  ${C_DIM}Current SHA:    ${C_RESET}${current_sha:0:8}\n"
-  printf "\n"
-
-  # Prompt user if in TTY mode
-  if [ -t 0 ]; then
-    printf "${C_YELLOW}Resume anyway? [y/N]: ${C_RESET}"
-    read -r response
-    case "$response" in
-      [yY]|[yY][eE][sS])
-        return 0
-        ;;
-      *)
-        return 1
-        ;;
-    esac
-  else
-    # Non-interactive mode - fail safe
-    msg_error "Git state diverged. Use --resume in interactive mode to override."
-    return 1
-  fi
-}
-
-# Prompt user to confirm resume from checkpoint
-# Returns: 0 if user confirms, 1 if user declines
-prompt_resume_confirmation() {
-  local iteration="$1"
-  local story_id="$2"
-
-  printf "\n${C_CYAN}${C_BOLD}Checkpoint found${C_RESET}\n"
-  printf "  ${C_DIM}Iteration:${C_RESET} $iteration\n"
-  printf "  ${C_DIM}Story:${C_RESET}     ${story_id:-unknown}\n"
-  printf "\n"
-
-  # Prompt user if in TTY mode
-  if [ -t 0 ]; then
-    printf "${C_CYAN}Resume from iteration $iteration? [Y/n]: ${C_RESET}"
-    read -r response
-    case "$response" in
-      [nN]|[nN][oO])
-        return 1
-        ;;
-      *)
-        return 0
-        ;;
-    esac
-  else
-    # Non-interactive mode - proceed with resume
-    return 0
-  fi
-}
-
-# Get model routing decision for a story
-# Usage: get_routing_decision <story_block_file> [override_model]
-# Returns JSON: {"model": "sonnet", "score": 5.2, "reason": "...", "override": false}
-get_routing_decision() {
-  local story_file="$1"
-  local override="${2:-}"
-  local router_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    router_cli="$RALPH_ROOT/lib/tokens/router-cli.js"
-  else
-    router_cli="$SCRIPT_DIR/../../lib/tokens/router-cli.js"
-  fi
-
-  # Check if router CLI exists and Node.js is available
-  if [ -f "$router_cli" ] && command -v node >/dev/null 2>&1; then
-    local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
-    if [ -n "$override" ]; then
-      args+=("--override" "$override")
-    fi
-    node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
-  else
-    # Fallback when router not available
-    echo '{"model":"sonnet","score":null,"reason":"router not installed","override":false}'
-  fi
-}
-
-# Parse JSON field from routing decision
-parse_routing_field() {
-  local json="$1"
-  local field="$2"
-  local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
-  # Handle None, null, and empty
-  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
-    echo ""
-  else
-    echo "$result"
-  fi
-}
-
-# Estimate execution cost before running
-# Usage: estimate_execution_cost <model> <complexity_score>
-# Returns JSON: {"estimatedCost": "0.15", "costRange": "$0.10-0.25", "estimatedTokens": 15000, "comparison": "vs $0.75 if using Opus"}
-estimate_execution_cost() {
-  local model="$1"
-  local score="$2"
-  local estimator_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    estimator_cli="$RALPH_ROOT/lib/tokens/estimator-cli.js"
-  else
-    estimator_cli="$SCRIPT_DIR/../../lib/tokens/estimator-cli.js"
-  fi
-
-  # Check if estimator CLI exists and Node.js is available
-  if [ -f "$estimator_cli" ] && command -v node >/dev/null 2>&1; then
-    local args=("--model" "$model" "--repo-root" "$ROOT_DIR")
-    if [ -n "$score" ]; then
-      args+=("--complexity" "$score")
-    fi
-    node "$estimator_cli" "${args[@]}" 2>/dev/null || echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
-  else
-    # Fallback when estimator not available
-    echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
-  fi
-}
-
-# Calculate actual cost from token usage
-# Usage: calculate_actual_cost <input_tokens> <output_tokens> <model>
-# Returns JSON: {"totalCost": "0.15", "inputCost": "0.05", "outputCost": "0.10"}
-calculate_actual_cost() {
-  local input_tokens="$1"
-  local output_tokens="$2"
-  local model="$3"
-
-  # Use Node.js for cost calculation
-  if command -v node >/dev/null 2>&1; then
-    local calculator_path
-    if [[ -n "${RALPH_ROOT:-}" ]]; then
-      calculator_path="$RALPH_ROOT/lib/tokens/calculator.js"
-    else
-      calculator_path="$SCRIPT_DIR/../../lib/tokens/calculator.js"
-    fi
-
-    if [ -f "$calculator_path" ]; then
-      node -e "
-        const calc = require('$calculator_path');
-        const result = calc.calculateCost(
-          { inputTokens: $input_tokens, outputTokens: $output_tokens },
-          '$model'
-        );
-        console.log(JSON.stringify(result));
-      " 2>/dev/null || echo '{"totalCost":null}'
-    else
-      echo '{"totalCost":null}'
-    fi
-  else
-    echo '{"totalCost":null}'
-  fi
-}
-
-# Enhanced error display with path highlighting and suggestions
-# Usage: show_error "message" ["log_path"]
-show_error() {
-  local message="$1"
-  local log_path="${2:-}"
-  msg_error "$message"
-  if [ -n "$log_path" ]; then
-    printf "  ${C_RED}Review logs at: ${C_BOLD}%s${C_RESET}\n" "$log_path"
-  fi
-}
-
-# Show helpful suggestions when errors occur
-show_error_suggestions() {
-  local error_type="${1:-agent}"  # agent or system
-  printf "\n${C_YELLOW}${C_BOLD}Suggested next steps:${C_RESET}\n"
-  if [ "$error_type" = "agent" ]; then
-    printf "  ${C_DIM}1)${C_RESET} Review the run log for agent output and errors\n"
-    printf "  ${C_DIM}2)${C_RESET} Check ${C_CYAN}%s${C_RESET} for repeated failures\n" "$ERRORS_LOG_PATH"
-    printf "  ${C_DIM}3)${C_RESET} Try: ${C_CYAN}ralph build 1 --no-commit${C_RESET} for a test run\n"
-  else
-    printf "  ${C_DIM}1)${C_RESET} Verify the agent CLI is installed and authenticated\n"
-    printf "  ${C_DIM}2)${C_RESET} Check system resources (disk space, memory)\n"
-    printf "  ${C_DIM}3)${C_RESET} Review ${C_CYAN}%s${C_RESET} for patterns\n" "$GUARDRAILS_PATH"
-  fi
-}
-
-# Print error summary at end of run if any iterations failed
-# Reads from FAILED_ITERATIONS (format: "iter:story:logfile,iter:story:logfile,...")
-print_error_summary() {
-  local failed_data="$1"
-  local count="$2"
-
-  if [ -z "$failed_data" ] || [ "$count" -eq 0 ]; then
-    return
-  fi
-
-  echo ""
-  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
-  printf "${C_BOLD}${C_RED}  ERROR SUMMARY: %d iteration(s) failed${C_RESET}\n" "$count"
-  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
-
-  # Parse and display each failed iteration
-  IFS=',' read -ra FAILURES <<< "$failed_data"
-  for failure in "${FAILURES[@]}"; do
-    IFS=':' read -r iter story logfile <<< "$failure"
-    printf "${C_RED}  ✗ Iteration %s${C_RESET}" "$iter"
-    if [ -n "$story" ] && [ "$story" != "plan" ]; then
-      printf " ${C_DIM}(%s)${C_RESET}" "$story"
-    fi
-    printf "\n"
-    printf "    ${C_RED}Log: ${C_BOLD}%s${C_RESET}\n" "$logfile"
-  done
-
-  printf "${C_RED}───────────────────────────────────────────────────────${C_RESET}\n"
-  printf "  ${C_YELLOW}Check: ${C_CYAN}%s${C_RESET}\n" "$ERRORS_LOG_PATH"
-  printf "${C_RED}═══════════════════════════════════════════════════════${C_RESET}\n"
-}
-
-# Print auto-fix summary if any fixes were applied (US-003)
-# Reads AUTO_FIX entries from activity.log via fix-summary-cli.js
-print_fix_summary() {
-  local prd_folder="$1"
-
-  if [ -z "$prd_folder" ] || [ ! -d "$prd_folder" ]; then
-    return
-  fi
-
-  local activity_log="$prd_folder/activity.log"
-  if [ ! -f "$activity_log" ]; then
-    return
-  fi
-
-  # Check if there are any AUTO_FIX entries in the log
-  if ! grep -q "AUTO_FIX" "$activity_log" 2>/dev/null; then
-    return
-  fi
-
-  # Use fix-summary-cli.js to print the summary
-  local cli_path="$ROOT_DIR/lib/diagnose/fix-summary-cli.js"
-  if [ -f "$cli_path" ]; then
-    node "$cli_path" print "$activity_log"
-  fi
-}
-
-# Get auto-fix summary string for commit message (US-003)
-# Returns a line like "Auto-fixed: LINT_ERROR, FORMAT_ERROR"
-get_fix_commit_line() {
-  local prd_folder="$1"
-
-  if [ -z "$prd_folder" ] || [ ! -d "$prd_folder" ]; then
-    return
-  fi
-
-  local activity_log="$prd_folder/activity.log"
-  if [ ! -f "$activity_log" ]; then
-    return
-  fi
-
-  # Check if there are any AUTO_FIX entries in the log
-  if ! grep -q "AUTO_FIX" "$activity_log" 2>/dev/null; then
-    return
-  fi
-
-  # Use fix-summary-cli.js to get the commit line
-  local cli_path="$ROOT_DIR/lib/diagnose/fix-summary-cli.js"
-  if [ -f "$cli_path" ]; then
-    node "$cli_path" commit "$activity_log"
-  fi
-}
-
-# Format duration in human-readable form (e.g., "1m 23s" or "45s")
-format_duration() {
-  local secs="$1"
-  local mins=$((secs / 60))
-  local remaining=$((secs % 60))
-  if [ "$mins" -gt 0 ]; then
-    printf "%dm %ds" "$mins" "$remaining"
-  else
-    printf "%ds" "$secs"
-  fi
-}
-
-# Print iteration summary table at end of multi-iteration run
-# Reads from ITERATION_RESULTS (format: "iter|story|duration|status,...")
-print_summary_table() {
-  local results="$1"
-  local total_time="$2"
-  local success_count="$3"
-  local total_count="$4"
-  local remaining="$5"
-
-  if [ -z "$results" ] || [ "$total_count" -eq 0 ]; then
-    return
-  fi
-
-  # Only show table for multi-iteration runs (2+)
-  if [ "$total_count" -lt 2 ]; then
-    return
-  fi
-
-  echo ""
-  printf "${C_CYAN}╔═══════════════════════════════════════════════════════════════╗${C_RESET}\n"
-  printf "${C_CYAN}║${C_RESET}${C_BOLD}${C_CYAN}                    ITERATION SUMMARY                          ${C_RESET}${C_CYAN}║${C_RESET}\n"
-  printf "${C_CYAN}╠═════╤════════════╤════════════╤═════════╤══════════════════════╣${C_RESET}\n"
-  printf "${C_CYAN}║${C_RESET}${C_BOLD} Iter│   Story    │  Duration  │ Retries │       Status         ${C_RESET}${C_CYAN}║${C_RESET}\n"
-  printf "${C_CYAN}╟─────┼────────────┼────────────┼─────────┼──────────────────────╢${C_RESET}\n"
-
-  # Parse and display each iteration result
-  IFS=',' read -ra RESULTS <<< "$results"
-  local total_retries=0
-  for result in "${RESULTS[@]}"; do
-    # Handle both old format (4 fields) and new format (5 fields with retries)
-    local iter story duration status retries_field
-    IFS='|' read -r iter story duration status retries_field <<< "$result"
-    local dur_str
-    dur_str=$(format_duration "$duration")
-    # Handle missing/empty retries field gracefully (backwards compatibility)
-    local retries=0
-    if [ -n "$retries_field" ] && [ "$retries_field" != "" ]; then
-      retries="$retries_field"
-    fi
-    total_retries=$((total_retries + retries))
-
-    # Status symbol and color
-    local status_display
-    if [ "$status" = "success" ]; then
-      status_display="${C_GREEN}✓ success${C_RESET}"
-    else
-      status_display="${C_RED}✗ error${C_RESET}"
-    fi
-
-    # Retry display with color
-    local retry_display
-    if [ "$retries" -gt 0 ]; then
-      retry_display="${C_YELLOW}${retries}${C_RESET}"
-    else
-      retry_display="${C_DIM}0${C_RESET}"
-    fi
-
-    # Truncate story ID if too long (max 10 chars)
-    local story_display="${story:-plan}"
-    if [ "${#story_display}" -gt 10 ]; then
-      story_display="${story_display:0:10}"
-    fi
-
-    printf "${C_CYAN}║${C_RESET} %3s │ %-10s │ %10s │   %-5b │ %-20b ${C_CYAN}║${C_RESET}\n" "$iter" "$story_display" "$dur_str" "$retry_display" "$status_display"
-  done
-
-  printf "${C_CYAN}╠═════╧════════════╧════════════╧═════════╧══════════════════════╣${C_RESET}\n"
-
-  # Aggregate stats
-  local total_dur_str
-  total_dur_str=$(format_duration "$total_time")
-  local success_rate
-  if [ "$total_count" -gt 0 ]; then
-    success_rate=$((success_count * 100 / total_count))
-  else
-    success_rate=0
-  fi
-
-  # Color-code success rate
-  local rate_color="$C_GREEN"
-  if [ "$success_rate" -lt 100 ]; then
-    rate_color="$C_YELLOW"
-  fi
-  if [ "$success_rate" -lt 50 ]; then
-    rate_color="$C_RED"
-  fi
-
-  printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Total time:${C_RESET} %-10s ${C_BOLD}Success:${C_RESET} ${rate_color}%d/%d (%d%%)${C_RESET}  " "$total_dur_str" "$success_count" "$total_count" "$success_rate"
-  if [ "$total_retries" -gt 0 ]; then
-    printf "${C_BOLD}Retries:${C_RESET} ${C_YELLOW}%d${C_RESET}  " "$total_retries"
-  fi
-  printf "${C_CYAN}║${C_RESET}\n"
-  if [ -n "$remaining" ] && [ "$remaining" != "unknown" ] && [ "$remaining" != "0" ]; then
-    printf "${C_CYAN}║${C_RESET}  ${C_BOLD}Stories remaining:${C_RESET} %-41s ${C_CYAN}║${C_RESET}\n" "$remaining"
-  fi
-  printf "${C_CYAN}╚═══════════════════════════════════════════════════════════════╝${C_RESET}\n"
-}
-
+# Append a run summary line to the activity log using external Python script
+# Usage: append_run_summary <line>
 append_run_summary() {
   local line="$1"
-  python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-line = sys.argv[2]
-text = path.read_text().splitlines()
-out = []
-inserted = False
-for l in text:
-    out.append(l)
-    if not inserted and l.strip() == "## Run Summary":
-        out.append(f"- {line}")
-        inserted = True
-if not inserted:
-    out = [
-        "# Activity Log",
-        "",
-        "## Run Summary",
-        f"- {line}",
-        "",
-        "## Events",
-        "",
-    ] + text
-Path(path).write_text("\n".join(out).rstrip() + "\n")
-PY
+  python3 "$PRD_PARSER_PY" append_run_summary "$ACTIVITY_LOG_PATH" "$line"
 }
 
 # Write run metadata using external Python script
@@ -1946,7 +1062,7 @@ generate_context_summary() {
 
   # Check if context CLI is available
   local context_cli="$SCRIPT_DIR/../../lib/context/cli.js"
-  if [ ! -f "$context_cli" ]; then
+  if [[ ! -f "$context_cli" ]]; then
     echo ""
     return 0
   fi
@@ -1974,7 +1090,7 @@ append_context_to_run_meta() {
   local run_meta_path="$1"
   local context_summary="$2"
 
-  if [ -z "$context_summary" ]; then
+  if [[ -z "$context_summary" ]]; then
     return 0
   fi
 
@@ -1986,256 +1102,11 @@ append_context_to_run_meta() {
   } >> "$run_meta_path"
 }
 
-git_head() {
-  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || true
-  else
-    echo ""
-  fi
-}
-
-git_commit_list() {
-  local before="$1"
-  local after="$2"
-  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
-    git -C "$ROOT_DIR" log --oneline "$before..$after" | sed 's/^/- /'
-  else
-    echo ""
-  fi
-}
-
-git_changed_files() {
-  local before="$1"
-  local after="$2"
-  if [ -n "$before" ] && [ -n "$after" ] && [ "$before" != "$after" ]; then
-    git -C "$ROOT_DIR" diff --name-only "$before" "$after" | sed 's/^/- /'
-  else
-    echo ""
-  fi
-}
-
-git_dirty_files() {
-  if git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    git -C "$ROOT_DIR" status --porcelain | awk '{print "- " $2}'
-  else
-    echo ""
-  fi
-}
+# Git helper functions are now sourced from lib/git-utils.sh
+# Provides: git_head, git_commit_list, git_changed_files, git_dirty_files
 
 # Extract token metrics from a log file using Node.js extractor
 # Returns JSON: {"inputTokens": N, "outputTokens": N, "model": "...", "estimated": bool}
-extract_tokens_from_log() {
-  local log_file="$1"
-  local extractor_path
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    extractor_path="$RALPH_ROOT/lib/tokens/extract-cli.js"
-  else
-    extractor_path="$SCRIPT_DIR/../../lib/tokens/extract-cli.js"
-  fi
-
-  # Check if extractor exists and Node.js is available
-  if [ -f "$extractor_path" ] && command -v node >/dev/null 2>&1; then
-    node "$extractor_path" "$log_file" 2>/dev/null || echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
-  else
-    echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
-  fi
-}
-
-# Parse JSON field from token extraction result
-parse_token_field() {
-  local json="$1"
-  local field="$2"
-  local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
-  # Handle None, null, and empty - return empty string to prevent arithmetic errors
-  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
-    echo ""
-  else
-    echo "$result"
-  fi
-}
-
-# Append metrics to metrics.jsonl for historical tracking
-# Called after each successful build iteration
-append_metrics() {
-  local prd_folder="$1"
-  local story_id="$2"
-  local story_title="$3"
-  local duration="$4"
-  local input_tokens="$5"
-  local output_tokens="$6"
-  local agent="$7"
-  local model="$8"
-  local status="$9"
-  local run_id="${10}"
-  local iteration="${11}"
-  local retry_count="${12:-0}"
-  local retry_time="${13:-0}"
-  local complexity_score="${14:-}"
-  local routing_reason="${15:-}"
-  local estimated_cost="${16:-}"
-  local exp_name="${17:-}"
-  local exp_variant="${18:-}"
-  local exp_excluded="${19:-}"
-  # Rollback tracking fields (US-004)
-  local rollback_count="${20:-0}"
-  local rollback_reason="${21:-}"
-  local rollback_success="${22:-}"
-  # Switch tracking fields (US-004)
-  local switch_count="${23:-0}"
-  local agents_tried="${24:-}"  # Comma-separated list of agents tried
-  local failure_type="${25:-}"  # timeout, error, quality, or empty
-
-  local metrics_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    metrics_cli="$RALPH_ROOT/lib/estimate/metrics-cli.js"
-  else
-    metrics_cli="$SCRIPT_DIR/../../lib/estimate/metrics-cli.js"
-  fi
-
-  # Check if metrics CLI exists and Node.js is available
-  if [ -f "$metrics_cli" ] && command -v node >/dev/null 2>&1; then
-    # Build JSON data - handle null tokens gracefully
-    local input_val="null"
-    local output_val="null"
-    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ "$input_tokens" != "" ]; then
-      input_val="$input_tokens"
-    fi
-    if [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ] && [ "$output_tokens" != "" ]; then
-      output_val="$output_tokens"
-    fi
-
-    # Handle complexity score
-    local complexity_val="null"
-    if [ -n "$complexity_score" ] && [ "$complexity_score" != "null" ] && [ "$complexity_score" != "" ] && [ "$complexity_score" != "n/a" ]; then
-      complexity_val="$complexity_score"
-    fi
-
-    # Handle estimated cost
-    local estimated_cost_val="null"
-    if [ -n "$estimated_cost" ] && [ "$estimated_cost" != "null" ] && [ "$estimated_cost" != "" ] && [ "$estimated_cost" != "n/a" ]; then
-      estimated_cost_val="$estimated_cost"
-    fi
-
-    # Escape strings for JSON
-    local escaped_title
-    escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
-
-local escaped_reason="null"
-    if [ -n "$routing_reason" ] && [ "$routing_reason" != "null" ] && [ "$routing_reason" != "" ]; then
-      escaped_reason=$(printf '"%s"' "$(printf '%s' "$routing_reason" | sed 's/"/\\"/g')")
-    fi
-
-    # Build experiment fields if present
-    local exp_fields=""
-    if [ -n "$exp_name" ]; then
-      local excluded_bool="false"
-      if [ "$exp_excluded" = "1" ]; then
-        excluded_bool="true"
-      fi
-      exp_fields=$(printf ',"experimentName":"%s","experimentVariant":"%s","experimentExcluded":%s' \
-        "$exp_name" \
-        "$exp_variant" \
-        "$excluded_bool")
-    fi
-
-    # Build rollback fields if present (US-004)
-    local rollback_fields=""
-    if [ -n "$rollback_count" ] && [ "$rollback_count" != "0" ]; then
-      local rollback_success_bool="null"
-      if [ "$rollback_success" = "true" ]; then
-        rollback_success_bool="true"
-      elif [ "$rollback_success" = "false" ]; then
-        rollback_success_bool="false"
-      fi
-      local escaped_rollback_reason="null"
-      if [ -n "$rollback_reason" ]; then
-        escaped_rollback_reason=$(printf '"%s"' "$(printf '%s' "$rollback_reason" | sed 's/"/\\"/g')")
-      fi
-      rollback_fields=$(printf ',"rollbackCount":%s,"rollbackReason":%s,"rollbackSuccess":%s' \
-        "$rollback_count" \
-        "$escaped_rollback_reason" \
-        "$rollback_success_bool")
-    fi
-
-    # Build switch tracking fields (US-004)
-    local switch_fields=""
-    if [ -n "$switch_count" ] && [ "$switch_count" != "0" ]; then
-      # Convert comma-separated agents to JSON array
-      local agents_json="null"
-      if [ -n "$agents_tried" ]; then
-        # Convert "claude,codex" to ["claude","codex"]
-        agents_json="[$(echo "$agents_tried" | sed 's/,/","/g' | sed 's/^/"/' | sed 's/$/"/' )]"
-      fi
-      local failure_type_json="null"
-      if [ -n "$failure_type" ]; then
-        failure_type_json="\"$failure_type\""
-      fi
-      switch_fields=$(printf ',"switchCount":%s,"agents":%s,"failureType":%s' \
-        "$switch_count" \
-        "$agents_json" \
-        "$failure_type_json")
-    fi
-
-    local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"%s%s}' \
-      "$story_id" \
-      "$escaped_title" \
-      "$duration" \
-      "$input_val" \
-      "$output_val" \
-      "$agent" \
-      "${model:-null}" \
-      "$status" \
-      "$run_id" \
-      "$iteration" \
-      "$retry_count" \
-      "$retry_time" \
-      "$complexity_val" \
-      "$escaped_reason" \
-      "$estimated_cost_val" \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "$exp_fields" \
-      "$rollback_fields" \
-      "$switch_fields")
-
-    node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
-  fi
-}
-
-# Rebuild token cache for the current stream
-# Called at end of build to ensure dashboard has fresh data
-rebuild_token_cache() {
-  if [ "$MODE" != "build" ]; then
-    return 0
-  fi
-
-  local cache_script
-  if [ -n "$RALPH_ROOT" ]; then
-    cache_script="$RALPH_ROOT/lib/tokens/index.js"
-  else
-    cache_script="$SCRIPT_DIR/../../lib/tokens/index.js"
-  fi
-
-  # Get the stream path (PRD-N directory)
-  local stream_path
-  stream_path="$(dirname "$PRD_PATH")"
-
-  if [ -f "$cache_script" ] && command -v node >/dev/null 2>&1; then
-    node -e "
-      const tokens = require('$cache_script');
-      const streamPath = '$stream_path';
-      const repoRoot = '$(dirname "$(dirname "$stream_path")")';
-      try {
-        tokens.rebuildCache(streamPath, tokens.parseTokensFromSummary, { repoRoot });
-        console.log('Token cache rebuilt for ' + streamPath);
-      } catch (e) {
-        console.error('Failed to rebuild token cache:', e.message);
-      }
-    " 2>/dev/null || true
-  fi
-}
-
 msg_info "Ralph mode: $MODE"
 msg_dim "Max iterations: $MAX_ITERATIONS"
 msg_dim "PRD: $PRD_PATH"
@@ -2269,13 +1140,13 @@ classify_failure_type() {
   local log_file="$2"
 
   # Timeout failures (SIGALRM=124, SIGKILL=137)
-  if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
+  if [[ "$exit_code" -eq 124 ]] || [[ "$exit_code" -eq 137 ]]; then
     echo "timeout"
     return
   fi
 
   # Quality failures - check log for test/lint/type errors
-  if [ -f "$log_file" ]; then
+  if [[ -f "$log_file" ]]; then
     # Check for test failures
     if grep -qiE "(test(s)? (failed|failing)|FAIL |✗ |AssertionError|expect\(.*\)\.to)" "$log_file" 2>/dev/null; then
       echo "quality"
@@ -2305,13 +1176,13 @@ should_trigger_switch() {
 
   case "$failure_type" in
     timeout)
-      [ "${AGENT_SWITCH_ON_TIMEOUT:-true}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_TIMEOUT:-true}" = "true" ]] && return 0
       ;;
     error)
-      [ "${AGENT_SWITCH_ON_ERROR:-true}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_ERROR:-true}" = "true" ]] && return 0
       ;;
     quality)
-      [ "${AGENT_SWITCH_ON_QUALITY:-false}" = "true" ] && return 0
+      [ "${AGENT_SWITCH_ON_QUALITY:-false}" = "true" ]] && return 0
       ;;
   esac
   return 1
@@ -2341,7 +1212,7 @@ track_failure() {
 # Reset consecutive failure tracking (called on success)
 # Usage: reset_failure_tracking
 reset_failure_tracking() {
-  if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+  if [[ "$CONSECUTIVE_FAILURES" -gt 0 ]]; then
     log_activity "FAILURE_RESET agent=$CURRENT_AGENT previous_consecutive=$CONSECUTIVE_FAILURES (story completed successfully)"
   fi
   CONSECUTIVE_FAILURES=0
@@ -2354,7 +1225,7 @@ reset_failure_tracking() {
 # Returns: 0 if threshold reached, 1 otherwise
 switch_threshold_reached() {
   local threshold="${AGENT_SWITCH_THRESHOLD:-2}"
-  [ "$CONSECUTIVE_FAILURES" -ge "$threshold" ]
+  [ "$CONSECUTIVE_FAILURES" -ge "$threshold" ]]
 }
 
 # Get switch state file path for the current PRD
@@ -2396,7 +1267,7 @@ load_switch_state() {
   local state_file
   state_file="$(get_switch_state_file "$prd_folder")"
 
-  if [ ! -f "$state_file" ]; then
+  if [[ ! -f "$state_file" ]]; then
     return 1
   fi
 
@@ -2425,13 +1296,13 @@ except Exception:
   CHAIN_POSITION=$(echo "$parsed" | sed -n '5p')
 
   # Validate
-  if [ -z "$CURRENT_AGENT" ]; then
+  if [[ -z "$CURRENT_AGENT" ]]; then
     CURRENT_AGENT="$DEFAULT_AGENT_NAME"
   fi
-  if [ -z "$CONSECUTIVE_FAILURES" ] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
+  if [[ -z "$CONSECUTIVE_FAILURES" ]] || ! [[ "$CONSECUTIVE_FAILURES" =~ ^[0-9]+$ ]]; then
     CONSECUTIVE_FAILURES=0
   fi
-  if [ -z "$CHAIN_POSITION" ] || ! [[ "$CHAIN_POSITION" =~ ^[0-9]+$ ]]; then
+  if [[ -z "$CHAIN_POSITION" ]] || ! [[ "$CHAIN_POSITION" =~ ^[0-9]+$ ]]; then
     CHAIN_POSITION=0
   fi
   # Update AGENT_CMD to match loaded agent
@@ -2448,7 +1319,7 @@ clear_switch_state() {
   local state_file
   state_file="$(get_switch_state_file "$prd_folder")"
 
-  if [ -f "$state_file" ]; then
+  if [[ -f "$state_file" ]]; then
     rm -f "$state_file"
     msg_dim "Switch state cleared (build complete)"
   fi
@@ -2465,7 +1336,7 @@ CHAIN_POSITION=0
 # Returns: 0 (true) if available, 1 (false) otherwise
 agent_available() {
   local agent_name="$1"
-  if [ -z "$agent_name" ]; then
+  if [[ -z "$agent_name" ]]; then
     return 1
   fi
   command -v "$agent_name" >/dev/null 2>&1
@@ -2495,7 +1366,7 @@ switch_to_next_agent() {
     local candidate="${chain[$next_pos]}"
 
     # Skip if we're back at the current agent (full loop)
-    if [ "$candidate" = "$old_agent" ]; then
+    if [[ "$candidate" = "$old_agent" ]]; then
       continue
     fi
 
@@ -2512,7 +1383,7 @@ switch_to_next_agent() {
       LAST_SWITCH_TO="$CURRENT_AGENT"
       LAST_SWITCH_REASON="$LAST_FAILURE_TYPE"
       # Track agents tried for metrics (US-004)
-      if [ -z "$AGENTS_TRIED_THIS_ITERATION" ]; then
+      if [[ -z "$AGENTS_TRIED_THIS_ITERATION" ]]; then
         AGENTS_TRIED_THIS_ITERATION="$old_agent,$CURRENT_AGENT"
       elif [[ ",$AGENTS_TRIED_THIS_ITERATION," != *",$CURRENT_AGENT,"* ]]; then
         AGENTS_TRIED_THIS_ITERATION="$AGENTS_TRIED_THIS_ITERATION,$CURRENT_AGENT"
@@ -2545,7 +1416,7 @@ reset_chain_position() {
       CHAIN_POSITION=$i
       CURRENT_AGENT="$candidate"
       AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      if [ "$old_position" -ne "$i" ] || [ "$old_agent" != "$candidate" ]; then
+      if [[ "$old_position" -ne "$i" ]] || [[ "$old_agent" != "$candidate" ]]; then
         log_activity "CHAIN_RESET from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION (story completed successfully)"
         msg_dim "Chain reset: using primary agent $CURRENT_AGENT"
       fi
@@ -2558,24 +1429,27 @@ reset_chain_position() {
   return 1
 }
 
-# Progress indicator: prints elapsed time every N seconds (TTY only)
+# Progress indicator: prints elapsed time every PROGRESS_INTERVAL seconds (TTY only)
 # Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
+# Configure via PROGRESS_INTERVAL in config.sh (default: 30 seconds)
 PROGRESS_PID=""
+PROGRESS_INTERVAL="${PROGRESS_INTERVAL:-$DEFAULT_PROGRESS_INTERVAL}"
 start_progress_indicator() {
   # Only show progress in TTY mode
-  if [ ! -t 1 ]; then
+  if [[ ! -t 1 ]]; then
     return
   fi
   local start_time="$1"
   local story_info="${2:-}"
+  local interval="${PROGRESS_INTERVAL:-30}"
   (
     while true; do
-      sleep 5
+      sleep "$interval"
       local now=$(date +%s)
       local elapsed=$((now - start_time))
       local mins=$((elapsed / 60))
       local secs=$((elapsed % 60))
-      if [ "$mins" -gt 0 ]; then
+      if [[ "$mins" -gt 0 ]]; then
         printf "${C_DIM}  ⏱ Elapsed: %dm %ds${C_RESET}\n" "$mins" "$secs"
       else
         printf "${C_DIM}  ⏱ Elapsed: %ds${C_RESET}\n" "$secs"
@@ -2586,7 +1460,7 @@ start_progress_indicator() {
 }
 
 stop_progress_indicator() {
-  if [ -n "$PROGRESS_PID" ]; then
+  if [[ -n "$PROGRESS_PID" ]]; then
     kill "$PROGRESS_PID" 2>/dev/null || true
     wait "$PROGRESS_PID" 2>/dev/null || true
     PROGRESS_PID=""
@@ -2598,7 +1472,7 @@ trap 'stop_progress_indicator' EXIT INT TERM
 
 # Resume mode handling
 START_ITERATION=1
-if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
+if [[ "$MODE" = "build" ]] && [[ -n "$RESUME_MODE" ]]; then
   PRD_FOLDER="$(dirname "$PRD_PATH")"
 
   if load_checkpoint "$PRD_FOLDER"; then
@@ -2621,17 +1495,17 @@ if [ "$MODE" = "build" ] && [ -n "$RESUME_MODE" ]; then
 
   # Load switch state for failure tracking persistence (US-001)
   if load_switch_state "$PRD_FOLDER"; then
-    if [ "$CONSECUTIVE_FAILURES" -gt 0 ]; then
+    if [[ "$CONSECUTIVE_FAILURES" -gt 0 ]]; then
       msg_info "Previous run had $CONSECUTIVE_FAILURES consecutive failure(s) for agent $CURRENT_AGENT"
     fi
   fi
-elif [ "$MODE" = "build" ]; then
+elif [[ "$MODE" = "build" ]]; then
   # Non-resume build mode - load switch state to continue tracking
   PRD_FOLDER="$(dirname "$PRD_PATH")"
   load_switch_state "$PRD_FOLDER" 2>/dev/null || true
 fi
 
-for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
+for ((i = START_ITERATION; i <= MAX_ITERATIONS; i++)); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
   printf "${C_BOLD}${C_CYAN}  Running iteration $i/$MAX_ITERATIONS${C_RESET}\n"
@@ -2655,16 +1529,16 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   LAST_SWITCH_REASON=""
   # Initialize with current agent for metrics tracking (US-004)
   AGENTS_TRIED_THIS_ITERATION="$CURRENT_AGENT"
-  if [ "$MODE" = "build" ]; then
+  if [[ "$MODE" = "build" ]]; then
     STORY_META="$TMP_DIR/story-$RUN_TAG-$i.json"
     STORY_BLOCK="$TMP_DIR/story-$RUN_TAG-$i.md"
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
-    if [ "$REMAINING" = "unknown" ]; then
+    if [[ "$REMAINING" = "unknown" ]]; then
       msg_error "Could not parse stories from PRD: $PRD_PATH"
       exit 1
     fi
-    if [ "$REMAINING" = "0" ]; then
+    if [[ "$REMAINING" = "0" ]]; then
       # Clear checkpoint and switch state on successful completion
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
@@ -2684,27 +1558,27 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
     # Get model routing decision
     ROUTING_JSON="$(get_routing_decision "$STORY_BLOCK" "${RALPH_MODEL_OVERRIDE:-}")"
-    ROUTED_MODEL="$(parse_routing_field "$ROUTING_JSON" "model")"
-    ROUTED_SCORE="$(parse_routing_field "$ROUTING_JSON" "score")"
-    ROUTED_REASON="$(parse_routing_field "$ROUTING_JSON" "reason")"
-    ROUTED_OVERRIDE="$(parse_routing_field "$ROUTING_JSON" "override")"
+    ROUTED_MODEL="$(parse_json_field "$ROUTING_JSON" "model")"
+    ROUTED_SCORE="$(parse_json_field "$ROUTING_JSON" "score")"
+    ROUTED_REASON="$(parse_json_field "$ROUTING_JSON" "reason")"
+    ROUTED_OVERRIDE="$(parse_json_field "$ROUTING_JSON" "override")"
 
     # Parse complexity breakdown from routing JSON
-    ROUTED_BREAKDOWN="$(parse_routing_field "$ROUTING_JSON" "breakdown")"
+    ROUTED_BREAKDOWN="$(parse_json_field "$ROUTING_JSON" "breakdown")"
 
     # Display routing decision with enhanced visualization
     printf "${C_DIM}  ┌─ Routing Decision ────────────────────────────────${C_RESET}\n"
-    if [ "$ROUTED_OVERRIDE" = "true" ]; then
+    if [[ "$ROUTED_OVERRIDE" = "true" ]]; then
       printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
-    elif [ -n "$ROUTED_SCORE" ]; then
+    elif [[ -n "$ROUTED_SCORE" ]]; then
       # Determine complexity level and color
       level_color="$C_GREEN"
       level_label="low"
-      if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+      if [[ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]]; then
         level_color="$C_YELLOW"
         level_label="medium"
       fi
-      if [ "$(echo "$ROUTED_SCORE > 7" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+      if [[ "$(echo "$ROUTED_SCORE > 7" | bc -l 2>/dev/null || echo "0")" = "1" ]]; then
         level_color="$C_RED"
         level_label="high"
       fi
@@ -2717,17 +1591,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
     # Get and display estimated cost before execution
     ESTIMATED_COST_JSON="$(estimate_execution_cost "$ROUTED_MODEL" "$ROUTED_SCORE")"
-    ESTIMATED_COST="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedCost")"
-    ESTIMATED_COST_RANGE="$(parse_routing_field "$ESTIMATED_COST_JSON" "costRange")"
-    ESTIMATED_TOKENS="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
-    ESTIMATED_COMPARISON="$(parse_routing_field "$ESTIMATED_COST_JSON" "comparison")"
-    if [ -n "$ESTIMATED_COST" ] && [ "$ESTIMATED_COST" != "null" ]; then
+    ESTIMATED_COST="$(parse_json_field "$ESTIMATED_COST_JSON" "estimatedCost")"
+    ESTIMATED_COST_RANGE="$(parse_json_field "$ESTIMATED_COST_JSON" "costRange")"
+    ESTIMATED_TOKENS="$(parse_json_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
+    ESTIMATED_COMPARISON="$(parse_json_field "$ESTIMATED_COST_JSON" "comparison")"
+    if [[ -n "$ESTIMATED_COST" ]] && [[ "$ESTIMATED_COST" != "null" ]]; then
       printf "${C_DIM}  │${C_RESET} Est. cost: ${C_CYAN}\$${ESTIMATED_COST}${C_RESET}"
-      if [ -n "$ESTIMATED_COST_RANGE" ] && [ "$ESTIMATED_COST_RANGE" != "null" ]; then
+      if [[ -n "$ESTIMATED_COST_RANGE" ]] && [[ "$ESTIMATED_COST_RANGE" != "null" ]]; then
         printf " ${C_DIM}($ESTIMATED_COST_RANGE)${C_RESET}"
       fi
       printf "\n"
-      if [ -n "$ESTIMATED_COMPARISON" ] && [ "$ESTIMATED_COMPARISON" != "null" ]; then
+      if [[ -n "$ESTIMATED_COMPARISON" ]] && [[ "$ESTIMATED_COMPARISON" != "null" ]]; then
         printf "${C_DIM}  │${C_RESET} ${C_DIM}$ESTIMATED_COMPARISON${C_RESET}\n"
       fi
     fi
@@ -2743,14 +1617,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   RUN_META="$RUNS_DIR/run-$RUN_TAG-iter-$i.md"
   render_prompt "$PROMPT_FILE" "$PROMPT_RENDERED" "$STORY_META" "$STORY_BLOCK" "$RUN_TAG" "$i" "$LOG_FILE" "$RUN_META"
 
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     log_activity "ITERATION $i start (mode=$MODE story=$STORY_ID)"
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
 
   # Save checkpoint before story execution (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     PRD_FOLDER="$(dirname "$PRD_PATH")"
     save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME"
   fi
@@ -2758,7 +1632,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   set +e
   # Start progress indicator before agent execution
   start_progress_indicator "$ITER_START"
-  if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
+  if [[ "${RALPH_DRY_RUN:-}" = "1" ]]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
   else
@@ -2769,7 +1643,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Stop progress indicator after agent execution
   stop_progress_indicator
   set -e
-  if [ "$CMD_STATUS" -eq 130 ] || [ "$CMD_STATUS" -eq 143 ]; then
+  if [[ "$CMD_STATUS" -eq 130 ]] || [[ "$CMD_STATUS" -eq 143 ]]; then
     msg_warn "Interrupted."
     exit "$CMD_STATUS"
   fi
@@ -2778,14 +1652,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   ITER_DURATION=$((ITER_END - ITER_START))
   HEAD_AFTER="$(git_head)"
   log_activity "ITERATION $i end (duration=${ITER_DURATION}s)"
-  if [ "$CMD_STATUS" -ne 0 ]; then
+  if [[ "$CMD_STATUS" -ne 0 ]]; then
     log_error "ITERATION $i command failed (status=$CMD_STATUS)"
     HAS_ERROR="true"
     # Track failed iteration details for summary
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
     # Track failure for agent switching (US-001)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
       track_failure "$CMD_STATUS" "$LOG_FILE" "$STORY_ID"
       PRD_FOLDER="$(dirname "$PRD_PATH")"
       save_switch_state "$PRD_FOLDER"
@@ -2804,12 +1678,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
   DIRTY_FILES="$(git_dirty_files)"
   STATUS_LABEL="success"
-  if [ "$CMD_STATUS" -ne 0 ]; then
+  if [[ "$CMD_STATUS" -ne 0 ]]; then
     STATUS_LABEL="error"
   else
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     # Reset failure tracking on success (US-001)
-    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
       reset_failure_tracking
       # Reset chain position to primary agent on success (US-002)
       reset_chain_position
@@ -2820,17 +1694,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
   ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-plan}|$ITER_DURATION|$STATUS_LABEL|$LAST_RETRY_COUNT"
 
-  if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
+  if [[ "$MODE" = "build" ]] && [[ "$NO_COMMIT" = "false" ]] && [[ -n "$DIRTY_FILES" ]]; then
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
   fi
 
   # Extract token metrics from log file
   TOKEN_JSON="$(extract_tokens_from_log "$LOG_FILE")"
-  TOKEN_INPUT="$(parse_token_field "$TOKEN_JSON" "inputTokens")"
-  TOKEN_OUTPUT="$(parse_token_field "$TOKEN_JSON" "outputTokens")"
-  TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
-  TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
+  TOKEN_INPUT="$(parse_json_field "$TOKEN_JSON" "inputTokens")"
+  TOKEN_OUTPUT="$(parse_json_field "$TOKEN_JSON" "outputTokens")"
+  TOKEN_MODEL="$(parse_json_field "$TOKEN_JSON" "model")"
+  TOKEN_ESTIMATED="$(parse_json_field "$TOKEN_JSON" "estimated")"
 
   # Build JSON object for run metadata
   RUN_META_JSON=$(python3 -c "import json, sys; print(json.dumps({
@@ -2869,9 +1743,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   write_run_meta "$RUN_META" "$RUN_META_JSON"
 
   # Append context summary to run meta (build mode only)
-  if [ "$MODE" = "build" ] && [ -n "${STORY_BLOCK:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_BLOCK:-}" ]]; then
     CONTEXT_SUMMARY="$(generate_context_summary "$STORY_BLOCK" "${ROUTED_MODEL:-sonnet}" 15 "$ROOT_DIR")"
-    if [ -n "$CONTEXT_SUMMARY" ]; then
+    if [[ -n "$CONTEXT_SUMMARY" ]]; then
       append_context_to_run_meta "$RUN_META" "$CONTEXT_SUMMARY"
     fi
   fi
@@ -2879,13 +1753,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Note: append_metrics is called after rollback logic to capture both rollback and switch data
   # See the metrics call below the rollback section
 
-  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+  if [[ "$MODE" = "build" ]] && [[ -n "${STORY_ID:-}" ]]; then
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   else
     append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
   fi
 
-  if [ "$MODE" = "build" ]; then
+  if [[ "$MODE" = "build" ]]; then
     select_story "$STORY_META" "$STORY_BLOCK"
     REMAINING="$(remaining_stories "$STORY_META")"
 
@@ -2893,7 +1767,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Rollback on Failure (US-001 + US-003)
     # Check for failures based on ROLLBACK_TRIGGER config and rollback to pre-story state
     # ─────────────────────────────────────────────────────────────────────────
-    if [ "$CMD_STATUS" -ne 0 ] && [ "${ROLLBACK_ENABLED:-true}" = "true" ] && [ "$NO_COMMIT" = "false" ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]] && [[ "${ROLLBACK_ENABLED:-true}" = "true" ]] && [[ "$NO_COMMIT" = "false" ]]; then
       # US-003: Check for story-level rollback skip via <!-- no-rollback --> comment
       if story_has_no_rollback "${STORY_BLOCK:-}"; then
         log_activity "ROLLBACK_SKIPPED story=$STORY_ID reason=no-rollback-directive"
@@ -2937,12 +1811,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           # Intelligent Retry (US-002)
           # Retry the story with enhanced context after successful rollback
           # ─────────────────────────────────────────────────────────────────────
-          if [ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]; then
+          if [[ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]]; then
             ROLLBACK_MAX="${ROLLBACK_MAX_RETRIES:-3}"
 
             # Track retry attempts for this story (use a simple file-based approach)
             RETRY_TRACKING_FILE="$RUNS_DIR/retry-count-${STORY_ID:-unknown}.txt"
-            if [ -f "$RETRY_TRACKING_FILE" ]; then
+            if [[ -f "$RETRY_TRACKING_FILE" ]]; then
               CURRENT_RETRY_COUNT=$(cat "$RETRY_TRACKING_FILE")
             else
               CURRENT_RETRY_COUNT=0
@@ -2951,7 +1825,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
             CURRENT_RETRY_COUNT=$((CURRENT_RETRY_COUNT + 1))
             echo "$CURRENT_RETRY_COUNT" > "$RETRY_TRACKING_FILE"
 
-            if [ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]; then
+            if [[ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]]; then
               printf "\n"
               printf "${C_CYAN}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
               printf "${C_CYAN}${C_BOLD}║            INTELLIGENT RETRY (US-002)                 ║${C_RESET}\n"
@@ -2985,7 +1859,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
               RETRY_END=$(date +%s)
               RETRY_DURATION=$((RETRY_END - RETRY_START))
 
-              if [ "$RETRY_STATUS" -eq 0 ]; then
+              if [[ "$RETRY_STATUS" -eq 0 ]]; then
                 # Retry succeeded! Log success for rollback history (US-004)
                 log_rollback "${STORY_ID:-unknown}" "retry_success" "$HEAD_BEFORE" "$(git_head)" "$CURRENT_RETRY_COUNT" "true" "$FAILURE_CONTEXT_FILE"
                 printf "${C_GREEN}${C_BOLD}  Retry $CURRENT_RETRY_COUNT SUCCEEDED${C_RESET}\n"
@@ -3103,14 +1977,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Append metrics to metrics.jsonl for historical tracking (build mode only)
     # Called after rollback logic to capture rollback data (US-004)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    # Use routing decision model (ROUTED_MODEL) instead of log-extracted model (TOKEN_MODEL)
-    # TOKEN_MODEL is unreliable as it pattern-matches log content, not actual model used
-    FINAL_MODEL="${ROUTED_MODEL:-${TOKEN_MODEL:-unknown}}"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$FINAL_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
 
-    if [ "$CMD_STATUS" -ne 0 ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]]; then
       # Differentiate agent errors vs system errors
-      if [ "$CMD_STATUS" -eq 1 ]; then
+      if [[ "$CMD_STATUS" -eq 1 ]]; then
         show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
         show_error_suggestions "agent"
       else
@@ -3120,17 +1991,15 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       log_error "ITERATION $i exited non-zero (code=$CMD_STATUS); review $LOG_FILE"
     fi
     if grep -q "<promise>COMPLETE</promise>" "$LOG_FILE"; then
-      if [ "$REMAINING" = "0" ]; then
+      if [[ "$REMAINING" = "0" ]]; then
         printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
-        # Print auto-fix summary if any fixes were applied (US-003)
-        PRD_FOLDER="$(dirname "$PRD_PATH")"
-        print_fix_summary "$PRD_FOLDER"
         rebuild_token_cache
         # Clear checkpoint and switch state on successful completion
+        PRD_FOLDER="$(dirname "$PRD_PATH")"
         clear_checkpoint "$PRD_FOLDER"
         clear_switch_state "$PRD_FOLDER"
         msg_success "All stories complete."
@@ -3143,14 +2012,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
     printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete. Remaining stories: $REMAINING"
-    if [ "$REMAINING" = "0" ]; then
+    if [[ "$REMAINING" = "0" ]]; then
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
-      # Print auto-fix summary if any fixes were applied (US-003)
-      PRD_FOLDER="$(dirname "$PRD_PATH")"
-      print_fix_summary "$PRD_FOLDER"
       rebuild_token_cache
       # Clear checkpoint and switch state on successful completion
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
       clear_checkpoint "$PRD_FOLDER"
       clear_switch_state "$PRD_FOLDER"
       msg_success "No remaining stories."
@@ -3158,9 +2025,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     fi
   else
     # Handle plan mode errors
-    if [ "$CMD_STATUS" -ne 0 ]; then
+    if [[ "$CMD_STATUS" -ne 0 ]]; then
       # Differentiate agent errors vs system errors
-      if [ "$CMD_STATUS" -eq 1 ]; then
+      if [[ "$CMD_STATUS" -eq 1 ]]; then
         show_error "ITERATION $i: Agent exited with error (exit code: $CMD_STATUS)" "$LOG_FILE"
         show_error_suggestions "agent"
       else
@@ -3175,30 +2042,31 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
     msg_success "Iteration $i complete."
   fi
-  sleep 2
+
+  # Configurable delay between iterations (US-007)
+  # Configure via ITERATION_DELAY in config.sh (default: 0, minimum: 2)
+  iter_delay="${ITERATION_DELAY:-$DEFAULT_ITERATION_DELAY}"
+  if [[ "$iter_delay" -lt 2 ]]; then
+    iter_delay=2  # Minimum 2 second delay for stability
+  fi
+  sleep "$iter_delay"
 
 done
 
 # Get final remaining count for summary
 FINAL_REMAINING="${REMAINING:-unknown}"
-if [ "$MODE" = "build" ] && [ -f "$STORY_META" ]; then
+if [[ "$MODE" = "build" ]] && [[ -f "$STORY_META" ]]; then
   FINAL_REMAINING="$(remaining_stories "$STORY_META")"
 fi
 
 # Print iteration summary table
 print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "$FINAL_REMAINING"
 
-# Print auto-fix summary if any fixes were applied (US-003)
-if [ -n "${PRD_PATH:-}" ]; then
-  PRD_FOLDER="$(dirname "$PRD_PATH")"
-  print_fix_summary "$PRD_FOLDER"
-fi
-
 # Rebuild token cache for dashboard
 rebuild_token_cache
 
 msg_warn "Reached max iterations ($MAX_ITERATIONS)."
-if [ "$MODE" = "plan" ]; then
+if [[ "$MODE" = "plan" ]]; then
   echo ""
   msg_info "Next steps (if you want to proceed):"
   msg_dim "1) Review the plan in \"$PLAN_PATH\"."
@@ -3209,7 +2077,7 @@ fi
 # Print error summary at end of run if any iterations failed
 print_error_summary "$FAILED_ITERATIONS" "$FAILED_COUNT"
 
-if [ "$HAS_ERROR" = "true" ]; then
+if [[ "$HAS_ERROR" = "true" ]]; then
   exit 1
 fi
 exit 0

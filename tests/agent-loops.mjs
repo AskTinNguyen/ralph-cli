@@ -21,15 +21,42 @@ function commandExists(cmd) {
 
 function setupTempProject() {
   const base = mkdtempSync(path.join(tmpdir(), "ralph-smoke-"));
-  mkdirSync(path.join(base, ".agents", "tasks"), { recursive: true });
-  mkdirSync(path.join(base, ".ralph"), { recursive: true });
+  // Create new PRD-N folder structure
+  mkdirSync(path.join(base, ".ralph", "PRD-1"), { recursive: true });
   writeFileSync(
-    path.join(base, ".agents", "tasks", "prd.md"),
-    `# PRD: Smoke Test\n\n## 3. User Stories\n\n### [ ] US-001: Smoke Test Story\n**Description:** As a user, I want a placeholder story so the loop can run.\n\n**Acceptance Criteria:**\n- [ ] Example: input -> output\n- [ ] Negative case: bad input -> error\n- [ ] Typecheck passes\n\n`
+    path.join(base, ".ralph", "PRD-1", "prd.md"),
+    `# Product Requirements Document
+
+## Overview
+Smoke test PRD for agent loop testing.
+
+## User Stories
+
+### [ ] US-001: Smoke Test Story
+**As a** developer
+**I want** a placeholder story
+**So that** the loop can run
+
+#### Acceptance Criteria
+- [ ] Example: input -> output
+- [ ] Negative case: bad input -> error
+- [ ] Typecheck passes
+`
   );
   writeFileSync(
-    path.join(base, ".ralph", "IMPLEMENTATION_PLAN.md"),
-    `# Implementation Plan\n\n## Tasks\n### US-001: Smoke Test Story\n- [ ] Placeholder task\n  - Scope: none\n  - Acceptance: none\n  - Verification: none\n`
+    path.join(base, ".ralph", "PRD-1", "plan.md"),
+    `# Implementation Plan
+
+## Stories
+
+### US-001: Smoke Test Story
+
+#### Tasks
+- [ ] Implement placeholder task
+  - Scope: none
+  - Acceptance: none
+  - Verification: none
+`
   );
   return base;
 }
