@@ -30,7 +30,7 @@ let progressPath = null;
 let prdOutPath = null;
 let uiOpenBrowser = false;  // For --open flag in ui command
 let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
-let estimateModel = null;  // For --model flag in estimate command
+let modelOverride = null;  // For --model flag (estimate and build commands)
 let noRetry = false;  // For --no-retry flag to disable automatic retries
 let resumeMode = false;  // For --resume flag in build command
 let watchBuildMode = false;  // For --build flag in watch command
@@ -53,7 +53,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim('["<request>"] [--out path]')}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume]")} Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--no-retry] [--resume] [--model]")} Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -63,6 +63,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
   ${pc.green("import")} ${pc.dim("<type> [--from project]")}       Import knowledge from another project
   ${pc.green("stats")} ${pc.dim("[--global] [--json]")}            Performance metrics dashboard
+  ${pc.green("routing")} ${pc.dim("<subcmd>")}                     Model routing analysis and suggestions
   ${pc.green("optimize")} ${pc.dim("<type> [--apply]")}            Analyze and improve prompt templates
   ${pc.green("diagnose")} ${pc.dim("[--run id] [--json]")}         Detect failure patterns and suggest fixes
   ${pc.green("doctor")} ${pc.dim("[--verbose] [--json] [--fix]")}  Environment and setup diagnostics
@@ -97,6 +98,11 @@ ${pc.bold(pc.cyan("Stats options:"))}
   ${pc.yellow("--json")}                             Output metrics as JSON for tooling
   ${pc.yellow("--no-cache")}                         Regenerate metrics (ignore cache)
   ${pc.yellow("--tokens")}                           Show token usage and cost metrics
+
+${pc.bold(pc.cyan("Routing commands:"))}
+  ${pc.green("routing analyze")} ${pc.dim("[--prd N]")}             Analyze routing outcomes and success rates
+  ${pc.green("routing suggest")} ${pc.dim("[--prd N]")}             Suggest routing threshold adjustments
+  ${pc.green("routing learn")} ${pc.dim("[--prd N]")}               Generate guardrails from routing patterns
 
 ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--project")} ${pc.dim("<name>")}                    Filter by project name
@@ -267,13 +273,13 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     i += 1;
     continue;
   }
-  // Parse --model flag for estimate command
+  // Parse --model flag for estimate and build commands
   if (arg.startsWith("--model=")) {
-    estimateModel = arg.split("=").slice(1).join("=");
+    modelOverride = arg.split("=").slice(1).join("=");
     continue;
   }
   if (arg === "--model") {
-    estimateModel = rawArgs[i + 1];
+    modelOverride = rawArgs[i + 1];
     i += 1;
     continue;
   }
@@ -588,6 +594,8 @@ async function main() {
   if (resumeMode) {
     env.RALPH_RESUME = "1";
   }
+  // Pass --model flag to override automatic model selection
+  if (modelOverride) env.RALPH_MODEL_OVERRIDE = modelOverride;
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
@@ -955,7 +963,7 @@ async function main() {
     }
 
     // Determine model to use for pricing (default: sonnet)
-    const model = estimateModel || "sonnet";
+    const model = modelOverride || "sonnet";
 
     // Determine which PRD to analyze
     let prdFolder = null;
@@ -2349,6 +2357,218 @@ ${pc.bold(pc.cyan("Examples:"))}
     console.log(pc.dim("=".repeat(60)));
     success(`Metrics cached to ${pc.cyan(".ralph/metrics/stats.json")}`);
     process.exit(0);
+  }
+
+  if (cmd === "routing") {
+    const routingAnalysis = require("../lib/tokens/routing-analysis");
+    const metricsModule = require("../lib/estimate/metrics");
+    const estimateModule = require("../lib/estimate");
+    const subCmd = args[1];
+
+    // Parse flags
+    let jsonFlag = false;
+    let localPrdNumber = prdNumber;
+
+    for (let i = 2; i < args.length; i++) {
+      const arg = args[i];
+      if (arg === "--json") {
+        jsonFlag = true;
+      } else if (arg === "--prd" && args[i + 1]) {
+        localPrdNumber = args[i + 1];
+        i++;
+      } else if (arg.startsWith("--prd=")) {
+        localPrdNumber = arg.split("=")[1];
+      }
+    }
+
+    const ralphDir = path.join(cwd, ".ralph");
+
+    if (!subCmd || subCmd === "help") {
+      console.log(`${pc.bold("ralph routing")} ${pc.dim("<command>")}
+
+${pc.bold(pc.cyan("Commands:"))}
+  ${pc.green("analyze")} ${pc.dim("[--prd N] [--json]")}      Analyze routing outcomes and success rates by model/complexity
+  ${pc.green("suggest")} ${pc.dim("[--prd N] [--json]")}      Suggest routing threshold adjustments based on data
+  ${pc.green("learn")} ${pc.dim("[--prd N]")}                 Generate guardrails from routing failure patterns
+
+${pc.bold(pc.cyan("Options:"))}
+  ${pc.yellow("--prd")} ${pc.dim("<N>")}                       Analyze specific PRD (default: all PRDs)
+  ${pc.yellow("--json")}                            Output as JSON for machine parsing
+
+${pc.bold(pc.cyan("Examples:"))}
+  ${pc.dim("ralph routing analyze")}              Show success rates by model/complexity
+  ${pc.dim("ralph routing suggest --prd=1")}     Get threshold suggestions for PRD-1
+  ${pc.dim("ralph routing learn")}               Add routing learnings to guardrails
+`);
+      process.exit(0);
+    }
+
+    // Collect metrics from specified PRD or all PRDs
+    let allMetrics = [];
+
+    if (localPrdNumber) {
+      // Specific PRD
+      const prdFolder = estimateModule.getPRDFolder(ralphDir, localPrdNumber);
+      if (!prdFolder) {
+        error(`PRD-${localPrdNumber} not found in ${pc.cyan(ralphDir)}`);
+        process.exit(1);
+      }
+      const result = metricsModule.loadMetrics(prdFolder);
+      if (result.success) {
+        allMetrics = result.metrics;
+      }
+    } else {
+      // All PRDs
+      const prdDirs = exists(ralphDir) ? fs.readdirSync(ralphDir)
+        .filter((dir) => /^PRD-\d+$/i.test(dir))
+        .map((dir) => path.join(ralphDir, dir)) : [];
+
+      for (const prdDir of prdDirs) {
+        const result = metricsModule.loadMetrics(prdDir);
+        if (result.success && result.metrics.length > 0) {
+          allMetrics = allMetrics.concat(result.metrics);
+        }
+      }
+    }
+
+    if (subCmd === "analyze") {
+      const analysis = routingAnalysis.analyzeRoutingOutcomes(allMetrics);
+
+      if (jsonFlag) {
+        console.log(routingAnalysis.formatAnalysisJSON(analysis));
+      } else {
+        if (!analysis.hasData) {
+          warn(analysis.message);
+          info("Run builds with model routing enabled to start collecting data.");
+          process.exit(0);
+        }
+
+        console.log("");
+        console.log(pc.bold("Routing Analysis"));
+        console.log(pc.dim("=".repeat(60)));
+        console.log(routingAnalysis.formatAnalysis(analysis));
+      }
+      process.exit(0);
+    }
+
+    if (subCmd === "suggest") {
+      const analysis = routingAnalysis.analyzeRoutingOutcomes(allMetrics);
+
+      if (jsonFlag) {
+        console.log(JSON.stringify({
+          hasData: analysis.hasData,
+          recommendations: analysis.recommendations || [],
+          patterns: analysis.patterns || [],
+        }, null, 2));
+        process.exit(0);
+      }
+
+      if (!analysis.hasData) {
+        warn(analysis.message);
+        info("Run builds with model routing enabled to start collecting data.");
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Routing Threshold Suggestions"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+
+      if (analysis.recommendations.length === 0) {
+        success("No threshold adjustments recommended at this time.");
+        dim("Current routing configuration appears optimal for your workload.");
+        console.log("");
+
+        // Show summary stats
+        if (analysis.summary) {
+          console.log(pc.bold("Current Performance"));
+          console.log(pc.dim("-".repeat(40)));
+          console.log(`Overall success rate: ${pc.green(`${analysis.summary.overallRate}%`)}`);
+          if (analysis.summary.bestPerforming) {
+            console.log(`Best performing model: ${pc.bold(analysis.summary.bestPerforming.model)} (${analysis.summary.bestPerforming.rate}%)`);
+          }
+        }
+      } else {
+        for (const rec of analysis.recommendations) {
+          console.log(pc.bold(pc.yellow("→ " + rec.type.replace(/_/g, " ").toUpperCase())));
+          console.log(`  ${rec.reason}`);
+          if (rec.target) {
+            console.log(`  Target: ${pc.cyan(rec.target)}`);
+            if (rec.currentExpected !== undefined && rec.suggested !== undefined) {
+              console.log(`  Suggested change: ${rec.currentExpected} → ${pc.bold(rec.suggested)}`);
+            }
+          }
+          if (rec.impact) {
+            dim(`  Impact: ${rec.impact}`);
+          }
+          console.log("");
+        }
+
+        // Show how to apply
+        info("To apply changes, edit your config file:");
+        dim(`  ${path.join(cwd, ".agents", "ralph", "config.sh")}`);
+      }
+      process.exit(0);
+    }
+
+    if (subCmd === "learn") {
+      const analysis = routingAnalysis.analyzeRoutingOutcomes(allMetrics);
+
+      if (!analysis.hasData) {
+        warn(analysis.message);
+        info("Run builds with model routing enabled to start collecting data.");
+        process.exit(0);
+      }
+
+      // Generate guardrail entry
+      const guardrailEntry = routingAnalysis.generateGuardrailEntry(analysis);
+
+      if (!guardrailEntry) {
+        success("No significant patterns to learn from at this time.");
+        dim("Keep running builds to accumulate more routing data.");
+        process.exit(0);
+      }
+
+      console.log("");
+      console.log(pc.bold("Generated Guardrail Entry"));
+      console.log(pc.dim("=".repeat(60)));
+      console.log("");
+      console.log(`${pc.bold("Sign:")} ${guardrailEntry.title}`);
+      console.log(`${pc.bold("Trigger:")} ${guardrailEntry.trigger}`);
+      console.log(`${pc.bold("Instruction:")} ${guardrailEntry.instruction}`);
+      console.log("");
+
+      // Ask to add to guardrails
+      try {
+        const { confirm, isCancel } = await import("@clack/prompts");
+        const shouldAdd = await confirm({
+          message: "Add this to your guardrails?",
+          initialValue: true,
+        });
+
+        if (isCancel(shouldAdd) || !shouldAdd) {
+          dim("Guardrail not added.");
+          process.exit(0);
+        }
+
+        const guardrailsPath = path.join(ralphDir, "guardrails.md");
+        const result = routingAnalysis.appendGuardrail(guardrailsPath, guardrailEntry);
+
+        if (result.success) {
+          success(`Added guardrail to ${pc.cyan(guardrailsPath)}`);
+        } else {
+          warn(result.error);
+        }
+      } catch {
+        // Non-interactive mode - just show the guardrail
+        dim("Run interactively to add guardrail automatically.");
+      }
+      process.exit(0);
+    }
+
+    error(`Unknown routing command: ${pc.bold(subCmd)}`);
+    info(`Run ${pc.cyan("ralph routing help")} for usage.`);
+    process.exit(1);
   }
 
   if (cmd === "optimize") {

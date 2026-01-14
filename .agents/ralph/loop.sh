@@ -1002,6 +1002,106 @@ prompt_resume_confirmation() {
   fi
 }
 
+# Get model routing decision for a story
+# Usage: get_routing_decision <story_block_file> [override_model]
+# Returns JSON: {"model": "sonnet", "score": 5.2, "reason": "...", "override": false}
+get_routing_decision() {
+  local story_file="$1"
+  local override="${2:-}"
+  local router_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    router_cli="$RALPH_ROOT/lib/tokens/router-cli.js"
+  else
+    router_cli="$SCRIPT_DIR/../../lib/tokens/router-cli.js"
+  fi
+
+  # Check if router CLI exists and Node.js is available
+  if [ -f "$router_cli" ] && command -v node >/dev/null 2>&1; then
+    local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
+    if [ -n "$override" ]; then
+      args+=("--override" "$override")
+    fi
+    node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
+  else
+    # Fallback when router not available
+    echo '{"model":"sonnet","score":null,"reason":"router not installed","override":false}'
+  fi
+}
+
+# Parse JSON field from routing decision
+parse_routing_field() {
+  local json="$1"
+  local field="$2"
+  local result
+  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  # Handle None, null, and empty
+  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
+    echo ""
+  else
+    echo "$result"
+  fi
+}
+
+# Estimate execution cost before running
+# Usage: estimate_execution_cost <model> <complexity_score>
+# Returns JSON: {"estimatedCost": "0.15", "costRange": "$0.10-0.25", "estimatedTokens": 15000, "comparison": "vs $0.75 if using Opus"}
+estimate_execution_cost() {
+  local model="$1"
+  local score="$2"
+  local estimator_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    estimator_cli="$RALPH_ROOT/lib/tokens/estimator-cli.js"
+  else
+    estimator_cli="$SCRIPT_DIR/../../lib/tokens/estimator-cli.js"
+  fi
+
+  # Check if estimator CLI exists and Node.js is available
+  if [ -f "$estimator_cli" ] && command -v node >/dev/null 2>&1; then
+    local args=("--model" "$model" "--repo-root" "$ROOT_DIR")
+    if [ -n "$score" ]; then
+      args+=("--complexity" "$score")
+    fi
+    node "$estimator_cli" "${args[@]}" 2>/dev/null || echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
+  else
+    # Fallback when estimator not available
+    echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
+  fi
+}
+
+# Calculate actual cost from token usage
+# Usage: calculate_actual_cost <input_tokens> <output_tokens> <model>
+# Returns JSON: {"totalCost": "0.15", "inputCost": "0.05", "outputCost": "0.10"}
+calculate_actual_cost() {
+  local input_tokens="$1"
+  local output_tokens="$2"
+  local model="$3"
+
+  # Use Node.js for cost calculation
+  if command -v node >/dev/null 2>&1; then
+    local calculator_path
+    if [[ -n "${RALPH_ROOT:-}" ]]; then
+      calculator_path="$RALPH_ROOT/lib/tokens/calculator.js"
+    else
+      calculator_path="$SCRIPT_DIR/../../lib/tokens/calculator.js"
+    fi
+
+    if [ -f "$calculator_path" ]; then
+      node -e "
+        const calc = require('$calculator_path');
+        const result = calc.calculateCost(
+          { inputTokens: $input_tokens, outputTokens: $output_tokens },
+          '$model'
+        );
+        console.log(JSON.stringify(result));
+      " 2>/dev/null || echo '{"totalCost":null}'
+    else
+      echo '{"totalCost":null}'
+    fi
+  else
+    echo '{"totalCost":null}'
+  fi
+}
+
 # Enhanced error display with path highlighting and suggestions
 # Usage: show_error "message" ["log_path"]
 show_error() {
@@ -1223,6 +1323,12 @@ write_run_meta() {
   local token_estimated="${20:-false}"
   local retry_count="${21:-0}"
   local retry_time="${22:-0}"
+  # Routing and cost estimate parameters (new for US-003)
+  local routed_model="${23:-}"
+  local complexity_score="${24:-}"
+  local routing_reason="${25:-}"
+  local est_cost="${26:-}"
+  local est_tokens="${27:-}"
   {
     echo "# Ralph Run Summary"
     echo ""
@@ -1291,6 +1397,61 @@ write_run_meta() {
       echo "- Retry count: 0 (succeeded on first attempt)"
     fi
     echo ""
+    echo "## Routing Decision"
+    if [ -n "$routed_model" ]; then
+      echo "- Model: $routed_model"
+      if [ -n "$complexity_score" ] && [ "$complexity_score" != "n/a" ]; then
+        echo "- Complexity score: ${complexity_score}/10"
+      fi
+      if [ -n "$routing_reason" ] && [ "$routing_reason" != "n/a" ]; then
+        echo "- Reason: $routing_reason"
+      fi
+    else
+      echo "- Model: (not routed)"
+    fi
+    echo ""
+    echo "## Cost Estimate vs Actual"
+    if [ -n "$est_cost" ] && [ "$est_cost" != "n/a" ] && [ "$est_cost" != "null" ]; then
+      echo "### Pre-execution Estimate"
+      echo "- Estimated cost: \$${est_cost}"
+      if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ]; then
+        echo "- Estimated tokens: $est_tokens"
+      fi
+    else
+      echo "### Pre-execution Estimate"
+      echo "- (estimate unavailable)"
+    fi
+    echo ""
+    echo "### Actual Usage"
+    if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+      local actual_total=$((input_tokens + output_tokens))
+      echo "- Actual tokens: $actual_total (input: $input_tokens, output: $output_tokens)"
+      # Calculate actual cost if model available
+      if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
+        local actual_cost_json
+        actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$token_model" 2>/dev/null || echo "")"
+        local actual_cost
+        actual_cost="$(parse_routing_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
+        if [ -n "$actual_cost" ] && [ "$actual_cost" != "null" ]; then
+          echo "- Actual cost: \$$actual_cost"
+        fi
+      fi
+    else
+      echo "- (actual usage unavailable)"
+    fi
+    echo ""
+    echo "### Estimate Accuracy"
+    if [ -n "$est_tokens" ] && [ "$est_tokens" != "null" ] && [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
+      local actual_total=$((input_tokens + output_tokens))
+      if [ "$est_tokens" -gt 0 ]; then
+        local variance_pct
+        variance_pct=$(python3 -c "print(round((($actual_total - $est_tokens) / $est_tokens) * 100, 1))" 2>/dev/null || echo "n/a")
+        echo "- Token variance: ${variance_pct}% (estimated: $est_tokens, actual: $actual_total)"
+      fi
+    else
+      echo "- (variance not available)"
+    fi
+    echo ""
   } > "$path"
 }
 
@@ -1353,7 +1514,14 @@ extract_tokens_from_log() {
 parse_token_field() {
   local json="$1"
   local field="$2"
-  python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('$field',''))" "$json" 2>/dev/null || echo ""
+  local result
+  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  # Handle None, null, and empty - return empty string to prevent arithmetic errors
+  if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
+    echo ""
+  else
+    echo "$result"
+  fi
 }
 
 # Append metrics to metrics.jsonl for historical tracking
@@ -1372,6 +1540,9 @@ append_metrics() {
   local iteration="${11}"
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
+  local complexity_score="${14:-}"
+  local routing_reason="${15:-}"
+  local estimated_cost="${16:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1392,12 +1563,29 @@ append_metrics() {
       output_val="$output_tokens"
     fi
 
+    # Handle complexity score
+    local complexity_val="null"
+    if [ -n "$complexity_score" ] && [ "$complexity_score" != "null" ] && [ "$complexity_score" != "" ] && [ "$complexity_score" != "n/a" ]; then
+      complexity_val="$complexity_score"
+    fi
+
+    # Handle estimated cost
+    local estimated_cost_val="null"
+    if [ -n "$estimated_cost" ] && [ "$estimated_cost" != "null" ] && [ "$estimated_cost" != "" ] && [ "$estimated_cost" != "n/a" ]; then
+      estimated_cost_val="$estimated_cost"
+    fi
+
     # Escape strings for JSON
     local escaped_title
     escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
 
+    local escaped_reason="null"
+    if [ -n "$routing_reason" ] && [ "$routing_reason" != "null" ] && [ "$routing_reason" != "" ]; then
+      escaped_reason=$(printf '"%s"' "$(printf '%s' "$routing_reason" | sed 's/"/\\"/g')")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"timestamp":"%s"}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1410,6 +1598,9 @@ append_metrics() {
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
+      "$complexity_val" \
+      "$escaped_reason" \
+      "$estimated_cost_val" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
@@ -1559,7 +1750,60 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Print current story being worked on
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_CYAN}  Working on: ${C_BOLD}$STORY_ID${C_RESET}${C_CYAN} - $STORY_TITLE${C_RESET}\n"
-    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+
+    # Get model routing decision
+    ROUTING_JSON="$(get_routing_decision "$STORY_BLOCK" "${RALPH_MODEL_OVERRIDE:-}")"
+    ROUTED_MODEL="$(parse_routing_field "$ROUTING_JSON" "model")"
+    ROUTED_SCORE="$(parse_routing_field "$ROUTING_JSON" "score")"
+    ROUTED_REASON="$(parse_routing_field "$ROUTING_JSON" "reason")"
+    ROUTED_OVERRIDE="$(parse_routing_field "$ROUTING_JSON" "override")"
+
+    # Parse complexity breakdown from routing JSON
+    ROUTED_BREAKDOWN="$(parse_routing_field "$ROUTING_JSON" "breakdown")"
+
+    # Display routing decision with enhanced visualization
+    printf "${C_DIM}  ┌─ Routing Decision ────────────────────────────────${C_RESET}\n"
+    if [ "$ROUTED_OVERRIDE" = "true" ]; then
+      printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
+    elif [ -n "$ROUTED_SCORE" ]; then
+      # Determine complexity level and color
+      local level_color="$C_GREEN"
+      local level_label="low"
+      if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+        level_color="$C_YELLOW"
+        level_label="medium"
+      fi
+      if [ "$(echo "$ROUTED_SCORE > 7" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+        level_color="$C_RED"
+        level_label="high"
+      fi
+      printf "${C_DIM}  │${C_RESET} Complexity: ${level_color}${C_BOLD}${ROUTED_SCORE}/10${C_RESET} (${level_label})\n"
+      printf "${C_DIM}  │${C_RESET} Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}\n"
+      printf "${C_DIM}  │${C_RESET} Reason: ${C_DIM}$ROUTED_REASON${C_RESET}\n"
+    else
+      printf "${C_DIM}  │${C_RESET} Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_DIM} (default - routing unavailable)${C_RESET}\n"
+    fi
+
+    # Get and display estimated cost before execution
+    ESTIMATED_COST_JSON="$(estimate_execution_cost "$ROUTED_MODEL" "$ROUTED_SCORE")"
+    ESTIMATED_COST="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedCost")"
+    ESTIMATED_COST_RANGE="$(parse_routing_field "$ESTIMATED_COST_JSON" "costRange")"
+    ESTIMATED_TOKENS="$(parse_routing_field "$ESTIMATED_COST_JSON" "estimatedTokens")"
+    ESTIMATED_COMPARISON="$(parse_routing_field "$ESTIMATED_COST_JSON" "comparison")"
+    if [ -n "$ESTIMATED_COST" ] && [ "$ESTIMATED_COST" != "null" ]; then
+      printf "${C_DIM}  │${C_RESET} Est. cost: ${C_CYAN}\$${ESTIMATED_COST}${C_RESET}"
+      if [ -n "$ESTIMATED_COST_RANGE" ] && [ "$ESTIMATED_COST_RANGE" != "null" ]; then
+        printf " ${C_DIM}($ESTIMATED_COST_RANGE)${C_RESET}"
+      fi
+      printf "\n"
+      if [ -n "$ESTIMATED_COMPARISON" ] && [ "$ESTIMATED_COMPARISON" != "null" ]; then
+        printf "${C_DIM}  │${C_RESET} ${C_DIM}$ESTIMATED_COMPARISON${C_RESET}\n"
+      fi
+    fi
+    printf "${C_DIM}  └────────────────────────────────────────────────────${C_RESET}\n"
+
+    # Log model selection to activity log
+    log_activity "MODEL_SELECTION story=$STORY_ID complexity=${ROUTED_SCORE:-n/a} model=$ROUTED_MODEL reason=\"$ROUTED_REASON\" estimated_cost=\$${ESTIMATED_COST:-n/a}"
   fi
 
   HEAD_BEFORE="$(git_head)"
@@ -1636,13 +1880,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
-  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
+  write_run_meta "$RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-}" "$ITER_START_FMT" "$ITER_END_FMT" "$ITER_DURATION" "$STATUS_LABEL" "$LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "$DIRTY_FILES" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$TOKEN_MODEL" "$TOKEN_ESTIMATED" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_MODEL:-}" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${ESTIMATED_TOKENS:-}"
 
   # Append metrics to metrics.jsonl for historical tracking (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then

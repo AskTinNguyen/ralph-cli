@@ -40,6 +40,27 @@ RALPH_BUDGET_MONTHLY=500.00
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Model Routing Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Automatically select AI model based on task complexity.
+# Routing: Haiku (1-3), Sonnet (4-7), Opus (8-10)
+#
+# Enable/disable automatic model routing (default: true):
+# RALPH_ROUTING_ENABLED=true
+#
+# Maximum complexity score for Haiku (simple fixes, docs, typos):
+# RALPH_HAIKU_MAX_COMPLEXITY=3
+#
+# Maximum complexity score for Sonnet (features, refactoring):
+# RALPH_SONNET_MAX_COMPLEXITY=7
+#
+# Default model when routing is disabled or unavailable:
+# RALPH_DEFAULT_MODEL=sonnet
+#
+# Override model selection via CLI: ralph build 1 --model=opus
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Token Cost Pricing (per 1M tokens in USD)
 # ─────────────────────────────────────────────────────────────────────────────
 # Override default Claude pricing. Values are per 1 million tokens.
