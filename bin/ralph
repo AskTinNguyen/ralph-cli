@@ -29,6 +29,8 @@ let planPath = null;
 let progressPath = null;
 let prdOutPath = null;
 let uiOpenBrowser = false;  // For --open flag in ui command
+let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
+let estimateModel = null;  // For --model flag in estimate command
 
 function exists(p) {
   try {
@@ -51,7 +53,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
-  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json]")}          Estimate time and cost for a PRD build
+  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json] [--pricing]")}  Estimate time and cost for a PRD build
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
@@ -90,6 +92,12 @@ ${pc.bold(pc.cyan("Search options:"))}
   ${pc.yellow("--since")} ${pc.dim("<date|Nd|Nw|Nm>")}             Filter by date (e.g., 7d, 2w, 1m)
   ${pc.yellow("--limit")} ${pc.dim("<N>")}                         Max results (default 20)
   ${pc.yellow("--rebuild")}                           Rebuild search index before searching
+
+${pc.bold(pc.cyan("Estimate options:"))}
+  ${pc.yellow("--prd")} ${pc.dim("<N>")}                           Estimate specific PRD (default: active PRD)
+  ${pc.yellow("--json")}                             Output as JSON for machine parsing
+  ${pc.yellow("--pricing")} ${pc.dim("input:X,output:Y")}          Custom token pricing ($/1M tokens)
+  ${pc.yellow("--model")} ${pc.dim("<opus|sonnet|haiku>")}         Model for cost calculation (default: sonnet)
 
 ${pc.bold(pc.cyan("Diagnose options:"))}
   ${pc.yellow("--run")} ${pc.dim("<run-id>")}                      Analyze a specific run only
@@ -209,6 +217,26 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--open") {
     uiOpenBrowser = true;
+    continue;
+  }
+  // Parse --pricing flag for estimate command (format: "input:X,output:Y")
+  if (arg.startsWith("--pricing=")) {
+    estimatePricing = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--pricing") {
+    estimatePricing = rawArgs[i + 1];
+    i += 1;
+    continue;
+  }
+  // Parse --model flag for estimate command
+  if (arg.startsWith("--model=")) {
+    estimateModel = arg.split("=").slice(1).join("=");
+    continue;
+  }
+  if (arg === "--model") {
+    estimateModel = rawArgs[i + 1];
+    i += 1;
     continue;
   }
   args.push(arg);
@@ -741,6 +769,33 @@ async function main() {
     // Check for --json flag
     const jsonOutput = args.includes("--json");
 
+    // Parse custom pricing if provided (format: "input:X,output:Y")
+    let customPricing = null;
+    if (estimatePricing) {
+      const pricingParts = estimatePricing.split(",");
+      customPricing = {};
+      for (const part of pricingParts) {
+        const [key, value] = part.split(":");
+        if (key && value) {
+          const numValue = parseFloat(value);
+          if (!isNaN(numValue)) {
+            customPricing[key.trim().toLowerCase()] = numValue;
+          }
+        }
+      }
+      // Validate that we have at least input or output
+      if (!customPricing.input && !customPricing.output) {
+        error(`Invalid --pricing format. Use: --pricing "input:X,output:Y" ($/1M tokens)`);
+        process.exit(1);
+      }
+      // Fill in missing values with defaults
+      if (!customPricing.input) customPricing.input = 3.0;  // Default Sonnet input
+      if (!customPricing.output) customPricing.output = 15.0;  // Default Sonnet output
+    }
+
+    // Determine model to use for pricing (default: sonnet)
+    const model = estimateModel || "sonnet";
+
     // Determine which PRD to analyze
     let prdFolder = null;
 
@@ -766,7 +821,8 @@ async function main() {
     const result = estimateModule.estimate({
       prdFolder,
       repoRoot: cwd,
-      model: "sonnet", // Default model for estimation
+      model: model,
+      customPricing: customPricing,
     });
 
     if (!result.success) {
@@ -776,7 +832,12 @@ async function main() {
 
     // Output results
     if (jsonOutput) {
-      console.log(estimateModule.formatEstimate(result, { json: true }));
+      // Add pricing info to JSON output
+      const jsonResult = {
+        ...result,
+        pricing: customPricing || { model: model, source: "default" },
+      };
+      console.log(estimateModule.formatEstimate(jsonResult, { json: true }));
     } else {
       console.log("");
       console.log(pc.bold(`Build Estimate for PRD-${prdNumber}`));
@@ -784,6 +845,13 @@ async function main() {
       console.log("");
       console.log(estimateModule.formatEstimate(result));
       console.log("");
+
+      // Show pricing info
+      if (customPricing) {
+        info(`Using custom pricing: $${customPricing.input}/M input, $${customPricing.output}/M output`);
+      } else {
+        dim(`Using ${model} pricing (use --pricing to override)`);
+      }
 
       // Show confidence note
       const conf = result.totals.confidence;
