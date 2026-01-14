@@ -671,6 +671,44 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
+# Save checkpoint before story execution for resumable builds
+# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent]
+save_checkpoint() {
+  local prd_folder="$1"
+  local prd_id="$2"
+  local iteration="$3"
+  local story_id="$4"
+  local git_sha="$5"
+  local agent="${6:-codex}"
+
+  local checkpoint_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
+  else
+    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
+  fi
+
+  # Check if checkpoint CLI exists
+  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+    msg_dim "Checkpoint CLI not available, skipping checkpoint save"
+    return 0
+  fi
+
+  # Build JSON data
+  local json_data
+  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s"}}' \
+    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent")
+
+  # Save checkpoint via CLI
+  if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
+    msg_dim "Checkpoint saved: iteration=$iteration story=$story_id"
+    return 0
+  else
+    msg_warn "Failed to save checkpoint"
+    return 1
+  fi
+}
+
 # Enhanced error display with path highlighting and suggestions
 # Usage: show_error "message" ["log_path"]
 show_error() {
@@ -1180,6 +1218,13 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
+
+  # Save checkpoint before story execution (build mode only)
+  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME"
+  fi
+
   set +e
   # Start progress indicator before agent execution
   start_progress_indicator "$ITER_START"
