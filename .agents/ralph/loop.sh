@@ -714,6 +714,32 @@ save_checkpoint() {
   fi
 }
 
+# Clear checkpoint from PRD folder (called on successful completion)
+# Usage: clear_checkpoint <prd-folder>
+clear_checkpoint() {
+  local prd_folder="$1"
+
+  local checkpoint_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
+  else
+    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
+  fi
+
+  # Check if checkpoint CLI exists
+  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Clear checkpoint via CLI (silent - don't warn on failure)
+  if node "$checkpoint_cli" clear "$prd_folder" >/dev/null 2>&1; then
+    msg_dim "Checkpoint cleared (build complete)"
+    return 0
+  else
+    return 1
+  fi
+}
+
 # Load checkpoint from PRD folder for resumable builds
 # Returns: Sets CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA
 # Exit code: 0 if checkpoint loaded, 1 if not found or error
@@ -1336,6 +1362,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       exit 1
     fi
     if [ "$REMAINING" = "0" ]; then
+      # Clear checkpoint on successful completion
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
+      clear_checkpoint "$PRD_FOLDER"
       msg_success "No remaining stories."
       exit 0
     fi
@@ -1457,6 +1486,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
         rebuild_token_cache
+        # Clear checkpoint on successful completion
+        PRD_FOLDER="$(dirname "$PRD_PATH")"
+        clear_checkpoint "$PRD_FOLDER"
         msg_success "All stories complete."
         exit 0
       fi
@@ -1471,6 +1503,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
       rebuild_token_cache
+      # Clear checkpoint on successful completion
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
+      clear_checkpoint "$PRD_FOLDER"
       msg_success "No remaining stories."
       exit 0
     fi
