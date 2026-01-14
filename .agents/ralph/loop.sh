@@ -148,6 +148,65 @@ resolve_agent_cmd() {
 }
 DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Experiment Assignment
+# ─────────────────────────────────────────────────────────────────────────────
+# Global variables for experiment tracking (set by get_experiment_assignment)
+EXPERIMENT_NAME=""
+EXPERIMENT_VARIANT=""
+EXPERIMENT_EXCLUDED=""
+
+# Get experiment assignment for a story ID
+# Uses hash-based assignment from lib/experiment/assignment.js
+# Returns: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED (pipe-delimited)
+# Sets global vars: EXPERIMENT_NAME, EXPERIMENT_VARIANT, EXPERIMENT_EXCLUDED
+get_experiment_assignment() {
+  local story_id="$1"
+  local assignment_script
+
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    assignment_script="$RALPH_ROOT/lib/experiment/assignment.js"
+  else
+    assignment_script="$SCRIPT_DIR/../../lib/experiment/assignment.js"
+  fi
+
+  # Reset globals
+  EXPERIMENT_NAME=""
+  EXPERIMENT_VARIANT=""
+  EXPERIMENT_EXCLUDED=""
+
+  # Check if assignment module exists and Node.js is available
+  if [ ! -f "$assignment_script" ] || ! command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Get assignment string from assignment module
+  local assignment
+  assignment=$(node -e "
+    const assignment = require('$assignment_script');
+    const result = assignment.getAssignmentString('$ROOT_DIR', '$story_id');
+    process.stdout.write(result);
+  " 2>/dev/null) || true
+
+  if [ -z "$assignment" ]; then
+    return 0
+  fi
+
+  # Parse assignment: EXPERIMENT_NAME|VARIANT_NAME|AGENT_NAME|EXCLUDED
+  IFS='|' read -r exp_name exp_variant exp_agent exp_excluded <<< "$assignment"
+
+  # Set globals
+  EXPERIMENT_NAME="$exp_name"
+  EXPERIMENT_VARIANT="$exp_variant"
+  EXPERIMENT_EXCLUDED="$exp_excluded"
+
+  # Override AGENT_CMD if experiment assigns a different agent
+  if [ -n "$exp_agent" ] && [ "$exp_agent" != "$DEFAULT_AGENT_NAME" ]; then
+    AGENT_CMD="$(resolve_agent_cmd "$exp_agent")"
+    msg_dim "Experiment '$exp_name' assigned variant '$exp_variant' (agent: $exp_agent)"
+  fi
+}
+
 # Path resolution with PRD-N folder support
 # If explicit paths are set via environment, use them
 # Otherwise, use PRD-N folder structure
@@ -1192,6 +1251,9 @@ append_metrics() {
   local iteration="${11}"
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
+  local exp_name="${14:-}"
+  local exp_variant="${15:-}"
+  local exp_excluded="${16:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1216,8 +1278,21 @@ append_metrics() {
     local escaped_title
     escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
 
+    # Build experiment fields if present
+    local exp_fields=""
+    if [ -n "$exp_name" ]; then
+      local excluded_bool="false"
+      if [ "$exp_excluded" = "1" ]; then
+        excluded_bool="true"
+      fi
+      exp_fields=$(printf ',"experimentName":"%s","experimentVariant":"%s","experimentExcluded":%s' \
+        "$exp_name" \
+        "$exp_variant" \
+        "$excluded_bool")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"timestamp":"%s"}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"timestamp":"%s"%s}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1230,7 +1305,8 @@ append_metrics() {
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      "$exp_fields")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
   fi
@@ -1349,6 +1425,10 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     fi
     STORY_ID="$(story_field "$STORY_META" "id")"
     STORY_TITLE="$(story_field "$STORY_META" "title")"
+
+    # Check for experiment assignment (may override AGENT_CMD for this story)
+    get_experiment_assignment "$STORY_ID"
+
     # Print current story being worked on
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_CYAN}  Working on: ${C_BOLD}$STORY_ID${C_RESET}${C_CYAN} - $STORY_TITLE${C_RESET}\n"
@@ -1428,7 +1508,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
