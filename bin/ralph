@@ -36,6 +36,7 @@ let resumeMode = false;  // For --resume flag in build command
 let watchBuildMode = false;  // For --build flag in watch command
 let autoFixMode = null;  // For --auto-fix flag (none|safe|all)
 let skipRiskCheck = false;  // For --skip-risk-check flag to bypass risk prompts
+let parallelConcurrency = null;  // For --parallel flag to enable parallel story execution
 
 function exists(p) {
   try {
@@ -137,6 +138,8 @@ ${pc.bold("━━━ Build Options ━━━━━━━━━━━━━━━
   ${pc.yellow("--skip-risk-check")}        Bypass high-risk story confirmation prompts
   ${pc.yellow("--auto-fix")} ${pc.dim("<none|safe|all>")}  Control automatic error remediation
     ${pc.dim("none: Disable (default) | safe: Lint/format only | all: Include risky fixes")}
+  ${pc.yellow("--parallel")} ${pc.dim("<N>")}            Enable parallel story execution with N concurrent agents
+    ${pc.dim("Example: ralph build 5 --parallel=3  (run up to 5 stories with 3 agents in parallel)")}
 
 ${pc.bold("━━━ Examples ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")}
 
@@ -298,6 +301,28 @@ for (let i = 0; i < rawArgs.length; i += 1) {
     skipRiskCheck = true;
     continue;
   }
+  // Parse --parallel flag for parallel story execution within a PRD
+  if (arg.startsWith("--parallel=")) {
+    const val = arg.split("=").slice(1).join("=");
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 1) {
+      error(`Invalid --parallel value: ${val}. Must be a positive integer.`);
+      process.exit(1);
+    }
+    parallelConcurrency = num;
+    continue;
+  }
+  if (arg === "--parallel") {
+    const val = rawArgs[i + 1];
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 1) {
+      error(`Invalid --parallel value: ${val}. Must be a positive integer.`);
+      process.exit(1);
+    }
+    parallelConcurrency = num;
+    i += 1;
+    continue;
+  }
   args.push(arg);
 }
 
@@ -308,6 +333,12 @@ if (cmd === "help" || cmd === "-h" || cmd === "--help") {
 }
 
 async function runInstallSkills() {
+  // Check for TTY before attempting interactive prompts
+  if (!process.stdin.isTTY) {
+    error("Skills install requires an interactive terminal.");
+    info("Run this command in a terminal that supports user input.");
+    process.exit(1);
+  }
   const { intro, outro, select, isCancel } = await import("@clack/prompts");
   intro("Ralph skills install");
 
@@ -660,22 +691,40 @@ async function main() {
   if (cmd === "prd") {
     let request = args.slice(1).join(" ").trim();
     if (!request) {
-      const { intro, outro, text, isCancel } = await import("@clack/prompts");
-      intro("Ralph PRD");
-      const response = await text({
-        message: "Describe the feature you want a PRD for",
-        placeholder: "Example: A lightweight uptime monitor with email alerts",
-      });
-      if (isCancel(response)) {
-        outro("Cancelled.");
-        process.exit(0);
-      }
-      request = String(response || "").trim();
-      if (!request) {
-        outro("No description provided.");
+      // Check for TTY before attempting interactive prompts
+      if (!process.stdin.isTTY) {
+        error("No request provided and stdin is not a TTY.");
+        info(`Usage: ${pc.cyan('ralph prd "Your feature description"')}`);
+        dim("Example: ralph prd \"A lightweight uptime monitor with email alerts\"");
         process.exit(1);
       }
-      outro("Generating PRD...");
+      try {
+        const { intro, outro, text, isCancel } = await import("@clack/prompts");
+        intro("Ralph PRD");
+        const response = await text({
+          message: "Describe the feature you want a PRD for",
+          placeholder: "Example: A lightweight uptime monitor with email alerts",
+        });
+        if (isCancel(response)) {
+          outro("Cancelled.");
+          process.exit(0);
+        }
+        request = String(response || "").trim();
+        if (!request) {
+          outro("No description provided.");
+          process.exit(1);
+        }
+        outro("Generating PRD...");
+      } catch (err) {
+        // Handle TTY initialization failures
+        if (err.message && err.message.includes("uv_tty_init")) {
+          error("TTY initialization failed.");
+          info(`Usage: ${pc.cyan('ralph prd "Your feature description"')}`);
+          dim("Example: ralph prd \"A lightweight uptime monitor with email alerts\"");
+          process.exit(1);
+        }
+        throw err;
+      }
     }
     const requestFile = path.join(os.tmpdir(), `ralph-prd-${Date.now()}.md`);
     fs.writeFileSync(requestFile, `${request}\n`);
@@ -1138,7 +1187,12 @@ async function main() {
       process.exit(0);
     }
 
-    // Interactive review
+    // Interactive review - check for TTY before proceeding
+    if (!process.stdin.isTTY) {
+      error("Interactive review requires a terminal.");
+      info("Pass --generate to just generate candidates without interactive review.");
+      process.exit(1);
+    }
     const { intro, outro, select, confirm, isCancel } = await import("@clack/prompts");
     intro("Ralph Guardrail Review");
 
@@ -1732,7 +1786,12 @@ ${pc.bold(pc.cyan("Examples:"))}
           process.exit(1);
         }
       } else {
-        // Interactive project selection
+        // Interactive project selection - check for TTY
+        if (!process.stdin.isTTY) {
+          error("Interactive import requires a terminal.");
+          info(`Use ${pc.cyan("ralph import guardrails --from <project>")} to specify a project.`);
+          process.exit(1);
+        }
         const { intro, outro, select, multiselect, confirm, isCancel } =
           await import("@clack/prompts");
         intro("Ralph Guardrails Import");
@@ -3178,6 +3237,12 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       // Interactive apply mode
       if (applyFlag && suggestions.length > 0) {
+        // Check for TTY before proceeding
+        if (!process.stdin.isTTY) {
+          error("Interactive apply requires a terminal.");
+          info("Run without --apply to just generate suggestions.");
+          process.exit(1);
+        }
         const { intro, outro, select, confirm, isCancel } = await import("@clack/prompts");
 
         console.log("");
@@ -4309,7 +4374,12 @@ ${pc.bold(pc.cyan("Examples:"))}
         process.exit(1);
       }
 
-      // Interactive experiment creation
+      // Interactive experiment creation - check for TTY
+      if (!process.stdin.isTTY) {
+        error("Experiment creation requires an interactive terminal.");
+        info("Run this command in a terminal that supports user input.");
+        process.exit(1);
+      }
       const { intro, outro, text, select, isCancel } = await import("@clack/prompts");
       intro("Create A/B Experiment");
 
@@ -4670,6 +4740,128 @@ ${pc.bold(pc.cyan("Examples:"))}
     error(`Unknown experiment command: ${pc.bold(subCmd)}`);
     info(`Run ${pc.cyan("ralph experiment help")} for usage.`);
     process.exit(1);
+  }
+
+  // Handle parallel execution if --parallel flag is set and we're in build mode
+  if (parallelConcurrency && (cmd === "build" || !cmd || loopArgs[0] === "build")) {
+    const parallelModule = require("../lib/parallel");
+
+    // Parse iteration count from args (e.g., "build 5" -> 5 iterations)
+    let maxIterations = Infinity;
+    for (let i = 0; i < loopArgs.length; i++) {
+      if (loopArgs[i] === "build" && loopArgs[i + 1]) {
+        const n = parseInt(loopArgs[i + 1], 10);
+        if (!isNaN(n)) {
+          maxIterations = n;
+          break;
+        }
+      }
+    }
+
+    // Determine PRD, plan, and progress paths
+    let ralphDir = path.join(cwd, ".ralph");
+    let prdFolder = null;
+
+    if (prdPath) {
+      // Custom PRD path provided
+      prdFolder = prdPath;
+    } else if (prdNumber) {
+      // PRD-N folder provided
+      prdFolder = path.join(ralphDir, `PRD-${prdNumber}`);
+    } else {
+      // Find most recent PRD-N folder
+      if (fs.existsSync(ralphDir)) {
+        const entries = fs.readdirSync(ralphDir);
+        const prdFolders = entries
+          .filter(e => /^PRD-\d+$/.test(e))
+          .map(e => ({
+            name: e,
+            num: parseInt(e.replace("PRD-", ""), 10)
+          }))
+          .sort((a, b) => b.num - a.num);
+
+        if (prdFolders.length > 0) {
+          prdFolder = path.join(ralphDir, prdFolders[0].name);
+        }
+      }
+    }
+
+    if (!prdFolder || !fs.existsSync(prdFolder)) {
+      error("No PRD folder found. Run 'ralph prd' first.");
+      process.exit(1);
+    }
+
+    const prdFilePath = path.join(prdFolder, "prd.md");
+    const planFilePath = path.join(prdFolder, "plan.md");
+    const progressFilePath = path.join(prdFolder, "progress.md");
+
+    if (!fs.existsSync(prdFilePath)) {
+      error(`PRD file not found: ${prdFilePath}`);
+      process.exit(1);
+    }
+
+    if (!fs.existsSync(planFilePath)) {
+      error(`Plan file not found: ${planFilePath}. Run 'ralph plan' first.`);
+      process.exit(1);
+    }
+
+    // Determine agent command
+    const agentName = agentOverride || env.RALPH_AGENT || "codex";
+    const agentMapData = loadAgentMap();
+    const agentCmd = agentMapData.headless[agentName] || agentMapData.headless.codex;
+
+    // Run parallel execution
+    info(`Running parallel execution with ${pc.bold(parallelConcurrency)} concurrent agents...`);
+
+    // Check for AGENTS.md file
+    const agentsPath = path.join(prdFolder, "AGENTS.md");
+    const agentsFile = fs.existsSync(agentsPath) ? agentsPath : null;
+
+    const options = {
+      prdPath: prdFilePath,
+      planPath: planFilePath,
+      progressPath: progressFilePath,
+      guardrailsPath: path.join(ralphDir, "guardrails.md"),
+      errorsLogPath: path.join(prdFolder, "errors.log"),
+      activityLogPath: path.join(prdFolder, "activity.log"),
+      agentsPath: agentsFile,
+      repoRoot: cwd,
+      maxConcurrency: parallelConcurrency,
+      maxIterations,
+      noCommit: env.NO_COMMIT === "true",
+      agentCmd,
+      runId: `parallel-${Date.now()}`,
+      promptTemplate: path.join(templateDir, "PROMPT_parallel.md"),
+      timeout: 600000, // 10 minutes
+    };
+
+    parallelModule.runParallel(options)
+      .then(result => {
+        // Format and display results
+        const report = parallelModule.formatResultMarkdown(result);
+        console.log("\n" + report);
+
+        if (result.status === "success") {
+          success(`Parallel execution completed successfully!`);
+          info(`Commits: ${result.commits.length}, Failures: ${result.failures.length}`);
+          process.exit(0);
+        } else if (result.status === "partial") {
+          warn(`Parallel execution completed with some failures.`);
+          info(`Commits: ${result.commits.length}, Failures: ${result.failures.length}`);
+          process.exit(1);
+        } else {
+          error(`Parallel execution failed.`);
+          info(`Commits: ${result.commits.length}, Failures: ${result.failures.length}`);
+          process.exit(1);
+        }
+      })
+      .catch(err => {
+        error(`Parallel execution error: ${err.message}`);
+        console.error(err);
+        process.exit(1);
+      });
+
+    return; // Don't fall through to sequential loop.sh
   }
 
   const result = spawnSync(loopPath, loopArgs, {
