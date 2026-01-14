@@ -195,19 +195,19 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test summary table displays correctly
 - [x] Verify ~100 lines removed from loop.sh
 
-### [ ] US-014: Extract metrics functions to shared library
+### [x] US-014: Extract metrics functions to shared library
 **As a** ralph-cli maintainer
 **I want** token extraction and metrics functions extracted
 **So that** metrics tracking is modular and testable
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/metrics.sh`
-- [ ] Extract `extract_tokens_from_log()` from loop.sh:1555-1570
-- [ ] Extract `append_metrics()` from loop.sh:1588-1684
-- [ ] Extract `rebuild_token_cache()` from loop.sh:1688-1717
-- [ ] Update loop.sh to source the library
-- [ ] Test metrics tracking works correctly
-- [ ] Verify ~130 lines removed from loop.sh
+- [x] Create `.agents/ralph/lib/metrics.sh`
+- [x] Extract `extract_tokens_from_log()` from loop.sh:1555-1570
+- [x] Extract `append_metrics()` from loop.sh:1588-1684
+- [x] Extract `rebuild_token_cache()` from loop.sh:1688-1717
+- [x] Update loop.sh to source the library
+- [x] Test metrics tracking works correctly
+- [x] Verify ~130 lines removed from loop.sh
 
 ### [ ] US-015: Extract agent functions to shared library
 **As a** ralph-cli maintainer
