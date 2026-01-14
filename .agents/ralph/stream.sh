@@ -90,10 +90,65 @@ is_stream_running() {
   return 1
 }
 
+is_lock_stale() {
+  # Check if a lock file contains a stale PID (process no longer running)
+  # Args: lock_file_path
+  # Returns: 0 if lock is stale (PID not running), 1 otherwise
+  local lock_file="$1"
+
+  if [[ ! -f "$lock_file" ]]; then
+    return 1  # No lock file - not stale
+  fi
+
+  local pid
+  pid=$(cat "$lock_file" 2>/dev/null)
+
+  if [[ -z "$pid" ]]; then
+    return 0  # Empty lock file - treat as stale
+  fi
+
+  # Check if PID is still running
+  if kill -0 "$pid" 2>/dev/null; then
+    return 1  # Process is running - lock is valid
+  fi
+
+  return 0  # Process is not running - lock is stale
+}
+
+cleanup_stale_lock() {
+  # Clean up a stale lock file with warning
+  # Args: lock_file_path
+  # Returns: 0 if cleaned up, 1 if lock was valid or didn't exist
+  local lock_file="$1"
+
+  if [[ ! -f "$lock_file" ]]; then
+    return 1  # No lock file to clean up
+  fi
+
+  if ! is_lock_stale "$lock_file"; then
+    return 1  # Lock is valid - don't clean up
+  fi
+
+  # Read the PID before removing for logging
+  local stale_pid
+  stale_pid=$(cat "$lock_file" 2>/dev/null)
+
+  # Remove the stale lock
+  rm -f "$lock_file"
+
+  # Log warning about stale lock cleanup
+  msg_warn "Cleaned up stale lock (PID $stale_pid no longer running): $lock_file"
+
+  return 0
+}
+
 acquire_lock() {
   local stream_id="$1"
   mkdir -p "$LOCKS_DIR"
   local lock_file="$LOCKS_DIR/$stream_id.lock"
+
+  # Clean up stale lock before checking if stream is running
+  cleanup_stale_lock "$lock_file"
 
   if is_stream_running "$stream_id"; then
     echo "Stream $stream_id is already running" >&2
@@ -847,6 +902,7 @@ cmd_merge() {
   local force_merge=false
   local do_rebase=false
   local do_wait=false
+  local force_unlock=false
   local max_wait=300
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -860,6 +916,10 @@ cmd_merge() {
         ;;
       --wait)
         do_wait=true
+        shift
+        ;;
+      --force-unlock)
+        force_unlock=true
         shift
         ;;
       --max-wait=*)
@@ -879,6 +939,35 @@ cmd_merge() {
 
   local stream_id
   stream_id=$(normalize_stream_id "$input")
+
+  # Handle --force-unlock: manually remove stale/stuck merge lock
+  if [[ "$force_unlock" == "true" ]]; then
+    if [[ -f "$MERGE_LOCK_FILE" ]]; then
+      local holder_stream holder_pid
+      holder_stream=$(grep '^STREAM_ID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+      holder_pid=$(grep '^PID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+
+      msg_warn "Force unlocking merge lock held by $holder_stream (PID $holder_pid)"
+
+      # Check if the process is still running
+      if kill -0 "$holder_pid" 2>/dev/null; then
+        msg_warn "Warning: PID $holder_pid is still running!"
+        printf "Are you sure you want to forcefully remove the lock? [y/N]: "
+        read -r confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+          msg_dim "Aborted."
+          return 0
+        fi
+      fi
+
+      rm -f "$MERGE_LOCK_FILE"
+      msg_warn "Merge lock forcefully removed."
+      msg_dim "Proceeding with merge..."
+      echo ""
+    else
+      msg_dim "No merge lock file exists."
+    fi
+  fi
 
   if [[ -z "$stream_id" ]]; then
     msg_error "Invalid stream ID: $input" >&2
@@ -1141,7 +1230,7 @@ case "$cmd" in
     ;;
   merge)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream merge <N> [--rebase] [--force] [--wait] [--max-wait=N]" >&2
+      echo "Usage: ralph stream merge <N> [--rebase] [--force] [--wait] [--max-wait=N] [--force-unlock]" >&2
       exit 1
     fi
     cmd_merge "$@"
@@ -1171,6 +1260,7 @@ case "$cmd" in
     printf "                              ${C_DIM}--force: ignore conflicts${C_RESET}\n"
     printf "                              ${C_DIM}--wait: wait if lock is held${C_RESET}\n"
     printf "                              ${C_DIM}--max-wait=N: max wait seconds (default: 300)${C_RESET}\n"
+    printf "                              ${C_DIM}--force-unlock: forcefully remove stale lock${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
