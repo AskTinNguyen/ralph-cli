@@ -11,7 +11,13 @@ pnpm-debug.log*
 
 # Env
 .env
-.env.*
+.env.local
+.env.*.local
+.envrc
+!.env.example
+
+# MCP config (contains API tokens)
+.mcp.json
 
 # Local Ralph state
 .ralph/

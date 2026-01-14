@@ -317,6 +317,62 @@ function parseStoriesFromPrd(content: string): Story[] {
 }
 
 /**
+ * Extract story ID and title from log content
+ */
+function extractStoryFromLog(logPath: string): { storyId?: string; storyTitle?: string } {
+  try {
+    // Read only the first 2KB of the log to find story info (it's usually at the top)
+    const fd = fs.openSync(logPath, 'r');
+    const buffer = Buffer.alloc(2048);
+    const bytesRead = fs.readSync(fd, buffer, 0, 2048, 0);
+    fs.closeSync(fd);
+
+    const content = buffer.toString('utf-8', 0, bytesRead);
+
+    // Pattern 1: "**US-XXX: Story Title**" (markdown bold with title)
+    const boldPattern = /\*\*(US-\d+):\s*([^*]+)\*\*/i;
+    const boldMatch = content.match(boldPattern);
+    if (boldMatch) {
+      return {
+        storyId: boldMatch[1].toUpperCase(),
+        storyTitle: boldMatch[2].trim(),
+      };
+    }
+
+    // Pattern 2: "US-XXX has been successfully completed" or similar
+    const completedPattern = /(US-\d+)\s+has been/i;
+    const completedMatch = content.match(completedPattern);
+    if (completedMatch) {
+      return {
+        storyId: completedMatch[1].toUpperCase(),
+      };
+    }
+
+    // Pattern 3: "story=US-XXX" in metadata
+    const metaPattern = /story=(US-\d+)/i;
+    const metaMatch = content.match(metaPattern);
+    if (metaMatch) {
+      return {
+        storyId: metaMatch[1].toUpperCase(),
+      };
+    }
+
+    // Pattern 4: "Working on US-XXX" or "Implementing US-XXX"
+    const workingPattern = /(?:Working on|Implementing|Starting)\s+(US-\d+)/i;
+    const workingMatch = content.match(workingPattern);
+    if (workingMatch) {
+      return {
+        storyId: workingMatch[1].toUpperCase(),
+      };
+    }
+
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Parse runs from a stream's runs directory
  */
 function parseRuns(runsPath: string, streamId: string): Run[] {
@@ -358,12 +414,17 @@ function parseRuns(runsPath: string, streamId: string): Run[] {
         // Determine status based on whether summary exists
         const status: Run['status'] = hasSummary ? 'completed' : 'running';
 
+        // Extract story information from log content
+        const storyInfo = extractStoryFromLog(logPath);
+
         runs.push({
           id: runId,
           streamId,
           iteration,
           startedAt,
           status,
+          storyId: storyInfo.storyId,
+          storyTitle: storyInfo.storyTitle,
           verifications: [],
           logPath,
           summaryPath: hasSummary ? summaryPath : undefined,

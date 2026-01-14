@@ -135,3 +135,40 @@ ralph-cli/
 **Isolation guarantee**: Each plan lives in its own PRD-N folder. Plans are never overwritten by subsequent `ralph plan` calls - a new PRD-N+1 folder is created instead.
 
 The loop is stateless - each iteration reads files, does work, writes results.
+
+## MCP Servers
+
+Ralph agents have access to MCP (Model Context Protocol) servers for external integrations. Configuration is in `.mcp.json`.
+
+### Available Integrations
+
+| Server | Purpose | Env Variable |
+|--------|---------|--------------|
+| **Notion** | Docs, databases, task tracking | `NOTION_API_KEY` |
+| **Slack** | Team notifications, context search | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
+| **GitHub** | Issues, PRs, code search | `GITHUB_TOKEN` |
+| **Miro** | Visual diagrams, boards | `MIRO_API_TOKEN` |
+
+### Setup
+
+1. Set required environment variables in your shell or `.env`
+2. MCP servers auto-start when Claude Code runs
+3. Tools are available as `mcp__<server>__<action>`
+
+### Usage Examples
+
+```
+# Search Notion for project docs
+mcp__notion__search("Project requirements")
+
+# Post build status to Slack
+mcp__slack__send_message(channel="builds", text="Build completed")
+
+# Create GitHub issue
+mcp__github__create_issue(repo="org/repo", title="Bug found")
+
+# Get Miro board
+mcp__miro__get_boards()
+```
+
+See `.agents/ralph/MCP_TOOLS.md` for full documentation.
