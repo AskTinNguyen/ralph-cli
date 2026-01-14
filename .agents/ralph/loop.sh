@@ -90,6 +90,7 @@ fi
 DEFAULT_AGENTS_PATH="AGENTS.md"
 DEFAULT_PROMPT_PLAN=".agents/ralph/PROMPT_plan.md"
 DEFAULT_PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
+DEFAULT_PROMPT_RETRY=".agents/ralph/PROMPT_retry.md"
 DEFAULT_GUARDRAILS_PATH=".ralph/guardrails.md"
 DEFAULT_ERRORS_LOG_PATH=".ralph/errors.log"
 DEFAULT_ACTIVITY_LOG_PATH=".ralph/activity.log"
@@ -239,6 +240,7 @@ fi
 AGENTS_PATH="${AGENTS_PATH:-$DEFAULT_AGENTS_PATH}"
 PROMPT_PLAN="${PROMPT_PLAN:-$DEFAULT_PROMPT_PLAN}"
 PROMPT_BUILD="${PROMPT_BUILD:-$DEFAULT_PROMPT_BUILD}"
+PROMPT_RETRY="${PROMPT_RETRY:-$DEFAULT_PROMPT_RETRY}"
 GUARDRAILS_PATH="${GUARDRAILS_PATH:-$DEFAULT_GUARDRAILS_PATH}"
 
 # ERRORS_LOG_PATH, ACTIVITY_LOG_PATH, RUNS_DIR should use PRD-N folder when specified
@@ -292,6 +294,7 @@ PROGRESS_PATH="$(abs_path "$PROGRESS_PATH")"
 AGENTS_PATH="$(abs_path "$AGENTS_PATH")"
 PROMPT_PLAN="$(abs_path "$PROMPT_PLAN")"
 PROMPT_BUILD="$(abs_path "$PROMPT_BUILD")"
+PROMPT_RETRY="$(abs_path "$PROMPT_RETRY")"
 GUARDRAILS_PATH="$(abs_path "$GUARDRAILS_PATH")"
 ERRORS_LOG_PATH="$(abs_path "$ERRORS_LOG_PATH")"
 ACTIVITY_LOG_PATH="$(abs_path "$ACTIVITY_LOG_PATH")"
@@ -766,6 +769,169 @@ repl = {
     "ITERATION": iteration,
     "RUN_LOG_PATH": run_log,
     "RUN_META_PATH": run_meta,
+}
+story = {"id": "", "title": "", "block": ""}
+if meta_path:
+    try:
+        import json
+        meta = json.loads(Path(meta_path).read_text())
+        story["id"] = meta.get("id", "") or ""
+        story["title"] = meta.get("title", "") or ""
+    except Exception:
+        pass
+if block_path and Path(block_path).exists():
+    story["block"] = Path(block_path).read_text()
+repl["STORY_ID"] = story["id"]
+repl["STORY_TITLE"] = story["title"]
+repl["STORY_BLOCK"] = story["block"]
+for k, v in repl.items():
+    src = src.replace("{{" + k + "}}", v)
+Path(sys.argv[2]).write_text(src)
+PY
+}
+
+# Render retry prompt with failure context variables (US-002)
+# Usage: render_retry_prompt <src> <dst> <story_meta> <story_block> <run_id> <iter> <run_log> <run_meta> \
+#                            <failure_context_file> <retry_attempt> <retry_max>
+render_retry_prompt() {
+  local src="$1"
+  local dst="$2"
+  local story_meta="$3"
+  local story_block="$4"
+  local run_id="$5"
+  local iter="$6"
+  local run_log="$7"
+  local run_meta="$8"
+  local failure_context_file="${9:-}"
+  local retry_attempt="${10:-1}"
+  local retry_max="${11:-3}"
+  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1]).read_text()
+prd, plan, agents, progress, root = sys.argv[3:8]
+guardrails = sys.argv[8]
+errors_log = sys.argv[9]
+activity_log = sys.argv[10]
+guardrails_ref = sys.argv[11]
+context_ref = sys.argv[12]
+activity_cmd = sys.argv[13]
+no_commit = sys.argv[14]
+meta_path = sys.argv[15] if len(sys.argv) > 15 else ""
+block_path = sys.argv[16] if len(sys.argv) > 16 else ""
+run_id = sys.argv[17] if len(sys.argv) > 17 else ""
+iteration = sys.argv[18] if len(sys.argv) > 18 else ""
+run_log = sys.argv[19] if len(sys.argv) > 19 else ""
+run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
+failure_context_file = sys.argv[21] if len(sys.argv) > 21 else ""
+retry_attempt = sys.argv[22] if len(sys.argv) > 22 else "1"
+retry_max = sys.argv[23] if len(sys.argv) > 23 else "3"
+
+def analyze_previous_approach(context):
+    """Analyze what the previous approach tried based on failure context."""
+    if not context:
+        return "No previous failure context available."
+
+    lines = context.split('\n')
+    analysis = []
+
+    # Look for common patterns
+    for line in lines:
+        line_lower = line.lower()
+        if 'import' in line_lower and ('error' in line_lower or 'fail' in line_lower):
+            analysis.append("- Import statements may have issues")
+        if 'route' in line_lower and ('not found' in line_lower or '404' in line_lower):
+            analysis.append("- Route registration may be missing")
+        if 'expect' in line_lower and 'received' in line_lower:
+            analysis.append("- Test assertions did not match expected values")
+        if 'undefined' in line_lower or 'null' in line_lower:
+            analysis.append("- Some variables or properties were undefined/null")
+        if 'type' in line_lower and 'error' in line_lower:
+            analysis.append("- Type mismatches were detected")
+
+    if not analysis:
+        analysis.append("- Review the full log for specific failure details")
+
+    return '\n'.join(list(set(analysis))[:5])  # Dedupe and limit to 5
+
+def suggest_alternatives(context):
+    """Suggest alternative approaches based on failure patterns."""
+    if not context:
+        return "- Try a simpler approach first\n- Double-check the requirements"
+
+    context_lower = context.lower()
+    suggestions = []
+
+    # Pattern-based suggestions
+    if 'import' in context_lower and ('error' in context_lower or 'module' in context_lower):
+        suggestions.append("- Verify all import paths are correct and modules exist")
+        suggestions.append("- Check for circular dependencies")
+
+    if 'route' in context_lower or '404' in context_lower:
+        suggestions.append("- Ensure the route is registered in the router/app")
+        suggestions.append("- Check route path spelling and parameters")
+
+    if 'expect' in context_lower or 'assert' in context_lower:
+        suggestions.append("- Match the expected output format exactly")
+        suggestions.append("- Check data types (string vs number, etc.)")
+
+    if 'undefined' in context_lower or 'null' in context_lower:
+        suggestions.append("- Add null checks and default values")
+        suggestions.append("- Verify object properties exist before accessing")
+
+    if 'timeout' in context_lower:
+        suggestions.append("- Reduce operation complexity or add pagination")
+        suggestions.append("- Check for infinite loops or blocking operations")
+
+    if 'permission' in context_lower or 'access' in context_lower:
+        suggestions.append("- Check file/directory permissions")
+        suggestions.append("- Verify authentication/authorization is set up")
+
+    if 'syntax' in context_lower:
+        suggestions.append("- Check for missing brackets, semicolons, or quotes")
+        suggestions.append("- Validate JSON/YAML/config file formats")
+
+    if not suggestions:
+        suggestions.append("- Read the failing test/verification command carefully")
+        suggestions.append("- Check if dependencies are installed")
+        suggestions.append("- Try a more incremental approach")
+
+    return '\n'.join(suggestions[:4])  # Limit to 4 suggestions
+
+# Read failure context from file
+failure_context = ""
+if failure_context_file and Path(failure_context_file).exists():
+    failure_context = Path(failure_context_file).read_text()
+
+# Analyze previous approach from failure context
+previous_approach = analyze_previous_approach(failure_context)
+
+# Generate suggestions based on failure patterns
+suggestions = suggest_alternatives(failure_context)
+
+repl = {
+    "PRD_PATH": prd,
+    "PLAN_PATH": plan,
+    "AGENTS_PATH": agents,
+    "PROGRESS_PATH": progress,
+    "REPO_ROOT": root,
+    "GUARDRAILS_PATH": guardrails,
+    "ERRORS_LOG_PATH": errors_log,
+    "ACTIVITY_LOG_PATH": activity_log,
+    "GUARDRAILS_REF": guardrails_ref,
+    "CONTEXT_REF": context_ref,
+    "ACTIVITY_CMD": activity_cmd,
+    "NO_COMMIT": no_commit,
+    "RUN_ID": run_id,
+    "ITERATION": iteration,
+    "RUN_LOG_PATH": run_log,
+    "RUN_META_PATH": run_meta,
+    "FAILURE_CONTEXT": failure_context,
+    "PREVIOUS_APPROACH": previous_approach,
+    "SUGGESTIONS": suggestions,
+    "RETRY_ATTEMPT": retry_attempt,
+    "RETRY_MAX": retry_max,
 }
 story = {"id": "", "title": "", "block": ""}
 if meta_path:
@@ -2157,6 +2323,112 @@ append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "
           HEAD_AFTER="$(git_head)"
           COMMIT_LIST=""
           CHANGED_FILES=""
+
+          # ─────────────────────────────────────────────────────────────────────
+          # Intelligent Retry (US-002)
+          # Retry the story with enhanced context after successful rollback
+          # ─────────────────────────────────────────────────────────────────────
+          if [ "${ROLLBACK_RETRY_ENABLED:-true}" = "true" ]; then
+            ROLLBACK_MAX="${ROLLBACK_MAX_RETRIES:-3}"
+
+            # Track retry attempts for this story (use a simple file-based approach)
+            RETRY_TRACKING_FILE="$RUNS_DIR/retry-count-${STORY_ID:-unknown}.txt"
+            if [ -f "$RETRY_TRACKING_FILE" ]; then
+              CURRENT_RETRY_COUNT=$(cat "$RETRY_TRACKING_FILE")
+            else
+              CURRENT_RETRY_COUNT=0
+            fi
+
+            CURRENT_RETRY_COUNT=$((CURRENT_RETRY_COUNT + 1))
+            echo "$CURRENT_RETRY_COUNT" > "$RETRY_TRACKING_FILE"
+
+            if [ "$CURRENT_RETRY_COUNT" -le "$ROLLBACK_MAX" ]; then
+              printf "\n"
+              printf "${C_CYAN}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+              printf "${C_CYAN}${C_BOLD}║            INTELLIGENT RETRY (US-002)                 ║${C_RESET}\n"
+              printf "${C_CYAN}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+              printf "\n"
+              printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "${STORY_ID:-unknown}"
+              printf "  ${C_BOLD}Retry:${C_RESET}  %s of %s\n" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+              printf "  ${C_BOLD}Context:${C_RESET} %s\n" "$FAILURE_CONTEXT_FILE"
+              printf "\n"
+              printf "${C_DIM}  Preparing enhanced retry prompt with failure context...${C_RESET}\n"
+              printf "\n"
+
+              log_activity "ROLLBACK_RETRY story=$STORY_ID attempt=$CURRENT_RETRY_COUNT/$ROLLBACK_MAX context=$FAILURE_CONTEXT_FILE"
+
+              # Render retry prompt with failure context
+              RETRY_PROMPT_RENDERED="$TMP_DIR/prompt-retry-$RUN_TAG-$i-retry$CURRENT_RETRY_COUNT.md"
+              RETRY_LOG_FILE="$RUNS_DIR/run-$RUN_TAG-iter-$i-retry$CURRENT_RETRY_COUNT.log"
+              RETRY_RUN_META="$RUNS_DIR/run-$RUN_TAG-iter-$i-retry$CURRENT_RETRY_COUNT.md"
+
+              render_retry_prompt "$PROMPT_RETRY" "$RETRY_PROMPT_RENDERED" "$STORY_META" "$STORY_BLOCK" "$RUN_TAG" "$i" "$RETRY_LOG_FILE" "$RETRY_RUN_META" "$FAILURE_CONTEXT_FILE" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+
+              # Execute retry
+              RETRY_START=$(date +%s)
+              set +e
+              start_progress_indicator "$RETRY_START"
+              run_agent_with_retry "$RETRY_PROMPT_RENDERED" "$RETRY_LOG_FILE" "$i"
+              RETRY_STATUS=$?
+              stop_progress_indicator
+              set -e
+
+              RETRY_END=$(date +%s)
+              RETRY_DURATION=$((RETRY_END - RETRY_START))
+
+              if [ "$RETRY_STATUS" -eq 0 ]; then
+                # Retry succeeded!
+                printf "${C_GREEN}${C_BOLD}  Retry $CURRENT_RETRY_COUNT SUCCEEDED${C_RESET}\n"
+                log_activity "ROLLBACK_RETRY_SUCCESS story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
+
+                # Clear retry tracking file on success
+                rm -f "$RETRY_TRACKING_FILE"
+
+                # Update metrics with successful retry
+                CMD_STATUS=0
+                STATUS_LABEL="success"
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+                HEAD_AFTER="$(git_head)"
+                COMMIT_LIST="$(git_commit_list "$HEAD_BEFORE" "$HEAD_AFTER")"
+                CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
+
+                # Update run meta for the retry
+                write_run_meta "$RETRY_RUN_META" "$MODE" "$i" "$RUN_TAG" "${STORY_ID:-}" "${STORY_TITLE:-} (Retry $CURRENT_RETRY_COUNT)" "$ITER_START_FMT" "$(date '+%Y-%m-%d %H:%M:%S')" "$RETRY_DURATION" "success" "$RETRY_LOG_FILE" "$HEAD_BEFORE" "$HEAD_AFTER" "$COMMIT_LIST" "$CHANGED_FILES" "" "" "" "" "" "" "" "" "" "" "" ""
+              else
+                # Retry failed
+                printf "${C_YELLOW}  Retry $CURRENT_RETRY_COUNT failed${C_RESET}\n"
+                log_activity "ROLLBACK_RETRY_FAILED story=$STORY_ID attempt=$CURRENT_RETRY_COUNT duration=${RETRY_DURATION}s"
+
+                # Check if we should rollback this retry too
+                if detect_test_failure "$RETRY_LOG_FILE"; then
+                  log_activity "RETRY_TEST_FAILURE story=$STORY_ID attempt=$CURRENT_RETRY_COUNT"
+                  # Save new failure context
+                  FAILURE_CONTEXT_FILE="$(save_failure_context "$RETRY_LOG_FILE" "$RUNS_DIR" "$RUN_TAG" "$i-retry$CURRENT_RETRY_COUNT" "${STORY_ID:-unknown}")"
+                  # Rollback the retry attempt
+                  rollback_to_checkpoint "$HEAD_BEFORE" "${STORY_ID:-unknown}" "retry_test_failure" || true
+                fi
+              fi
+            else
+              # Max retries exhausted
+              printf "\n"
+              printf "${C_RED}${C_BOLD}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+              printf "${C_RED}${C_BOLD}║          MAX RETRIES EXHAUSTED                        ║${C_RESET}\n"
+              printf "${C_RED}${C_BOLD}╚═══════════════════════════════════════════════════════╝${C_RESET}\n"
+              printf "\n"
+              printf "  ${C_BOLD}Story:${C_RESET}  %s\n" "${STORY_ID:-unknown}"
+              printf "  ${C_BOLD}Attempts:${C_RESET} %s (max: %s)\n" "$CURRENT_RETRY_COUNT" "$ROLLBACK_MAX"
+              printf "\n"
+              printf "${C_DIM}  Story will be skipped. Review failure context and fix manually.${C_RESET}\n"
+              printf "${C_DIM}  Context file: %s${C_RESET}\n" "$FAILURE_CONTEXT_FILE"
+              printf "\n"
+
+              log_activity "MAX_RETRIES_EXHAUSTED story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
+              log_error "MAX_RETRIES_EXHAUSTED story=$STORY_ID - manual intervention required"
+
+              # Clear retry tracking file
+              rm -f "$RETRY_TRACKING_FILE"
+            fi
+          fi
         else
           log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
           msg_error "Rollback failed - manual intervention may be required"

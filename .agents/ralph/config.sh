@@ -53,6 +53,22 @@ ROLLBACK_ENABLED=true
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Intelligent Retry Configuration (US-002)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure automatic retry behavior after rollback.
+# When a story fails and is rolled back, Ralph can retry with enhanced context.
+#
+# Maximum retry attempts per story before giving up (default: 3):
+ROLLBACK_MAX_RETRIES=3
+#
+# Enable/disable automatic retry after rollback (default: true):
+ROLLBACK_RETRY_ENABLED=true
+#
+# Note: Retry uses PROMPT_retry.md template with failure context injected.
+# Each retry includes: failure reason, previous approach analysis, and suggestions.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Automatically select AI model based on task complexity.
