@@ -102,10 +102,10 @@ Stories are marked `[x]` when complete.
 Set in `.agents/ralph/config.sh` or via CLI flag:
 
 ```bash
-# Use Claude
+# Use Claude (default)
 ralph build 1 --agent=claude
 
-# Use Codex (default)
+# Use Codex
 ralph build 1 --agent=codex
 
 # Use Droid

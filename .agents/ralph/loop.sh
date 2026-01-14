@@ -120,15 +120,15 @@ if [ -f "$CONFIG_FILE" ]; then
   . "$CONFIG_FILE"
 fi
 
-DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-codex}"
+DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-claude}"
 resolve_agent_cmd() {
   local name="$1"
   case "$name" in
-    claude)
-      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
-        echo "$AGENT_CLAUDE_CMD"
+    codex)
+      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
+        echo "$AGENT_CODEX_CMD"
       else
-        echo "claude -p --dangerously-skip-permissions"
+        echo "codex exec --yolo --skip-git-repo-check -"
       fi
       ;;
     droid)
@@ -138,11 +138,11 @@ resolve_agent_cmd() {
         echo "droid exec --skip-permissions-unsafe -f {prompt}"
       fi
       ;;
-    codex|""|*)
-      if [[ -n "${AGENT_CODEX_CMD:-}" ]]; then
-        echo "$AGENT_CODEX_CMD"
+    claude|""|*)
+      if [[ -n "${AGENT_CLAUDE_CMD:-}" ]]; then
+        echo "$AGENT_CLAUDE_CMD"
       else
-        echo "codex exec --yolo --skip-git-repo-check -"
+        echo "claude -p --dangerously-skip-permissions"
       fi
       ;;
   esac
@@ -2884,8 +2884,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       printf "${C_DIM}  │${C_RESET} ${C_YELLOW}Model: ${C_BOLD}$ROUTED_MODEL${C_RESET}${C_YELLOW} (manual override)${C_RESET}\n"
     elif [ -n "$ROUTED_SCORE" ]; then
       # Determine complexity level and color
-      local level_color="$C_GREEN"
-      local level_label="low"
+      level_color="$C_GREEN"
+      level_label="low"
       if [ "$(echo "$ROUTED_SCORE > 3" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
         level_color="$C_YELLOW"
         level_label="medium"

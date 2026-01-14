@@ -556,7 +556,7 @@ async function main() {
       return {
         headless: defaults,
         interactive: interactiveDefaults,
-        defaultAgent: "codex",
+        defaultAgent: "claude",
       };
     }
     const safePath = agentsPath.replace(/'/g, "'\\''");
@@ -575,7 +575,7 @@ async function main() {
       return {
         headless: defaults,
         interactive: interactiveDefaults,
-        defaultAgent: "codex",
+        defaultAgent: "claude",
       };
     }
     const parsed = new Map();
@@ -597,13 +597,13 @@ async function main() {
         claude: readVar("AGENT_CLAUDE_INTERACTIVE_CMD") || interactiveDefaults.claude,
         droid: readVar("AGENT_DROID_INTERACTIVE_CMD") || interactiveDefaults.droid,
       },
-      defaultAgent: readVar("DEFAULT_AGENT") || "codex",
+      defaultAgent: readVar("DEFAULT_AGENT") || "claude",
     };
   };
   const agentDefs = loadAgentMap();
   const agentMap = agentDefs.headless;
   const agentInteractiveMap = agentDefs.interactive;
-  const defaultAgent = agentDefs.defaultAgent || "codex";
+  const defaultAgent = agentDefs.defaultAgent || "claude";
   if (agentOverride) {
     const mapped = agentMap[agentOverride];
     if (!mapped) {
@@ -2463,7 +2463,7 @@ ${pc.bold(pc.cyan("Examples:"))}
       const agentRates = metricsModule.getAgentSuccessRates(allMetrics);
       const switchAnalytics = metricsModule.getSwitchAnalytics(allMetrics);
       const optimalAgents = metricsModule.getOptimalAgentsByStoryType(allMetrics);
-      const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "codex");
+      const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "claude");
 
       if (jsonFlag) {
         console.log(JSON.stringify({
@@ -3459,7 +3459,7 @@ ${pc.bold(pc.cyan("Examples:"))}
       if (allMetrics.length > 0) {
         const agentStats = metricsModule.getAgentSuccessRates(allMetrics);
         const switchAnalytics = metricsModule.getSwitchAnalytics(allMetrics);
-        const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "codex");
+        const defaultSuggestion = metricsModule.suggestDefaultAgentChange(allMetrics, "claude");
         const agents = Object.keys(agentStats);
 
         // Only show agent recommendations if we have data

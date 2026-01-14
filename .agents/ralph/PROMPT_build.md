@@ -80,7 +80,7 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 
 ```
 ## [Date/Time] - {{STORY_ID}}: {{STORY_TITLE}}
-Thread: [codex exec session id if available, otherwise leave blank]
+Thread: [agent session id if available, otherwise leave blank]
 Run: {{RUN_ID}} (iteration {{ITERATION}})
 Run log: {{RUN_LOG_PATH}}
 Run summary: {{RUN_META_PATH}}

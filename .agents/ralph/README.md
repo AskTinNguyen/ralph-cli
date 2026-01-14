@@ -49,7 +49,7 @@ This creates `.agents/ralph/` in the current repo so you can customize prompts a
 ralph install --skills
 ```
 
-You’ll be prompted for agent (codex/claude/droid) and local vs global install. Skills installed: **commit**, **dev-browser**, **prd**.
+You'll be prompted for agent (claude/codex/droid) and local vs global install. Skills installed: **commit**, **dev-browser**, **prd**.
 If you skipped skills during `ralph install`, you can run `ralph install --skills` anytime.
 
 ## Quick start (project)
@@ -126,28 +126,28 @@ Optional config file (if you installed templates):
 
 ## Choose the agent runner
 
-Set `AGENT_CMD` in `.agents/ralph/config.sh` to switch agents:
+Claude Code is the default and recommended agent. Set `AGENT_CMD` in `.agents/ralph/config.sh` to switch agents:
 
 ```
+AGENT_CMD="claude -p --dangerously-skip-permissions"       # default
 AGENT_CMD="codex exec --yolo -"
-AGENT_CMD="claude -p --dangerously-skip-permissions \"\$(cat {prompt})\""
 AGENT_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
 ```
 
 Or override per run:
 
 ```
-ralph prd --agent=codex
-ralph build 1 --agent=codex # one Ralph run
-ralph build 1 --agent=claude # one Ralph run
-ralph build 1 --agent=droid # one Ralph run
+ralph prd --agent=claude   # default
+ralph build 1 --agent=claude # one Ralph run (default)
+ralph build 1 --agent=codex  # one Ralph run
+ralph build 1 --agent=droid  # one Ralph run
 ```
 
-If the CLI isn’t installed, Ralph prints install hints:
+If the CLI isn't installed, Ralph prints install hints:
 
 ```
+claude -> curl -fsSL https://claude.ai/install.sh | bash   # recommended
 codex  -> npm i -g @openai/codex
-claude -> curl -fsSL https://claude.ai/install.sh | bash
 droid  -> curl -fsSL https://app.factory.ai/cli | sh
 ```
 

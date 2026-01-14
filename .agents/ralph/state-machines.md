@@ -73,8 +73,8 @@ stateDiagram-v2
 
     note right of Select_Agent_Type
         Agents supported:
-        - codex (default)
-        - claude
+        - claude (default)
+        - codex
         - droid
         Uses interactive mode
     end note
@@ -480,15 +480,15 @@ stateDiagram-v2
     Read_Agents_SH --> Parse_Agent_Vars
     Parse_Agent_Vars --> Resolve_Agent_Command
 
-    Use_Default --> Select_Codex
-    Select_Codex --> Resolve_Agent_Command
+    Use_Default --> Select_Claude
+    Select_Claude --> Resolve_Agent_Command
 
-    Resolve_Agent_Command --> Codex_Cmd: agent=codex
     Resolve_Agent_Command --> Claude_Cmd: agent=claude
+    Resolve_Agent_Command --> Codex_Cmd: agent=codex
     Resolve_Agent_Command --> Droid_Cmd: agent=droid
 
-    Codex_Cmd --> Check_Agent_Installed
     Claude_Cmd --> Check_Agent_Installed
+    Codex_Cmd --> Check_Agent_Installed
     Droid_Cmd --> Check_Agent_Installed
 
     Check_Agent_Installed --> Agent_Missing: command not found
