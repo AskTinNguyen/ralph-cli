@@ -183,17 +183,17 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test error display works correctly
 - [x] Verify ~60 lines removed from loop.sh
 
-### [ ] US-013: Extract summary table functions to output.sh
+### [x] US-013: Extract summary table functions to output.sh
 **As a** ralph-cli maintainer
 **I want** summary table functions in the shared output library
 **So that** summary formatting is reusable
 
 #### Acceptance Criteria
-- [ ] Move `format_duration()` from loop.sh:1222-1232 to lib/output.sh
-- [ ] Move `print_summary_table()` from loop.sh:1236-1330 to lib/output.sh
-- [ ] Update loop.sh to use functions from lib/output.sh
-- [ ] Test summary table displays correctly
-- [ ] Verify ~100 lines removed from loop.sh
+- [x] Move `format_duration()` from loop.sh:1222-1232 to lib/output.sh
+- [x] Move `print_summary_table()` from loop.sh:1236-1330 to lib/output.sh
+- [x] Update loop.sh to use functions from lib/output.sh
+- [x] Test summary table displays correctly
+- [x] Verify ~100 lines removed from loop.sh
 
 ### [ ] US-014: Extract metrics functions to shared library
 **As a** ralph-cli maintainer
