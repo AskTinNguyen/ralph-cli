@@ -20,23 +20,127 @@ LOCKS_DIR="$RALPH_DIR/locks"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
-# Source shared PRD utilities (stream/PRD folder management)
-# Provides: get_next_stream_id, normalize_stream_id, stream_exists, get_stream_dir
-# (aliases for: get_next_prd_number, normalize_prd_id, prd_exists, get_prd_dir)
-# shellcheck source=lib/prd-utils.sh
-source "$SCRIPT_DIR/lib/prd-utils.sh"
-
-# Git helper functions (git_head, git_commit_list, git_changed_files, git_dirty_files)
-# shellcheck source=lib/git-utils.sh
-source "$SCRIPT_DIR/lib/git-utils.sh"
-
 # ============================================================================
 # Helpers
 # ============================================================================
 
+get_next_stream_id() {
+  local max=0
+  if [[ -d "$RALPH_DIR" ]]; then
+    # Check both PRD-N (new) and prd-N (legacy) folders
+    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
+      if [[ -d "$dir" ]]; then
+        local num="${dir##*[Pp][Rr][Dd]-}"
+        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
+          max=$num
+        fi
+      fi
+    done
+  fi
+  echo $((max + 1))
+}
+
+normalize_stream_id() {
+  local input="$1"
+  if [[ "$input" =~ ^[0-9]+$ ]]; then
+    echo "PRD-$input"
+  elif [[ "$input" =~ ^[Pp][Rr][Dd]-[0-9]+$ ]]; then
+    # Normalize to uppercase PRD-N
+    local num="${input##*[Pp][Rr][Dd]-}"
+    echo "PRD-$num"
+  else
+    echo ""
+  fi
+}
+
+stream_exists() {
+  local stream_id="$1"
+  # Check both uppercase and legacy lowercase
+  [[ -d "$RALPH_DIR/$stream_id" ]] || [[ -d "$RALPH_DIR/${stream_id,,}" ]]
+}
+
+get_stream_dir() {
+  local stream_id="$1"
+  # Check uppercase first (new), then legacy lowercase
+  if [[ -d "$RALPH_DIR/$stream_id" ]]; then
+    echo "$RALPH_DIR/$stream_id"
+  elif [[ -d "$RALPH_DIR/${stream_id,,}" ]]; then
+    echo "$RALPH_DIR/${stream_id,,}"
+  else
+    # Default to the given stream_id (should be uppercase for new)
+    echo "$RALPH_DIR/$stream_id"
+  fi
+}
+
 worktree_exists() {
   local stream_id="$1"
   [[ -d "$WORKTREES_DIR/$stream_id" ]]
+}
+
+is_stream_merged() {
+  # Check if stream has been merged to main
+  # Returns: 0 if merged, 1 if not merged
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # First check git history for actual merge (source of truth)
+  if is_branch_merged_in_git "$stream_id"; then
+    # Auto-create .merged marker if git shows it's merged but marker is missing
+    if [[ ! -f "$stream_dir/.merged" ]]; then
+      mark_stream_merged "$stream_id"
+    fi
+    return 0
+  fi
+
+  # Fallback: Check for .merged marker file (legacy or manual marking)
+  [[ -f "$stream_dir/.merged" ]]
+}
+
+is_branch_merged_in_git() {
+  # Verify if a stream's branch has been merged to main/master via git
+  # Returns: 0 if merged, 1 if not merged or branch doesn't exist
+  local stream_id="$1"
+  local branch="ralph/$stream_id"
+  local base_branch="main"
+
+  # Check if main exists, otherwise use master
+  if ! git show-ref --verify --quiet "refs/heads/main"; then
+    if git show-ref --verify --quiet "refs/heads/master"; then
+      base_branch="master"
+    else
+      # No main or master branch - can't verify
+      return 1
+    fi
+  fi
+
+  # Check if the branch exists in git
+  if ! git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    # Branch doesn't exist locally - check if there's a merge commit in history
+    # Look for merge commits mentioning this stream
+    if git log --all --oneline --grep="$stream_id" --merges | grep -qi "merge"; then
+      return 0
+    fi
+    return 1
+  fi
+
+  # Branch exists - check if it's been merged to base branch
+  if git merge-base --is-ancestor "$branch" "$base_branch" 2>/dev/null; then
+    return 0
+  fi
+
+  return 1
+}
+
+mark_stream_merged() {
+  # Mark a stream as merged by creating .merged marker file
+  local stream_id="$1"
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Create .merged marker with timestamp
+  echo "merged_at=$(date -Iseconds)" > "$stream_dir/.merged"
+  echo "merged_by=${USER:-unknown}" >> "$stream_dir/.merged"
 }
 
 is_stream_running() {
@@ -388,19 +492,26 @@ get_stream_status() {
   stream_dir="$(get_stream_dir "$stream_id")"
 
   if [[ ! -d "$stream_dir" ]]; then
-    echo "$STATUS_NOT_FOUND"
+    echo "not_found"
     return
   fi
 
   if is_stream_running "$stream_id"; then
-    echo "$STATUS_RUNNING"
+    echo "running"
+    return
+  fi
+
+  # IMPORTANT: Check git history FIRST (source of truth)
+  # This catches cases where PRD was merged but checkboxes weren't updated
+  if is_stream_merged "$stream_id"; then
+    echo "merged"
     return
   fi
 
   # Check if all stories are done by looking at PRD
   local prd_file="$stream_dir/prd.md"
   if [[ ! -f "$prd_file" ]]; then
-    echo "$STATUS_NO_PRD"
+    echo "no_prd"
     return
   fi
 
@@ -411,11 +522,13 @@ get_stream_status() {
   remaining=${remaining:-0}
 
   if [[ "$total" -eq 0 ]]; then
-    echo "$STATUS_NO_STORIES"
+    echo "no_stories"
   elif [[ "$remaining" -eq 0 ]]; then
-    echo "$STATUS_COMPLETED"
+    # All stories completed in prd.md but not merged yet
+    echo "completed"
   else
-    echo "$STATUS_READY"
+    # Stories remain unchecked
+    echo "ready"
   fi
 }
 
@@ -544,17 +657,29 @@ cmd_list() {
       progress=$(count_stories "$dir/prd.md")
 
       # Use standardized symbols and colors
-      local symbol status_color
+      local symbol status_color display_status
+      display_status="$status"
       case "$status" in
-        "$STATUS_RUNNING")
+        running)
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           ;;
-        "$STATUS_COMPLETED")
-          symbol="$SYM_COMPLETED"
+        merged)
+          symbol="$SYM_MERGED"
           status_color="${C_GREEN}"
           ;;
-        "$STATUS_READY")
+        completed)
+          # Completed but not merged - check if has worktree (needs merge)
+          if worktree_exists "$stream_id"; then
+            symbol="$SYM_COMPLETED"
+            status_color="${C_YELLOW}"
+            display_status="needs merge"
+          else
+            symbol="$SYM_COMPLETED"
+            status_color="${C_GREEN}"
+          fi
+          ;;
+        ready)
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -564,7 +689,7 @@ cmd_list() {
           ;;
       esac
 
-      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-10s${C_RESET}  %s stories\n" "$symbol" "$num" "$status" "$progress"
+      printf "  %s ${C_BOLD}PRD-%s${C_RESET}  ${status_color}%-11s${C_RESET} %s stories\n" "$symbol" "$num" "$display_status" "$progress"
     fi
   done
 
@@ -608,21 +733,33 @@ cmd_status() {
       last_modified=$(get_human_time_diff "$dir/progress.md")
 
       # Use standardized symbols and color based on status
-      local symbol status_color row_prefix row_suffix
+      local symbol status_color row_prefix row_suffix display_status
       row_prefix=""
       row_suffix=""
+      display_status="$status"
       case "$status" in
-        "$STATUS_RUNNING")
+        running)
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           row_prefix="${C_BOLD}"
           row_suffix="${C_RESET}"
           ;;
-        "$STATUS_COMPLETED")
-          symbol="$SYM_COMPLETED"
+        merged)
+          symbol="$SYM_MERGED"
           status_color="${C_GREEN}"
           ;;
-        "$STATUS_READY")
+        completed)
+          # Completed but not merged - check if has worktree (needs merge)
+          if [[ "$has_worktree" == "yes" ]]; then
+            symbol="$SYM_COMPLETED"
+            status_color="${C_YELLOW}"
+            display_status="needs mrg"
+          else
+            symbol="$SYM_COMPLETED"
+            status_color="${C_GREEN}"
+          fi
+          ;;
+        ready)
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -634,7 +771,7 @@ cmd_status() {
 
       # Print row with color-coded status
       printf "${row_prefix}│ %s %-6s │ ${status_color}%-10s${C_RESET}${row_prefix} │ %-8s │ %-8s │ %-8s │${row_suffix}\n" \
-        "$symbol" "$stream_id" "$status" "$progress" "$last_modified" "$has_worktree"
+        "$symbol" "$stream_id" "$display_status" "$progress" "$last_modified" "$has_worktree"
     fi
   done
 
@@ -644,7 +781,7 @@ cmd_status() {
 
   echo "└──────────┴────────────┴──────────┴──────────┴──────────┘"
   echo ""
-  msg_dim "Legend: $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready  $SYM_UNKNOWN unknown"
+  msg_dim "Legend: $SYM_MERGED merged  $SYM_COMPLETED completed  $SYM_RUNNING running  $SYM_READY ready"
   echo ""
 }
 
@@ -944,7 +1081,7 @@ cmd_merge() {
 
   local status
   status=$(get_stream_status "$stream_id")
-  if [[ "$status" != "$STATUS_COMPLETED" ]]; then
+  if [[ "$status" != "completed" ]]; then
     msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
   fi
@@ -1053,6 +1190,9 @@ cmd_merge() {
     msg_dim "State files synced to $(path_display "$main_state_dir")"
   fi
 
+  # Mark stream as merged
+  mark_stream_merged "$stream_id"
+
   printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Stream %s merged successfully${C_RESET}\n" "$stream_id"
 
   next_steps_header
@@ -1082,6 +1222,58 @@ cmd_cleanup() {
   git worktree remove "$worktree_path" --force
 
   printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Cleaned up %s\n" "$stream_id"
+}
+
+cmd_mark_merged() {
+  # Manually mark a stream as merged (for streams merged outside of ralph)
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  if ! stream_exists "$stream_id"; then
+    msg_error "Stream $stream_id does not exist" >&2
+    return 1
+  fi
+
+  local status
+  status=$(get_stream_status "$stream_id")
+
+  if [[ "$status" == "merged" ]]; then
+    msg_dim "$stream_id is already marked as merged"
+    return 0
+  fi
+
+  # Mark as merged
+  mark_stream_merged "$stream_id"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Marked %s as merged\n" "$stream_id"
+}
+
+cmd_unmark_merged() {
+  # Remove merged marker from a stream
+  local input="$1"
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  if [[ ! -f "$stream_dir/.merged" ]]; then
+    msg_dim "$stream_id is not marked as merged"
+    return 0
+  fi
+
+  rm -f "$stream_dir/.merged"
+  printf "${C_GREEN}${SYM_SUCCESS}${C_RESET} Unmarked %s as merged\n" "$stream_id"
 }
 
 # ============================================================================
@@ -1160,6 +1352,340 @@ cmd_merge_status() {
 }
 
 # ============================================================================
+# PR Creation (US-001)
+# ============================================================================
+
+cmd_pr() {
+  local input="$1"
+  shift || true
+
+  # Parse flags
+  local dry_run=false
+  local custom_title=""
+  local custom_base=""
+  local custom_reviewers=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run)
+        dry_run=true
+        shift
+        ;;
+      --title=*)
+        custom_title="${1#--title=}"
+        shift
+        ;;
+      --title)
+        shift
+        custom_title="${1:-}"
+        shift
+        ;;
+      --base=*)
+        custom_base="${1#--base=}"
+        shift
+        ;;
+      --base)
+        shift
+        custom_base="${1:-}"
+        shift
+        ;;
+      --reviewers=*)
+        custom_reviewers="${1#--reviewers=}"
+        shift
+        ;;
+      --reviewers)
+        shift
+        custom_reviewers="${1:-}"
+        shift
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  if ! stream_exists "$stream_id"; then
+    msg_error "Stream not found: $stream_id" >&2
+    return 1
+  fi
+
+  # Check if gh CLI is available
+  if ! command -v gh &> /dev/null; then
+    msg_error "GitHub CLI (gh) is not installed." >&2
+    msg_dim "Install it from: https://cli.github.com/"
+    return 1
+  fi
+
+  # Check if gh is authenticated
+  if ! gh auth status &> /dev/null; then
+    msg_error "GitHub CLI is not authenticated." >&2
+    msg_dim "Run: gh auth login"
+    return 1
+  fi
+
+  local branch="ralph/$stream_id"
+  local base_branch="${custom_base:-main}"
+
+  # Check if main exists, otherwise use master
+  if [[ -z "$custom_base" ]]; then
+    if ! git show-ref --verify --quiet "refs/heads/main"; then
+      if git show-ref --verify --quiet "refs/heads/master"; then
+        base_branch="master"
+      fi
+    fi
+  fi
+
+  # Check if branch exists
+  if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+    msg_error "Branch $branch does not exist." >&2
+    msg_dim "Initialize the stream first: ralph stream init ${input}"
+    return 1
+  fi
+
+  local stream_dir
+  stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Get stream info for PR title
+  local pr_title="$custom_title"
+  local prd_title=""
+
+  if [[ -f "$stream_dir/prd.md" ]]; then
+    # Extract PRD title
+    prd_title=$(grep -m1 '^#' "$stream_dir/prd.md" | sed 's/^#\s*\(PRD:\s*\)\?//' | head -1)
+  fi
+
+  if [[ -z "$pr_title" ]]; then
+    if [[ -n "$prd_title" ]]; then
+      pr_title="$stream_id: $prd_title"
+    else
+      pr_title="$stream_id: Implementation"
+    fi
+  fi
+
+  # Generate smart PR body using Node.js template module
+  # This includes: PRD summary, completed stories, key files changed, test results
+  local pr_body
+  local generate_script="$SCRIPT_DIR/../../lib/github/generate-pr-body.js"
+
+  if [[ -f "$generate_script" ]] && command -v node &> /dev/null; then
+    pr_body=$(node "$generate_script" "$stream_id" "$RALPH_DIR" "$ROOT_DIR" "$base_branch" 2>/dev/null)
+  fi
+
+  # Fallback to basic body if Node.js generation fails
+  if [[ -z "$pr_body" ]]; then
+    local overview=""
+    local completed_stories=""
+
+    if [[ -f "$stream_dir/prd.md" ]]; then
+      # Extract overview (first paragraph after ## Overview)
+      overview=$(awk '/^## Overview/{found=1; next} found && /^##/{exit} found && NF' "$stream_dir/prd.md" | head -1)
+
+      # Extract completed stories
+      completed_stories=$(grep -E '###\s+\[x\]' "$stream_dir/prd.md" | sed 's/###\s*\[x\]\s*/- [x] /')
+    fi
+
+    pr_body="## Summary
+
+This PR was automatically generated by Ralph CLI from $stream_id.
+"
+
+    if [[ -n "$overview" ]]; then
+      pr_body+="
+$overview
+"
+    fi
+
+    if [[ -n "$completed_stories" ]]; then
+      pr_body+="
+### Completed Stories
+
+$completed_stories
+"
+    fi
+
+    pr_body+="
+---
+*Generated by [Ralph CLI](https://github.com/AskTinNguyen/ralph-cli)*"
+  fi
+
+  # Dry run mode
+  if [[ "$dry_run" == "true" ]]; then
+    section_header "PR Preview (Dry Run)"
+    printf "${C_BOLD}Title:${C_RESET} %s\n" "$pr_title"
+    printf "${C_BOLD}Branch:${C_RESET} %s -> %s\n" "$branch" "$base_branch"
+    if [[ -n "$custom_reviewers" ]]; then
+      printf "${C_BOLD}Reviewers:${C_RESET} %s\n" "$custom_reviewers"
+    else
+      printf "${C_BOLD}Reviewers:${C_RESET} %s\n" "(auto-assign from CODEOWNERS)"
+    fi
+    echo ""
+    printf "${C_BOLD}Body:${C_RESET}\n"
+    printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+    echo "$pr_body"
+    printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+    echo ""
+    msg_dim "Run without --dry-run to create the PR"
+    return 0
+  fi
+
+  section_header "Creating PR for $stream_id"
+
+  # Push branch to remote
+  msg_dim "Pushing $branch to origin..."
+  if ! git push -u origin "$branch" 2>/dev/null; then
+    msg_warn "Branch may already be pushed (continuing...)"
+  fi
+
+  # Create PR using gh CLI
+  msg_dim "Creating pull request..."
+  local pr_url
+  pr_url=$(gh pr create \
+    --title "$pr_title" \
+    --body "$pr_body" \
+    --base "$base_branch" \
+    --head "$branch" 2>&1)
+
+  local gh_exit=$?
+
+  if [[ $gh_exit -ne 0 ]]; then
+    # Check if PR already exists
+    if echo "$pr_url" | grep -qi "already exists"; then
+      msg_warn "PR already exists for this branch."
+      pr_url=$(gh pr list --head "$branch" --json url --jq '.[0].url' 2>/dev/null)
+      if [[ -n "$pr_url" ]]; then
+        printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}Existing PR:${C_RESET} %s\n" "$pr_url"
+        return 0
+      fi
+    fi
+    msg_error "Failed to create PR:" >&2
+    echo "$pr_url" >&2
+    return 1
+  fi
+
+  printf "\n${C_GREEN}${SYM_SUCCESS}${C_RESET} ${C_BOLD}PR created:${C_RESET} %s\n" "$pr_url"
+
+  # Handle reviewer assignment (custom --reviewers override or auto-assign)
+  if [[ -n "$custom_reviewers" ]]; then
+    # Use custom reviewers specified via --reviewers flag
+    msg_dim "Assigning custom reviewers: $custom_reviewers"
+
+    # Parse comma-separated reviewers and request reviews
+    local reviewer_list=""
+    local team_list=""
+
+    # Split reviewers and categorize as users vs teams
+    IFS=',' read -ra reviewer_arr <<< "$custom_reviewers"
+    for reviewer in "${reviewer_arr[@]}"; do
+      reviewer=$(echo "$reviewer" | xargs) # Trim whitespace
+      reviewer=${reviewer#@} # Remove leading @ if present
+
+      if [[ "$reviewer" == *"/"* ]]; then
+        # Team format: org/team
+        if [[ -n "$team_list" ]]; then
+          team_list="$team_list,$reviewer"
+        else
+          team_list="$reviewer"
+        fi
+      else
+        # Individual reviewer
+        if [[ -n "$reviewer_list" ]]; then
+          reviewer_list="$reviewer_list,$reviewer"
+        else
+          reviewer_list="$reviewer"
+        fi
+      fi
+    done
+
+    # Extract PR number from URL for gh commands
+    local pr_number
+    pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+
+    if [[ -n "$pr_number" ]]; then
+      # Request review from individual users
+      if [[ -n "$reviewer_list" ]]; then
+        if gh pr edit "$pr_number" --add-reviewer "$reviewer_list" 2>/dev/null; then
+          msg_dim "Assigned reviewers: $reviewer_list"
+        else
+          msg_warn "Could not assign some reviewers"
+        fi
+      fi
+
+      # Request review from teams
+      if [[ -n "$team_list" ]]; then
+        IFS=',' read -ra team_arr <<< "$team_list"
+        for team in "${team_arr[@]}"; do
+          if gh api "repos/{owner}/{repo}/pulls/$pr_number/requested_reviewers" \
+            -f "team_reviewers[]=$team" 2>/dev/null; then
+            msg_dim "Assigned team: $team"
+          else
+            msg_warn "Could not assign team: $team"
+          fi
+        done
+      fi
+    fi
+
+    # Add standard labels
+    if gh pr edit "$pr_number" --add-label "ralph-generated,PRD-${stream_id#PRD-}" 2>/dev/null; then
+      msg_dim "Added labels: ralph-generated, PRD-${stream_id#PRD-}"
+    fi
+  else
+    # Auto-assign reviewers and labels (US-003)
+    local assign_script="$SCRIPT_DIR/../../lib/github/assign-reviewers.js"
+    if [[ -f "$assign_script" ]] && command -v node &> /dev/null; then
+      msg_dim "Assigning reviewers and labels..."
+      local assign_output
+      assign_output=$(node "$assign_script" "$stream_id" "$pr_url" "$ROOT_DIR" "$base_branch" 2>&1)
+      local assign_exit=$?
+
+      if [[ $assign_exit -eq 0 ]]; then
+        # Parse and display results
+        if echo "$assign_output" | grep -q "reviewers:"; then
+          local reviewers
+          reviewers=$(echo "$assign_output" | grep "reviewers:" | sed 's/reviewers: //')
+          if [[ -n "$reviewers" && "$reviewers" != "none" ]]; then
+            msg_dim "Assigned reviewers: $reviewers"
+          fi
+        fi
+        if echo "$assign_output" | grep -q "teams:"; then
+          local teams
+          teams=$(echo "$assign_output" | grep "teams:" | sed 's/teams: //')
+          if [[ -n "$teams" && "$teams" != "none" ]]; then
+            msg_dim "Assigned teams: $teams"
+          fi
+        fi
+        if echo "$assign_output" | grep -q "labels:"; then
+          local labels
+          labels=$(echo "$assign_output" | grep "labels:" | sed 's/labels: //')
+          if [[ -n "$labels" ]]; then
+            msg_dim "Added labels: $labels"
+          fi
+        fi
+        # Show any warnings
+        if echo "$assign_output" | grep -q "warning:"; then
+          echo "$assign_output" | grep "warning:" | while read -r warning_line; do
+            msg_warn "${warning_line#warning: }"
+          done
+        fi
+      else
+        msg_warn "Could not auto-assign reviewers: $assign_output"
+      fi
+    fi
+  fi
+
+  next_steps_header
+  numbered_step 1 "Review the PR at: ${C_CYAN}${pr_url}${C_RESET}"
+  numbered_step 2 "After approval, merge the PR"
+  numbered_step 3 "${C_DIM}ralph stream mark-merged $input${C_RESET}"
+}
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -1207,6 +1733,27 @@ case "$cmd" in
   merge-status)
     cmd_merge_status
     ;;
+  mark-merged)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream mark-merged <N>" >&2
+      exit 1
+    fi
+    cmd_mark_merged "$1"
+    ;;
+  unmark-merged)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream unmark-merged <N>" >&2
+      exit 1
+    fi
+    cmd_unmark_merged "$1"
+    ;;
+  pr)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream pr <N> [--title \"...\"] [--reviewers \"...\"] [--base branch] [--dry-run]" >&2
+      exit 1
+    fi
+    cmd_pr "$@"
+    ;;
   *)
     printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
     printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
@@ -1223,8 +1770,17 @@ case "$cmd" in
     printf "                              ${C_DIM}--wait: wait if lock is held${C_RESET}\n"
     printf "                              ${C_DIM}--max-wait=N: max wait seconds (default: 300)${C_RESET}\n"
     printf "                              ${C_DIM}--force-unlock: forcefully remove stale lock${C_RESET}\n"
+    printf "  ${C_GREEN}ralph stream pr ${C_YELLOW}<N>${C_RESET} ${C_DIM}[options]${C_RESET}\n"
+    printf "                              Create PR for completed stream\n"
+    printf "                              ${C_DIM}--dry-run: preview without creating${C_RESET}\n"
+    printf "                              ${C_DIM}--title: custom PR title${C_RESET}\n"
+    printf "                              ${C_DIM}--reviewers: comma-separated reviewers${C_RESET}\n"
+    printf "                              ${C_DIM}--base: target branch (default: main)${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
+    printf "  ${C_GREEN}ralph stream mark-merged ${C_YELLOW}<N>${C_RESET}  Mark stream as merged manually\n"
+    printf "  ${C_GREEN}ralph stream unmark-merged ${C_YELLOW}<N>${C_RESET}\n"
+    printf "                              Remove merged marker from stream\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
     printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"
