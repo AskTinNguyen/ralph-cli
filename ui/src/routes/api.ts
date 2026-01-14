@@ -13,7 +13,8 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
-import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart } from '../services/trends.js';
+import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart, getExportData, exportToCsv } from '../services/trends.js';
+import type { ExportOptions } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
 // Import CommonJS accuracy and estimate modules
@@ -5996,8 +5997,10 @@ api.get("/partials/cost-chart", (c) => {
   }
 
   // Format variance for display
-  const varianceClass = "totalVariance" in trends && trends.totalVariance >= 0 ? "positive" : "negative";
-  const varianceSign = "totalVariance" in trends && trends.totalVariance >= 0 ? "+" : "";
+  const hasBudget = "totalVariance" in trends;
+  const totalVariance = hasBudget ? (trends as unknown as { totalVariance: number }).totalVariance : 0;
+  const varianceClass = hasBudget && totalVariance >= 0 ? "positive" : "negative";
+  const varianceSign = hasBudget && totalVariance >= 0 ? "+" : "";
 
   const html = `
     <div class="trend-summary-grid">
@@ -6021,9 +6024,9 @@ api.get("/partials/cost-chart", (c) => {
         <span class="trend-stat-value">$${trends.avgCostPerRun.toFixed(4)}</span>
         <span class="trend-stat-label">Avg Cost/Run</span>
       </div>
-      ${"totalVariance" in trends ? `
+      ${hasBudget ? `
       <div class="trend-stat ${varianceClass}">
-        <span class="trend-stat-value">${varianceSign}$${Math.abs((trends as any).totalVariance).toFixed(2)}</span>
+        <span class="trend-stat-value">${varianceSign}$${Math.abs(totalVariance).toFixed(2)}</span>
         <span class="trend-stat-label">vs Budget</span>
       </div>
       ` : ""}
@@ -6455,6 +6458,112 @@ api.get("/partials/velocity-filters", (c) => {
         <option value="all" selected>All PRDs</option>
         ${prdOptions}
       </select>
+    </div>
+  `;
+
+  return c.html(html);
+});
+
+// ============================================
+// EXPORT ENDPOINTS (US-004)
+// ============================================
+
+/**
+ * GET /api/trends/export
+ *
+ * Export trend data in CSV or JSON format.
+ * Query params:
+ *   - format: 'csv' or 'json' (default: 'json')
+ *   - metrics: 'all', 'success-rate', 'cost', or 'velocity' (default: 'all')
+ *   - period: '7d' or '30d' (default: '30d')
+ *   - prd: PRD ID to filter by (optional)
+ */
+api.get("/trends/export", (c) => {
+  const format = (c.req.query("format") || "json") as "csv" | "json";
+  const metrics = (c.req.query("metrics") || "all") as "all" | "success-rate" | "cost" | "velocity";
+  const periodParam = c.req.query("period") || "30d";
+  const period = periodParam === "7d" ? "7d" : "30d";
+  const prd = c.req.query("prd");
+
+  const options: ExportOptions = {
+    format,
+    metrics,
+    period,
+    prd,
+  };
+
+  const exportData = getExportData(options);
+
+  if (format === "csv") {
+    const csv = exportToCsv(exportData, metrics);
+    const filename = `ralph-trends-${metrics}-${period}-${new Date().toISOString().split("T")[0]}.csv`;
+
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  }
+
+  // JSON format
+  const filename = `ralph-trends-${metrics}-${period}-${new Date().toISOString().split("T")[0]}.json`;
+
+  return new Response(JSON.stringify(exportData, null, 2), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  });
+});
+
+/**
+ * GET /api/partials/export-controls
+ *
+ * Returns HTML fragment for export controls.
+ */
+api.get("/partials/export-controls", (c) => {
+  const html = `
+    <div class="export-controls">
+      <div class="export-header">
+        <h3>Export Reports</h3>
+        <p class="export-description">Download trend data for sharing with stakeholders.</p>
+      </div>
+      <div class="export-options">
+        <div class="control-group">
+          <label for="export-format">Format:</label>
+          <select id="export-format">
+            <option value="csv" selected>CSV (Spreadsheet)</option>
+            <option value="json">JSON (Data)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="export-metrics">Metrics:</label>
+          <select id="export-metrics">
+            <option value="all" selected>All Metrics</option>
+            <option value="success-rate">Success Rate Only</option>
+            <option value="cost">Cost Only</option>
+            <option value="velocity">Velocity Only</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="export-period">Period:</label>
+          <select id="export-period">
+            <option value="7d">Last 7 days</option>
+            <option value="30d" selected>Last 30 days</option>
+          </select>
+        </div>
+      </div>
+      <div class="export-actions">
+        <button class="export-button export-csv" onclick="exportData('csv')">
+          <span class="export-icon">&#8615;</span> Download CSV
+        </button>
+        <button class="export-button export-json" onclick="exportData('json')">
+          <span class="export-icon">&#123;&#125;</span> Download JSON
+        </button>
+      </div>
     </div>
   `;
 

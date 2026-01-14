@@ -356,6 +356,88 @@
           <canvas id="stream-comparison-chart"></canvas>
         </div>
       </section>
+
+      <!-- Export Reports Section -->
+      <section id="export-section">
+        <h2>Export Reports</h2>
+        <p class="section-description">
+          Download trend data for sharing with stakeholders or embedding in external dashboards.
+        </p>
+        <div class="export-container">
+          <div class="export-options-row">
+            <div class="control-group">
+              <label for="export-format">Format:</label>
+              <select id="export-format">
+                <option value="csv" selected>CSV (Spreadsheet)</option>
+                <option value="json">JSON (Data)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="export-metrics">Metrics:</label>
+              <select id="export-metrics">
+                <option value="all" selected>All Metrics</option>
+                <option value="success-rate">Success Rate Only</option>
+                <option value="cost">Cost Only</option>
+                <option value="velocity">Velocity Only</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="export-period">Period:</label>
+              <select id="export-period">
+                <option value="7d">Last 7 days</option>
+                <option value="30d" selected>Last 30 days</option>
+              </select>
+            </div>
+          </div>
+          <div class="export-actions-row">
+            <button class="export-button export-data-btn" onclick="exportData()">
+              <span class="export-icon">&#8615;</span> Download Data
+            </button>
+            <button class="export-button export-image-btn" onclick="exportChartImages()">
+              <span class="export-icon">&#128247;</span> Export Charts as PNG
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Export Options (hidden by default, shown when exporting) -->
+        <div id="image-export-options" class="image-export-options hidden">
+          <h4>Select Charts to Export:</h4>
+          <div class="chart-export-list">
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-success-rate-chart" checked />
+              <span>Success Rate Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-cost-chart" checked />
+              <span>Cost Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-model-chart" checked />
+              <span>Model Breakdown Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-velocity-chart" checked />
+              <span>Velocity Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-burndown-chart" />
+              <span>Burndown Chart</span>
+            </label>
+            <label class="chart-export-item">
+              <input type="checkbox" id="export-stream-chart" checked />
+              <span>Stream Comparison Chart</span>
+            </label>
+          </div>
+          <div class="image-export-actions">
+            <button class="export-button" onclick="downloadSelectedCharts()">
+              <span class="export-icon">&#8615;</span> Download Selected
+            </button>
+            <button class="export-button secondary" onclick="hideImageExportOptions()">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -1612,6 +1694,176 @@
         streamComparisonChart.data.datasets[1].data = data.chartData.datasets[1].data;
 
         streamComparisonChart.update("active");
+      }
+
+      // ============================================
+      // Export Functions (US-004)
+      // ============================================
+
+      /**
+       * Export data in selected format (CSV or JSON)
+       */
+      function exportData() {
+        var format = document.getElementById("export-format").value;
+        var metrics = document.getElementById("export-metrics").value;
+        var period = document.getElementById("export-period").value;
+
+        var url =
+          "/api/trends/export?format=" +
+          encodeURIComponent(format) +
+          "&metrics=" +
+          encodeURIComponent(metrics) +
+          "&period=" +
+          encodeURIComponent(period);
+
+        // Trigger download
+        window.location.href = url;
+      }
+
+      /**
+       * Show image export options
+       */
+      function exportChartImages() {
+        var options = document.getElementById("image-export-options");
+        options.classList.remove("hidden");
+      }
+
+      /**
+       * Hide image export options
+       */
+      function hideImageExportOptions() {
+        var options = document.getElementById("image-export-options");
+        options.classList.add("hidden");
+      }
+
+      /**
+       * Download selected charts as PNG images
+       */
+      function downloadSelectedCharts() {
+        var chartsToExport = [];
+
+        // Gather selected charts
+        if (
+          document.getElementById("export-success-rate-chart").checked &&
+          successRateChart
+        ) {
+          chartsToExport.push({
+            chart: successRateChart,
+            name: "success-rate-chart",
+            title: "Success Rate Trends",
+          });
+        }
+
+        if (document.getElementById("export-cost-chart").checked && costChart) {
+          chartsToExport.push({
+            chart: costChart,
+            name: "cost-chart",
+            title: "Cost Trends",
+          });
+        }
+
+        if (
+          document.getElementById("export-model-chart").checked &&
+          modelBreakdownChart
+        ) {
+          chartsToExport.push({
+            chart: modelBreakdownChart,
+            name: "model-breakdown-chart",
+            title: "Cost by Model",
+          });
+        }
+
+        if (
+          document.getElementById("export-velocity-chart").checked &&
+          velocityChart
+        ) {
+          chartsToExport.push({
+            chart: velocityChart,
+            name: "velocity-chart",
+            title: "Velocity Trends",
+          });
+        }
+
+        if (
+          document.getElementById("export-burndown-chart").checked &&
+          burndownChart
+        ) {
+          chartsToExport.push({
+            chart: burndownChart,
+            name: "burndown-chart",
+            title: "PRD Burndown",
+          });
+        }
+
+        if (
+          document.getElementById("export-stream-chart").checked &&
+          streamComparisonChart
+        ) {
+          chartsToExport.push({
+            chart: streamComparisonChart,
+            name: "stream-comparison-chart",
+            title: "Stream Velocity Comparison",
+          });
+        }
+
+        if (chartsToExport.length === 0) {
+          alert("Please select at least one chart to export.");
+          return;
+        }
+
+        // Download each chart
+        var dateStr = new Date().toISOString().split("T")[0];
+
+        chartsToExport.forEach(function (item) {
+          downloadChartAsPng(item.chart, item.name + "-" + dateStr + ".png");
+        });
+
+        // Hide options after export
+        hideImageExportOptions();
+      }
+
+      /**
+       * Download a single chart as PNG
+       * @param {Chart} chart - Chart.js instance
+       * @param {string} filename - Download filename
+       */
+      function downloadChartAsPng(chart, filename) {
+        if (!chart) return;
+
+        // Get the image data URL from Chart.js
+        var imageUrl = chart.toBase64Image("image/png", 1);
+
+        // Create download link
+        var link = document.createElement("a");
+        link.href = imageUrl;
+        link.download = filename;
+        link.style.display = "none";
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      /**
+       * Export a single chart by its ID
+       * @param {string} chartId - ID of the chart canvas
+       * @param {string} chartName - Name for the file
+       */
+      function exportSingleChart(chartId, chartName) {
+        var chartMap = {
+          "success-rate-chart": successRateChart,
+          "cost-chart": costChart,
+          "model-breakdown-chart": modelBreakdownChart,
+          "velocity-chart": velocityChart,
+          "burndown-chart": burndownChart,
+          "stream-comparison-chart": streamComparisonChart,
+        };
+
+        var chart = chartMap[chartId];
+        if (chart) {
+          var dateStr = new Date().toISOString().split("T")[0];
+          downloadChartAsPng(chart, chartName + "-" + dateStr + ".png");
+        }
       }
     </script>
   </body>

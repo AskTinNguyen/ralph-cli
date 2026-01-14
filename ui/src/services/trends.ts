@@ -947,3 +947,237 @@ export function formatStreamComparisonForChart(comparison: StreamComparison): {
     ],
   };
 }
+
+// ============================================
+// Export Functions (US-004)
+// ============================================
+
+/**
+ * Export options for trend data
+ */
+export interface ExportOptions {
+  format: "csv" | "json";
+  metrics: "all" | "success-rate" | "cost" | "velocity";
+  period: "7d" | "30d";
+  prd?: string;
+}
+
+/**
+ * Export data structure
+ */
+export interface ExportData {
+  exportedAt: string;
+  period: string;
+  filters: Record<string, string>;
+  successRate?: {
+    summary: {
+      totalRuns: number;
+      totalPassed: number;
+      totalFailed: number;
+      overallSuccessRate: number | null;
+    };
+    daily: Array<{
+      date: string;
+      successRate: number | null;
+      passed: number;
+      failed: number;
+      total: number;
+    }>;
+  };
+  cost?: {
+    summary: {
+      totalCost: number;
+      totalRuns: number;
+      totalStories: number;
+      avgCostPerRun: number;
+      avgCostPerStory: number;
+    };
+    daily: Array<{
+      date: string;
+      cost: number;
+      cumulativeCost: number;
+      runs: number;
+      stories: number;
+      costPerStory: number;
+    }>;
+    byModel: Record<string, { cost: number; runs: number }>;
+  };
+  velocity?: {
+    summary: {
+      totalStories: number;
+      totalRuns: number;
+      storiesPerDay: number;
+      storiesPerWeek: number;
+      avgTimePerStoryMinutes: number;
+    };
+    daily: Array<{
+      date: string;
+      storiesCompleted: number;
+      cumulativeStories: number;
+      avgDurationMinutes: number;
+    }>;
+  };
+}
+
+/**
+ * Get all trend data for export
+ * @param options - Export options
+ * @returns Export data object
+ */
+export function getExportData(options: ExportOptions): ExportData {
+  const exportData: ExportData = {
+    exportedAt: new Date().toISOString(),
+    period: options.period,
+    filters: {
+      prd: options.prd || "all",
+      metrics: options.metrics,
+    },
+  };
+
+  const filters = { prd: options.prd };
+
+  // Success Rate Data
+  if (options.metrics === "all" || options.metrics === "success-rate") {
+    const successTrend = getSuccessRateTrends(options.period, filters);
+    exportData.successRate = {
+      summary: {
+        totalRuns: successTrend.totalRuns,
+        totalPassed: successTrend.totalPassed,
+        totalFailed: successTrend.totalFailed,
+        overallSuccessRate: successTrend.overallSuccessRate,
+      },
+      daily: successTrend.dailyMetrics.map((d) => ({
+        date: d.date,
+        successRate: d.successRate,
+        passed: d.passed,
+        failed: d.failed,
+        total: d.total,
+      })),
+    };
+  }
+
+  // Cost Data
+  if (options.metrics === "all" || options.metrics === "cost") {
+    const costTrend = getCostTrends(options.period, { prd: options.prd });
+    exportData.cost = {
+      summary: {
+        totalCost: costTrend.totalCost,
+        totalRuns: costTrend.totalRuns,
+        totalStories: costTrend.totalStories,
+        avgCostPerRun: costTrend.avgCostPerRun,
+        avgCostPerStory: costTrend.avgCostPerStory,
+      },
+      daily: costTrend.dailyMetrics.map((d) => ({
+        date: d.date,
+        cost: d.cost,
+        cumulativeCost: d.cumulativeCost,
+        runs: d.runs,
+        stories: d.stories,
+        costPerStory: d.costPerStory,
+      })),
+      byModel: Object.fromEntries(
+        Object.entries(costTrend.byModel).map(([model, data]) => [
+          model,
+          { cost: data.cost, runs: data.runs },
+        ])
+      ),
+    };
+  }
+
+  // Velocity Data
+  if (options.metrics === "all" || options.metrics === "velocity") {
+    const velocityTrend = getVelocityTrends(options.period, { prd: options.prd });
+    exportData.velocity = {
+      summary: {
+        totalStories: velocityTrend.totalStories,
+        totalRuns: velocityTrend.totalRuns,
+        storiesPerDay: velocityTrend.storiesPerDay,
+        storiesPerWeek: velocityTrend.storiesPerWeek,
+        avgTimePerStoryMinutes: velocityTrend.avgTimePerStoryMinutes,
+      },
+      daily: velocityTrend.velocityMetrics.map((d) => ({
+        date: d.date,
+        storiesCompleted: d.storiesCompleted,
+        cumulativeStories: d.cumulativeStories || 0,
+        avgDurationMinutes: d.avgDurationMinutes,
+      })),
+    };
+  }
+
+  return exportData;
+}
+
+/**
+ * Convert export data to CSV format
+ * @param data - Export data
+ * @param metrics - Which metrics to include
+ * @returns CSV string
+ */
+export function exportToCsv(data: ExportData, metrics: string): string {
+  const lines: string[] = [];
+
+  // Header with metadata
+  lines.push(`# Ralph CLI Trend Export`);
+  lines.push(`# Exported: ${data.exportedAt}`);
+  lines.push(`# Period: ${data.period}`);
+  lines.push(`# Filters: ${JSON.stringify(data.filters)}`);
+  lines.push(``);
+
+  // Success Rate Section
+  if (data.successRate && (metrics === "all" || metrics === "success-rate")) {
+    lines.push(`# Success Rate Summary`);
+    lines.push(`Total Runs,${data.successRate.summary.totalRuns}`);
+    lines.push(`Total Passed,${data.successRate.summary.totalPassed}`);
+    lines.push(`Total Failed,${data.successRate.summary.totalFailed}`);
+    lines.push(`Overall Success Rate,${data.successRate.summary.overallSuccessRate ?? "N/A"}%`);
+    lines.push(``);
+    lines.push(`# Success Rate Daily Data`);
+    lines.push(`Date,Success Rate (%),Passed,Failed,Total`);
+    for (const d of data.successRate.daily) {
+      lines.push(`${d.date},${d.successRate ?? "N/A"},${d.passed},${d.failed},${d.total}`);
+    }
+    lines.push(``);
+  }
+
+  // Cost Section
+  if (data.cost && (metrics === "all" || metrics === "cost")) {
+    lines.push(`# Cost Summary`);
+    lines.push(`Total Cost,$${data.cost.summary.totalCost.toFixed(4)}`);
+    lines.push(`Total Runs,${data.cost.summary.totalRuns}`);
+    lines.push(`Total Stories,${data.cost.summary.totalStories}`);
+    lines.push(`Avg Cost per Run,$${data.cost.summary.avgCostPerRun.toFixed(4)}`);
+    lines.push(`Avg Cost per Story,$${data.cost.summary.avgCostPerStory.toFixed(4)}`);
+    lines.push(``);
+    lines.push(`# Cost by Model`);
+    lines.push(`Model,Cost,Runs`);
+    for (const [model, modelData] of Object.entries(data.cost.byModel)) {
+      lines.push(`${model},$${modelData.cost.toFixed(4)},${modelData.runs}`);
+    }
+    lines.push(``);
+    lines.push(`# Cost Daily Data`);
+    lines.push(`Date,Cost,Cumulative Cost,Runs,Stories,Cost per Story`);
+    for (const d of data.cost.daily) {
+      lines.push(`${d.date},$${d.cost.toFixed(4)},$${d.cumulativeCost.toFixed(4)},${d.runs},${d.stories},$${d.costPerStory.toFixed(4)}`);
+    }
+    lines.push(``);
+  }
+
+  // Velocity Section
+  if (data.velocity && (metrics === "all" || metrics === "velocity")) {
+    lines.push(`# Velocity Summary`);
+    lines.push(`Total Stories,${data.velocity.summary.totalStories}`);
+    lines.push(`Total Runs,${data.velocity.summary.totalRuns}`);
+    lines.push(`Stories per Day,${data.velocity.summary.storiesPerDay}`);
+    lines.push(`Stories per Week,${data.velocity.summary.storiesPerWeek}`);
+    lines.push(`Avg Time per Story,${data.velocity.summary.avgTimePerStoryMinutes} min`);
+    lines.push(``);
+    lines.push(`# Velocity Daily Data`);
+    lines.push(`Date,Stories Completed,Cumulative Stories,Avg Duration (min)`);
+    for (const d of data.velocity.daily) {
+      lines.push(`${d.date},${d.storiesCompleted},${d.cumulativeStories},${d.avgDurationMinutes}`);
+    }
+    lines.push(``);
+  }
+
+  return lines.join("\n");
+}

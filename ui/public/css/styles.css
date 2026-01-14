@@ -6261,3 +6261,215 @@ footer {
     width: 100%;
   }
 }
+
+/* ============================================
+   EXPORT SECTION STYLES (US-004)
+   ============================================ */
+
+#export-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-xl);
+}
+
+#export-section h2 {
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+#export-section .section-description {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.export-container {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.export-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.export-options-row .control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 140px;
+}
+
+.export-options-row label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.export-options-row select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.export-options-row select:hover {
+  border-color: var(--link-color);
+}
+
+.export-options-row select:focus {
+  outline: none;
+  border-color: var(--link-color);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.export-actions-row {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.export-data-btn,
+.export-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.export-data-btn {
+  color: #fff;
+  background: #3b82f6;
+}
+
+.export-data-btn:hover {
+  background: #2563eb;
+}
+
+.export-image-btn {
+  color: #fff;
+  background: #8b5cf6;
+}
+
+.export-image-btn:hover {
+  background: #7c3aed;
+}
+
+.export-data-btn:active,
+.export-image-btn:active {
+  transform: translateY(1px);
+}
+
+.export-button.secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.export-button.secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+/* Image Export Options */
+.image-export-options {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.image-export-options.hidden {
+  display: none;
+}
+
+.image-export-options h4 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+}
+
+.chart-export-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.chart-export-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.chart-export-item:hover {
+  background: var(--bg-primary);
+}
+
+.chart-export-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.chart-export-item span {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.image-export-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+/* Responsive Export Section */
+@media (max-width: 768px) {
+  .export-options-row {
+    flex-direction: column;
+  }
+
+  .export-options-row .control-group {
+    width: 100%;
+  }
+
+  .export-actions-row {
+    flex-direction: column;
+  }
+
+  .export-data-btn,
+  .export-image-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chart-export-list {
+    grid-template-columns: 1fr;
+  }
+
+  .image-export-actions {
+    flex-direction: column;
+  }
+
+  .image-export-actions .export-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
