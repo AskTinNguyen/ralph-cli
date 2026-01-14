@@ -73,8 +73,8 @@ bool F<ClassName>_<TestName>::RunTest(const FString& Parameters)
 
 ### 4. Run Tests
 ```bash
-{{ENGINE_PATH}}/Binaries/Win64/{{TARGET}}Editor.exe \
-    -ExecCmds="Automation RunTests <Module>.<ClassName>" \
+{{ENGINE_PATH}}/Binaries/Win64/UnrealEditor-Cmd.exe "{{PROJECT_PATH}}" \
+    -ExecCmds="Automation RunTests <Module>.<ClassName>;Quit" \
     -unattended -NullRHI
 ```
 

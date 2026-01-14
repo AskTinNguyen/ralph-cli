@@ -209,7 +209,7 @@ See `prompts/` directory for full agent prompts:
 
 **Test command:**
 ```bash
-<EnginePath>/Binaries/Win64/<Target>Editor.exe -ExecCmds="Automation RunTests <TestFilter>" -unattended -NullRHI
+<EnginePath>/Binaries/Win64/UnrealEditor-Cmd.exe <ProjectPath> -ExecCmds="Automation RunTests <TestFilter>;Quit" -unattended -NullRHI
 ```
 
 ### UnitTest Agent

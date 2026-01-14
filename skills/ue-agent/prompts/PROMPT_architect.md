@@ -93,7 +93,7 @@ List EVERY file that needs modification:
 
 **Tests:**
 ```bash
-{{ENGINE_PATH}}/Binaries/Win64/{{TARGET}}Editor.exe -ExecCmds="Automation RunTests {{TEST_FILTER}}" -unattended -NullRHI
+{{ENGINE_PATH}}/Binaries/Win64/UnrealEditor-Cmd.exe "{{PROJECT_PATH}}" -ExecCmds="Automation RunTests {{TEST_FILTER}};Quit" -unattended -NullRHI
 ```
 
 ### Risks and Mitigations

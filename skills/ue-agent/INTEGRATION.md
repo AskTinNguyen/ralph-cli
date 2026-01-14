@@ -55,7 +55,7 @@ Create `.agents/AGENTS.md` in your UE project:
 
 ### Run Tests
 ```bash
-"%UE_ROOT%/Binaries/Win64/MyGameEditor.exe" -ExecCmds="Automation RunTests MyGame" -unattended -NullRHI
+"%UE_ROOT%/Binaries/Win64/UnrealEditor-Cmd.exe" "%cd%/MyGame.uproject" -ExecCmds="Automation RunTests MyGame;Quit" -unattended -NullRHI
 ```
 
 ## Skills Required
