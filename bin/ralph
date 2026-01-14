@@ -1853,6 +1853,12 @@ ${pc.bold(pc.cyan("Examples:"))}
 
       // If not --all, show preview and selection UI
       if (!importAll) {
+        // Check for TTY before interactive selection
+        if (!process.stdin.isTTY) {
+          error("Interactive guardrail selection requires a terminal.");
+          info(`Use ${pc.cyan("--all")} to import all guardrails without prompting.`);
+          process.exit(1);
+        }
         const { multiselect, isCancel, outro } = await import("@clack/prompts");
 
         console.log("");
