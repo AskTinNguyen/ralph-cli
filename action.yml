@@ -1,0 +1,171 @@
+name: 'Ralph CLI Action'
+description: 'Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation.'
+author: 'AskTinNguyen'
+
+branding:
+  icon: 'code'
+  color: 'purple'
+
+inputs:
+  command:
+    description: 'Ralph command to run (build, plan, prd)'
+    required: false
+    default: 'build'
+  iterations:
+    description: 'Number of build iterations to run'
+    required: false
+    default: '5'
+  agent:
+    description: 'AI agent to use (claude, codex, droid)'
+    required: false
+    default: 'claude'
+  prd:
+    description: 'PRD number to build (uses latest if not specified)'
+    required: false
+    default: ''
+  api-key:
+    description: 'Agent API key (e.g., ANTHROPIC_API_KEY for Claude)'
+    required: true
+  working-directory:
+    description: 'Working directory for ralph commands'
+    required: false
+    default: '.'
+  no-commit:
+    description: 'Skip automatic git commits during build'
+    required: false
+    default: 'false'
+  issue-trigger:
+    description: 'Enable issue-driven builds (auto-converts issue to PRD)'
+    required: false
+    default: 'false'
+  issue-label:
+    description: 'Label that triggers issue-driven builds'
+    required: false
+    default: 'ralph'
+  pr-validation:
+    description: 'Enable PR validation mode (run tests and report status)'
+    required: false
+    default: 'false'
+  test-command:
+    description: 'Test command to run for PR validation'
+    required: false
+    default: 'npm test'
+  block-on-failure:
+    description: 'Block merge on validation failure (optional)'
+    required: false
+    default: 'false'
+  scheduled-build:
+    description: 'Enable scheduled build mode (continue from last checkpoint)'
+    required: false
+    default: 'false'
+  target-branch:
+    description: 'Branch to push scheduled build results to'
+    required: false
+    default: 'ralph-builds'
+  notification-webhook:
+    description: 'Slack webhook URL for build notifications'
+    required: false
+    default: ''
+  notification-channel:
+    description: 'Slack channel for notifications (without #)'
+    required: false
+    default: ''
+
+outputs:
+  success:
+    description: 'Whether the build completed successfully (true/false)'
+    value: ${{ steps.ralph-run.outputs.success }}
+  stories-completed:
+    description: 'Number of user stories completed in this run'
+    value: ${{ steps.ralph-run.outputs.stories_completed }}
+  duration:
+    description: 'Duration of the build in seconds'
+    value: ${{ steps.ralph-run.outputs.duration }}
+  exit-code:
+    description: 'Exit code from ralph command'
+    value: ${{ steps.ralph-run.outputs.exit_code }}
+  prd-number:
+    description: 'PRD number that was created/used (for issue-driven builds)'
+    value: ${{ steps.ralph-run.outputs.prd_num }}
+  comment-url:
+    description: 'URL of the comment posted to the issue'
+    value: ${{ steps.ralph-run.outputs.comment_url }}
+  check-run-id:
+    description: 'ID of the status check run created for PR validation'
+    value: ${{ steps.ralph-run.outputs.check_run_id }}
+  test-output:
+    description: 'Output from test command (truncated)'
+    value: ${{ steps.ralph-run.outputs.test_output }}
+  branch-pushed:
+    description: 'Branch that was pushed to (for scheduled builds)'
+    value: ${{ steps.ralph-run.outputs.branch_pushed }}
+  notification-sent:
+    description: 'Whether notification was sent (true/false)'
+    value: ${{ steps.ralph-run.outputs.notification_sent }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install ralph-cli
+      shell: bash
+      run: |
+        npm install -g ralph-cli || npm install -g .
+        ralph --help || echo "Ralph installed"
+
+    - name: Run Ralph
+      id: ralph-run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.api-key }}
+        OPENAI_API_KEY: ${{ inputs.api-key }}
+        RALPH_AGENT: ${{ inputs.agent }}
+        RALPH_CI: 'true'
+        GITHUB_TOKEN: ${{ github.token }}
+        RALPH_ISSUE_LABEL: ${{ inputs.issue-label }}
+        RALPH_TEST_COMMAND: ${{ inputs.test-command }}
+        RALPH_BLOCK_ON_FAILURE: ${{ inputs.block-on-failure }}
+        RALPH_TARGET_BRANCH: ${{ inputs.target-branch }}
+        RALPH_NOTIFICATION_WEBHOOK: ${{ inputs.notification-webhook }}
+        RALPH_NOTIFICATION_CHANNEL: ${{ inputs.notification-channel }}
+      run: |
+        # Source the entrypoint script
+        source "${{ github.action_path }}/action/entrypoint.sh"
+
+        # Check if this is a PR validation
+        if [ "${{ inputs.pr-validation }}" = "true" ] || [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
+          log_info "PR validation mode"
+          run_pr_validation \
+            "${{ inputs.test-command }}" \
+            "${{ inputs.block-on-failure }}"
+        # Check if this is an issue-driven build
+        elif [ "${{ inputs.issue-trigger }}" = "true" ] || [ "$GITHUB_EVENT_NAME" = "issues" ]; then
+          log_info "Issue-driven build mode"
+          run_issue_build \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.no-commit }}"
+        # Check if this is a scheduled build
+        elif [ "${{ inputs.scheduled-build }}" = "true" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+          log_info "Scheduled build mode"
+          run_scheduled_build \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.prd }}" \
+            "${{ inputs.target-branch }}" \
+            "${{ inputs.notification-webhook }}" \
+            "${{ inputs.notification-channel }}"
+        else
+          # Run ralph with provided options
+          run_ralph \
+            "${{ inputs.command }}" \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.prd }}" \
+            "${{ inputs.no-commit }}"
+        fi

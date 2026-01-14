@@ -1,0 +1,132 @@
+# Ralph GitHub Action - Example Workflow
+#
+# This workflow demonstrates all trigger types supported by ralph-action:
+# - Issue-driven builds (label triggers)
+# - PR validation
+# - Scheduled builds (cron)
+# - Manual dispatch
+#
+# Copy this file to your repository and customize as needed.
+
+name: Ralph Builds
+
+on:
+  # Trigger on issue labeled with 'ralph'
+  issues:
+    types: [labeled]
+
+  # Trigger on PR for validation
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # Scheduled builds - runs every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Manual trigger via GitHub UI
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Ralph command to run'
+        required: false
+        default: 'build'
+        type: choice
+        options:
+          - build
+          - plan
+          - prd
+      iterations:
+        description: 'Number of build iterations'
+        required: false
+        default: '5'
+        type: string
+      prd:
+        description: 'PRD number to build (empty for latest)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  # Job for issue-driven builds
+  issue-build:
+    if: github.event_name == 'issues' && github.event.label.name == 'ralph'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Ralph Issue Build
+        uses: AskTinNguyen/ralph-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          issue-trigger: 'true'
+          iterations: '5'
+          agent: 'claude'
+
+      - name: Create PR from build
+        if: success()
+        uses: AskTinNguyen/ralph-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          command: 'create-pr'
+
+  # Job for PR validation
+  pr-validation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate PR
+        uses: AskTinNguyen/ralph-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          pr-validation: 'true'
+          test-command: 'npm test'
+          block-on-failure: 'true'
+
+  # Job for scheduled builds
+  scheduled-build:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history needed for branch operations
+          fetch-depth: 0
+
+      - name: Run Scheduled Build
+        id: ralph-build
+        uses: AskTinNguyen/ralph-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          scheduled-build: 'true'
+          iterations: '5'
+          target-branch: 'ralph-builds'
+          notification-webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          notification-channel: 'builds'
+
+      - name: Summary
+        run: |
+          echo "Build completed!"
+          echo "Stories completed: ${{ steps.ralph-build.outputs.stories-completed }}"
+          echo "Branch pushed: ${{ steps.ralph-build.outputs.branch-pushed }}"
+          echo "Notification sent: ${{ steps.ralph-build.outputs.notification-sent }}"
+
+  # Job for manual dispatch
+  manual-build:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Ralph Build
+        uses: AskTinNguyen/ralph-action@v1
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          command: ${{ inputs.command }}
+          iterations: ${{ inputs.iterations }}
+          prd: ${{ inputs.prd }}
