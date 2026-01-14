@@ -16,14 +16,16 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 
 ## Stream Commands (Parallel Execution)
 
-| Use Case            | Command                                         |
-| ------------------- | ----------------------------------------------- |
-| **List PRDs**       | `ralph stream list`                             |
-| **Show status**     | `ralph stream status`                           |
-| **Init worktree**   | `ralph stream init 1`                           |
-| **Build in stream** | `ralph stream build 1 5`                        |
-| **Run parallel**    | `ralph stream build 1 & ralph stream build 2 &` |
-| **Merge stream**    | `ralph stream merge 1`                          |
+| Use Case                | Command                                         |
+| ----------------------- | ----------------------------------------------- |
+| **List PRDs**           | `ralph stream list`                             |
+| **Show status**         | `ralph stream status`                           |
+| **Init worktree**       | `ralph stream init 1`                           |
+| **Build in stream**     | `ralph stream build 1 5`                        |
+| **Build (no worktree)** | `ralph stream build 1 5 --no-worktree`          |
+| **Build (force)**       | `ralph stream build 1 5 --force`                |
+| **Run parallel**        | `ralph stream build 1 & ralph stream build 2 &` |
+| **Merge stream**        | `ralph stream merge 1`                          |
 
 ## Workflow
 

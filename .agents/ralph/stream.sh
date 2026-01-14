@@ -77,6 +77,26 @@ worktree_exists() {
   [[ -d "$WORKTREES_DIR/$stream_id" ]]
 }
 
+get_current_branch() {
+  git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
+}
+
+is_on_protected_branch() {
+  local current_branch
+  current_branch=$(get_current_branch)
+  [[ "$current_branch" == "main" || "$current_branch" == "master" ]]
+}
+
+get_base_branch_name() {
+  if git show-ref --verify --quiet "refs/heads/main"; then
+    echo "main"
+  elif git show-ref --verify --quiet "refs/heads/master"; then
+    echo "master"
+  else
+    echo "main"
+  fi
+}
+
 is_stream_merged() {
   # Check if stream has been merged to main
   # Returns: 0 if merged, 1 if not merged
@@ -839,7 +859,33 @@ cmd_init() {
 
 cmd_build() {
   local input="$1"
-  local iterations="${2:-1}"
+  shift || true
+  local iterations="${1:-1}"
+  shift || true
+
+  # Parse flags
+  local no_worktree=false
+  local force_build=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-worktree)
+        no_worktree=true
+        shift
+        ;;
+      --force)
+        force_build=true
+        shift
+        ;;
+      *)
+        # If it looks like a number, treat as iterations
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+          iterations="$1"
+        fi
+        shift
+        ;;
+    esac
+  done
+
   local stream_id
   stream_id=$(normalize_stream_id "$input")
 
@@ -851,6 +897,47 @@ cmd_build() {
   if ! stream_exists "$stream_id"; then
     msg_error "Stream not found: $stream_id" >&2
     return 1
+  fi
+
+  # ============================================================================
+  # Safeguard: Block build on main/master without worktree
+  # ============================================================================
+  if ! worktree_exists "$stream_id"; then
+    local current_branch
+    current_branch=$(get_current_branch)
+
+    if is_on_protected_branch; then
+      # On main/master without worktree - block by default
+      if [[ "$no_worktree" == "true" || "$force_build" == "true" ]]; then
+        # User explicitly allowed it
+        msg_warn "Building without worktree on branch '$current_branch'"
+        msg_dim "Commits will go directly to $current_branch"
+        echo ""
+      else
+        # Block with helpful error message
+        msg_error "SAFEGUARD: No worktree initialized for $stream_id"
+        echo ""
+        printf "You're currently on branch '${C_BOLD}%s${C_RESET}'.\n" "$current_branch"
+        printf "Running 'ralph stream build' without a worktree will commit directly to %s!\n" "$current_branch"
+        echo ""
+        printf "${C_BOLD}Recommended actions:${C_RESET}\n"
+        printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+        numbered_step 1 "Initialize a worktree first (recommended):"
+        printf "   ${C_DIM}ralph stream init %s${C_RESET}\n" "${input}"
+        printf "   Then: ${C_DIM}ralph stream build %s %s${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        numbered_step 2 "Or explicitly allow building without worktree:"
+        printf "   ${C_DIM}ralph stream build %s %s --no-worktree${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        numbered_step 3 "Or force build on $current_branch (use with caution):"
+        printf "   ${C_DIM}ralph stream build %s %s --force${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        return 1
+      fi
+    else
+      # On a feature branch without worktree - just inform, don't block
+      msg_dim "No worktree for $stream_id - building in current directory on branch '$current_branch'"
+    fi
   fi
 
   # Acquire lock
@@ -1762,7 +1849,10 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream list${C_RESET}             List all streams\n"
     printf "  ${C_GREEN}ralph stream status${C_RESET}           Show detailed status\n"
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
-    printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n]${C_RESET}    Run n build iterations in stream\n"
+    printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n] [options]${C_RESET}\n"
+    printf "                              Run n build iterations in stream\n"
+    printf "                              ${C_DIM}--no-worktree: allow build without worktree${C_RESET}\n"
+    printf "                              ${C_DIM}--force: force build on main/master${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[options]${C_RESET}\n"
     printf "                              Merge completed stream\n"
     printf "                              ${C_DIM}--rebase: rebase onto main first${C_RESET}\n"
