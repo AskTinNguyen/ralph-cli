@@ -25,6 +25,19 @@ Access Notion workspaces, databases, pages, and blocks.
 ### Slack
 Send and receive messages, manage channels, search conversations.
 
+**Quick Reference Channels:**
+
+| Channel ID | Channel Name |
+|------------|--------------|
+| C021YDBQM53 | general |
+| C05V8KNACTU | leadership-team |
+| C070Z0D2GQZ | life-at-ather-labs |
+| C07L2GUNV6Y | s2-game |
+| C034P04K6EA | metaverse-engineers |
+| C04QKEKPD3M | learning-generative-ai |
+| C0984SP6VCJ | s2-story-trailers-cinematic |
+| C02RGAP67BL | art-wip-2dconcept |
+
 **Common Tools:**
 - `mcp__slack__send_message` - Send a message to a channel
 - `mcp__slack__list_channels` - List available channels
