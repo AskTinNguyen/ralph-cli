@@ -53,7 +53,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
-  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json] [--pricing]")}  Estimate time and cost for a PRD build
+  ${pc.green("estimate")} ${pc.dim("[--prd=N] [--json] [--pricing] [--accuracy]")}  Estimate time and cost for a PRD build
   ${pc.green("improve")} ${pc.dim("[--generate] [--apply]")}       Review and apply guardrail candidates
   ${pc.green("registry")} ${pc.dim("<subcmd>")}                    Cross-project knowledge registry
   ${pc.green("search")} ${pc.dim("<query> [--filters]")}           Search across all registered projects
@@ -769,6 +769,73 @@ async function main() {
     // Check for --json flag
     const jsonOutput = args.includes("--json");
 
+    // Check for --accuracy flag
+    const accuracyMode = args.includes("--accuracy");
+
+    // If --accuracy mode, show accuracy report instead of estimate
+    if (accuracyMode) {
+      // Determine which PRD to analyze
+      let prdFolder = null;
+
+      if (prdNumber) {
+        prdFolder = estimateModule.getPRDFolder(ralphDir, prdNumber);
+        if (!prdFolder) {
+          error(`PRD-${prdNumber} not found in ${pc.cyan(ralphDir)}`);
+          process.exit(1);
+        }
+      } else {
+        const activePRD = estimateModule.findActivePRD(ralphDir);
+        if (!activePRD) {
+          error(`No PRD found with plan.md. Run ${pc.cyan("ralph plan")} first.`);
+          process.exit(1);
+        }
+        prdFolder = activePRD.folder;
+        prdNumber = activePRD.number;
+      }
+
+      // Generate accuracy report
+      const report = estimateModule.accuracy.generateAccuracyReport(prdFolder);
+
+      if (!report.success) {
+        error(report.error);
+        process.exit(1);
+      }
+
+      // Output results
+      if (jsonOutput) {
+        console.log(estimateModule.accuracy.formatAccuracyJSON(report));
+      } else {
+        console.log("");
+        console.log(pc.bold(`Estimation Accuracy Report for PRD-${prdNumber}`));
+        console.log(pc.dim("─".repeat(80)));
+        console.log("");
+
+        if (!report.hasData) {
+          warn(report.message);
+          console.log("");
+          dim("Tips to start tracking accuracy:");
+          console.log("  1. Run `ralph estimate` before starting a build");
+          console.log("  2. Complete builds to generate actual metrics");
+          console.log("  3. Run `ralph estimate --accuracy` to compare");
+          console.log("");
+        } else {
+          console.log(estimateModule.accuracy.formatAccuracyReport(report));
+          console.log("");
+
+          // Color-coded trend display
+          if (report.trend) {
+            const trendColor = report.trend.trend === "improving" ? pc.green
+              : report.trend.trend === "degrading" ? pc.red
+              : pc.yellow;
+            console.log(trendColor(`Trend: ${report.trend.trendIndicator} ${report.trend.description}`));
+          }
+          console.log("");
+        }
+      }
+
+      process.exit(0);
+    }
+
     // Parse custom pricing if provided (format: "input:X,output:Y")
     let customPricing = null;
     if (estimatePricing) {
@@ -828,6 +895,14 @@ async function main() {
     if (!result.success) {
       error(result.error);
       process.exit(1);
+    }
+
+    // Save estimate for accuracy tracking (unless --json which is typically for piping)
+    if (!jsonOutput) {
+      const saveResult = estimateModule.accuracy.saveEstimate(prdFolder, result);
+      if (!saveResult.success) {
+        warn(`Could not save estimate for accuracy tracking: ${saveResult.error}`);
+      }
     }
 
     // Output results
