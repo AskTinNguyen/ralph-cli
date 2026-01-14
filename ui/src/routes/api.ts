@@ -1055,6 +1055,71 @@ api.get('/partials/status-indicator', (c) => {
 });
 
 /**
+ * GET /api/partials/terminal-commands
+ *
+ * Returns HTML fragment showing helpful terminal commands for log viewing.
+ * Query params:
+ *   - streamId: Optional stream ID to show stream-specific commands
+ */
+api.get('/partials/terminal-commands', (c) => {
+  const streamId = c.req.query('streamId');
+
+  // Build commands based on whether a stream is selected
+  let commands: Array<{ comment: string; command: string }> = [];
+
+  if (streamId) {
+    commands = [
+      {
+        comment: '# Watch live logs for this stream',
+        command: `tail -f .ralph/PRD-${streamId}/runs/*.log 2>/dev/null || echo "No logs yet"`,
+      },
+      {
+        comment: '# View latest run log',
+        command: `ls -t .ralph/PRD-${streamId}/runs/*.log 2>/dev/null | head -1 | xargs cat`,
+      },
+      {
+        comment: '# Check stream progress',
+        command: `cat .ralph/PRD-${streamId}/progress.md`,
+      },
+    ];
+  } else {
+    commands = [
+      {
+        comment: '# Watch all logs across streams',
+        command: 'tail -f .ralph/PRD-*/runs/*.log 2>/dev/null',
+      },
+      {
+        comment: '# List all run logs',
+        command: 'ls -la .ralph/PRD-*/runs/*.log 2>/dev/null | tail -20',
+      },
+      {
+        comment: '# Check activity log',
+        command: 'cat .ralph/activity.log 2>/dev/null | tail -50',
+      },
+    ];
+  }
+
+  const commandsHtml = commands
+    .map(
+      (cmd) => `
+<div class="terminal-command">
+  <code>${escapeHtml(cmd.comment)}</code>
+  <code>${escapeHtml(cmd.command)}</code>
+</div>
+`
+    )
+    .join('');
+
+  return c.html(`
+<div class="terminal-commands-box">
+  <h3>Terminal Commands</h3>
+  <p>Run these commands in your terminal to view logs directly:</p>
+  ${commandsHtml}
+</div>
+`);
+});
+
+/**
  * GET /api/partials/activity-logs
  *
  * Returns HTML fragment for the activity logs list.
