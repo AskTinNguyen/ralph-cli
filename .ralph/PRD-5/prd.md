@@ -225,16 +225,16 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Test all agent types work correctly
 - [x] Verify ~150 lines removed from loop.sh
 
-### [ ] US-016: Simplify write_run_meta function
+### [x] US-016: Simplify write_run_meta function
 **As a** ralph-cli maintainer
 **I want** the run metadata writer simplified
 **So that** the function is more maintainable and less verbose
 
 #### Acceptance Criteria
-- [ ] Refactor `write_run_meta()` (loop.sh:1362-1515) to accept JSON object instead of 27 parameters
-- [ ] Consider extracting to external Python/Node script for markdown generation
-- [ ] Reduce function from ~155 lines to ~30 lines
-- [ ] Test run metadata files are generated correctly
+- [x] Refactor `write_run_meta()` (loop.sh:1362-1515) to accept JSON object instead of 27 parameters
+- [x] Consider extracting to external Python/Node script for markdown generation
+- [x] Reduce function from ~155 lines to ~30 lines
+- [x] Test run metadata files are generated correctly
 
 ## Technical Constraints
 
