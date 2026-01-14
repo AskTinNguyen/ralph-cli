@@ -15,9 +15,10 @@ import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { createRequire } from 'node:module';
 
-// Import CommonJS accuracy module
+// Import CommonJS accuracy and estimate modules
 const require = createRequire(import.meta.url);
-const { generateAccuracyReport } = require('../../../lib/estimate/accuracy.js');
+const { generateAccuracyReport, loadEstimates, saveEstimate } = require('../../../lib/estimate/accuracy.js');
+const { estimate } = require('../../../lib/estimate/index.js');
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -611,6 +612,80 @@ api.get('/estimate/:prdId/accuracy', (c) => {
 });
 
 /**
+ * GET /api/estimate/:prdId/history
+ *
+ * Returns historical estimates for a PRD with pagination support.
+ * Query params:
+ *   - limit: Maximum number of estimates to return (default: 10)
+ *   - offset: Number of estimates to skip (default: 0)
+ *
+ * Response includes:
+ *   - estimates[]: Array of saved estimates with timestamps
+ *   - total: Total number of estimates available
+ *   - limit: Limit used
+ *   - offset: Offset used
+ */
+api.get('/estimate/:prdId/history', (c) => {
+  const prdId = c.req.param('prdId');
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: 'Ralph root directory not found',
+      },
+      404
+    );
+  }
+
+  const prdFolder = path.join(ralphRoot, `PRD-${prdId}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const result = loadEstimates(prdFolder);
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: result.error || 'Failed to load estimates',
+      },
+      500
+    );
+  }
+
+  // Sort by timestamp descending (newest first)
+  const sortedEstimates = (result.estimates || []).sort(
+    (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  // Apply pagination
+  const total = sortedEstimates.length;
+  const validLimit = Math.min(Math.max(1, limit), 100); // Cap at 100
+  const validOffset = Math.max(0, offset);
+  const paginatedEstimates = sortedEstimates.slice(validOffset, validOffset + validLimit);
+
+  return c.json({
+    prdId,
+    estimates: paginatedEstimates,
+    total,
+    limit: validLimit,
+    offset: validOffset,
+  });
+});
+
+/**
  * POST /api/estimate/:prdId/run
  *
  * Triggers a fresh estimate calculation and updates the cache.
@@ -1009,6 +1084,37 @@ api.post("/build/start", async (c) => {
       },
       403
     );
+  }
+
+  // Auto-save estimate before starting build
+  // This creates a snapshot for later accuracy comparison
+  if (body.stream) {
+    try {
+      const ralphRoot = getRalphRoot();
+      if (ralphRoot) {
+        const prdFolder = path.join(ralphRoot, `PRD-${body.stream}`);
+        const planPath = path.join(prdFolder, 'plan.md');
+
+        // Only save estimate if plan exists
+        if (fs.existsSync(planPath)) {
+          const estimateResult = estimate(prdFolder, {
+            model: body.agent === 'opus' ? 'opus' : 'sonnet',
+          });
+
+          if (estimateResult.success) {
+            const saveResult = saveEstimate(prdFolder, estimateResult);
+            if (saveResult.success) {
+              console.log(`[AUTO-SAVE] Saved estimate for PRD-${body.stream} before build`);
+            } else {
+              console.warn(`[AUTO-SAVE] Failed to save estimate: ${saveResult.error}`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Log error but don't block the build
+      console.warn(`[AUTO-SAVE] Error saving estimate: ${err}`);
+    }
   }
 
   // Start the build
@@ -2286,6 +2392,7 @@ api.get("/partials/stream-detail", (c) => {
   <div class="estimate-view-toggle">
     <button class="estimate-view-btn active" onclick="switchEstimateView(this, 'pre-run')">Pre-run Estimates</button>
     <button class="estimate-view-btn" onclick="switchEstimateView(this, 'comparison')">Estimate vs Actual</button>
+    <button class="estimate-view-btn" onclick="switchEstimateView(this, 'history')">History</button>
   </div>
 
   <div id="estimate-view-pre-run" class="estimate-view-content active">
@@ -2310,6 +2417,15 @@ api.get("/partials/stream-detail", (c) => {
          hx-trigger="intersect once"
          hx-swap="innerHTML">
       <div class="loading">Loading comparison data...</div>
+    </div>
+  </div>
+
+  <div id="estimate-view-history" class="estimate-view-content">
+    <div id="estimate-history-container"
+         hx-get="/api/partials/estimate-history?id=${stream.id}"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+      <div class="loading">Loading estimate history...</div>
     </div>
   </div>
 </div>
@@ -4812,6 +4928,487 @@ api.get('/partials/estimate-comparison', (c) => {
     <span class="comparison-legend-item"><span class="deviation-indicator deviation-bad"></span> Poor (&gt;50%)</span>
   </div>
 </div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/estimate-history
+ *
+ * Returns HTML list of past estimates with timestamps.
+ * Query params:
+ *   - id: Stream/PRD ID
+ *   - limit: Number of estimates to show (default: 10)
+ *
+ * Each item shows: Date/time, total cost, total duration, confidence
+ * Expandable to show story-level details
+ */
+api.get('/partials/estimate-history', (c) => {
+  const id = c.req.query('id');
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+
+  if (!id) {
+    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+  }
+
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.html(`
+<div class="empty-state">
+  <p>Ralph root directory not found</p>
+</div>
+`);
+  }
+
+  const prdFolder = path.join(ralphRoot, `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.html(`
+<div class="empty-state">
+  <p>PRD-${id} not found</p>
+</div>
+`);
+  }
+
+  const result = loadEstimates(prdFolder);
+
+  if (!result.success) {
+    return c.html(`
+<div class="empty-state">
+  <p>Error loading estimate history</p>
+  <p class="text-muted">${escapeHtml(result.error || 'Unknown error')}</p>
+</div>
+`);
+  }
+
+  const estimates = result.estimates || [];
+
+  if (estimates.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No estimate history</h3>
+  <p>No saved estimates found for PRD-${id}.</p>
+  <p class="text-muted">Estimates are automatically saved when you run builds or manually trigger estimates.</p>
+</div>
+`);
+  }
+
+  // Sort by timestamp descending (newest first)
+  const sortedEstimates = estimates.sort(
+    (a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  // Take only the requested limit
+  const limitedEstimates = sortedEstimates.slice(0, Math.min(limit, 50));
+
+  // Helper to format timestamp
+  const formatTimestamp = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Helper to get confidence label
+  const getConfidenceLabel = (confidence: number): string => {
+    if (confidence >= 0.7) return 'High';
+    if (confidence >= 0.4) return 'Medium';
+    return 'Low';
+  };
+
+  // Helper to get confidence class
+  const getConfidenceClass = (confidence: number): string => {
+    if (confidence >= 0.7) return 'confidence-high';
+    if (confidence >= 0.4) return 'confidence-medium';
+    return 'confidence-low';
+  };
+
+  // Build history items HTML
+  const historyItemsHtml = limitedEstimates.map((estimate: any, index: number) => {
+    const timestamp = formatTimestamp(estimate.timestamp);
+    const totals = estimate.totals || {};
+    const duration = formatDuration(totals.duration || 0);
+    const cost = formatCost(totals.cost || 0);
+    const confidence = totals.confidence || 0;
+    const confidenceLabel = getConfidenceLabel(confidence);
+    const confidenceClass = getConfidenceClass(confidence);
+
+    // Calculate story count
+    const storyCount = (estimate.stories || []).length;
+    const pendingStories = (estimate.stories || []).filter((s: any) => !s.completed).length;
+
+    // Generate unique ID for this estimate item
+    const estimateId = `estimate-${index}`;
+    const detailsId = `details-${estimateId}`;
+
+    // Build story details table
+    const storiesHtml = (estimate.stories || []).map((story: any) => {
+      const statusIcon = story.completed ? '✓' : '○';
+      const statusClass = story.completed ? 'story-completed' : 'story-pending';
+
+      return `
+<tr class="${statusClass}">
+  <td class="history-story-status">${statusIcon}</td>
+  <td class="history-story-id">${escapeHtml(story.storyId)}</td>
+  <td class="history-story-title">${escapeHtml(story.title || story.storyId)}</td>
+  <td class="history-story-time">${formatDuration(story.estimatedDuration || 0)}</td>
+  <td class="history-story-tokens">${formatTokens(story.estimatedTokens || 0)}</td>
+  <td class="history-story-cost">${formatCost(story.estimatedCost || 0)}</td>
+  <td class="history-story-confidence ${getConfidenceClass(story.confidence || 0)}">${getConfidenceLabel(story.confidence || 0)}</td>
+</tr>
+`;
+    }).join('');
+
+    return `
+<div class="history-item" data-estimate-id="${estimateId}" data-estimate-index="${index}">
+  <div class="history-item-header">
+    <div class="history-item-select">
+      <input type="checkbox" class="history-compare-checkbox" id="compare-${estimateId}" value="${index}" onchange="updateCompareButton()">
+    </div>
+    <div class="history-item-main" onclick="toggleHistoryDetails('${detailsId}')">
+      <div class="history-item-timestamp">
+        <span class="history-timestamp-icon">📅</span>
+        <span class="history-timestamp-text">${timestamp}</span>
+      </div>
+      <div class="history-item-stats">
+        <span class="history-stat">
+          <span class="history-stat-label">Stories:</span>
+          <span class="history-stat-value">${pendingStories}/${storyCount}</span>
+        </span>
+        <span class="history-stat">
+          <span class="history-stat-label">Duration:</span>
+          <span class="history-stat-value">${duration}</span>
+        </span>
+        <span class="history-stat">
+          <span class="history-stat-label">Cost:</span>
+          <span class="history-stat-value">${cost}</span>
+        </span>
+        <span class="history-stat">
+          <span class="history-stat-label">Confidence:</span>
+          <span class="history-stat-value ${confidenceClass}">${confidenceLabel}</span>
+        </span>
+      </div>
+    </div>
+    <div class="history-item-actions">
+      <button class="history-expand-btn" title="Toggle details" onclick="toggleHistoryDetails('${detailsId}')">
+        <span class="expand-icon">▼</span>
+      </button>
+    </div>
+  </div>
+  <div class="history-item-details" id="${detailsId}" style="display: none;">
+    <div class="history-details-table-container">
+      <table class="history-details-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Story ID</th>
+            <th>Title</th>
+            <th>Time</th>
+            <th>Tokens</th>
+            <th>Cost</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${storiesHtml}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+`;
+  }).join('');
+
+  // Store estimates as JSON for comparison
+  const estimatesJson = JSON.stringify(limitedEstimates);
+
+  const html = `
+<div class="history-container">
+  <div class="history-header">
+    <h3>Estimate History</h3>
+    <div class="history-header-actions">
+      <p class="history-subtitle">${estimates.length} estimate${estimates.length === 1 ? '' : 's'} recorded</p>
+      <button id="compare-estimates-btn" class="compare-estimates-btn" onclick="showCompareModal()" disabled>
+        Compare Selected (0)
+      </button>
+    </div>
+  </div>
+  <div class="history-list">
+    ${historyItemsHtml}
+  </div>
+  ${estimates.length > limit ? `
+  <div class="history-load-more">
+    <button
+      class="load-more-btn"
+      hx-get="/api/partials/estimate-history?id=${id}&limit=${limit + 10}"
+      hx-target=".history-container"
+      hx-swap="outerHTML"
+    >
+      Load More
+    </button>
+  </div>
+  ` : ''}
+</div>
+
+<!-- Comparison Modal -->
+<div id="estimate-compare-modal" class="modal" style="display: none;">
+  <div class="modal-content estimate-compare-modal-content">
+    <div class="modal-header">
+      <h3>Compare Estimates</h3>
+      <button class="modal-close" onclick="closeCompareModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="compare-modal-body">
+      <div class="loading">Preparing comparison...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Store estimates data for comparison
+window.historyEstimates = ${estimatesJson};
+
+function toggleHistoryDetails(detailsId) {
+  const details = document.getElementById(detailsId);
+  const header = details.previousElementSibling;
+  const btn = header.querySelector('.expand-icon');
+
+  if (details.style.display === 'none') {
+    details.style.display = 'block';
+    btn.textContent = '▲';
+  } else {
+    details.style.display = 'none';
+    btn.textContent = '▼';
+  }
+}
+
+function updateCompareButton() {
+  const checkboxes = document.querySelectorAll('.history-compare-checkbox:checked');
+  const btn = document.getElementById('compare-estimates-btn');
+  const count = checkboxes.length;
+
+  btn.textContent = \`Compare Selected (\${count})\`;
+  btn.disabled = count !== 2;
+
+  // Limit selection to 2
+  if (count >= 2) {
+    document.querySelectorAll('.history-compare-checkbox:not(:checked)').forEach(cb => {
+      cb.disabled = true;
+    });
+  } else {
+    document.querySelectorAll('.history-compare-checkbox').forEach(cb => {
+      cb.disabled = false;
+    });
+  }
+}
+
+function showCompareModal() {
+  const checkboxes = document.querySelectorAll('.history-compare-checkbox:checked');
+  if (checkboxes.length !== 2) {
+    alert('Please select exactly 2 estimates to compare');
+    return;
+  }
+
+  const indices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  const estimate1 = window.historyEstimates[indices[0]];
+  const estimate2 = window.historyEstimates[indices[1]];
+
+  const modal = document.getElementById('estimate-compare-modal');
+  const modalBody = document.getElementById('compare-modal-body');
+
+  // Generate comparison HTML
+  const comparisonHtml = generateComparisonHtml(estimate1, estimate2);
+  modalBody.innerHTML = comparisonHtml;
+
+  modal.style.display = 'flex';
+}
+
+function closeCompareModal() {
+  document.getElementById('estimate-compare-modal').style.display = 'none';
+}
+
+function generateComparisonHtml(est1, est2) {
+  const date1 = new Date(est1.timestamp).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+  const date2 = new Date(est2.timestamp).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0s';
+    if (seconds < 60) return Math.round(seconds) + 's';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return secs > 0 ? \`\${mins}m \${secs}s\` : \`\${mins}m\`;
+  };
+
+  const formatCost = (cost) => {
+    if (!cost) return '$0.00';
+    return '$' + cost.toFixed(2);
+  };
+
+  const formatTokens = (tokens) => {
+    if (!tokens) return '0';
+    if (tokens >= 1000000) return (tokens / 1000000).toFixed(1) + 'M';
+    if (tokens >= 1000) return (tokens / 1000).toFixed(1) + 'K';
+    return Math.round(tokens).toString();
+  };
+
+  const calculateDelta = (val1, val2) => {
+    if (!val1 || !val2) return 0;
+    return ((val2 - val1) / val1) * 100;
+  };
+
+  const formatDelta = (delta) => {
+    const sign = delta >= 0 ? '+' : '';
+    return \`\${sign}\${delta.toFixed(1)}%\`;
+  };
+
+  const getDeltaClass = (delta) => {
+    if (Math.abs(delta) < 5) return 'delta-neutral';
+    return delta > 0 ? 'delta-increase' : 'delta-decrease';
+  };
+
+  // Calculate totals delta
+  const durationDelta = calculateDelta(est1.totals.duration, est2.totals.duration);
+  const tokensDelta = calculateDelta(est1.totals.tokens, est2.totals.tokens);
+  const costDelta = calculateDelta(est1.totals.cost, est2.totals.cost);
+
+  // Build story comparison rows
+  const storyMap = new Map();
+  (est1.stories || []).forEach(s => {
+    storyMap.set(s.storyId, { est1: s, est2: null });
+  });
+  (est2.stories || []).forEach(s => {
+    if (storyMap.has(s.storyId)) {
+      storyMap.get(s.storyId).est2 = s;
+    } else {
+      storyMap.set(s.storyId, { est1: null, est2: s });
+    }
+  });
+
+  const storyRowsHtml = Array.from(storyMap.entries()).map(([storyId, { est1: s1, est2: s2 }]) => {
+    const dur1 = s1?.estimatedDuration || 0;
+    const dur2 = s2?.estimatedDuration || 0;
+    const durDelta = dur1 && dur2 ? calculateDelta(dur1, dur2) : null;
+
+    const tok1 = s1?.estimatedTokens || 0;
+    const tok2 = s2?.estimatedTokens || 0;
+    const tokDelta = tok1 && tok2 ? calculateDelta(tok1, tok2) : null;
+
+    const cost1 = s1?.estimatedCost || 0;
+    const cost2 = s2?.estimatedCost || 0;
+    const costDelta = cost1 && cost2 ? calculateDelta(cost1, cost2) : null;
+
+    const isNew = !s1;
+    const isRemoved = !s2;
+
+    return \`
+<tr class="\${isNew ? 'story-new' : isRemoved ? 'story-removed' : ''}">
+  <td>\${storyId}\${isNew ? ' <span class="badge-new">NEW</span>' : isRemoved ? ' <span class="badge-removed">REMOVED</span>' : ''}</td>
+  <td>\${s1 ? formatDuration(dur1) : '—'}</td>
+  <td>\${s2 ? formatDuration(dur2) : '—'}</td>
+  <td class="\${durDelta !== null ? getDeltaClass(durDelta) : ''}">\${durDelta !== null ? formatDelta(durDelta) : '—'}</td>
+  <td>\${s1 ? formatTokens(tok1) : '—'}</td>
+  <td>\${s2 ? formatTokens(tok2) : '—'}</td>
+  <td class="\${tokDelta !== null ? getDeltaClass(tokDelta) : ''}">\${tokDelta !== null ? formatDelta(tokDelta) : '—'}</td>
+  <td>\${s1 ? formatCost(cost1) : '—'}</td>
+  <td>\${s2 ? formatCost(cost2) : '—'}</td>
+  <td class="\${costDelta !== null ? getDeltaClass(costDelta) : ''}">\${costDelta !== null ? formatDelta(costDelta) : '—'}</td>
+</tr>
+\`;
+  }).join('');
+
+  return \`
+<div class="comparison-timestamps">
+  <div class="comparison-timestamp">
+    <strong>Estimate 1:</strong> \${date1}
+  </div>
+  <div class="comparison-timestamp">
+    <strong>Estimate 2:</strong> \${date2}
+  </div>
+</div>
+
+<div class="comparison-totals">
+  <h4>Totals Comparison</h4>
+  <table class="totals-comparison-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Estimate 1</th>
+        <th>Estimate 2</th>
+        <th>Change</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Duration</strong></td>
+        <td>\${formatDuration(est1.totals.duration)}</td>
+        <td>\${formatDuration(est2.totals.duration)}</td>
+        <td class="\${getDeltaClass(durationDelta)}">\${formatDelta(durationDelta)}</td>
+      </tr>
+      <tr>
+        <td><strong>Tokens</strong></td>
+        <td>\${formatTokens(est1.totals.tokens)}</td>
+        <td>\${formatTokens(est2.totals.tokens)}</td>
+        <td class="\${getDeltaClass(tokensDelta)}">\${formatDelta(tokensDelta)}</td>
+      </tr>
+      <tr>
+        <td><strong>Cost</strong></td>
+        <td>\${formatCost(est1.totals.cost)}</td>
+        <td>\${formatCost(est2.totals.cost)}</td>
+        <td class="\${getDeltaClass(costDelta)}">\${formatDelta(costDelta)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="comparison-stories">
+  <h4>Story-by-Story Comparison</h4>
+  <div class="comparison-stories-table-container">
+    <table class="stories-comparison-table">
+      <thead>
+        <tr>
+          <th rowspan="2">Story ID</th>
+          <th colspan="3">Duration</th>
+          <th colspan="3">Tokens</th>
+          <th colspan="3">Cost</th>
+        </tr>
+        <tr>
+          <th>Est 1</th>
+          <th>Est 2</th>
+          <th>Δ</th>
+          <th>Est 1</th>
+          <th>Est 2</th>
+          <th>Δ</th>
+          <th>Est 1</th>
+          <th>Est 2</th>
+          <th>Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        \${storyRowsHtml}
+      </tbody>
+    </table>
+  </div>
+</div>
+\`;
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+  const modal = document.getElementById('estimate-compare-modal');
+  if (event.target === modal) {
+    closeCompareModal();
+  }
+}
+</script>
 `;
 
   return c.html(html);
