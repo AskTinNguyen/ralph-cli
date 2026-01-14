@@ -13,6 +13,11 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
+import { createRequire } from 'node:module';
+
+// Import CommonJS accuracy module
+const require = createRequire(import.meta.url);
+const { generateAccuracyReport } = require('../../../lib/estimate/accuracy.js');
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -538,6 +543,70 @@ api.get('/streams/:id/estimate', (c) => {
     cached: result.cached,
     cachedAt: result.cachedAt,
     planModifiedAt: result.planModifiedAt,
+  });
+});
+
+/**
+ * GET /api/estimate/:prdId/accuracy
+ *
+ * Returns JSON accuracy report comparing estimates vs actual results.
+ * Calls generateAccuracyReport from lib/estimate/accuracy.js
+ *
+ * Response includes:
+ *   - comparisons[]: Array of estimate-to-actual comparisons with deviations
+ *   - accuracy: Overall MAPE metrics
+ *   - trend: Trend analysis (improving/stable/degrading)
+ *   - summary: Metadata about estimates and metrics count
+ *
+ * Returns empty data structure (not 404) if no comparisons exist.
+ */
+api.get('/estimate/:prdId/accuracy', (c) => {
+  const prdId = c.req.param('prdId');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: 'Ralph root directory not found',
+      },
+      404
+    );
+  }
+
+  const prdFolder = path.join(ralphRoot, `PRD-${prdId}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const report = generateAccuracyReport(prdFolder);
+
+  if (!report.success) {
+    return c.json(
+      {
+        error: 'internal_error',
+        message: report.error || 'Failed to generate accuracy report',
+      },
+      500
+    );
+  }
+
+  // Return report even if no data exists (empty comparisons array)
+  return c.json({
+    prdId,
+    hasData: report.hasData || false,
+    message: report.message || null,
+    comparisons: report.comparisons || [],
+    accuracy: report.accuracy || null,
+    trend: report.trend || null,
+    summary: report.summary || null,
   });
 });
 
@@ -2156,18 +2225,34 @@ api.get("/partials/stream-detail", (c) => {
 </div>
 
 <div id="stream-tab-estimate" class="stream-tab-content">
-  <div id="estimate-summary-container"
-       hx-get="/api/partials/estimate-summary?id=${stream.id}"
-       hx-trigger="intersect once"
-       hx-swap="innerHTML">
-    <div class="loading">Loading estimate summary...</div>
+  <div class="estimate-view-toggle">
+    <button class="estimate-view-btn active" onclick="switchEstimateView(this, 'pre-run')">Pre-run Estimates</button>
+    <button class="estimate-view-btn" onclick="switchEstimateView(this, 'comparison')">Estimate vs Actual</button>
   </div>
-  <div id="estimate-breakdown-container"
-       hx-get="/api/partials/estimate-breakdown?id=${stream.id}"
-       hx-trigger="intersect once"
-       hx-swap="innerHTML"
-       style="margin-top: var(--spacing-lg);">
-    <div class="loading">Loading story breakdown...</div>
+
+  <div id="estimate-view-pre-run" class="estimate-view-content active">
+    <div id="estimate-summary-container"
+         hx-get="/api/partials/estimate-summary?id=${stream.id}"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+      <div class="loading">Loading estimate summary...</div>
+    </div>
+    <div id="estimate-breakdown-container"
+         hx-get="/api/partials/estimate-breakdown?id=${stream.id}"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML"
+         style="margin-top: var(--spacing-lg);">
+      <div class="loading">Loading story breakdown...</div>
+    </div>
+  </div>
+
+  <div id="estimate-view-comparison" class="estimate-view-content">
+    <div id="estimate-comparison-container"
+         hx-get="/api/partials/estimate-comparison?id=${stream.id}"
+         hx-trigger="intersect once"
+         hx-swap="innerHTML">
+      <div class="loading">Loading comparison data...</div>
+    </div>
   </div>
 </div>
 
@@ -2180,6 +2265,16 @@ function switchStreamTab(btn, tabName) {
   // Update tab content
   document.querySelectorAll('.stream-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('stream-tab-' + tabName).classList.add('active');
+}
+
+function switchEstimateView(btn, viewName) {
+  // Update view buttons
+  document.querySelectorAll('.estimate-view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Update view content
+  document.querySelectorAll('.estimate-view-content').forEach(v => v.classList.remove('active'));
+  document.getElementById('estimate-view-' + viewName).classList.add('active');
 }
 </script>
 `;
@@ -4498,6 +4593,167 @@ api.get('/partials/estimate-breakdown', (c) => {
         ${rowsHtml}
       </tbody>
     </table>
+  </div>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/estimate-comparison
+ *
+ * Returns HTML table comparing estimated vs actual results for completed stories.
+ * Query params:
+ *   - id: Stream/PRD ID
+ *
+ * Shows side-by-side comparison with deviation percentages.
+ * Color coding: green (<20%), yellow (20-50%), red (>50%)
+ */
+api.get('/partials/estimate-comparison', (c) => {
+  const id = c.req.query('id');
+
+  if (!id) {
+    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+  }
+
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.html(`
+<div class="empty-state">
+  <p>Ralph root directory not found</p>
+</div>
+`);
+  }
+
+  const prdFolder = path.join(ralphRoot, `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.html(`
+<div class="empty-state">
+  <p>PRD-${id} not found</p>
+</div>
+`);
+  }
+
+  const report = generateAccuracyReport(prdFolder);
+
+  if (!report.success) {
+    return c.html(`
+<div class="empty-state">
+  <p>Error generating accuracy report</p>
+  <p class="text-muted">${escapeHtml(report.error || 'Unknown error')}</p>
+</div>
+`);
+  }
+
+  if (!report.hasData || !report.comparisons || report.comparisons.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <h3>No comparison data available</h3>
+  <p>${escapeHtml(report.message || 'No matching estimate-to-actual pairs found.')}</p>
+  <p class="text-muted">Complete some builds after running estimates to see comparisons.</p>
+</div>
+`);
+  }
+
+  // Helper to get deviation color class
+  const getDeviationClass = (deviation: number): string => {
+    const abs = Math.abs(deviation);
+    if (abs < 20) return 'deviation-good';
+    if (abs < 50) return 'deviation-warning';
+    return 'deviation-bad';
+  };
+
+  // Helper to format deviation with sign
+  const formatDeviation = (deviation: number): string => {
+    const sign = deviation >= 0 ? '+' : '';
+    return `${sign}${deviation.toFixed(0)}%`;
+  };
+
+  // Build table rows
+  const rowsHtml = report.comparisons.map((comp: any) => {
+    const durationDeviationClass = getDeviationClass(comp.deviation.duration);
+    const tokensDeviationClass = getDeviationClass(comp.deviation.tokens);
+
+    return `
+<tr>
+  <td class="comparison-story-cell">
+    <span class="comparison-story-id">${escapeHtml(comp.storyId)}</span>
+    <span class="comparison-story-title" title="${escapeHtml(comp.title || comp.storyId)}">${escapeHtml(comp.title || comp.storyId)}</span>
+  </td>
+  <td class="comparison-time-est">${formatDuration(comp.estimated.duration)}</td>
+  <td class="comparison-time-actual">${formatDuration(comp.actual.duration)}</td>
+  <td class="comparison-time-deviation ${durationDeviationClass}">${formatDeviation(comp.deviation.duration)}</td>
+  <td class="comparison-tokens-est">${formatTokens(comp.estimated.tokens)}</td>
+  <td class="comparison-tokens-actual">${formatTokens(comp.actual.tokens)}</td>
+  <td class="comparison-tokens-deviation ${tokensDeviationClass}">${formatDeviation(comp.deviation.tokens)}</td>
+  <td class="comparison-cost-est">${formatCost(comp.estimated.cost)}</td>
+</tr>
+`;
+  }).join('');
+
+  // Build summary stats HTML
+  let summaryHtml = '';
+  if (report.accuracy && report.accuracy.sampleCount > 0) {
+    const acc = report.accuracy;
+    const avgDurationDeviation = acc.mape.duration !== null ? acc.mape.duration.toFixed(1) : 'N/A';
+    const avgTokensDeviation = acc.mape.tokens !== null ? acc.mape.tokens.toFixed(1) : 'N/A';
+
+    summaryHtml = `
+<div class="comparison-summary">
+  <h4>Accuracy Summary</h4>
+  <div class="comparison-summary-stats">
+    <div class="comparison-stat">
+      <span class="comparison-stat-label">Average Time Deviation:</span>
+      <span class="comparison-stat-value">±${avgDurationDeviation}%</span>
+    </div>
+    <div class="comparison-stat">
+      <span class="comparison-stat-label">Average Token Deviation:</span>
+      <span class="comparison-stat-value">±${avgTokensDeviation}%</span>
+    </div>
+    <div class="comparison-stat">
+      <span class="comparison-stat-label">Sample Count:</span>
+      <span class="comparison-stat-value">${acc.sampleCount}</span>
+    </div>
+  </div>
+</div>
+`;
+  }
+
+  const html = `
+<div class="comparison-container">
+  <div class="comparison-table-container">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th class="comparison-story-header" rowspan="2">Story</th>
+          <th class="comparison-time-header" colspan="3">Time</th>
+          <th class="comparison-tokens-header" colspan="3">Tokens</th>
+          <th class="comparison-cost-header" rowspan="2">Est. Cost</th>
+        </tr>
+        <tr>
+          <th class="comparison-subheader">Estimated</th>
+          <th class="comparison-subheader">Actual</th>
+          <th class="comparison-subheader">Deviation</th>
+          <th class="comparison-subheader">Estimated</th>
+          <th class="comparison-subheader">Actual</th>
+          <th class="comparison-subheader">Deviation</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  </div>
+
+  ${summaryHtml}
+
+  <div class="comparison-legend">
+    <span class="comparison-legend-item"><span class="deviation-indicator deviation-good"></span> Good (&lt;20%)</span>
+    <span class="comparison-legend-item"><span class="deviation-indicator deviation-warning"></span> Fair (20-50%)</span>
+    <span class="comparison-legend-item"><span class="deviation-indicator deviation-bad"></span> Poor (&gt;50%)</span>
   </div>
 </div>
 `;
