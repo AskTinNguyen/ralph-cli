@@ -1572,7 +1572,7 @@ api.get('/partials/streams', (c) => {
         </div>`;
 
       return `
-<div class="stream-card" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+<div class="stream-card ${isRunning ? 'running' : ''}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
   <div class="stream-header">
     <span class="stream-id">PRD-${stream.id}</span>
     <span class="status-badge ${stream.status}">${statusLabel}</span>
@@ -1602,6 +1602,212 @@ api.get('/partials/streams', (c) => {
     .join('');
 
   return c.html(`<div class="streams-grid">${streamCards}</div>`);
+});
+
+/**
+ * GET /api/partials/streams-timeline
+ *
+ * Returns HTML fragment for the streams timeline view.
+ * Shows streams as horizontal progress bars with timing information.
+ */
+api.get('/partials/streams-timeline', (c) => {
+  const streams = getStreams();
+  const ralphRoot = getRalphRoot();
+
+  if (streams.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <div class="empty-icon">&#128203;</div>
+  <h3>No streams found</h3>
+  <p>Create a PRD with <code>ralph prd</code> or use the 'New Stream' button to get started.</p>
+</div>
+`);
+  }
+
+  // Collect timing data for all streams
+  interface StreamTimingData {
+    id: string;
+    name: string;
+    status: string;
+    totalStories: number;
+    completedStories: number;
+    completionPercentage: number;
+    firstRunStart: Date | null;
+    lastRunEnd: Date | null;
+    totalDurationMs: number;
+    runCount: number;
+  }
+
+  const streamTimings: StreamTimingData[] = [];
+  let globalMinTime: Date | null = null;
+  let globalMaxTime: Date | null = null;
+
+  for (const stream of streams) {
+    const runLogs = listRunLogs(stream.id);
+    let firstRunStart: Date | null = null;
+    let lastRunEnd: Date | null = null;
+    let totalDurationMs = 0;
+
+    for (const run of runLogs) {
+      const summary = getRunSummary(run.runId, stream.id, run.iteration);
+      if (summary) {
+        const startTime = new Date(summary.startedAt);
+        const endTime = new Date(summary.endedAt);
+
+        if (!firstRunStart || startTime < firstRunStart) {
+          firstRunStart = startTime;
+        }
+        if (!lastRunEnd || endTime > lastRunEnd) {
+          lastRunEnd = endTime;
+        }
+        totalDurationMs += summary.duration * 1000;
+
+        // Track global time range
+        if (!globalMinTime || startTime < globalMinTime) {
+          globalMinTime = startTime;
+        }
+        if (!globalMaxTime || endTime > globalMaxTime) {
+          globalMaxTime = endTime;
+        }
+      }
+    }
+
+    const completionPercentage =
+      stream.totalStories > 0
+        ? Math.round((stream.completedStories / stream.totalStories) * 100)
+        : 0;
+
+    streamTimings.push({
+      id: stream.id,
+      name: stream.name,
+      status: stream.status,
+      totalStories: stream.totalStories,
+      completedStories: stream.completedStories,
+      completionPercentage,
+      firstRunStart,
+      lastRunEnd,
+      totalDurationMs,
+      runCount: runLogs.length,
+    });
+  }
+
+  // Calculate global time span for positioning
+  const globalTimeSpan = globalMinTime && globalMaxTime
+    ? globalMaxTime.getTime() - globalMinTime.getTime()
+    : 0;
+
+  // Format duration helper
+  const formatDuration = (ms: number): string => {
+    if (ms < 1000) return '< 1s';
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours > 0) {
+      const remainingMins = minutes % 60;
+      return `${hours}h ${remainingMins}m`;
+    } else if (minutes > 0) {
+      const remainingSecs = seconds % 60;
+      return `${minutes}m ${remainingSecs}s`;
+    }
+    return `${seconds}s`;
+  };
+
+  // Format time helper
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  // Format date helper
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Build timeline rows
+  const timelineRows = streamTimings
+    .map((stream) => {
+      const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+
+      // Calculate position and width based on time
+      let leftPercent = 0;
+      let widthPercent = 100;
+
+      if (globalTimeSpan > 0 && stream.firstRunStart && stream.lastRunEnd && globalMinTime) {
+        const startOffset = stream.firstRunStart.getTime() - globalMinTime.getTime();
+        const duration = stream.lastRunEnd.getTime() - stream.firstRunStart.getTime();
+        leftPercent = (startOffset / globalTimeSpan) * 100;
+        widthPercent = Math.max((duration / globalTimeSpan) * 100, 2); // Minimum 2% width
+      }
+
+      // Time info
+      const timeInfo = stream.firstRunStart && stream.lastRunEnd
+        ? `${formatDate(stream.firstRunStart)} ${formatTime(stream.firstRunStart)} - ${formatTime(stream.lastRunEnd)}`
+        : 'Not started';
+
+      const durationInfo = stream.totalDurationMs > 0
+        ? formatDuration(stream.totalDurationMs)
+        : '-';
+
+      return `
+<div class="timeline-row" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+  <div class="timeline-label">
+    <span class="timeline-id">PRD-${stream.id}</span>
+    <span class="timeline-name">${escapeHtml(stream.name)}</span>
+  </div>
+  <div class="timeline-bar-container">
+    <div class="timeline-bar-track">
+      <div class="timeline-bar ${stream.status}" style="left: ${leftPercent}%; width: ${widthPercent}%;">
+        <div class="timeline-progress-fill" style="width: ${stream.completionPercentage}%;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="timeline-stats">
+    <span class="timeline-progress-text">${stream.completedStories}/${stream.totalStories}</span>
+    <span class="timeline-percentage">${stream.completionPercentage}%</span>
+  </div>
+  <div class="timeline-time">
+    <span class="timeline-duration">${durationInfo}</span>
+    <span class="timeline-timespan">${timeInfo}</span>
+  </div>
+  <div class="timeline-status">
+    <span class="status-badge ${stream.status}">${statusLabel}</span>
+  </div>
+</div>
+`;
+    })
+    .join('');
+
+  // Time axis labels
+  const timeAxisHtml = globalMinTime && globalMaxTime
+    ? `
+<div class="timeline-axis">
+  <span class="timeline-axis-start">${formatDate(globalMinTime)} ${formatTime(globalMinTime)}</span>
+  <span class="timeline-axis-end">${formatDate(globalMaxTime)} ${formatTime(globalMaxTime)}</span>
+</div>`
+    : '';
+
+  return c.html(`
+<div class="streams-timeline">
+  <div class="timeline-header">
+    <div class="timeline-header-label">Stream</div>
+    <div class="timeline-header-bar">Progress Timeline</div>
+    <div class="timeline-header-stats">Stories</div>
+    <div class="timeline-header-time">Duration</div>
+    <div class="timeline-header-status">Status</div>
+  </div>
+  ${timeAxisHtml}
+  <div class="timeline-body">
+    ${timelineRows}
+  </div>
+</div>
+`);
 });
 
 /**
@@ -1733,6 +1939,7 @@ api.get('/partials/stream-detail', (c) => {
 <div class="stream-detail-tabs">
   <button class="stream-tab active" onclick="switchStreamTab(this, 'stories')">Stories (${stream.totalStories})</button>
   <button class="stream-tab" onclick="switchStreamTab(this, 'runs')">Runs (${stream.runs.length})</button>
+  <button class="stream-tab" onclick="switchStreamTab(this, 'estimate')">Estimate</button>
 </div>
 
 <div id="stream-tab-stories" class="stream-tab-content active">
@@ -1744,6 +1951,22 @@ api.get('/partials/stream-detail', (c) => {
 <div id="stream-tab-runs" class="stream-tab-content">
   <div class="run-list">
     ${runsHtml}
+  </div>
+</div>
+
+<div id="stream-tab-estimate" class="stream-tab-content">
+  <div id="estimate-summary-container"
+       hx-get="/api/partials/estimate-summary?id=${stream.id}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML">
+    <div class="loading">Loading estimate summary...</div>
+  </div>
+  <div id="estimate-breakdown-container"
+       hx-get="/api/partials/estimate-breakdown?id=${stream.id}"
+       hx-trigger="intersect once"
+       hx-swap="innerHTML"
+       style="margin-top: var(--spacing-lg);">
+    <div class="loading">Loading story breakdown...</div>
   </div>
 </div>
 
@@ -3788,6 +4011,234 @@ api.get('/partials/token-budget', (c) => {
   <div class="budget-items">
     ${dailyHtml}
     ${monthlyHtml}
+  </div>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * Estimate Partials Section
+ *
+ * HTML partials for displaying estimation data in the UI.
+ */
+
+/**
+ * Helper function to format duration in human-readable format
+ */
+function formatDuration(minutes: number): string {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${mins}m`;
+}
+
+/**
+ * Helper function to format token counts
+ */
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000000) {
+    return `${(tokens / 1000000).toFixed(1)}M`;
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}K`;
+  }
+  return tokens.toFixed(0);
+}
+
+/**
+ * Helper function to format currency
+ */
+function formatCost(cost: number): string {
+  return `$${cost.toFixed(2)}`;
+}
+
+/**
+ * GET /api/partials/estimate-summary
+ *
+ * Returns HTML card showing estimate totals (duration range, tokens range, cost range, confidence).
+ * Query params:
+ *   - id: Stream/PRD ID
+ *   - model: Model for cost calculation ('sonnet' or 'opus', default: 'sonnet')
+ */
+api.get('/partials/estimate-summary', (c) => {
+  const id = c.req.query('id');
+  const model = (c.req.query('model') || 'sonnet') as 'sonnet' | 'opus';
+
+  if (!id) {
+    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+  }
+
+  const result = getStreamEstimate(id, { model });
+
+  if (!result.success || !result.totals) {
+    return c.html(`
+<div class="empty-state">
+  <h3>Estimate not available</h3>
+  <p>${escapeHtml(result.error || `Unable to generate estimate for PRD-${id}`)}</p>
+  <p class="text-muted">Make sure plan.md exists and contains user stories.</p>
+</div>
+`);
+  }
+
+  const { totals } = result;
+  const confidenceClass = totals.confidence === 'high' ? 'confidence-high' : totals.confidence === 'medium' ? 'confidence-medium' : 'confidence-low';
+  const confidenceDots = totals.confidence === 'high' ? '●●●' : totals.confidence === 'medium' ? '●●○' : '●○○';
+
+  // Format ranges
+  const durationRange = `${formatDuration(totals.durationOptimistic)} - ${formatDuration(totals.durationPessimistic)}`;
+  const tokensRange = `${formatTokens(totals.tokensOptimistic)} - ${formatTokens(totals.tokensPessimistic)}`;
+  const costRange = `${formatCost(totals.costOptimistic)} - ${formatCost(totals.costPessimistic)}`;
+
+  const html = `
+<div class="estimate-summary-container">
+  <div class="estimate-header">
+    <h4>Pre-run Estimate</h4>
+    <div class="estimate-actions">
+      <select class="estimate-model-select"
+              onchange="htmx.ajax('GET', '/api/partials/estimate-summary?id=${id}&model=' + this.value, '#estimate-summary-container')"
+              title="Select pricing model">
+        <option value="sonnet" ${model === 'sonnet' ? 'selected' : ''}>Sonnet</option>
+        <option value="opus" ${model === 'opus' ? 'selected' : ''}>Opus</option>
+      </select>
+      <button class="btn-icon estimate-refresh"
+              hx-get="/api/partials/estimate-summary?id=${id}&model=${model}&force=true"
+              hx-target="#estimate-summary-container"
+              hx-indicator=".estimate-loading"
+              title="Refresh estimate">
+        &#8635;
+      </button>
+    </div>
+  </div>
+
+  <div class="estimate-summary-cards">
+    <div class="estimate-card">
+      <div class="estimate-card-label">Duration</div>
+      <div class="estimate-card-value">${formatDuration(totals.duration)}</div>
+      <div class="estimate-card-range">${durationRange}</div>
+    </div>
+
+    <div class="estimate-card">
+      <div class="estimate-card-label">Tokens</div>
+      <div class="estimate-card-value">${formatTokens(totals.tokens)}</div>
+      <div class="estimate-card-range">${tokensRange}</div>
+    </div>
+
+    <div class="estimate-card">
+      <div class="estimate-card-label">Cost (${escapeHtml(totals.model)})</div>
+      <div class="estimate-card-value">${formatCost(totals.cost)}</div>
+      <div class="estimate-card-range">${costRange}</div>
+    </div>
+
+    <div class="estimate-card">
+      <div class="estimate-card-label">Confidence</div>
+      <div class="estimate-card-value confidence-indicator ${confidenceClass}" title="${totals.confidence}">${confidenceDots}</div>
+      <div class="estimate-card-range">${totals.historicalSamples} historical samples</div>
+    </div>
+  </div>
+
+  <div class="estimate-meta">
+    <span class="estimate-stories">${totals.pending} pending of ${totals.stories} stories</span>
+    ${result.cached ? `<span class="estimate-cached" title="Cached at ${result.cachedAt}">&#128274; Cached</span>` : ''}
+  </div>
+
+  <div class="estimate-loading htmx-indicator">Calculating...</div>
+</div>
+`;
+
+  return c.html(html);
+});
+
+/**
+ * GET /api/partials/estimate-breakdown
+ *
+ * Returns HTML table with story-by-story estimate breakdown.
+ * Query params:
+ *   - id: Stream/PRD ID
+ *   - model: Model for cost calculation ('sonnet' or 'opus', default: 'sonnet')
+ */
+api.get('/partials/estimate-breakdown', (c) => {
+  const id = c.req.query('id');
+  const model = (c.req.query('model') || 'sonnet') as 'sonnet' | 'opus';
+
+  if (!id) {
+    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+  }
+
+  const result = getStreamEstimate(id, { model });
+
+  if (!result.success || !result.estimates || result.estimates.length === 0) {
+    return c.html(`
+<div class="empty-state">
+  <p>No story estimates available</p>
+</div>
+`);
+  }
+
+  const { estimates } = result;
+
+  // Build table rows
+  const rowsHtml = estimates.map((est) => {
+    const statusClass = est.completed ? 'completed' : 'pending';
+    const statusLabel = est.completed ? 'Done' : 'Pending';
+    const complexityClass = est.complexity <= 3 ? 'complexity-low' : est.complexity <= 6 ? 'complexity-medium' : 'complexity-high';
+    const confidenceClass = est.confidence === 'high' ? 'confidence-high' : est.confidence === 'medium' ? 'confidence-medium' : 'confidence-low';
+    const confidenceDots = est.confidence === 'high' ? '●●●' : est.confidence === 'medium' ? '●●○' : '●○○';
+
+    // Range tooltips
+    const durationTooltip = `Optimistic: ${formatDuration(est.durationOptimistic)}, Pessimistic: ${formatDuration(est.durationPessimistic)}`;
+    const tokensTooltip = `Optimistic: ${formatTokens(est.tokensOptimistic)}, Pessimistic: ${formatTokens(est.tokensPessimistic)}`;
+    const costTooltip = `Optimistic: ${formatCost(est.costOptimistic)}, Pessimistic: ${formatCost(est.costPessimistic)}`;
+
+    return `
+<tr class="${statusClass}">
+  <td class="estimate-story-cell">
+    <span class="estimate-story-id">${escapeHtml(est.storyId)}</span>
+    <span class="estimate-story-title" title="${escapeHtml(est.title)}">${escapeHtml(est.title)}</span>
+  </td>
+  <td class="estimate-tasks-cell">${est.taskCount}</td>
+  <td class="estimate-complexity-cell">
+    <span class="complexity-badge ${complexityClass}" title="${est.complexityLevel}">${est.complexity}</span>
+  </td>
+  <td class="estimate-duration-cell" title="${durationTooltip}">${formatDuration(est.duration)}</td>
+  <td class="estimate-tokens-cell" title="${tokensTooltip}">${formatTokens(est.tokens)}</td>
+  <td class="estimate-cost-cell" title="${costTooltip}">${formatCost(est.cost)}</td>
+  <td class="estimate-confidence-cell">
+    <span class="confidence-indicator ${confidenceClass}" title="${est.confidence}${est.usedHistory ? ' (historical)' : ''}">${confidenceDots}</span>
+  </td>
+  <td class="estimate-status-cell">
+    <span class="status-badge ${statusClass}">${statusLabel}</span>
+  </td>
+</tr>
+`;
+  }).join('');
+
+  const html = `
+<div class="estimate-breakdown-container">
+  <div class="estimate-table-container">
+    <table class="estimate-table">
+      <thead>
+        <tr>
+          <th class="estimate-story-header">Story</th>
+          <th class="estimate-tasks-header">Tasks</th>
+          <th class="estimate-complexity-header">Complexity</th>
+          <th class="estimate-duration-header">Time</th>
+          <th class="estimate-tokens-header">Tokens</th>
+          <th class="estimate-cost-header">Cost</th>
+          <th class="estimate-confidence-header">Confidence</th>
+          <th class="estimate-status-header">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
   </div>
 </div>
 `;

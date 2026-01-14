@@ -53,13 +53,32 @@
     <section id="streams-section">
       <div class="stream-actions-bar">
         <h2>All Streams <span class="htmx-indicator" id="streams-indicator"><span class="loading-spinner"></span></span></h2>
-        <button class="btn btn-primary"
-                hx-post="/api/stream/new"
-                hx-target="#streams-container"
-                hx-swap="innerHTML"
-                hx-on::after-request="handleNewStreamResponse(event)">
-          + New Stream
-        </button>
+        <div class="stream-actions-right">
+          <div class="view-toggle" role="group" aria-label="View toggle">
+            <button class="view-toggle-btn active" id="view-grid" onclick="switchView('grid')" title="Grid View">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="1" width="6" height="6" rx="1"/>
+                <rect x="9" y="1" width="6" height="6" rx="1"/>
+                <rect x="1" y="9" width="6" height="6" rx="1"/>
+                <rect x="9" y="9" width="6" height="6" rx="1"/>
+              </svg>
+            </button>
+            <button class="view-toggle-btn" id="view-timeline" onclick="switchView('timeline')" title="Timeline View">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="1" y="2" width="14" height="3" rx="1"/>
+                <rect x="1" y="7" width="10" height="3" rx="1"/>
+                <rect x="1" y="12" width="12" height="3" rx="1"/>
+              </svg>
+            </button>
+          </div>
+          <button class="btn btn-primary"
+                  hx-post="/api/stream/new"
+                  hx-target="#streams-container"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="handleNewStreamResponse(event)">
+            + New Stream
+          </button>
+        </div>
       </div>
       <div id="alert-container"></div>
       <div id="streams-container"
@@ -106,6 +125,54 @@
       document.getElementById('streams-section').style.display = 'block';
       document.getElementById('stream-detail-section').style.display = 'none';
     }
+
+    // Current view state
+    var currentView = 'grid';
+
+    // Switch between grid and timeline views
+    function switchView(view) {
+      if (view === currentView) return;
+
+      currentView = view;
+
+      // Update button states
+      document.getElementById('view-grid').classList.toggle('active', view === 'grid');
+      document.getElementById('view-timeline').classList.toggle('active', view === 'timeline');
+
+      // Update the container's HTMX attributes and reload
+      var container = document.getElementById('streams-container');
+      var endpoint = view === 'timeline' ? '/api/partials/streams-timeline' : '/api/partials/streams';
+
+      container.setAttribute('hx-get', endpoint);
+
+      // Show loading state
+      container.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Loading streams...</div>';
+
+      // Trigger HTMX to load the new view
+      htmx.ajax('GET', endpoint, '#streams-container');
+
+      // Store preference in localStorage
+      try {
+        localStorage.setItem('ralph-streams-view', view);
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+    }
+
+    // Restore view preference on page load
+    function restoreViewPreference() {
+      try {
+        var savedView = localStorage.getItem('ralph-streams-view');
+        if (savedView === 'timeline') {
+          switchView('timeline');
+        }
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', restoreViewPreference);
 
     // Show alert message
     function showAlert(type, message, duration) {
