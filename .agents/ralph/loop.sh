@@ -994,6 +994,39 @@ parse_token_field() {
   python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('$field',''))" "$json" 2>/dev/null || echo ""
 }
 
+# Rebuild token cache for the current stream
+# Called at end of build to ensure dashboard has fresh data
+rebuild_token_cache() {
+  if [ "$MODE" != "build" ]; then
+    return 0
+  fi
+
+  local cache_script
+  if [ -n "$RALPH_ROOT" ]; then
+    cache_script="$RALPH_ROOT/lib/tokens/index.js"
+  else
+    cache_script="$SCRIPT_DIR/../../lib/tokens/index.js"
+  fi
+
+  # Get the stream path (PRD-N directory)
+  local stream_path
+  stream_path="$(dirname "$PRD_PATH")"
+
+  if [ -f "$cache_script" ] && command -v node >/dev/null 2>&1; then
+    node -e "
+      const tokens = require('$cache_script');
+      const streamPath = '$stream_path';
+      const repoRoot = '$(dirname "$(dirname "$stream_path")")';
+      try {
+        tokens.rebuildCache(streamPath, tokens.parseTokensFromSummary, { repoRoot });
+        console.log('Token cache rebuilt for ' + streamPath);
+      } catch (e) {
+        console.error('Failed to rebuild token cache:', e.message);
+      }
+    " 2>/dev/null || true
+  fi
+}
+
 msg_info "Ralph mode: $MODE"
 msg_dim "Max iterations: $MAX_ITERATIONS"
 msg_dim "PRD: $PRD_PATH"
@@ -1174,6 +1207,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
         printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
         # Print summary table before exit
         print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
+        rebuild_token_cache
         msg_success "All stories complete."
         exit 0
       fi
@@ -1187,6 +1221,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
     if [ "$REMAINING" = "0" ]; then
       # Print summary table before exit
       print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "0"
+      rebuild_token_cache
       msg_success "No remaining stories."
       exit 0
     fi
@@ -1221,6 +1256,9 @@ fi
 
 # Print iteration summary table
 print_summary_table "$ITERATION_RESULTS" "$TOTAL_DURATION" "$SUCCESS_COUNT" "$ITERATION_COUNT" "$FINAL_REMAINING"
+
+# Rebuild token cache for dashboard
+rebuild_token_cache
 
 msg_warn "Reached max iterations ($MAX_ITERATIONS)."
 if [ "$MODE" = "plan" ]; then
