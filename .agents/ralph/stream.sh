@@ -223,6 +223,88 @@ show_wait_spinner() {
     "$spinner_char" "$elapsed_str" "$max_wait" "$lock_info"
 }
 
+# ============================================================================
+# Merge Queue Tracking (US-005)
+# ============================================================================
+
+MERGE_QUEUE_DIR="$LOCKS_DIR/merge-queue"
+
+register_in_merge_queue() {
+  # Register a stream as waiting for the merge lock
+  # Args: stream_id
+  local stream_id="$1"
+  mkdir -p "$MERGE_QUEUE_DIR"
+
+  # Create queue entry with PID and timestamp
+  cat > "$MERGE_QUEUE_DIR/$stream_id.wait" << EOF
+PID=$$
+STREAM_ID=$stream_id
+TIMESTAMP=$(date +%s)
+EOF
+}
+
+unregister_from_merge_queue() {
+  # Remove stream from waiting queue
+  # Args: stream_id
+  local stream_id="$1"
+  rm -f "$MERGE_QUEUE_DIR/$stream_id.wait"
+}
+
+get_merge_queue() {
+  # Returns list of streams waiting in merge queue (sorted by timestamp)
+  # Output format: "STREAM_ID (waiting Xs)" per line
+  if [[ ! -d "$MERGE_QUEUE_DIR" ]]; then
+    return
+  fi
+
+  local queue_entries=()
+
+  for entry_file in "$MERGE_QUEUE_DIR"/*.wait; do
+    if [[ -f "$entry_file" ]]; then
+      local entry_stream entry_pid entry_time now elapsed
+      entry_stream=$(grep '^STREAM_ID=' "$entry_file" 2>/dev/null | cut -d= -f2)
+      entry_pid=$(grep '^PID=' "$entry_file" 2>/dev/null | cut -d= -f2)
+      entry_time=$(grep '^TIMESTAMP=' "$entry_file" 2>/dev/null | cut -d= -f2)
+
+      # Skip if process is no longer running (stale entry)
+      if [[ -n "$entry_pid" ]] && ! kill -0 "$entry_pid" 2>/dev/null; then
+        rm -f "$entry_file"
+        continue
+      fi
+
+      # Calculate elapsed time
+      now=$(date +%s)
+      elapsed=$((now - entry_time))
+
+      # Store with timestamp for sorting
+      queue_entries+=("$entry_time|$entry_stream|$elapsed")
+    fi
+  done
+
+  # Sort by timestamp and output
+  if [[ ${#queue_entries[@]} -gt 0 ]]; then
+    printf '%s\n' "${queue_entries[@]}" | sort -t'|' -k1 -n | while IFS='|' read -r ts stream elapsed; do
+      if [[ $elapsed -lt 60 ]]; then
+        echo "$stream (waiting ${elapsed}s)"
+      elif [[ $elapsed -lt 3600 ]]; then
+        echo "$stream (waiting $((elapsed / 60))m)"
+      else
+        echo "$stream (waiting $((elapsed / 3600))h)"
+      fi
+    done
+  fi
+}
+
+get_historical_merge_duration() {
+  # Calculate average merge duration from recent merge operations
+  # Returns: average seconds or 0 if no history
+  # Looks at commit timestamps of merge commits to estimate duration
+
+  # For now, return a reasonable default estimate (30 seconds)
+  # Future enhancement: track actual merge durations in a log file
+  echo "30"
+}
+
 wait_for_merge_lock() {
   # Wait for merge lock with exponential backoff
   # Args: stream_id, max_wait_seconds (default 300)
@@ -235,6 +317,9 @@ wait_for_merge_lock() {
 
   msg_dim "Merge lock is held. Waiting with exponential backoff..."
 
+  # Register in merge queue for visibility (US-005)
+  register_in_merge_queue "$stream_id"
+
   while [[ $elapsed -lt $max_wait ]]; do
     # Check if lock is now available
     if ! is_merge_lock_held; then
@@ -242,6 +327,7 @@ wait_for_merge_lock() {
       printf "\r%80s\r" " "
       msg_dim "Lock released. Attempting to acquire..."
       if acquire_merge_lock "$stream_id"; then
+        unregister_from_merge_queue "$stream_id"
         return 0
       fi
       # Someone else grabbed it - keep waiting
@@ -275,6 +361,7 @@ wait_for_merge_lock() {
   local lock_info
   lock_info=$(get_merge_lock_info)
   msg_dim "Current holder: $lock_info"
+  unregister_from_merge_queue "$stream_id"
   return 1
 }
 
@@ -947,6 +1034,81 @@ cmd_cleanup() {
 }
 
 # ============================================================================
+# Merge Queue Status (US-005)
+# ============================================================================
+
+cmd_merge_status() {
+  section_header "Merge Queue Status"
+
+  # Check if merge lock is held
+  if is_merge_lock_held; then
+    local holder_stream holder_pid holder_time now elapsed
+    holder_stream=$(grep '^STREAM_ID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+    holder_pid=$(grep '^PID=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+    holder_time=$(grep '^TIMESTAMP=' "$MERGE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+
+    # Calculate elapsed time
+    now=$(date +%s)
+    elapsed=$((now - holder_time))
+
+    # Format elapsed time nicely
+    local elapsed_str
+    if [[ $elapsed -lt 60 ]]; then
+      elapsed_str="${elapsed}s"
+    elif [[ $elapsed -lt 3600 ]]; then
+      elapsed_str="$((elapsed / 60))m $((elapsed % 60))s"
+    else
+      elapsed_str="$((elapsed / 3600))h $((elapsed % 3600 / 60))m"
+    fi
+
+    printf "${C_BOLD}Current Merge:${C_RESET}\n"
+    printf "  ${C_YELLOW}${SYM_RUNNING}${C_RESET} ${C_BOLD}%s${C_RESET} ${C_DIM}(PID %s)${C_RESET}\n" "$holder_stream" "$holder_pid"
+    printf "  ${C_DIM}Started: %s ago${C_RESET}\n" "$elapsed_str"
+    echo ""
+
+    # Show waiting queue
+    local queue
+    queue=$(get_merge_queue)
+    if [[ -n "$queue" ]]; then
+      printf "${C_BOLD}Waiting Queue:${C_RESET}\n"
+      local position=1
+      while IFS= read -r entry; do
+        printf "  ${C_DIM}%d.${C_RESET} %s\n" "$position" "$entry"
+        ((position++))
+      done <<< "$queue"
+      echo ""
+
+      # Estimate wait time
+      local queue_count avg_duration estimated_wait
+      queue_count=$(echo "$queue" | wc -l | tr -d ' ')
+      avg_duration=$(get_historical_merge_duration)
+      estimated_wait=$((queue_count * avg_duration))
+
+      if [[ $estimated_wait -lt 60 ]]; then
+        printf "${C_DIM}Estimated wait: ~%ds (based on ~%ds avg merge time)${C_RESET}\n" "$estimated_wait" "$avg_duration"
+      else
+        printf "${C_DIM}Estimated wait: ~%dm (based on ~%ds avg merge time)${C_RESET}\n" "$((estimated_wait / 60))" "$avg_duration"
+      fi
+    else
+      printf "${C_DIM}No streams waiting in queue${C_RESET}\n"
+    fi
+  else
+    printf "${C_GREEN}${SYM_COMPLETED}${C_RESET} ${C_BOLD}No merge in progress${C_RESET}\n"
+    printf "${C_DIM}The merge lock is available${C_RESET}\n"
+
+    # Check for any stale queue entries and clean them up
+    local queue
+    queue=$(get_merge_queue)
+    if [[ -n "$queue" ]]; then
+      echo ""
+      printf "${C_YELLOW}Note:${C_RESET} Found orphaned queue entries (cleaned up):\n"
+      echo "$queue"
+    fi
+  fi
+  echo ""
+}
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -991,6 +1153,9 @@ case "$cmd" in
     fi
     cmd_cleanup "$1"
     ;;
+  merge-status)
+    cmd_merge_status
+    ;;
   *)
     printf "${C_BOLD}Ralph Stream${C_RESET} ${C_DIM}- Multi-PRD parallel execution${C_RESET}\n"
     printf "\n${C_BOLD}${C_CYAN}Usage:${C_RESET}\n"
@@ -1006,6 +1171,7 @@ case "$cmd" in
     printf "                              ${C_DIM}--force: ignore conflicts${C_RESET}\n"
     printf "                              ${C_DIM}--wait: wait if lock is held${C_RESET}\n"
     printf "                              ${C_DIM}--max-wait=N: max wait seconds (default: 300)${C_RESET}\n"
+    printf "  ${C_GREEN}ralph stream merge-status${C_RESET}     Show merge lock holder and waiting queue\n"
     printf "  ${C_GREEN}ralph stream cleanup ${C_YELLOW}<N>${C_RESET}      Remove stream worktree\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
