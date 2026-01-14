@@ -315,6 +315,9 @@ CURRENT_AGENT="$DEFAULT_AGENT_NAME"
 LAST_FAILURE_TYPE=""
 # Chain position tracking for fallback (0-indexed)
 CHAIN_POSITION=0
+# Switch tracking for run summary (format: "from:to:reason:story,from:to:reason:story,...")
+SWITCHES_THIS_RUN=""
+SWITCH_COUNT=0
 
 # Classify failure type from exit code and log content
 # Usage: classify_failure <exit_code> <log_file> -> "timeout" | "error" | "quality" | "success"
@@ -453,17 +456,50 @@ agent_available() {
   fi
 }
 
+# Notify about an agent switch with terminal output and activity logging
+# Usage: notify_switch <from_agent> <to_agent> <reason> <story_id> <consecutive_failures>
+# Displays a colored banner and logs to activity.log
+# Tracks switch for run summary
+notify_switch() {
+  local from_agent="$1"
+  local to_agent="$2"
+  local reason="$3"
+  local story_id="${4:-unknown}"
+  local failures="${5:-0}"
+
+  # Log to activity.log with structured format
+  log_activity "AGENT_SWITCH from=$from_agent to=$to_agent reason=$reason story=$story_id failures=$failures"
+
+  # Track switch for run summary
+  SWITCHES_THIS_RUN="${SWITCHES_THIS_RUN}${SWITCHES_THIS_RUN:+,}$from_agent:$to_agent:$reason:$story_id"
+  SWITCH_COUNT=$((SWITCH_COUNT + 1))
+
+  # Terminal output with colored banner
+  printf "\n${C_YELLOW}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_YELLOW}║${C_RESET}${C_BOLD}${C_YELLOW}                    AGENT SWITCH                        ${C_RESET}${C_YELLOW}║${C_RESET}\n"
+  printf "${C_YELLOW}╠═══════════════════════════════════════════════════════╣${C_RESET}\n"
+  printf "${C_YELLOW}║${C_RESET}  From: ${C_DIM}%-10s${C_RESET}  →  To: ${C_CYAN}%-10s${C_RESET}        ${C_YELLOW}║${C_RESET}\n" "$from_agent" "$to_agent"
+  printf "${C_YELLOW}║${C_RESET}  Reason: ${C_DIM}%-44s${C_RESET}${C_YELLOW}║${C_RESET}\n" "$reason"
+  if [ -n "$story_id" ] && [ "$story_id" != "unknown" ]; then
+    printf "${C_YELLOW}║${C_RESET}  Story: ${C_CYAN}%-45s${C_RESET}${C_YELLOW}║${C_RESET}\n" "$story_id"
+  fi
+  printf "${C_YELLOW}║${C_RESET}  Consecutive failures: ${C_RED}%-30s${C_RESET}${C_YELLOW}║${C_RESET}\n" "$failures"
+  printf "${C_YELLOW}╚═══════════════════════════════════════════════════════╝${C_RESET}\n\n"
+}
+
 # Get the next available agent from the fallback chain
-# Usage: switch_to_next_agent -> agent_name (or empty string if chain exhausted)
+# Usage: switch_to_next_agent <story_id> -> agent_name (or empty string if chain exhausted)
 # Updates CURRENT_AGENT, CHAIN_POSITION, and AGENT_CMD when a switch occurs
+# Displays terminal notification when a switch occurs
 switch_to_next_agent() {
+  local story_id="${1:-unknown}"
   local chain_array
   # Convert space-separated chain to array
   read -ra chain_array <<< "$AGENT_FALLBACK_CHAIN"
   local chain_length="${#chain_array[@]}"
 
   if [ "$chain_length" -eq 0 ]; then
-    log_activity "SWITCH_FAILED reason=empty_chain"
+    log_activity "SWITCH_FAILED reason=empty_chain story=$story_id"
     echo ""
     return
   fi
@@ -488,18 +524,26 @@ switch_to_next_agent() {
     if agent_available "$candidate"; then
       CURRENT_AGENT="$candidate"
       AGENT_CMD="$(resolve_agent_cmd "$candidate")"
-      log_activity "AGENT_SWITCH from=$old_agent to=$CURRENT_AGENT position=$CHAIN_POSITION reason=fallback"
+      # Notify with terminal output and logging
+      notify_switch "$old_agent" "$CURRENT_AGENT" "$LAST_FAILURE_TYPE" "$story_id" "$CONSECUTIVE_FAILURES"
       echo "$CURRENT_AGENT"
       return
     else
-      log_activity "AGENT_SKIP agent=$candidate reason=unavailable"
+      log_activity "AGENT_SKIP agent=$candidate reason=unavailable story=$story_id"
     fi
 
     attempts=$((attempts + 1))
   done
 
-  # All agents tried, chain exhausted
-  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$attempts"
+  # All agents tried, chain exhausted - notify failure
+  log_activity "SWITCH_FAILED reason=chain_exhausted tried=$attempts story=$story_id"
+  printf "\n${C_RED}╔═══════════════════════════════════════════════════════╗${C_RESET}\n"
+  printf "${C_RED}║${C_RESET}${C_BOLD}${C_RED}              AGENT SWITCH FAILED                      ${C_RESET}${C_RED}║${C_RESET}\n"
+  printf "${C_RED}╠═══════════════════════════════════════════════════════╣${C_RESET}\n"
+  printf "${C_RED}║${C_RESET}  All agents in fallback chain exhausted.              ${C_RED}║${C_RESET}\n"
+  printf "${C_RED}║${C_RESET}  Tried: ${C_DIM}%-45s${C_RESET}${C_RED}║${C_RESET}\n" "$attempts agents"
+  printf "${C_RED}║${C_RESET}  Chain: ${C_DIM}%-45s${C_RESET}${C_RED}║${C_RESET}\n" "$AGENT_FALLBACK_CHAIN"
+  printf "${C_RED}╚═══════════════════════════════════════════════════════╝${C_RESET}\n\n"
   echo ""
 }
 
@@ -1438,6 +1482,25 @@ write_run_meta() {
       fi
     else
       echo "- No failure pattern detected"
+    fi
+    echo ""
+    echo "## Agent Switches"
+    if [ "$SWITCH_COUNT" -gt 0 ]; then
+      echo "- Switch count: $SWITCH_COUNT"
+      echo ""
+      # Parse and display each switch
+      IFS=',' read -ra SWITCH_ARRAY <<< "$SWITCHES_THIS_RUN"
+      for switch_entry in "${SWITCH_ARRAY[@]}"; do
+        IFS=':' read -r from_agent to_agent reason switch_story <<< "$switch_entry"
+        echo "### Switch: $from_agent → $to_agent"
+        echo "- Reason: $reason"
+        if [ -n "$switch_story" ] && [ "$switch_story" != "unknown" ]; then
+          echo "- Story: $switch_story"
+        fi
+        echo ""
+      done
+    else
+      echo "- No agent switches occurred"
     fi
     echo ""
   } > "$path"
