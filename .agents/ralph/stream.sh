@@ -20,57 +20,15 @@ LOCKS_DIR="$RALPH_DIR/locks"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
+# Source shared PRD utilities (stream/PRD folder management)
+# Provides: get_next_stream_id, normalize_stream_id, stream_exists, get_stream_dir
+# (aliases for: get_next_prd_number, normalize_prd_id, prd_exists, get_prd_dir)
+# shellcheck source=lib/prd-utils.sh
+source "$SCRIPT_DIR/lib/prd-utils.sh"
+
 # ============================================================================
 # Helpers
 # ============================================================================
-
-get_next_stream_id() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  echo $((max + 1))
-}
-
-normalize_stream_id() {
-  local input="$1"
-  if [[ "$input" =~ ^[0-9]+$ ]]; then
-    echo "PRD-$input"
-  elif [[ "$input" =~ ^[Pp][Rr][Dd]-[0-9]+$ ]]; then
-    # Normalize to uppercase PRD-N
-    local num="${input##*[Pp][Rr][Dd]-}"
-    echo "PRD-$num"
-  else
-    echo ""
-  fi
-}
-
-stream_exists() {
-  local stream_id="$1"
-  # Check both uppercase and legacy lowercase
-  [[ -d "$RALPH_DIR/$stream_id" ]] || [[ -d "$RALPH_DIR/${stream_id,,}" ]]
-}
-
-get_stream_dir() {
-  local stream_id="$1"
-  # Check uppercase first (new), then legacy lowercase
-  if [[ -d "$RALPH_DIR/$stream_id" ]]; then
-    echo "$RALPH_DIR/$stream_id"
-  elif [[ -d "$RALPH_DIR/${stream_id,,}" ]]; then
-    echo "$RALPH_DIR/${stream_id,,}"
-  else
-    # Default to the given stream_id (should be uppercase for new)
-    echo "$RALPH_DIR/$stream_id"
-  fi
-}
 
 worktree_exists() {
   local stream_id="$1"

@@ -19,57 +19,11 @@ CONFIG_FILE="${SCRIPT_DIR}/config.sh"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
-# PRD folder helpers - each plan gets its own PRD-N folder
+# PRD folder helpers - sourced from shared library
+# Sets RALPH_DIR and provides: get_next_prd_number, get_latest_prd_number, get_prd_dir
 RALPH_DIR=".ralph"
-
-get_next_prd_number() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  echo $((max + 1))
-}
-
-get_latest_prd_number() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
-  if (( max == 0 )); then
-    echo ""
-  else
-    echo "$max"
-  fi
-}
-
-get_prd_dir() {
-  local num="$1"
-  # Check uppercase first (new), then legacy lowercase
-  if [[ -d "$RALPH_DIR/PRD-$num" ]]; then
-    echo "$RALPH_DIR/PRD-$num"
-  elif [[ -d "$RALPH_DIR/prd-$num" ]]; then
-    echo "$RALPH_DIR/prd-$num"
-  else
-    # Default to uppercase for new folders
-    echo "$RALPH_DIR/PRD-$num"
-  fi
-}
+# shellcheck source=lib/prd-utils.sh
+source "$SCRIPT_DIR/lib/prd-utils.sh"
 
 # Determine active PRD number from env or auto-detect
 if [[ -n "${PRD_NUMBER:-}" ]]; then

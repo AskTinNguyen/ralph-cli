@@ -40,18 +40,18 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Update both loop.sh and stream.sh to source the shared library
 - [x] Test colored output works in both TTY and non-TTY modes
 
-### [ ] US-002: Extract shared PRD utilities
+### [x] US-002: Extract shared PRD utilities
 **As a** ralph-cli maintainer
 **I want** PRD folder management functions centralized
 **So that** I don't maintain duplicate logic for finding and validating PRD directories
 
 #### Acceptance Criteria
-- [ ] Create `.agents/ralph/lib/prd-utils.sh` with shared RALPH_DIR variable
-- [ ] Extract from loop.sh:25-72: `get_next_prd_number()`, `get_latest_prd_number()`, `get_prd_dir()`
-- [ ] Extract from stream.sh: `normalize_stream_id()` → `normalize_prd_id()`, `stream_exists()` → `prd_exists()`
-- [ ] Consolidate `get_stream_dir()` with `get_prd_dir()`
-- [ ] Update both loop.sh and stream.sh to source the library
-- [ ] Test PRD folder resolution works correctly
+- [x] Create `.agents/ralph/lib/prd-utils.sh` with shared RALPH_DIR variable
+- [x] Extract from loop.sh:25-72: `get_next_prd_number()`, `get_latest_prd_number()`, `get_prd_dir()`
+- [x] Extract from stream.sh: `normalize_stream_id()` → `normalize_prd_id()`, `stream_exists()` → `prd_exists()`
+- [x] Consolidate `get_stream_dir()` with `get_prd_dir()`
+- [x] Update both loop.sh and stream.sh to source the library
+- [x] Test PRD folder resolution works correctly
 
 ### [ ] US-003: Extract embedded Python to separate files
 **As a** ralph-cli maintainer
