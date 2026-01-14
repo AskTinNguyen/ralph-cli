@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, BuildOptions } from '../types.js';
+import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, BuildOptions, FixStats, FixRecord, FixTypeStats } from '../types.js';
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
 import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../services/log-parser.js';
@@ -18,6 +18,82 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const api = new Hono();
+
+/**
+ * Parse AUTO_FIX entries from an activity.log file
+ * @param logPath - Path to activity.log
+ * @returns Fix statistics object
+ */
+function parseFixStatsFromLog(logPath: string): FixStats | null {
+  try {
+    if (!fs.existsSync(logPath)) {
+      return null;
+    }
+
+    const content = fs.readFileSync(logPath, 'utf-8');
+    const lines = content.split('\n');
+
+    const fixes: FixRecord[] = [];
+    // Match AUTO_FIX log entries
+    // Format: [timestamp] AUTO_FIX type=X command="Y" status=success|failure duration=Nms
+    const pattern = /^\[([^\]]+)\] AUTO_FIX type=(\w+) command="([^"]*)" status=(\w+) duration=(\d+)ms(?:\s+error="([^"]*)")?/;
+
+    for (const line of lines) {
+      const match = line.match(pattern);
+      if (match) {
+        fixes.push({
+          id: `fix-${Date.parse(match[1]) || Date.now()}-${fixes.length}`,
+          type: match[2],
+          command: match[3] || null,
+          status: match[4] as 'success' | 'failure' | 'skipped',
+          duration: parseInt(match[5], 10),
+          error: match[6] || null,
+          startTime: Date.parse(match[1]) || Date.now(),
+          endTime: null,
+          stateChanges: null,
+        });
+      }
+    }
+
+    if (fixes.length === 0) {
+      return null;
+    }
+
+    // Calculate summary stats
+    const stats: FixStats = {
+      attempted: fixes.length,
+      succeeded: 0,
+      failed: 0,
+      byType: {},
+      totalDuration: 0,
+      records: fixes,
+    };
+
+    for (const fix of fixes) {
+      stats.totalDuration += fix.duration || 0;
+
+      if (fix.status === 'success') {
+        stats.succeeded++;
+      } else if (fix.status !== 'skipped') {
+        stats.failed++;
+      }
+
+      if (!stats.byType[fix.type]) {
+        stats.byType[fix.type] = { attempted: 0, succeeded: 0, failed: 0 };
+      }
+      stats.byType[fix.type].attempted++;
+      if (fix.status === 'success') {
+        stats.byType[fix.type].succeeded++;
+      } else if (fix.status !== 'skipped') {
+        stats.byType[fix.type].failed++;
+      }
+    }
+
+    return stats;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/status
@@ -94,11 +170,38 @@ api.get("/status", (c) => {
     }
   }
 
+  // Parse fix statistics from activity.log (US-003)
+  let fixStats: FixStats | undefined;
+  if (rootPath) {
+    // Try multi-stream mode first (active stream's activity.log)
+    if (mode === 'multi') {
+      const streams = getStreams();
+      if (streams.length > 0) {
+        // Use the last/active stream
+        const activeStream = streams[streams.length - 1];
+        const streamPath = path.join(rootPath, `PRD-${activeStream.id}`);
+        const activityLogPath = path.join(streamPath, 'activity.log');
+        const stats = parseFixStatsFromLog(activityLogPath);
+        if (stats) {
+          fixStats = stats;
+        }
+      }
+    } else if (mode === 'single') {
+      // Single mode: check root .ralph/activity.log
+      const activityLogPath = path.join(rootPath, 'activity.log');
+      const stats = parseFixStatsFromLog(activityLogPath);
+      if (stats) {
+        fixStats = stats;
+      }
+    }
+  }
+
   const status: RalphStatus = {
     mode,
     rootPath,
     progress,
     isRunning,
+    fixStats,
   };
 
   return c.json(status);
@@ -164,6 +267,80 @@ api.get("/progress", (c) => {
       pending: counts.pending,
       completionPercentage: getCompletionPercentage(stories),
     },
+  });
+});
+
+/**
+ * GET /api/fixes
+ *
+ * Returns fix statistics for auto-remediation tracking (US-003).
+ * Supports optional stream parameter to get fixes for a specific stream.
+ */
+api.get('/fixes', (c) => {
+  const rootPath = getRalphRoot();
+  const mode = getMode();
+  const streamParam = c.req.query('stream');
+
+  if (!rootPath) {
+    return c.json({
+      fixStats: null,
+      message: 'No Ralph root found',
+    });
+  }
+
+  let fixStats: FixStats | null = null;
+
+  if (streamParam) {
+    // Get fixes for specific stream
+    const streamPath = path.join(rootPath, `PRD-${streamParam}`);
+    const activityLogPath = path.join(streamPath, 'activity.log');
+    fixStats = parseFixStatsFromLog(activityLogPath);
+  } else if (mode === 'multi') {
+    // Aggregate fixes across all streams
+    const streams = getStreams();
+    const allFixes: FixRecord[] = [];
+
+    for (const stream of streams) {
+      const streamPath = path.join(rootPath, `PRD-${stream.id}`);
+      const activityLogPath = path.join(streamPath, 'activity.log');
+      const stats = parseFixStatsFromLog(activityLogPath);
+      if (stats) {
+        allFixes.push(...stats.records);
+      }
+    }
+
+    if (allFixes.length > 0) {
+      fixStats = {
+        attempted: allFixes.length,
+        succeeded: allFixes.filter(f => f.status === 'success').length,
+        failed: allFixes.filter(f => f.status === 'failure').length,
+        byType: {},
+        totalDuration: allFixes.reduce((sum, f) => sum + (f.duration || 0), 0),
+        records: allFixes,
+      };
+
+      // Calculate byType
+      for (const fix of allFixes) {
+        if (!fixStats.byType[fix.type]) {
+          fixStats.byType[fix.type] = { attempted: 0, succeeded: 0, failed: 0 };
+        }
+        fixStats.byType[fix.type].attempted++;
+        if (fix.status === 'success') {
+          fixStats.byType[fix.type].succeeded++;
+        } else if (fix.status !== 'skipped') {
+          fixStats.byType[fix.type].failed++;
+        }
+      }
+    }
+  } else if (mode === 'single') {
+    const activityLogPath = path.join(rootPath, 'activity.log');
+    fixStats = parseFixStatsFromLog(activityLogPath);
+  }
+
+  return c.json({
+    fixStats,
+    mode,
+    stream: streamParam || null,
   });
 });
 
