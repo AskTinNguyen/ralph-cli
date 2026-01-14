@@ -1923,99 +1923,6 @@ ${pc.bold(pc.cyan("Examples:"))}
     const registryModule = require("../lib/registry");
     const { formatDuration } = require("../lib/eval/reporter");
 
-    // Check for switches subcommand (US-004)
-    const subCmd = args[1];
-    if (subCmd === "switches") {
-      const metricsModule = require("../lib/estimate/metrics");
-      const ralphDir = path.join(cwd, ".ralph");
-
-      if (!exists(ralphDir)) {
-        warn("No .ralph directory found. Run some build iterations first.");
-        process.exit(0);
-      }
-
-      // Get latest PRD directory
-      const prdDirs = fs.readdirSync(ralphDir)
-        .filter(d => d.match(/^PRD-\d+$/))
-        .sort((a, b) => {
-          const numA = parseInt(a.split('-')[1]);
-          const numB = parseInt(b.split('-')[1]);
-          return numB - numA;
-        });
-
-      if (prdDirs.length === 0) {
-        warn("No PRD directories found. Run some build iterations first.");
-        process.exit(0);
-      }
-
-      const latestPrdDir = path.join(ralphDir, prdDirs[0]);
-      const agentStats = metricsModule.getAgentSuccessRates(latestPrdDir, { groupByStoryType: true });
-
-      if (agentStats.totalRuns === 0) {
-        warn("No metrics data found. Run some build iterations first.");
-        process.exit(0);
-      }
-
-      console.log("");
-      console.log(pc.bold("Agent Switch Analytics"));
-      console.log(pc.dim("=".repeat(70)));
-      console.log("");
-
-      // Overall success rates
-      console.log(pc.bold(pc.cyan("Overall Agent Performance")));
-      console.log(pc.dim("-".repeat(70)));
-      console.log(pc.dim(`${"AGENT".padEnd(15)} ${"SUCCESS RATE".padStart(13)} ${"RUNS".padStart(6)} ${"ERRORS".padStart(7)} ${"AVG SWITCHES".padStart(13)}`));
-      console.log(pc.dim("-".repeat(70)));
-
-      const agents = Object.keys(agentStats.overall).sort((a, b) => {
-        return (agentStats.overall[b].successRate || 0) - (agentStats.overall[a].successRate || 0);
-      });
-
-      for (const agent of agents) {
-        const stats = agentStats.overall[agent];
-        const rateStr = `${stats.successRate}%`.padStart(13);
-        const runsStr = String(stats.total).padStart(6);
-        const errorsStr = String(stats.error).padStart(7);
-        const switchStr = String(stats.avgSwitchesPerRun || '0.00').padStart(13);
-
-        const rateColor = stats.successRate >= 70 ? pc.green : stats.successRate >= 50 ? pc.yellow : pc.red;
-        console.log(`${agent.padEnd(15)} ${rateColor(rateStr)} ${runsStr} ${errorsStr} ${switchStr}`);
-      }
-
-      console.log("");
-      console.log(pc.dim("-".repeat(70)));
-      console.log("");
-
-      // Recommendations
-      console.log(pc.bold(pc.cyan("Recommendations")));
-      console.log(pc.dim("-".repeat(70)));
-
-      const bestAgent = agents[0];
-      const bestStats = agentStats.overall[bestAgent];
-      const worstAgent = agents[agents.length - 1];
-      const worstStats = agentStats.overall[worstAgent];
-
-      if (bestAgent && bestStats && bestStats.total >= 3) {
-        success(`Best performing agent: ${pc.bold(bestAgent)} (${bestStats.successRate}% success rate)`);
-        console.log(`  ${pc.dim("→")} ${bestStats.total} runs, ${bestStats.success} successes, avg ${bestStats.avgSwitchesPerRun} switches/run`);
-      }
-
-      if (worstAgent && worstStats && worstAgent !== bestAgent && worstStats.total >= 3) {
-        warn(`Worst performing agent: ${pc.bold(worstAgent)} (${worstStats.successRate}% success rate)`);
-        console.log(`  ${pc.dim("→")} ${worstStats.total} runs, ${worstStats.error} errors`);
-      }
-
-      console.log("");
-
-      if (bestAgent && bestStats && bestStats.total >= 5) {
-        info(`Consider setting ${pc.bold(bestAgent)} as your default agent in .agents/ralph/config.sh`);
-      }
-
-      console.log("");
-      console.log(pc.dim("-".repeat(70)));
-      process.exit(0);
-    }
-
     // Parse flags
     let globalFlag = false;
     let jsonFlag = false;
@@ -2023,7 +1930,8 @@ ${pc.bold(pc.cyan("Examples:"))}
     let tokensFlag = false;
     let switchesFlag = false;
 
-    // Check for subcommand (subCmd already declared above)
+    // Check for switches subcommand (US-004)
+    const subCmd = args[1];
     if (subCmd === "switches") {
       switchesFlag = true;
     }
