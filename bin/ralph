@@ -31,6 +31,7 @@ let prdOutPath = null;
 let uiOpenBrowser = false;  // For --open flag in ui command
 let estimatePricing = null;  // For --pricing flag in estimate command (format: "input:X,output:Y")
 let estimateModel = null;  // For --model flag in estimate command
+let resumeMode = false;  // For --resume flag in build command
 
 function exists(p) {
   try {
@@ -49,7 +50,7 @@ ${pc.bold(pc.cyan("Commands:"))}
   ${pc.green("prd")} ${pc.dim("[\"<request>\"] [--out path]")}      Generate a PRD via agent
   ${pc.green("ping")}                                Minimal agent health check
   ${pc.green("log")} ${pc.dim("\"<message>\"")}                     Append to .ralph/activity.log
-  ${pc.green("build")} ${pc.dim("[n] [--no-commit]")}             Run build loop (default)
+  ${pc.green("build")} ${pc.dim("[n] [--no-commit] [--resume]")}   Run build loop (default)
   ${pc.green("plan")} ${pc.dim("[n]")}                            Run planning loop
   ${pc.green("stream")} ${pc.dim("<subcmd>")}                     Multi-stream parallel execution
   ${pc.green("eval")} ${pc.dim("[run-id] [--all]")}               Evaluate run quality and generate reports
@@ -123,6 +124,7 @@ ${pc.bold(pc.cyan("Options:"))}
   ${pc.yellow("--plan")} ${pc.dim("<path>")}                       Override plan path
   ${pc.yellow("--progress")} ${pc.dim("<path>")}                   Override progress log path
   ${pc.yellow("--agent")} ${pc.dim("<codex|claude|droid>")}        Override agent runner
+  ${pc.yellow("--resume")}                             Resume build from last checkpoint
   ${pc.yellow("--import-from")} ${pc.dim("<project>")}             Import guardrails during install
 
 ${pc.bold(pc.cyan("Notes:"))}
@@ -217,6 +219,10 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   }
   if (arg === "--open") {
     uiOpenBrowser = true;
+    continue;
+  }
+  if (arg === "--resume") {
+    resumeMode = true;
     continue;
   }
   // Parse --pricing flag for estimate command (format: "input:X,output:Y")
@@ -514,6 +520,10 @@ async function main() {
   if (resolvedPrdPath) env.PRD_PATH = resolvedPrdPath;
   if (planPath) env.PLAN_PATH = planPath;
   if (progressPath) env.PROGRESS_PATH = progressPath;
+  // Set resume mode env variable for loop.sh
+  if (resumeMode) {
+    env.RALPH_RESUME = "1";
+  }
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");
@@ -2627,6 +2637,52 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     // Keep the process running
     return;
+  }
+
+  // Check for existing checkpoint and suggest --resume (build mode only)
+  if ((cmd === "build" || !cmd || args[0] === "build") && !resumeMode) {
+    const checkpointModule = require("../lib/checkpoint");
+    const ralphDir = path.join(cwd, ".ralph");
+
+    // Determine PRD folder
+    let prdFolderToCheck = null;
+    if (prdNumber) {
+      // Check uppercase first, then lowercase
+      const upperPath = path.join(ralphDir, `PRD-${prdNumber}`);
+      const lowerPath = path.join(ralphDir, `prd-${prdNumber}`);
+      if (exists(upperPath)) {
+        prdFolderToCheck = upperPath;
+      } else if (exists(lowerPath)) {
+        prdFolderToCheck = lowerPath;
+      }
+    } else {
+      // Find latest PRD folder
+      if (exists(ralphDir)) {
+        const entries = fs.readdirSync(ralphDir, { withFileTypes: true });
+        const prdFolders = entries
+          .filter((e) => e.isDirectory() && /^PRD-\d+$/i.test(e.name))
+          .sort((a, b) => {
+            const numA = parseInt(a.name.replace(/PRD-/i, ""), 10);
+            const numB = parseInt(b.name.replace(/PRD-/i, ""), 10);
+            return numB - numA; // Descending order (latest first)
+          });
+        if (prdFolders.length > 0) {
+          prdFolderToCheck = path.join(ralphDir, prdFolders[0].name);
+        }
+      }
+    }
+
+    // Check if checkpoint exists and show hint
+    if (prdFolderToCheck && checkpointModule.hasCheckpoint(prdFolderToCheck)) {
+      const result = checkpointModule.loadCheckpoint(prdFolderToCheck);
+      if (result.success && result.checkpoint) {
+        const cp = result.checkpoint;
+        console.log("");
+        info(`Checkpoint found at iteration ${pc.bold(cp.iteration)} (story ${pc.bold(cp.story_id || "unknown")}).`);
+        dim(`Use ${pc.cyan("--resume")} to continue from checkpoint.`);
+        console.log("");
+      }
+    }
   }
 
   const result = spawnSync(loopPath, loopArgs, {
