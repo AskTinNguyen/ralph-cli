@@ -388,19 +388,19 @@ get_stream_status() {
   stream_dir="$(get_stream_dir "$stream_id")"
 
   if [[ ! -d "$stream_dir" ]]; then
-    echo "not_found"
+    echo "$STATUS_NOT_FOUND"
     return
   fi
 
   if is_stream_running "$stream_id"; then
-    echo "running"
+    echo "$STATUS_RUNNING"
     return
   fi
 
   # Check if all stories are done by looking at PRD
   local prd_file="$stream_dir/prd.md"
   if [[ ! -f "$prd_file" ]]; then
-    echo "no_prd"
+    echo "$STATUS_NO_PRD"
     return
   fi
 
@@ -411,11 +411,11 @@ get_stream_status() {
   remaining=${remaining:-0}
 
   if [[ "$total" -eq 0 ]]; then
-    echo "no_stories"
+    echo "$STATUS_NO_STORIES"
   elif [[ "$remaining" -eq 0 ]]; then
-    echo "completed"
+    echo "$STATUS_COMPLETED"
   else
-    echo "ready"
+    echo "$STATUS_READY"
   fi
 }
 
@@ -546,15 +546,15 @@ cmd_list() {
       # Use standardized symbols and colors
       local symbol status_color
       case "$status" in
-        running)
+        "$STATUS_RUNNING")
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           ;;
-        completed)
+        "$STATUS_COMPLETED")
           symbol="$SYM_COMPLETED"
           status_color="${C_GREEN}"
           ;;
-        ready)
+        "$STATUS_READY")
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -612,17 +612,17 @@ cmd_status() {
       row_prefix=""
       row_suffix=""
       case "$status" in
-        running)
+        "$STATUS_RUNNING")
           symbol="$SYM_RUNNING"
           status_color="${C_BOLD}${C_YELLOW}"
           row_prefix="${C_BOLD}"
           row_suffix="${C_RESET}"
           ;;
-        completed)
+        "$STATUS_COMPLETED")
           symbol="$SYM_COMPLETED"
           status_color="${C_GREEN}"
           ;;
-        ready)
+        "$STATUS_READY")
           symbol="$SYM_READY"
           status_color="${C_CYAN}"
           ;;
@@ -944,7 +944,7 @@ cmd_merge() {
 
   local status
   status=$(get_stream_status "$stream_id")
-  if [[ "$status" != "completed" ]]; then
+  if [[ "$status" != "$STATUS_COMPLETED" ]]; then
     msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
   fi

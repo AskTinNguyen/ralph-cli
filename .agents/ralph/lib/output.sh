@@ -67,6 +67,18 @@ SYM_RUNNING="▶"
 SYM_UNKNOWN="?"
 SYM_POINTER="→"
 
+# ============================================================================
+# Status constants for stream/PRD states
+# Use these instead of magic strings for maintainability and error prevention
+# ============================================================================
+
+STATUS_RUNNING="running"
+STATUS_COMPLETED="completed"
+STATUS_READY="ready"
+STATUS_NOT_FOUND="not_found"
+STATUS_NO_PRD="no_prd"
+STATUS_NO_STORIES="no_stories"
+
 # Section header with color and separator
 section_header() {
   local title="$1"

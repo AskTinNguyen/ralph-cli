@@ -114,16 +114,16 @@ Refactor ralph-cli shell scripts to reduce code duplication, improve maintainabi
 - [x] Add configurable delays to config.sh: ITERATION_DELAY, PROGRESS_INTERVAL
 - [x] Test iteration timing and progress updates work correctly
 
-### [ ] US-008: Add status constants and configuration
+### [x] US-008: Add status constants and configuration
 **As a** ralph-cli maintainer
 **I want** magic strings replaced with named constants
 **So that** code is more maintainable and less error-prone
 
 #### Acceptance Criteria
-- [ ] Add status constants to lib/output.sh or new lib/constants.sh
-- [ ] Define: STATUS_RUNNING, STATUS_COMPLETED, STATUS_READY, STATUS_NOT_FOUND
-- [ ] Update stream.sh to use constants instead of string literals
-- [ ] Test status checks work with constants
+- [x] Add status constants to lib/output.sh or new lib/constants.sh
+- [x] Define: STATUS_RUNNING, STATUS_COMPLETED, STATUS_READY, STATUS_NOT_FOUND
+- [x] Update stream.sh to use constants instead of string literals
+- [x] Test status checks work with constants
 
 ### [ ] US-009: Extract retry logic to shared library
 **As a** ralph-cli maintainer
