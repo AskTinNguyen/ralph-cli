@@ -6,6 +6,16 @@ Transform Ralph from a minimal agent loop into the **premier autonomous developm
 
 ---
 
+## Progress Overview
+
+| Theme | Completion | Status |
+|-------|------------|--------|
+| **Month 1**: Stability & DX | **45%** | UI done, reliability gaps |
+| **Month 2**: Intelligence | **35%** | Foundations exist, automation missing |
+| **Month 3**: Scale & Enterprise | **15%** | Local-first, no cloud/team features |
+
+---
+
 ## Month 1: Stability, Polish & Developer Experience
 
 ### Theme: Production-Ready Foundation
@@ -14,39 +24,39 @@ Transform Ralph from a minimal agent loop into the **premier autonomous developm
 
 ### 1.1 Core Reliability
 
-| Feature | Description |
-|---------|-------------|
-| **Retry & Recovery** | Automatic retry with exponential backoff on agent failures |
-| **Checkpoint System** | Save/restore loop state for resumable builds |
-| **Graceful Shutdown** | Handle SIGINT/SIGTERM, save progress, clean up worktrees |
-| **Health Checks** | Pre-flight validation of agent availability, git state, disk space |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Retry & Recovery** | Automatic retry with exponential backoff on agent failures | PARTIAL |
+| **Checkpoint System** | Save/restore loop state for resumable builds | NOT STARTED |
+| **Graceful Shutdown** | Handle SIGINT/SIGTERM, save progress, clean up worktrees | PARTIAL |
+| **Health Checks** | Pre-flight validation of agent availability, git state, disk space | PARTIAL |
 
 ### 1.2 Developer Experience
 
-| Feature | Description |
-|---------|-------------|
-| **`ralph init`** | Interactive project setup wizard with sensible defaults |
-| **`ralph doctor`** | Diagnose environment issues (agents, permissions, config) |
-| **`ralph watch`** | Live-reload development mode with file watching |
-| **Improved Error Messages** | Actionable errors with suggested fixes |
-| **Shell Completions** | Bash/Zsh/Fish autocomplete for all commands |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **`ralph init`** | Interactive project setup wizard with sensible defaults | NOT STARTED |
+| **`ralph doctor`** | Diagnose environment issues (agents, permissions, config) | NOT STARTED |
+| **`ralph watch`** | Live-reload development mode with file watching | NOT STARTED |
+| **Improved Error Messages** | Actionable errors with suggested fixes | PARTIAL |
+| **Shell Completions** | Bash/Zsh/Fish autocomplete for all commands | NOT STARTED |
 
 ### 1.3 UI Enhancements
 
-| Feature | Description |
-|---------|-------------|
-| **Mobile-Responsive Dashboard** | Access from any device |
-| **Dark Mode** | System preference detection + toggle |
-| **Notification System** | Desktop notifications for build completion/failures |
-| **Log Search & Filter** | Full-text search across run history |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Mobile-Responsive Dashboard** | Access from any device | DONE |
+| **Dark Mode** | System preference detection + toggle | DONE |
+| **Notification System** | Desktop notifications for build completion/failures | PARTIAL |
+| **Log Search & Filter** | Full-text search across run history | DONE |
 
 ### 1.4 Testing & Quality
 
-| Feature | Description |
-|---------|-------------|
-| **CI/CD Pipeline** | GitHub Actions for automated testing |
-| **Integration Test Suite** | End-to-end tests with mock agents |
-| **Documentation Site** | Docusaurus site with tutorials and API reference |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **CI/CD Pipeline** | GitHub Actions for automated testing | NOT STARTED |
+| **Integration Test Suite** | End-to-end tests with mock agents | PARTIAL |
+| **Documentation Site** | Docusaurus site with tutorials and API reference | NOT STARTED |
 
 ---
 
@@ -58,39 +68,39 @@ Transform Ralph from a minimal agent loop into the **premier autonomous developm
 
 ### 2.1 Intelligent Agent Selection
 
-| Feature | Description |
-|---------|-------------|
-| **Auto-Model Selection** | Choose optimal model based on task complexity |
-| **Cost-Optimized Routing** | Use Haiku for simple tasks, Opus for complex |
-| **Context-Aware Switching** | Switch agents mid-stream based on failure patterns |
-| **A/B Testing Framework** | Automatically compare agent performance |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Auto-Model Selection** | Choose optimal model based on task complexity | PARTIAL |
+| **Cost-Optimized Routing** | Use Haiku for simple tasks, Opus for complex | DONE |
+| **Context-Aware Switching** | Switch agents mid-stream based on failure patterns | NOT STARTED |
+| **A/B Testing Framework** | Automatically compare agent performance | NOT STARTED |
 
 ### 2.2 Self-Healing Capabilities
 
-| Feature | Description |
-|---------|-------------|
-| **Auto-Fix Common Errors** | Detect and fix lint/type/test failures automatically |
-| **Dependency Resolution** | Auto-install missing packages |
-| **Conflict Resolution** | Intelligent merge conflict handling |
-| **Rollback & Retry** | Automatic rollback on test failures, retry with fixes |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Auto-Fix Common Errors** | Detect and fix lint/type/test failures automatically | PARTIAL |
+| **Dependency Resolution** | Auto-install missing packages | NOT STARTED |
+| **Conflict Resolution** | Intelligent merge conflict handling | PARTIAL |
+| **Rollback & Retry** | Automatic rollback on test failures, retry with fixes | NOT STARTED |
 
 ### 2.3 Advanced Planning
 
-| Feature | Description |
-|---------|-------------|
-| **Story Dependency Graph** | Visualize and respect task dependencies |
-| **Critical Path Analysis** | Optimize execution order for fastest completion |
-| **Risk Assessment** | Flag high-risk changes for human review |
-| **Automatic Story Splitting** | Break large stories into smaller, atomic tasks |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Story Dependency Graph** | Visualize and respect task dependencies | DONE |
+| **Critical Path Analysis** | Optimize execution order for fastest completion | DONE |
+| **Risk Assessment** | Flag high-risk changes for human review | NOT STARTED |
+| **Automatic Story Splitting** | Break large stories into smaller, atomic tasks | NOT STARTED |
 
 ### 2.4 Context Intelligence
 
-| Feature | Description |
-|---------|-------------|
-| **Codebase Indexing** | Build semantic index for better agent context |
-| **Cross-Project Learning** | Apply lessons from similar projects |
-| **Pattern Library** | Reusable solution patterns from past work |
-| **Smart Context Window** | Dynamically select relevant files for agent context |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Codebase Indexing** | Build semantic index for better agent context | PARTIAL |
+| **Cross-Project Learning** | Apply lessons from similar projects | PARTIAL |
+| **Pattern Library** | Reusable solution patterns from past work | PARTIAL |
+| **Smart Context Window** | Dynamically select relevant files for agent context | NOT STARTED |
 
 ---
 
@@ -102,48 +112,48 @@ Transform Ralph from a minimal agent loop into the **premier autonomous developm
 
 ### 3.1 Team Collaboration
 
-| Feature | Description |
-|---------|-------------|
-| **Ralph Cloud Dashboard** | Hosted web UI for team visibility |
-| **Real-Time Collaboration** | Multiple developers watching same build |
-| **Role-Based Access** | Admin, developer, viewer permissions |
-| **Team Activity Feed** | Slack/Discord integration for team updates |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Ralph Cloud Dashboard** | Hosted web UI for team visibility | NOT STARTED |
+| **Real-Time Collaboration** | Multiple developers watching same build | NOT STARTED |
+| **Role-Based Access** | Admin, developer, viewer permissions | NOT STARTED |
+| **Team Activity Feed** | Slack/Discord integration for team updates | PARTIAL |
 
 ### 3.2 CI/CD Integration
 
-| Feature | Description |
-|---------|-------------|
-| **GitHub Actions Integration** | `ralph-action` for automated PR builds |
-| **PR Auto-Creation** | Generate PRs from completed streams |
-| **Review Automation** | Auto-request reviews, run checks |
-| **Deployment Triggers** | Trigger deploys on successful builds |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **GitHub Actions Integration** | `ralph-action` for automated PR builds | NOT STARTED |
+| **PR Auto-Creation** | Generate PRs from completed streams | NOT STARTED |
+| **Review Automation** | Auto-request reviews, run checks | NOT STARTED |
+| **Deployment Triggers** | Trigger deploys on successful builds | NOT STARTED |
 
 ### 3.3 Enterprise Features
 
-| Feature | Description |
-|---------|-------------|
-| **SSO/SAML Authentication** | Enterprise identity providers |
-| **Audit Logging** | Complete audit trail for compliance |
-| **Budget Policies** | Team/project budget limits and approvals |
-| **Private Model Support** | Connect to self-hosted LLMs |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **SSO/SAML Authentication** | Enterprise identity providers | NOT STARTED |
+| **Audit Logging** | Complete audit trail for compliance | NOT STARTED |
+| **Budget Policies** | Team/project budget limits and approvals | DONE |
+| **Private Model Support** | Connect to self-hosted LLMs | NOT STARTED |
 
 ### 3.4 Scalability
 
-| Feature | Description |
-|---------|-------------|
-| **Remote Execution** | Run builds on cloud workers |
-| **Build Queue** | Priority queue for team builds |
-| **Distributed Streams** | Coordinate builds across machines |
-| **Artifact Caching** | Cache dependencies and build outputs |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Remote Execution** | Run builds on cloud workers | NOT STARTED |
+| **Build Queue** | Priority queue for team builds | NOT STARTED |
+| **Distributed Streams** | Coordinate builds across machines | PARTIAL |
+| **Artifact Caching** | Cache dependencies and build outputs | PARTIAL |
 
 ### 3.5 Analytics & Insights
 
-| Feature | Description |
-|---------|-------------|
-| **Team Velocity Metrics** | Stories/week, success rates by developer |
-| **Cost Attribution** | Track costs by project, team, feature |
-| **Trend Analysis** | Week-over-week improvement tracking |
-| **Custom Reports** | Scheduled reports to Slack/email |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Team Velocity Metrics** | Stories/week, success rates by developer | PARTIAL |
+| **Cost Attribution** | Track costs by project, team, feature | PARTIAL |
+| **Trend Analysis** | Week-over-week improvement tracking | PARTIAL |
+| **Custom Reports** | Scheduled reports to Slack/email | NOT STARTED |
 
 ---
 
@@ -153,7 +163,7 @@ Transform Ralph from a minimal agent loop into the **premier autonomous developm
 |--------|---------|---------|---------|---------|
 | Story success rate | ~70% | 85% | 92% | 95% |
 | Mean time to recovery | Manual | 2 min | 30 sec | Automatic |
-| Cost per story | Unknown | Tracked | Optimized | Budgeted |
+| Cost per story | Tracked | Optimized | Budgeted | Attributed |
 | Active users | 1 | 10 | 50 | 200+ |
 
 ---
