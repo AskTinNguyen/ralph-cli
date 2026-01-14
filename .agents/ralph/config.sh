@@ -8,10 +8,10 @@
 # Set spending limits to control costs. Budget alerts are shown at 80%, 90%, 100%.
 #
 # Daily budget limit in USD (resets at midnight):
-# RALPH_BUDGET_DAILY=10.00
-#
+RALPH_BUDGET_DAILY=25.00
+
 # Monthly budget limit in USD (resets on 1st of month):
-# RALPH_BUDGET_MONTHLY=100.00
+RALPH_BUDGET_MONTHLY=500.00
 #
 # Alert threshold percentages (comma-separated):
 # RALPH_BUDGET_ALERT_THRESHOLDS=80,90,100
