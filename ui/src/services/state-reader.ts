@@ -199,6 +199,79 @@ function getEffectiveRunsPath(ralphRoot: string, streamId: string, mainRunsPath:
 }
 
 /**
+ * Check if a stream has been merged to main
+ * Checks for .merged marker file and git branch status
+ */
+function isStreamMerged(ralphRoot: string, streamId: string): boolean {
+  // Check for .merged marker file
+  const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+  const mergedMarkerPath = path.join(streamPath, '.merged');
+
+  if (fs.existsSync(mergedMarkerPath)) {
+    return true;
+  }
+
+  // Check git to see if the branch was merged to main
+  try {
+    const { execSync } = require('node:child_process');
+    const branchName = `ralph/PRD-${streamId}`;
+
+    // Check if branch exists
+    const branchExists = execSync(`git branch --all`, {
+      cwd: path.dirname(ralphRoot),
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).includes(branchName);
+
+    if (!branchExists) {
+      // Branch doesn't exist, check merge commits
+      const mergeCommits = execSync(
+        `git log --oneline --grep="PRD-${streamId}" --merges`,
+        {
+          cwd: path.dirname(ralphRoot),
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore']
+        }
+      );
+
+      if (mergeCommits.trim().length > 0) {
+        // Auto-create .merged marker if git shows it's merged but marker is missing
+        try {
+          fs.writeFileSync(mergedMarkerPath, new Date().toISOString());
+        } catch {
+          // Ignore write errors
+        }
+        return true;
+      }
+    } else {
+      // Check if branch is merged into main
+      const isMerged = execSync(
+        `git branch --merged main`,
+        {
+          cwd: path.dirname(ralphRoot),
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore']
+        }
+      ).includes(branchName);
+
+      if (isMerged) {
+        // Auto-create .merged marker if git shows it's merged but marker is missing
+        try {
+          fs.writeFileSync(mergedMarkerPath, new Date().toISOString());
+        } catch {
+          // Ignore write errors
+        }
+        return true;
+      }
+    }
+  } catch {
+    // Git command failed, fall back to file marker only
+  }
+
+  return false;
+}
+
+/**
  * Determine stream status based on files and locks
  */
 function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): StreamStatus {
@@ -275,6 +348,7 @@ export function getStreams(): Stream[] {
         }
 
         const status = getStreamStatus(ralphRoot, streamId, effectivePrdPath);
+        const merged = isStreamMerged(ralphRoot, streamId);
 
         // Extract name from effective PRD title if available
         let name = `PRD-${streamId}`;
@@ -298,6 +372,7 @@ export function getStreams(): Stream[] {
           hasPrd,
           hasPlan,
           hasProgress,
+          merged,
           stories: [], // Populated by getStreamDetails
           totalStories,
           completedStories,
@@ -789,8 +864,9 @@ export function getStreamDetails(id: string): Stream | null {
   const totalStories = stories.length;
   const completedStories = stories.filter((s) => s.status === "completed").length;
 
-  // Determine status
+  // Determine status and merged state
   const status = getStreamStatus(ralphRoot, id, effectivePrdPath);
+  const merged = isStreamMerged(ralphRoot, id);
 
   return {
     id,
@@ -800,6 +876,7 @@ export function getStreamDetails(id: string): Stream | null {
     hasPrd,
     hasPlan,
     hasProgress,
+    merged,
     stories,
     totalStories,
     completedStories,

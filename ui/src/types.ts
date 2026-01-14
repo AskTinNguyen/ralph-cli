@@ -42,6 +42,7 @@ export interface Stream {
   hasPrd: boolean;
   hasPlan: boolean;
   hasProgress: boolean;
+  merged: boolean;
   stories: Story[];
   totalStories: number;
   completedStories: number;

@@ -1946,40 +1946,42 @@ api.get("/partials/streams", (c) => {
       const worktreeInitialized = hasWorktree(stream.id);
       const isCompleted = stream.status === "completed";
       const isRunning = stream.status === "running";
+      const isMerged = stream.merged;
 
       // Build action buttons based on stream state
       let actionButtonsHtml = "";
 
-      // Init button - show if worktree not initialized
-      if (!worktreeInitialized) {
+      // Init button - show if worktree not initialized and not merged
+      if (!worktreeInitialized && !isMerged) {
         actionButtonsHtml += `
           <button class="btn btn-secondary btn-sm" onclick="initStream('${stream.id}', event)" title="Initialize git worktree">
             Init
           </button>`;
       }
 
-      // Build button - always show (opens inline form)
+      // Build button - always show (opens inline form) but disabled if merged or running
       actionButtonsHtml += `
-        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="Start build iterations" ${isRunning ? "disabled" : ""}>
+        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="${isMerged ? 'Already merged to main' : 'Start build iterations'}" ${isRunning || isMerged ? "disabled" : ""}>
           ${isRunning ? "Running..." : "Build"}
         </button>`;
 
-      // Estimate button - show if plan exists
+      // Estimate button - show if plan exists, but disabled if merged
       if (stream.hasPlan) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
         actionButtonsHtml += `
         <button class="btn btn-secondary btn-sm"
                 onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
-                title="View estimates for this PRD">
+                title="${isMerged ? 'Already merged to main' : 'View estimates for this PRD'}"
+                ${isMerged ? "disabled" : ""}>
           Estimate
         </button>`;
       }
 
-      // Merge button - only show when worktree exists (nothing to merge without worktree)
+      // Merge button - only show when worktree exists, disabled if already merged
       if (worktreeInitialized) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
         actionButtonsHtml += `
-          <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="Merge to main branch">
+          <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${isMerged ? 'Already merged to main' : 'Merge to main branch'}" ${isMerged ? "disabled" : ""}>
             Merge
           </button>`;
       }
@@ -1994,10 +1996,11 @@ api.get("/partials/streams", (c) => {
         </div>`;
 
       return `
-<div class="stream-card ${isRunning ? 'running' : ''}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+<div class="stream-card ${isRunning ? 'running' : ''} ${isMerged ? 'merged' : ''}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
   <div class="stream-header">
     <span class="stream-id">PRD-${stream.id}</span>
     <span class="status-badge ${stream.status}">${statusLabel}</span>
+    ${isMerged ? '<span class="status-badge merged">Merged</span>' : ''}
   </div>
   <div class="stream-title">${escapeHtml(stream.name)}</div>
   <div class="stream-progress">
@@ -6002,6 +6005,20 @@ api.get("/partials/cost-chart", (c) => {
   const varianceClass = hasBudget && totalVariance >= 0 ? "positive" : "negative";
   const varianceSign = hasBudget && totalVariance >= 0 ? "+" : "";
 
+  // Calculate total tokens from byModel breakdown
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  if (trends.byModel) {
+    for (const model of Object.keys(trends.byModel)) {
+      const modelData = trends.byModel[model] as { inputTokens?: number; outputTokens?: number };
+      totalInputTokens += modelData.inputTokens || 0;
+      totalOutputTokens += modelData.outputTokens || 0;
+    }
+  }
+
+  // Format token numbers with commas for readability
+  const formatNumber = (num: number) => num.toLocaleString('en-US');
+
   const html = `
     <div class="trend-summary-grid">
       <div class="trend-stat">
@@ -6019,6 +6036,7 @@ api.get("/partials/cost-chart", (c) => {
       <div class="trend-stat">
         <span class="trend-stat-value">$${trends.avgCostPerStory.toFixed(4)}</span>
         <span class="trend-stat-label">Avg Cost/Story</span>
+        <span class="trend-stat-detail">${formatNumber(totalInputTokens)} in / ${formatNumber(totalOutputTokens)} out tokens</span>
       </div>
       <div class="trend-stat">
         <span class="trend-stat-value">$${trends.avgCostPerRun.toFixed(4)}</span>

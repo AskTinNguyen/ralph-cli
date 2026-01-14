@@ -929,6 +929,21 @@ footer {
   background: var(--status-in-progress-bg);
 }
 
+.status-badge.merged {
+  color: #a371f7;
+  background: rgba(163, 113, 247, 0.15);
+}
+
+/* Merged stream card styling */
+.stream-card.merged {
+  opacity: 0.75;
+  border-color: rgba(163, 113, 247, 0.3);
+}
+
+.stream-card.merged:hover {
+  opacity: 0.85;
+}
+
 /* SSE Update Animation */
 .sse-updatable {
   transition:
@@ -6196,6 +6211,14 @@ footer {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: var(--spacing-xs);
+}
+
+.trend-stat-detail {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+  font-family: monospace;
+  opacity: 0.8;
 }
 
 .trend-period-info {
