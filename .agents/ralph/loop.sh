@@ -1360,6 +1360,9 @@ append_metrics() {
   local iteration="${11}"
   local retry_count="${12:-0}"
   local retry_time="${13:-0}"
+  local complexity_score="${14:-}"
+  local routing_reason="${15:-}"
+  local estimated_cost="${16:-}"
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1380,12 +1383,29 @@ append_metrics() {
       output_val="$output_tokens"
     fi
 
+    # Handle complexity score
+    local complexity_val="null"
+    if [ -n "$complexity_score" ] && [ "$complexity_score" != "null" ] && [ "$complexity_score" != "" ] && [ "$complexity_score" != "n/a" ]; then
+      complexity_val="$complexity_score"
+    fi
+
+    # Handle estimated cost
+    local estimated_cost_val="null"
+    if [ -n "$estimated_cost" ] && [ "$estimated_cost" != "null" ] && [ "$estimated_cost" != "" ] && [ "$estimated_cost" != "n/a" ]; then
+      estimated_cost_val="$estimated_cost"
+    fi
+
     # Escape strings for JSON
     local escaped_title
     escaped_title=$(printf '%s' "$story_title" | sed 's/"/\\"/g' | sed "s/'/\\'/g")
 
+    local escaped_reason="null"
+    if [ -n "$routing_reason" ] && [ "$routing_reason" != "null" ] && [ "$routing_reason" != "" ]; then
+      escaped_reason=$(printf '"%s"' "$(printf '%s' "$routing_reason" | sed 's/"/\\"/g')")
+    fi
+
     local json_data
-    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"timestamp":"%s"}' \
+    json_data=$(printf '{"storyId":"%s","storyTitle":"%s","duration":%s,"inputTokens":%s,"outputTokens":%s,"agent":"%s","model":"%s","status":"%s","runId":"%s","iteration":%s,"retryCount":%s,"retryTime":%s,"complexityScore":%s,"routingReason":%s,"estimatedCost":%s,"timestamp":"%s"}' \
       "$story_id" \
       "$escaped_title" \
       "$duration" \
@@ -1398,6 +1418,9 @@ append_metrics() {
       "$iteration" \
       "$retry_count" \
       "$retry_time" \
+      "$complexity_val" \
+      "$escaped_reason" \
+      "$estimated_cost_val" \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 
     node "$metrics_cli" "$prd_folder" "$json_data" 2>/dev/null || true
@@ -1649,7 +1672,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     # Derive PRD folder from PRD_PATH (e.g., /path/.ralph/PRD-1/prd.md -> /path/.ralph/PRD-1)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}"
   fi
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
