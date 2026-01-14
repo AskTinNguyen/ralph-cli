@@ -67,6 +67,9 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 
 11. If No-commit is false, commit changes using the `$commit` skill.
     - Stage everything: `git add -A`
+    - If any AUTO_FIX entries exist in {{ACTIVITY_LOG_PATH}}, include them in the commit message body.
+      Check with: `grep "AUTO_FIX" {{ACTIVITY_LOG_PATH}} | tail -5`
+      Format: Add a line like "Auto-fixed: LINT_ERROR, FORMAT_ERROR" listing successful fixes.
     - Confirm a clean working tree after commit: `git status --porcelain` should be empty.
     - After committing, capture the commit hash and subject using:
       `git show -s --format="%h %s" HEAD`.
