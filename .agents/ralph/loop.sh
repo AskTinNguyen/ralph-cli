@@ -2089,8 +2089,10 @@ write_run_meta() {
     else
       echo "- Output tokens: (unavailable)"
     fi
-    if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
-      echo "- Model: $token_model"
+    # Prefer routed_model (from routing decision) over token_model (from log extraction)
+    local display_model="${routed_model:-$token_model}"
+    if [ -n "$display_model" ] && [ "$display_model" != "null" ]; then
+      echo "- Model: $display_model"
     fi
     echo "- Estimated: $token_estimated"
     if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
@@ -2145,10 +2147,11 @@ write_run_meta() {
     if [ -n "$input_tokens" ] && [ "$input_tokens" != "null" ] && [ -n "$output_tokens" ] && [ "$output_tokens" != "null" ]; then
       local actual_total=$((input_tokens + output_tokens))
       echo "- Actual tokens: $actual_total (input: $input_tokens, output: $output_tokens)"
-      # Calculate actual cost if model available
-      if [ -n "$token_model" ] && [ "$token_model" != "null" ]; then
+      # Calculate actual cost if model available (prefer routed_model over token_model)
+      local cost_model="${routed_model:-$token_model}"
+      if [ -n "$cost_model" ] && [ "$cost_model" != "null" ]; then
         local actual_cost_json
-        actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$token_model" 2>/dev/null || echo "")"
+        actual_cost_json="$(calculate_actual_cost "$input_tokens" "$output_tokens" "$cost_model" 2>/dev/null || echo "")"
         local actual_cost
         actual_cost="$(parse_routing_field "$actual_cost_json" "totalCost" 2>/dev/null || echo "")"
         if [ -n "$actual_cost" ] && [ "$actual_cost" != "null" ]; then
@@ -3275,7 +3278,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Append metrics to metrics.jsonl for historical tracking (build mode only)
     # Called after rollback logic to capture rollback data (US-004)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$TOKEN_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
+    # Use routing decision model (ROUTED_MODEL) instead of log-extracted model (TOKEN_MODEL)
+    # TOKEN_MODEL is unreliable as it pattern-matches log content, not actual model used
+    FINAL_MODEL="${ROUTED_MODEL:-${TOKEN_MODEL:-unknown}}"
+    append_metrics "$PRD_FOLDER" "${STORY_ID}" "${STORY_TITLE:-}" "$ITER_DURATION" "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$DEFAULT_AGENT_NAME" "$FINAL_MODEL" "$STATUS_LABEL" "$RUN_TAG" "$i" "$LAST_RETRY_COUNT" "$LAST_RETRY_TOTAL_TIME" "${ROUTED_SCORE:-}" "${ROUTED_REASON:-}" "${ESTIMATED_COST:-}" "${EXPERIMENT_NAME:-}" "${EXPERIMENT_VARIANT:-}" "${EXPERIMENT_EXCLUDED:-}" "$LAST_ROLLBACK_COUNT" "$LAST_ROLLBACK_REASON" "$LAST_ROLLBACK_SUCCESS"
 
     if [ "$CMD_STATUS" -ne 0 ]; then
       # Differentiate agent errors vs system errors
