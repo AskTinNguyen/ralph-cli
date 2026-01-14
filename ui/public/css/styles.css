@@ -5661,3 +5661,69 @@ footer {
     font-size: 0.75rem;
   }
 }
+
+/* Risk Visualization Styles (US-003) */
+.story-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  cursor: help;
+  white-space: nowrap;
+}
+
+.risk-badge.risk-critical {
+  color: #fff;
+  background: linear-gradient(135deg, #d73a49, #cb2431);
+  box-shadow: 0 0 0 1px rgba(215, 58, 73, 0.3);
+}
+
+.risk-badge.risk-high {
+  color: #fff;
+  background: linear-gradient(135deg, #e36209, #d15704);
+  box-shadow: 0 0 0 1px rgba(227, 98, 9, 0.3);
+}
+
+.risk-badge.risk-medium {
+  color: #24292f;
+  background: linear-gradient(135deg, #f0c674, #e5b855);
+  box-shadow: 0 0 0 1px rgba(240, 198, 116, 0.3);
+}
+
+.risk-badge.risk-low {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  box-shadow: 0 0 0 1px var(--border-color);
+}
+
+/* High-risk story card highlight */
+.story-card.high-risk {
+  border-color: #d73a49;
+  box-shadow: 0 0 0 1px rgba(215, 58, 73, 0.2);
+}
+
+.story-card.high-risk:hover {
+  border-color: #cb2431;
+  box-shadow: 0 0 0 2px rgba(215, 58, 73, 0.3);
+}
+
+/* Light mode adjustments */
+@media (prefers-color-scheme: light) {
+  .risk-badge.risk-low {
+    color: var(--text-secondary);
+  }
+
+  .risk-badge.risk-medium {
+    color: #24292f;
+    background: linear-gradient(135deg, #f9c513, #e5b855);
+  }
+}

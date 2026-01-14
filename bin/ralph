@@ -35,6 +35,7 @@ let noRetry = false;  // For --no-retry flag to disable automatic retries
 let resumeMode = false;  // For --resume flag in build command
 let watchBuildMode = false;  // For --build flag in watch command
 let autoFixMode = null;  // For --auto-fix flag (none|safe|all)
+let skipRiskCheck = false;  // For --skip-risk-check flag to bypass risk prompts
 
 function exists(p) {
   try {
@@ -133,6 +134,7 @@ ${pc.bold("━━━ Build Options ━━━━━━━━━━━━━━━
   ${pc.yellow("--no-commit")}              Skip automatic git commits
   ${pc.yellow("--no-retry")}               Disable automatic retries on failure
   ${pc.yellow("--resume")}                 Resume from last checkpoint
+  ${pc.yellow("--skip-risk-check")}        Bypass high-risk story confirmation prompts
   ${pc.yellow("--auto-fix")} ${pc.dim("<none|safe|all>")}  Control automatic error remediation
     ${pc.dim("none: Disable (default) | safe: Lint/format only | all: Include risky fixes")}
 
@@ -286,6 +288,11 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   if (arg === "--auto-fix") {
     autoFixMode = rawArgs[i + 1];
     i += 1;
+    continue;
+  }
+  // Parse --skip-risk-check flag to bypass high-risk story prompts
+  if (arg === "--skip-risk-check") {
+    skipRiskCheck = true;
     continue;
   }
   args.push(arg);
@@ -594,6 +601,8 @@ async function main() {
   if (modelOverride) env.RALPH_MODEL_OVERRIDE = modelOverride;
   // Pass --auto-fix flag for remediation approval (none|safe|all)
   if (autoFixMode) env.AUTO_FIX = autoFixMode;
+  // Pass --skip-risk-check flag to bypass high-risk story prompts
+  if (skipRiskCheck) env.RALPH_SKIP_RISK = "1";
   if (templateDir === globalDir) {
     env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");
     env.PROMPT_BUILD = path.join(templateDir, "PROMPT_build.md");

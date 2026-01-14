@@ -90,6 +90,24 @@ ROLLBACK_TRIGGER=test-fail
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Risk Assessment Configuration (US-004)
+# ─────────────────────────────────────────────────────────────────────────────
+# Configure risk assessment thresholds and behavior.
+# Risk scoring analyzes stories for security, payment, database, and other
+# high-impact changes. High-risk stories are flagged for human review.
+#
+# Risk threshold: scores at or above this value are considered "high risk"
+# Range: 1-10, where 10 is maximum risk. Default: 7
+RALPH_RISK_THRESHOLD=7
+#
+# Pause execution for high-risk stories (true/false):
+# When true, prompts user for confirmation before executing high-risk stories
+RALPH_RISK_PAUSE=true
+#
+# Override via CLI: ralph build 1 --skip-risk-check
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 # Automatically select AI model based on task complexity.
