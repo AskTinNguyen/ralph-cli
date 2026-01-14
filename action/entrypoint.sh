@@ -193,7 +193,178 @@ run_ralph() {
     return $exit_code
 }
 
+# Check if this is an issue-triggered event
+is_issue_trigger() {
+    [ "$GITHUB_EVENT_NAME" = "issues" ]
+}
+
+# Check if issue has the "ralph" label
+has_ralph_label() {
+    local event_path="${GITHUB_EVENT_PATH:-}"
+    if [ -z "$event_path" ] || [ ! -f "$event_path" ]; then
+        return 1
+    fi
+
+    # Check for ralph label in event payload
+    if command -v jq &> /dev/null; then
+        jq -e '.issue.labels[]? | select(.name == "ralph")' "$event_path" > /dev/null 2>&1
+    else
+        grep -q '"name"[[:space:]]*:[[:space:]]*"ralph"' "$event_path" 2>/dev/null
+    fi
+}
+
+# Convert issue to PRD using the issue-to-prd.js script
+convert_issue_to_prd() {
+    local script_dir="${GITHUB_ACTION_PATH:-$(dirname "$0")}"
+    local converter="$script_dir/issue-to-prd.js"
+
+    if [ ! -f "$converter" ]; then
+        log_error "issue-to-prd.js not found at $converter"
+        return 1
+    fi
+
+    log_info "Converting issue to PRD format..."
+
+    local result
+    result=$(node "$converter" 2>&1)
+    local exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        log_error "Failed to convert issue to PRD: $result"
+        return 1
+    fi
+
+    # Parse result JSON to get PRD number
+    local prd_num
+    if command -v jq &> /dev/null; then
+        prd_num=$(echo "$result" | jq -r '.prdNum')
+    else
+        prd_num=$(echo "$result" | grep -o '"prdNum":[0-9]*' | grep -o '[0-9]*')
+    fi
+
+    log_success "Created PRD-$prd_num from issue"
+    echo "$prd_num"
+}
+
+# Post comment on issue with build results
+comment_on_issue() {
+    local success="$1"
+    local stories_completed="$2"
+    local duration="$3"
+    local exit_code="$4"
+    local prd_num="$5"
+
+    local script_dir="${GITHUB_ACTION_PATH:-$(dirname "$0")}"
+    local commenter="$script_dir/comment-results.js"
+
+    if [ ! -f "$commenter" ]; then
+        log_warning "comment-results.js not found, skipping issue comment"
+        return 0
+    fi
+
+    # Check if GITHUB_TOKEN is available
+    if [ -z "$GITHUB_TOKEN" ]; then
+        log_warning "GITHUB_TOKEN not set, skipping issue comment"
+        return 0
+    fi
+
+    log_info "Posting build results to issue..."
+
+    # Set environment variables for the commenter script
+    BUILD_SUCCESS="$success" \
+    STORIES_COMPLETED="$stories_completed" \
+    BUILD_DURATION="$duration" \
+    BUILD_EXIT_CODE="$exit_code" \
+    PRD_NUM="$prd_num" \
+    node "$commenter" 2>&1 || {
+        log_warning "Failed to post comment to issue"
+        return 0  # Don't fail the build if commenting fails
+    }
+
+    log_success "Posted results to issue"
+}
+
+# Run plan and build from issue
+run_issue_build() {
+    local iterations="${1:-5}"
+    local agent="${2:-claude}"
+    local no_commit="${3:-false}"
+
+    log_info "=== Issue-Driven Build ==="
+
+    # Validate ralph label
+    if ! has_ralph_label; then
+        log_warning "Issue does not have 'ralph' label, skipping build"
+        echo "success=true" >> "$GITHUB_OUTPUT"
+        echo "stories_completed=0" >> "$GITHUB_OUTPUT"
+        echo "exit_code=0" >> "$GITHUB_OUTPUT"
+        return 0
+    fi
+
+    # Convert issue to PRD
+    local prd_num
+    prd_num=$(convert_issue_to_prd)
+    if [ -z "$prd_num" ] || [ "$prd_num" = "null" ]; then
+        log_error "Failed to create PRD from issue"
+        echo "success=false" >> "$GITHUB_OUTPUT"
+        echo "exit_code=1" >> "$GITHUB_OUTPUT"
+        return 1
+    fi
+
+    # Run plan
+    log_info "Running ralph plan for PRD-$prd_num..."
+    ralph plan --prd="$prd_num" || {
+        log_error "Planning failed"
+        echo "success=false" >> "$GITHUB_OUTPUT"
+        echo "exit_code=1" >> "$GITHUB_OUTPUT"
+        return 1
+    }
+
+    # Run build
+    log_info "Running ralph build for PRD-$prd_num..."
+    local build_args="build $iterations --prd=$prd_num --agent=$agent"
+    if [ "$no_commit" = "true" ]; then
+        build_args="$build_args --no-commit"
+    fi
+
+    local start_time
+    start_time=$(get_timestamp)
+    local stories_before
+    stories_before=$(count_completed_stories "$prd_num")
+
+    ralph $build_args
+    local exit_code=$?
+
+    local end_time
+    end_time=$(get_timestamp)
+    local duration=$((end_time - start_time))
+    local stories_after
+    stories_after=$(count_completed_stories "$prd_num")
+    local stories_completed=$((stories_after - stories_before))
+
+    # Set outputs
+    local success="false"
+    if [ $exit_code -eq 0 ]; then
+        success="true"
+        log_success "Issue build completed successfully"
+    else
+        log_error "Issue build failed with exit code $exit_code"
+    fi
+
+    echo "success=$success" >> "$GITHUB_OUTPUT"
+    echo "stories_completed=$stories_completed" >> "$GITHUB_OUTPUT"
+    echo "duration=$duration" >> "$GITHUB_OUTPUT"
+    echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+    echo "prd_num=$prd_num" >> "$GITHUB_OUTPUT"
+
+    # Post comment to issue with results
+    comment_on_issue "$success" "$stories_completed" "$duration" "$exit_code" "$prd_num"
+
+    return $exit_code
+}
+
 # Export functions for use in action.yml
 export -f log_info log_success log_warning log_error
 export -f validate_api_key get_timestamp count_completed_stories get_latest_prd
+export -f is_issue_trigger has_ralph_label convert_issue_to_prd run_issue_build
 export -f run_ralph

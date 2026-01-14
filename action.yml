@@ -34,6 +34,14 @@ inputs:
     description: 'Skip automatic git commits during build'
     required: false
     default: 'false'
+  issue-trigger:
+    description: 'Enable issue-driven builds (auto-converts issue to PRD)'
+    required: false
+    default: 'false'
+  issue-label:
+    description: 'Label that triggers issue-driven builds'
+    required: false
+    default: 'ralph'
 
 outputs:
   success:
@@ -48,6 +56,12 @@ outputs:
   exit-code:
     description: 'Exit code from ralph command'
     value: ${{ steps.ralph-run.outputs.exit_code }}
+  prd-number:
+    description: 'PRD number that was created/used (for issue-driven builds)'
+    value: ${{ steps.ralph-run.outputs.prd_num }}
+  comment-url:
+    description: 'URL of the comment posted to the issue'
+    value: ${{ steps.ralph-run.outputs.comment_url }}
 
 runs:
   using: 'composite'
@@ -72,14 +86,25 @@ runs:
         OPENAI_API_KEY: ${{ inputs.api-key }}
         RALPH_AGENT: ${{ inputs.agent }}
         RALPH_CI: 'true'
+        GITHUB_TOKEN: ${{ github.token }}
+        RALPH_ISSUE_LABEL: ${{ inputs.issue-label }}
       run: |
         # Source the entrypoint script
         source "${{ github.action_path }}/action/entrypoint.sh"
 
-        # Run ralph with provided options
-        run_ralph \
-          "${{ inputs.command }}" \
-          "${{ inputs.iterations }}" \
-          "${{ inputs.agent }}" \
-          "${{ inputs.prd }}" \
-          "${{ inputs.no-commit }}"
+        # Check if this is an issue-driven build
+        if [ "${{ inputs.issue-trigger }}" = "true" ] || [ "$GITHUB_EVENT_NAME" = "issues" ]; then
+          log_info "Issue-driven build mode"
+          run_issue_build \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.no-commit }}"
+        else
+          # Run ralph with provided options
+          run_ralph \
+            "${{ inputs.command }}" \
+            "${{ inputs.iterations }}" \
+            "${{ inputs.agent }}" \
+            "${{ inputs.prd }}" \
+            "${{ inputs.no-commit }}"
+        fi
