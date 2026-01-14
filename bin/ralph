@@ -2541,118 +2541,156 @@ ${pc.bold(pc.cyan("Examples:"))}
       prdNumber = prdFolders[0].number;
     }
 
-    info(`Watching PRD-${prdNumber}: ${pc.dim(prdFolder)}`);
-
     // Load custom watch configuration if it exists
     const customConfig = watchModule.loadCustomConfig(cwd);
-    if (customConfig) {
-      dim(`Loaded custom watch config from .agents/ralph/watch.config.js`);
-    }
 
     // Create watcher
     const watcher = new watchModule.FileWatcher({
       debounceMs: customConfig?.debounce || 500,
     });
 
+    // Create dashboard
+    const dashboard = watchModule.createDashboard({
+      projectRoot: cwd,
+      maxRecentChanges: 8,
+      onQuit: () => {
+        watcher.stop();
+        process.exit(0);
+      },
+      onReload: () => {
+        watchModule.clearCustomActions();
+        watchModule.loadCustomConfig(cwd);
+      },
+    });
+
     // Action execution options
     const actionOptions = {
       projectRoot: cwd,
       prdNumber,
-      onOutput: (msg) => console.log(`  ${pc.dim("→")} ${msg}`),
+      onOutput: () => {}, // Suppress console output, dashboard handles display
     };
 
-    // Event handlers with automatic actions
+    // Event handlers with automatic actions and dashboard updates
     watcher.on("started", (event) => {
-      console.log("");
-      console.log(pc.bold("Ralph Watch Mode"));
-      console.log(pc.dim("-".repeat(50)));
-      console.log(`Watching: ${pc.cyan(event.paths.join(", "))}`);
-      console.log(`Debounce: ${pc.dim((customConfig?.debounce || 500) + "ms")}`);
-      console.log(`Actions:  ${pc.dim(watchModule.listActions().length + " registered")}`);
-      console.log(pc.dim("-".repeat(50)));
-      console.log("");
-      console.log(pc.dim("Press Ctrl+C to stop watching."));
-      console.log("");
+      // Initialize dashboard with PRD info
+      dashboard.init({
+        prdNumber,
+        prdPath: prdFolder,
+        watchedPaths: event.paths,
+      });
+      // Start dashboard (enables keyboard input and rendering)
+      dashboard.start();
     });
 
     watcher.on("prd_changed", async (event) => {
-      const time = event.timestamp.toLocaleTimeString();
-      console.log(`${pc.dim(time)} ${pc.yellow("prd.md")} ${pc.dim(event.changeType)}`);
+      dashboard.setCurrentAction("prd_regenerate_plan");
 
       // Execute PRD change actions
       const results = await watchModule.executeActionsForTrigger("prd_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
       for (const result of results) {
         if (result.success && result.result?.message) {
-          console.log(`  ${pc.dim("→")} ${pc.yellow(result.result.message)}`);
+          resultText = "offer plan";
+          resultIcon = "→";
         }
       }
+
+      dashboard.addFileChange({
+        file: "prd.md",
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
+      dashboard.setCurrentAction(null);
     });
 
     watcher.on("plan_changed", async (event) => {
-      const time = event.timestamp.toLocaleTimeString();
-      console.log(`${pc.dim(time)} ${pc.cyan("plan.md")} ${pc.dim(event.changeType)}`);
+      dashboard.setCurrentAction("plan_validate");
 
       // Execute plan change actions (validation)
       const results = await watchModule.executeActionsForTrigger("plan_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
       for (const result of results) {
         if (result.success && result.result) {
-          const { valid, storiesFound, errors, warnings } = result.result;
+          const { valid, storiesFound, warnings } = result.result;
           if (valid && (!warnings || warnings.length === 0)) {
-            console.log(`  ${pc.dim("→")} ${pc.green(`✓ ${storiesFound} stories validated`)}`);
+            resultText = "validated";
+            resultIcon = "✓";
           } else if (valid) {
-            console.log(`  ${pc.dim("→")} ${pc.yellow(`⚠ ${storiesFound} stories, ${warnings.length} warning(s)`)}`);
+            resultText = `${warnings.length} warning(s)`;
+            resultIcon = "⚠";
           } else {
-            console.log(`  ${pc.dim("→")} ${pc.red(`✗ Validation failed: ${errors.length} error(s)`)}`);
+            resultText = "validation failed";
+            resultIcon = "✗";
           }
         }
       }
+
+      dashboard.addFileChange({
+        file: "plan.md",
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
+      dashboard.setCurrentAction(null);
     });
 
     watcher.on("config_changed", async (event) => {
-      const time = event.timestamp.toLocaleTimeString();
       const filename = path.basename(event.configPath);
-      console.log(`${pc.dim(time)} ${pc.magenta(filename)} ${pc.dim(event.changeType + " (config)")}`);
+      dashboard.setCurrentAction("config_reload");
 
       // Execute config change actions (reload)
       const results = await watchModule.executeActionsForTrigger("config_changed", event, actionOptions);
+
+      let resultText = "";
+      let resultIcon = "";
       for (const result of results) {
         if (result.success && result.result) {
-          const { valid, file, values } = result.result;
+          const { valid } = result.result;
           if (valid) {
-            const valueCount = Object.keys(values || {}).length;
-            if (valueCount > 0) {
-              console.log(`  ${pc.dim("→")} ${pc.green(`✓ ${file} reloaded (${valueCount} values)`)}`);
-            } else {
-              console.log(`  ${pc.dim("→")} ${pc.green(`✓ ${file} reloaded`)}`);
-            }
+            resultText = "reloaded";
+            resultIcon = "✓";
           }
         }
       }
+
+      dashboard.addFileChange({
+        file: filename,
+        action: event.changeType,
+        result: resultText,
+        resultIcon,
+      });
 
       // If watch.config.js changed, reload custom actions
       if (filename === "watch.config.js") {
         watchModule.clearCustomActions();
-        const newConfig = watchModule.loadCustomConfig(cwd);
-        if (newConfig) {
-          console.log(`  ${pc.dim("→")} ${pc.cyan("Custom watch config reloaded")}`);
-        }
+        watchModule.loadCustomConfig(cwd);
       }
+      dashboard.setCurrentAction(null);
     });
 
     watcher.on("file_changed", async (event) => {
       // Only log other files if not already logged by specific handlers
       const filename = event.filename;
       if (!filename.endsWith("prd.md") && !filename.endsWith("plan.md")) {
-        const time = event.timestamp.toLocaleTimeString();
-        console.log(`${pc.dim(time)} ${pc.dim(filename)} ${pc.dim(event.changeType)}`);
-
         // Execute any custom actions for generic file changes
         await watchModule.executeActionsForTrigger("file_changed", event, actionOptions);
+
+        dashboard.addFileChange({
+          file: filename,
+          action: event.changeType,
+          result: "",
+          resultIcon: "",
+        });
       }
     });
 
     watcher.on("error", (err) => {
-      error(`Watch error: ${err.message}`);
+      dashboard.setStatus(`Error: ${err.message}`);
     });
 
     // Start watching
@@ -2664,8 +2702,7 @@ ${pc.bold(pc.cyan("Examples:"))}
 
     // Handle graceful shutdown
     const cleanup = () => {
-      console.log("");
-      dim("Stopping watch...");
+      dashboard.stop();
       watcher.stop();
       process.exit(0);
     };
