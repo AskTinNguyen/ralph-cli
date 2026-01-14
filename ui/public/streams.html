@@ -164,10 +164,15 @@
       var container = document.getElementById('streams-container');
       var endpoint = view === 'timeline' ? '/api/partials/streams-timeline' : '/api/partials/streams';
 
+      // Update both hx-get and hx-trigger attributes
       container.setAttribute('hx-get', endpoint);
+      container.setAttribute('hx-trigger', 'load, every 5s, newStreamCreated from:body');
 
       // Show loading state
       container.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Loading streams...</div>';
+
+      // Reinitialize HTMX on the container to pick up the new attributes
+      htmx.process(container);
 
       // Trigger HTMX to load the new view
       htmx.ajax('GET', endpoint, '#streams-container');
