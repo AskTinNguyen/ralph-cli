@@ -106,6 +106,22 @@ ralph build 1 --no-commit   # Dry run (no commits)
 
 Each iteration picks the next unchecked story, executes it, commits, and marks it done.
 
+## Documentation & UI
+
+Ralph includes a **web-based interface** for browsing PRDs, plans, and progress logs.
+
+### Start the UI Server
+
+```bash
+cd ui
+npm install
+npm run dev          # Starts on http://localhost:3000
+```
+
+### Design System
+
+The UI follows Dieter Rams' principle of "less but better" with a minimalist, functional aesthetic. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.
+
 ### Override Paths
 
 ```bash
@@ -238,7 +254,7 @@ State and logs always go to `.ralph/` in your project.
 | `errors.log`    | Repeated failures and notes          |
 | `runs/`         | Raw run logs + summaries             |
 
-## Tests
+## Testing
 
 > **Full testing documentation**: See [TESTING.md](TESTING.md) for complete details on test organization, structure, and best practices.
 
@@ -274,6 +290,30 @@ npm run test:e2e
 # All integration tests
 npm run test:all
 ```
+
+### UI Testing
+
+For web interface testing, Ralph uses **Playwright with MCP** for browser automation. This allows agents to:
+- Navigate and interact with the UI
+- Verify rendered elements and layouts
+- Take screenshots for visual validation
+- Simulate user workflows
+
+See [CLAUDE.md](CLAUDE.md) for UI testing best practices with Playwright MCP.
+
+## Integrations (MCP Servers)
+
+Ralph agents have access to **MCP (Model Context Protocol) servers** for external integrations. Configuration is in `.mcp.json`.
+
+| Server   | Purpose                            | Setup                        |
+| -------- | ---------------------------------- | ---------------------------- |
+| Notion   | Docs, databases, task tracking     | `NOTION_API_KEY`             |
+| Slack    | Team notifications, context search | `SLACK_BOT_TOKEN`            |
+| GitHub   | Issues, PRs, code search           | `GITHUB_TOKEN`               |
+| Miro     | Visual diagrams, boards            | `MIRO_API_TOKEN`             |
+| Playwright | Browser automation, UI testing     | Auto-enabled                 |
+
+Set environment variables and Ralph agents automatically gain access to these tools during runs.
 
 ## Notes
 
