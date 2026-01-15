@@ -6,13 +6,30 @@ Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration 
 
 ## Quick Start (5 minutes)
 
-### Prerequisites
+### One-Command Install
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
+```
+
+The installer automatically:
+- Checks for Node.js (v18+), npm, and Git
+- Installs missing dependencies (via Homebrew, apt, winget, or Chocolatey)
+- Clones and sets up ralph-cli globally
+
+### Prerequisites (if installing manually)
 
 - Node.js 18+
 - Git
 - An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
 
-### Install Ralph
+### Manual Install
 
 ```bash
 git clone https://github.com/AskTinNguyen/ralph-cli.git
@@ -45,7 +62,24 @@ Ralph treats **files and git** as memory, not the model context:
 
 ## Installation
 
-### From GitHub (Recommended)
+### One-Command Install (Recommended)
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
+```
+
+**Custom install directory:**
+```bash
+RALPH_INSTALL_DIR=/opt/ralph curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+```
+
+### From GitHub (Manual)
 
 ```bash
 git clone https://github.com/AskTinNguyen/ralph-cli.git
