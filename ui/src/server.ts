@@ -29,6 +29,15 @@ app.route("/api", api);
 // Mount SSE routes
 app.route("/api", sse);
 
+// Serve static files from public directory under /ralph-cli prefix (GitHub Pages compatibility)
+app.use(
+  "/ralph-cli/*",
+  serveStatic({
+    root: path.join(__dirname, "../public"),
+    rewriteRequestPath: (p) => p.replace(/^\/ralph-cli/, ""),
+  })
+);
+
 // Serve static files from public directory
 app.use(
   "/*",
