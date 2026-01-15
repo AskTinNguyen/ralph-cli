@@ -1333,10 +1333,10 @@ api.get("/partials/progress", (c) => {
   // Handle missing .ralph directory
   if (!rootPath) {
     return c.html(`
-<div class="empty-state empty-state-setup">
-  <div class="empty-icon">&#128194;</div>
-  <h3>No .ralph directory found</h3>
-  <p>Run <code>ralph init</code> or <code>ralph prd</code> to get started.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128194;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No .ralph directory found</h3>
+  <p class="rams-text-muted">Run <code class="rams-code">ralph init</code> or <code class="rams-code">ralph prd</code> to get started.</p>
 </div>
 `);
   }
@@ -1394,34 +1394,34 @@ api.get("/partials/progress", (c) => {
   // Handle case when there are no stories yet
   if (totalStories === 0) {
     return c.html(`
-<div class="empty-state">
-  <h3>No stories found</h3>
-  <p>Create a PRD with user stories using <code>ralph prd</code> to track progress.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No stories found</h3>
+  <p class="rams-text-muted">Create a PRD with user stories using <code class="rams-code">ralph prd</code> to track progress.</p>
 </div>
 `);
   }
 
   const html = `
-<div class="progress-wrapper">
-  <div class="progress-stats">
-    <span>${completedStories} of ${totalStories} stories completed</span>
-    <span class="progress-percentage">${percentage}%</span>
+<div class="rams-card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+    <span class="rams-text-sm">${completedStories} of ${totalStories} stories completed</span>
+    <span class="rams-label">${percentage}%</span>
   </div>
-  <div class="progress-bar">
-    <div class="progress-fill" style="width: ${percentage}%"></div>
+  <div class="rams-progress" style="margin-bottom: var(--rams-space-4);">
+    <div class="rams-progress-fill" style="width: ${percentage}%"></div>
   </div>
-  <div class="progress-counts">
-    <div class="progress-count">
-      <span class="dot completed"></span>
-      <span>${completedStories} Completed</span>
+  <div style="display: flex; gap: var(--rams-space-6); flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: var(--rams-space-2);">
+      <span class="rams-badge-dot" style="background: var(--rams-success);"></span>
+      <span class="rams-text-sm">${completedStories} Completed</span>
     </div>
-    <div class="progress-count">
-      <span class="dot in-progress"></span>
-      <span>${inProgressStories} In Progress</span>
+    <div style="display: flex; align-items: center; gap: var(--rams-space-2);">
+      <span class="rams-badge-dot" style="background: var(--rams-warning);"></span>
+      <span class="rams-text-sm">${inProgressStories} In Progress</span>
     </div>
-    <div class="progress-count">
-      <span class="dot pending"></span>
-      <span>${pendingStories} Pending</span>
+    <div style="display: flex; align-items: center; gap: var(--rams-space-2);">
+      <span class="rams-badge-dot" style="background: var(--rams-gray-400);"></span>
+      <span class="rams-text-sm">${pendingStories} Pending</span>
     </div>
   </div>
 </div>
@@ -1446,10 +1446,10 @@ api.get("/partials/stories", (c) => {
 
   if (!rootPath) {
     return c.html(`
-<div class="empty-state empty-state-setup">
-  <div class="empty-icon">&#128221;</div>
-  <h3>No .ralph directory found</h3>
-  <p>Run <code>ralph init</code> or <code>ralph prd</code> to create a PRD and get started.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128221;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No .ralph directory found</h3>
+  <p class="rams-text-muted">Run <code class="rams-code">ralph init</code> or <code class="rams-code">ralph prd</code> to create a PRD and get started.</p>
 </div>
 `);
   }
@@ -1484,17 +1484,18 @@ api.get("/partials/stories", (c) => {
 
   if (stories.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128203;</div>
-  <h3>No stories found</h3>
-  <p>Add user stories to your PRD file or create a new PRD with <code>ralph prd</code>.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No stories found</h3>
+  <p class="rams-text-muted">Add user stories to your PRD file or create a new PRD with <code class="rams-code">ralph prd</code>.</p>
 </div>
 `);
   }
 
   const storyCards = stories
     .map((story) => {
-      const statusClass = story.status;
+      const badgeClass = story.status === 'completed' ? 'rams-badge-success' :
+                         story.status === 'in-progress' ? 'rams-badge-warning' : 'rams-badge-muted';
       const statusLabel =
         story.status === "in-progress"
           ? "In Progress"
@@ -1503,34 +1504,34 @@ api.get("/partials/stories", (c) => {
       const criteriaHtml =
         story.acceptanceCriteria.length > 0
           ? `
-<div class="acceptance-criteria">
+<div style="margin-top: var(--rams-space-3); padding-top: var(--rams-space-3); border-top: 1px solid var(--rams-gray-200);">
   ${story.acceptanceCriteria
     .slice(0, 3)
     .map(
       (ac) => `
-  <div class="criteria-item ${ac.completed ? "completed" : ""}">${escapeHtml(ac.text)}</div>
+  <div class="rams-text-sm ${ac.completed ? "rams-text-muted" : ""}" style="padding: var(--rams-space-1) 0; ${ac.completed ? "text-decoration: line-through;" : ""}">${escapeHtml(ac.text)}</div>
 `
     )
     .join("")}
-  ${story.acceptanceCriteria.length > 3 ? `<div class="criteria-item">+${story.acceptanceCriteria.length - 3} more</div>` : ""}
+  ${story.acceptanceCriteria.length > 3 ? `<div class="rams-text-sm rams-text-muted" style="padding: var(--rams-space-1) 0;">+${story.acceptanceCriteria.length - 3} more</div>` : ""}
 </div>
 `
           : "";
 
       return `
-<div class="story-card">
-  <div class="story-header">
-    <span class="story-id">${escapeHtml(story.id)}</span>
-    <span class="status-badge ${statusClass}">${statusLabel}</span>
+<div class="rams-card" style="margin-bottom: var(--rams-space-4);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-2);">
+    <span class="rams-label">${escapeHtml(story.id)}</span>
+    <span class="rams-badge ${badgeClass}"><span class="rams-badge-dot"></span>${statusLabel}</span>
   </div>
-  <div class="story-title">${escapeHtml(story.title)}</div>
+  <div class="rams-text-sm" style="font-weight: 500;">${escapeHtml(story.title)}</div>
   ${criteriaHtml}
 </div>
 `;
     })
     .join("");
 
-  return c.html(`<div class="stories-grid">${storyCards}</div>`);
+  return c.html(`<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">${storyCards}</div>`);
 });
 
 /**
@@ -1554,10 +1555,10 @@ api.get("/partials/status-indicator", (c) => {
     }
   }
 
-  const statusClass = isRunning ? "running" : "idle";
+  const statusClass = isRunning ? "rams-badge-warning" : "rams-badge-success";
   const statusText = isRunning ? "Running" : "Idle";
 
-  return c.html(`<span class="status-indicator ${statusClass}">${statusText}</span>`);
+  return c.html(`<span class="rams-badge ${statusClass}"><span class="rams-badge-dot"></span>${statusText}</span>`);
 });
 
 /**
@@ -1608,18 +1609,18 @@ api.get("/partials/terminal-commands", (c) => {
   const commandsHtml = commands
     .map(
       (cmd) => `
-<div class="terminal-command">
-  <code>${escapeHtml(cmd.comment)}</code>
-  <code>${escapeHtml(cmd.command)}</code>
+<div style="margin-bottom: var(--rams-space-3); padding: var(--rams-space-3); background: var(--rams-gray-900); border-radius: var(--rams-radius-sm);">
+  <code class="rams-code" style="color: var(--rams-gray-500); display: block; margin-bottom: var(--rams-space-1);">${escapeHtml(cmd.comment)}</code>
+  <code class="rams-code" style="color: var(--rams-gray-200); display: block;">${escapeHtml(cmd.command)}</code>
 </div>
 `
     )
     .join("");
 
   return c.html(`
-<div class="terminal-commands-box">
-  <h3>Terminal Commands</h3>
-  <p>Run these commands in your terminal to view logs directly:</p>
+<div class="rams-card" style="padding: var(--rams-space-4);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">Terminal Commands</h3>
+  <p class="rams-text-muted" style="margin-bottom: var(--rams-space-4);">Run these commands in your terminal to view logs directly:</p>
   ${commandsHtml}
 </div>
 `);
@@ -1667,10 +1668,10 @@ api.get("/partials/activity-logs", (c) => {
 
   if (entries.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128196;</div>
-  <h3>No activity logs found</h3>
-  <p>Activity will appear here when you run <code>ralph build</code>.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128196;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No activity logs found</h3>
+  <p class="rams-text-muted">Activity will appear here when you run <code class="rams-code">ralph build</code>.</p>
 </div>
 `);
   }
@@ -1686,17 +1687,20 @@ api.get("/partials/activity-logs", (c) => {
         hour12: false,
       });
 
+      const levelBadge = entry.level === 'error' ? 'rams-badge-error' :
+                         entry.level === 'warning' ? 'rams-badge-warning' : 'rams-badge-info';
+
       return `
-<div class="log-entry ${entry.level}">
-  <span class="log-timestamp">${timestamp}</span>
-  <span class="log-level ${entry.level}">${entry.level}</span>
-  <span class="log-message">${escapeHtml(entry.message)}</span>
+<div class="rams-card" style="padding: var(--rams-space-3); margin-bottom: var(--rams-space-2); display: flex; gap: var(--rams-space-3); align-items: flex-start;">
+  <span class="rams-text-sm rams-text-muted" style="white-space: nowrap;">${timestamp}</span>
+  <span class="rams-badge ${levelBadge}" style="font-size: 10px; padding: 2px 6px;">${entry.level}</span>
+  <span class="rams-text-sm" style="flex: 1;">${escapeHtml(entry.message)}</span>
 </div>
 `;
     })
     .join("");
 
-  return c.html(`<div class="log-entries">${logEntriesHtml}</div>`);
+  return c.html(`<div>${logEntriesHtml}</div>`);
 });
 
 /**
@@ -1736,10 +1740,10 @@ api.get("/partials/run-list", (c) => {
 
   if (runs.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128640;</div>
-  <h3>No runs recorded yet</h3>
-  <p>Build runs will appear here when you execute <code>ralph build</code>.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128640;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No runs recorded yet</h3>
+  <p class="rams-text-muted">Build runs will appear here when you execute <code class="rams-code">ralph build</code>.</p>
 </div>
 `);
   }
@@ -1759,40 +1763,40 @@ api.get("/partials/run-list", (c) => {
 
       const statusClass =
         run.status === "completed"
-          ? "completed"
+          ? "rams-badge-success"
           : run.status === "failed"
-            ? "error"
-            : "in-progress";
+            ? "rams-badge-error"
+            : "rams-badge-warning";
       const storyInfo = run.storyId ? `${run.storyId}: ${run.storyTitle || ""}` : "Unknown story";
 
       // Create a unique ID for the run details container
       const runDetailsId = `run-details-${index}`;
 
       return `
-<div class="run-item" data-run-id="${escapeHtml(run.id)}">
-  <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
-    <div class="run-info">
-      <span class="status-badge ${statusClass}">${run.status}</span>
-      <span class="run-id">iter ${run.iteration}</span>
-      <span class="run-story">${escapeHtml(storyInfo)}</span>
+<div class="rams-card" style="margin-bottom: var(--rams-space-3); padding: 0; overflow: hidden;" data-run-id="${escapeHtml(run.id)}">
+  <div style="padding: var(--rams-space-3) var(--rams-space-4); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--rams-gray-50);" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+    <div style="display: flex; align-items: center; gap: var(--rams-space-3);">
+      <span class="rams-badge ${statusClass}"><span class="rams-badge-dot"></span>${run.status}</span>
+      <span class="rams-label">iter ${run.iteration}</span>
+      <span class="rams-text-sm">${escapeHtml(storyInfo)}</span>
     </div>
-    <div style="display: flex; align-items: center; gap: var(--spacing-md);">
-      <span class="run-timestamp">${timestamp}</span>
-      <span class="run-expand-icon">&#9660;</span>
+    <div style="display: flex; align-items: center; gap: var(--rams-space-3);">
+      <span class="rams-text-sm rams-text-muted">${timestamp}</span>
+      <span style="font-size: 10px; color: var(--rams-gray-400);">&#9660;</span>
     </div>
   </div>
-  <div class="run-details" id="${runDetailsId}"
+  <div style="display: none; padding: var(--rams-space-4); border-top: 1px solid var(--rams-border);" id="${runDetailsId}"
        hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${streamId || ""}&iteration=${run.iteration}"
        hx-trigger="intersect once"
        hx-swap="innerHTML">
-    <div class="loading">Loading run log...</div>
+    <div class="rams-text-sm rams-text-muted">Loading run log...</div>
   </div>
 </div>
 `;
     })
     .join("");
 
-  return c.html(`<div class="run-list">${runListHtml}</div>`);
+  return c.html(`<div>${runListHtml}</div>`);
 });
 
 /**
@@ -1810,14 +1814,14 @@ api.get("/partials/run-log-content", (c) => {
   const iterationStr = c.req.query("iteration");
 
   if (!runId) {
-    return c.html(`<p class="empty-state">No run ID provided</p>`);
+    return c.html(`<p class="rams-text-muted">No run ID provided</p>`);
   }
 
   const iteration = iterationStr ? parseInt(iterationStr, 10) : undefined;
   const entries = parseRunLog(runId, streamId, iteration);
 
   if (entries.length === 0) {
-    return c.html(`<p class="empty-state">Run log content not available</p>`);
+    return c.html(`<p class="rams-text-muted">Run log content not available</p>`);
   }
 
   // Limit to first 100 entries for performance
@@ -1832,11 +1836,14 @@ api.get("/partials/run-log-content", (c) => {
         hour12: false,
       });
 
+      const levelBadge = entry.level === 'error' ? 'rams-badge-error' :
+                         entry.level === 'warning' ? 'rams-badge-warning' : 'rams-badge-info';
+
       return `
-<div class="log-entry ${entry.level}">
-  <span class="log-timestamp">${timestamp}</span>
-  <span class="log-level ${entry.level}">${entry.level}</span>
-  <span class="log-message">${escapeHtml(entry.message)}</span>
+<div style="display: flex; gap: var(--rams-space-3); align-items: flex-start; padding: var(--rams-space-2) 0; border-bottom: 1px solid var(--rams-gray-100); font-family: var(--rams-font-mono); font-size: var(--rams-text-sm);">
+  <span class="rams-text-muted" style="white-space: nowrap;">${timestamp}</span>
+  <span class="rams-badge ${levelBadge}" style="font-size: 10px; padding: 1px 6px;">${entry.level}</span>
+  <span style="flex: 1; word-break: break-word;">${escapeHtml(entry.message)}</span>
 </div>
 `;
     })
@@ -1844,10 +1851,10 @@ api.get("/partials/run-log-content", (c) => {
 
   const hasMore =
     entries.length > 100
-      ? `<p style="color: var(--text-muted); font-size: 0.75rem; margin-top: var(--spacing-sm);">Showing first 100 of ${entries.length} entries</p>`
+      ? `<p class="rams-text-muted" style="font-size: var(--rams-text-xs); margin-top: var(--rams-space-2);">Showing first 100 of ${entries.length} entries</p>`
       : "";
 
-  return c.html(`<div class="run-log-content">${logContentHtml}${hasMore}</div>`);
+  return c.html(`<div>${logContentHtml}${hasMore}</div>`);
 });
 
 /**
@@ -1876,31 +1883,31 @@ api.get("/partials/streams-summary", (c) => {
 
   if (totalStreams === 0) {
     return c.html(`
-<div class="empty-state empty-state-setup">
-  <div class="empty-icon">&#128295;</div>
-  <h3>No streams yet</h3>
-  <p>Create your first PRD with <code>ralph prd</code> or click the 'New Stream' button.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128295;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No streams yet</h3>
+  <p class="rams-text-muted">Create your first PRD with <code class="rams-code">ralph prd</code> or click the 'New Stream' button.</p>
 </div>
 `);
   }
 
   const html = `
-<div class="streams-summary">
-  <div class="summary-stat">
-    <div class="summary-stat-value">${totalStreams}</div>
-    <div class="summary-stat-label">Total Streams</div>
+<div class="rams-card-grid">
+  <div class="rams-metric-card">
+    <div class="rams-metric-value">${totalStreams}</div>
+    <div class="rams-metric-label">Total Streams</div>
   </div>
-  <div class="summary-stat ${runningStreams > 0 ? "running" : ""}">
-    <div class="summary-stat-value">${runningStreams}</div>
-    <div class="summary-stat-label">Running</div>
+  <div class="rams-metric-card${runningStreams > 0 ? " rams-metric-highlight" : ""}">
+    <div class="rams-metric-value">${runningStreams}</div>
+    <div class="rams-metric-label">Running</div>
   </div>
-  <div class="summary-stat ${completedStreams > 0 ? "completed" : ""}">
-    <div class="summary-stat-value">${completedStreams}</div>
-    <div class="summary-stat-label">Completed</div>
+  <div class="rams-metric-card${completedStreams > 0 ? " rams-metric-success" : ""}">
+    <div class="rams-metric-value">${completedStreams}</div>
+    <div class="rams-metric-label">Completed</div>
   </div>
-  <div class="summary-stat">
-    <div class="summary-stat-value">${overallPercentage}%</div>
-    <div class="summary-stat-label">Overall Progress</div>
+  <div class="rams-metric-card">
+    <div class="rams-metric-value">${overallPercentage}%</div>
+    <div class="rams-metric-label">Overall Progress</div>
   </div>
 </div>
 `;
@@ -1919,10 +1926,10 @@ api.get("/partials/streams", (c) => {
 
   if (streams.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128203;</div>
-  <h3>No streams found</h3>
-  <p>Create a PRD with <code>ralph prd</code> or use the 'New Stream' button to get started.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No streams found</h3>
+  <p class="rams-text-muted">Create a PRD with <code class="rams-code">ralph prd</code> or use the 'New Stream' button to get started.</p>
 </div>
 `);
   }
@@ -1954,14 +1961,14 @@ api.get("/partials/streams", (c) => {
       // Init button - show if worktree not initialized and not merged
       if (!worktreeInitialized && !isMerged) {
         actionButtonsHtml += `
-          <button class="btn btn-secondary btn-sm" onclick="initStream('${stream.id}', event)" title="Initialize git worktree">
+          <button class="rams-btn rams-btn-secondary" onclick="initStream('${stream.id}', event)" title="Initialize git worktree">
             Init
           </button>`;
       }
 
       // Build button - always show (opens inline form) but disabled if merged or running
       actionButtonsHtml += `
-        <button class="btn btn-primary btn-sm" onclick="toggleBuildForm('${stream.id}', event)" title="${isMerged ? 'Already merged to main' : 'Start build iterations'}" ${isRunning || isMerged ? "disabled" : ""}>
+        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${isMerged ? 'Already merged to main' : 'Start build iterations'}" ${isRunning || isMerged ? "disabled" : ""}>
           ${isRunning ? "Running..." : "Build"}
         </button>`;
 
@@ -1969,7 +1976,7 @@ api.get("/partials/streams", (c) => {
       if (stream.hasPlan) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
         actionButtonsHtml += `
-        <button class="btn btn-secondary btn-sm"
+        <button class="rams-btn rams-btn-secondary"
                 onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
                 title="${isMerged ? 'Already merged to main' : 'View estimates for this PRD'}"
                 ${isMerged ? "disabled" : ""}>
@@ -1981,43 +1988,48 @@ api.get("/partials/streams", (c) => {
       if (worktreeInitialized) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
         actionButtonsHtml += `
-          <button class="btn btn-warning btn-sm" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${isMerged ? 'Already merged to main' : 'Merge to main branch'}" ${isMerged ? "disabled" : ""}>
+          <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${isMerged ? 'Already merged to main' : 'Merge to main branch'}" ${isMerged ? "disabled" : ""}>
             Merge
           </button>`;
       }
 
       // Build form (hidden by default)
       const buildFormHtml = `
-        <div id="build-form-${stream.id}" class="build-form" style="display: none;" onclick="event.stopPropagation()">
-          <label for="iterations-${stream.id}">Iterations:</label>
-          <input type="number" id="iterations-${stream.id}" name="iterations" value="1" min="1" max="100" />
-          <button class="btn btn-primary btn-sm" onclick="startStreamBuild('${stream.id}', event)">Start</button>
-          <button class="btn btn-secondary btn-sm" onclick="toggleBuildForm('${stream.id}', event)">Cancel</button>
+        <div id="build-form-${stream.id}" class="rams-card" style="display: none; padding: var(--rams-space-4); margin-top: var(--rams-space-3);" onclick="event.stopPropagation()">
+          <label class="rams-form-label" for="iterations-${stream.id}">Iterations:</label>
+          <input type="number" class="rams-input" id="iterations-${stream.id}" name="iterations" value="1" min="1" max="100" style="width: 80px; margin: 0 var(--rams-space-2);" />
+          <button class="rams-btn rams-btn-primary" onclick="startStreamBuild('${stream.id}', event)">Start</button>
+          <button class="rams-btn rams-btn-secondary" onclick="toggleBuildForm('${stream.id}', event)">Cancel</button>
         </div>`;
 
+      // Map status to Rams badge class
+      const badgeClass = stream.status === 'running' ? 'rams-badge-running' :
+                         stream.status === 'completed' ? 'rams-badge-success' :
+                         stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
+
       return `
-<div class="stream-card ${isRunning ? 'running' : ''} ${isMerged ? 'merged' : ''}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
-  <div class="stream-header">
-    <span class="stream-id">PRD-${stream.id}</span>
-    <span class="status-badge ${stream.status}">${statusLabel}</span>
-    ${isMerged ? '<span class="status-badge merged">Merged</span>' : ''}
-  </div>
-  <div class="stream-title">${escapeHtml(stream.name)}</div>
-  <div class="stream-progress">
-    <div class="stream-progress-bar">
-      <div class="stream-progress-fill" style="width: ${completionPercentage}%"></div>
-    </div>
-    <div class="stream-progress-text">${stream.completedStories} of ${stream.totalStories} stories completed (${completionPercentage}%)</div>
-  </div>
-  <div class="stream-meta">
-    <div class="stream-files">
-      <span class="stream-file-badge ${stream.hasPrd ? "present" : "missing"}">PRD</span>
-      <span class="stream-file-badge ${stream.hasPlan ? "present" : "missing"}">Plan</span>
-      <span class="stream-file-badge ${stream.hasProgress ? "present" : "missing"}">Progress</span>
-      ${worktreeInitialized ? '<span class="stream-file-badge present">Worktree</span>' : ""}
+<div class="rams-card" style="cursor: pointer; margin-bottom: var(--rams-space-4);" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+    <span class="rams-label">PRD-${stream.id}</span>
+    <div style="display: flex; gap: var(--rams-space-2);">
+      <span class="rams-badge ${badgeClass}"><span class="rams-badge-dot"></span>${statusLabel}</span>
+      ${isMerged ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Merged</span>' : ''}
     </div>
   </div>
-  <div class="stream-card-actions">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-3);">${escapeHtml(stream.name)}</h3>
+  <div style="margin-bottom: var(--rams-space-3);">
+    <div class="rams-progress" style="margin-bottom: var(--rams-space-2);">
+      <div class="rams-progress-fill" style="width: ${completionPercentage}%"></div>
+    </div>
+    <span class="rams-text-sm rams-text-muted">${stream.completedStories} of ${stream.totalStories} stories completed (${completionPercentage}%)</span>
+  </div>
+  <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap; margin-bottom: var(--rams-space-3);">
+    <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>PRD</span>
+    <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>Plan</span>
+    <span class="rams-badge ${stream.hasProgress ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>Progress</span>
+    ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ""}
+  </div>
+  <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
     ${actionButtonsHtml}
   </div>
   ${buildFormHtml}
@@ -2026,7 +2038,7 @@ api.get("/partials/streams", (c) => {
     })
     .join("");
 
-  return c.html(`<div class="streams-grid">${streamCards}</div>`);
+  return c.html(`<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${streamCards}</div>`);
 });
 
 /**
@@ -2041,10 +2053,10 @@ api.get('/partials/streams-timeline', (c) => {
 
   if (streams.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128203;</div>
-  <h3>No streams found</h3>
-  <p>Create a PRD with <code>ralph prd</code> or use the 'New Stream' button to get started.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No streams found</h3>
+  <p class="rams-text-muted">Create a PRD with <code class="rams-code">ralph prd</code> or use the 'New Stream' button to get started.</p>
 </div>
 `);
   }
@@ -2246,16 +2258,16 @@ api.get("/partials/stream-detail", (c) => {
   const id = c.req.query("id");
 
   if (!id) {
-    return c.html(`<div class="empty-state"><p>No stream ID provided</p></div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No stream ID provided</p></div>`);
   }
 
   const stream = getStreamDetails(id);
 
   if (!stream) {
     return c.html(`
-<div class="empty-state">
-  <h3>Stream not found</h3>
-  <p>PRD-${escapeHtml(id)} does not exist.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">Stream not found</h3>
+  <p class="rams-text-muted">PRD-${escapeHtml(id)} does not exist.</p>
 </div>
 `);
   }
@@ -2301,7 +2313,7 @@ api.get("/partials/stream-detail", (c) => {
 `;
           })
           .join("")
-      : '<div class="empty-state"><p>No stories found in this PRD.</p></div>';
+      : '<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No stories found in this PRD.</p></div>';
 
   // Build runs list HTML
   const runsHtml =
@@ -2319,10 +2331,10 @@ api.get("/partials/stream-detail", (c) => {
 
             const runStatusClass =
               run.status === "completed"
-                ? "completed"
+                ? "rams-badge-success"
                 : run.status === "failed"
-                  ? "error"
-                  : "in-progress";
+                  ? "rams-badge-error"
+                  : "rams-badge-warning";
             const storyInfo = run.storyId
               ? `${run.storyId}: ${run.storyTitle || ""}`
               : "Unknown story";
@@ -2330,34 +2342,34 @@ api.get("/partials/stream-detail", (c) => {
             // Show retry badge if retries occurred
             const retryBadge =
               run.retryCount && run.retryCount > 0
-                ? `<span class="retry-badge" title="Succeeded after ${run.retryCount} retry attempt(s), ${run.retryTime || 0}s total wait">&#8635; ${run.retryCount}</span>`
+                ? `<span class="rams-badge rams-badge-info" style="margin-left: var(--rams-space-2);" title="Succeeded after ${run.retryCount} retry attempt(s), ${run.retryTime || 0}s total wait">&#8635; ${run.retryCount}</span>`
                 : "";
 
             return `
-<div class="run-item">
-  <div class="run-header" onclick="this.parentElement.classList.toggle('expanded')">
-    <div class="run-info">
-      <span class="status-badge ${runStatusClass}">${run.status}</span>
-      <span class="run-id">iter ${run.iteration}</span>
-      <span class="run-story">${escapeHtml(storyInfo)}</span>
+<div class="rams-card" style="margin-bottom: var(--rams-space-3); padding: 0; overflow: hidden;">
+  <div style="padding: var(--rams-space-3) var(--rams-space-4); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--rams-gray-50);" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+    <div style="display: flex; align-items: center; gap: var(--rams-space-3);">
+      <span class="rams-badge ${runStatusClass}"><span class="rams-badge-dot"></span>${run.status}</span>
+      <span class="rams-label">iter ${run.iteration}</span>
+      <span class="rams-text-sm">${escapeHtml(storyInfo)}</span>
       ${retryBadge}
     </div>
-    <div style="display: flex; align-items: center; gap: var(--spacing-md);">
-      <span class="run-timestamp">${timestamp}</span>
-      <span class="run-expand-icon">&#9660;</span>
+    <div style="display: flex; align-items: center; gap: var(--rams-space-3);">
+      <span class="rams-text-sm rams-text-muted">${timestamp}</span>
+      <span style="font-size: 10px; color: var(--rams-gray-400);">&#9660;</span>
     </div>
   </div>
-  <div class="run-details"
+  <div style="display: none; padding: var(--rams-space-4); border-top: 1px solid var(--rams-border);"
        hx-get="/api/partials/run-log-content?runId=${encodeURIComponent(run.id)}&streamId=${stream.id}&iteration=${run.iteration}"
        hx-trigger="intersect once"
        hx-swap="innerHTML">
-    <div class="loading">Loading run log...</div>
+    <div class="rams-text-sm rams-text-muted">Loading run log...</div>
   </div>
 </div>
 `;
           })
           .join("")
-      : '<div class="empty-state"><p>No runs found for this stream.</p></div>';
+      : '<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No runs found for this stream.</p></div>';
 
   const html = `
 <div class="stream-detail-header">
@@ -2481,44 +2493,44 @@ function switchEstimateView(btn, viewName) {
 api.get("/partials/build-status", (c) => {
   const status = processManager.getBuildStatus();
 
-  let statusClass = "idle";
+  let badgeClass = "rams-badge-idle";
   let statusText = "Idle";
   let detailsHtml = "";
 
   switch (status.state) {
     case "running":
-      statusClass = "running";
+      badgeClass = "rams-badge-running";
       statusText = "Running...";
       if (status.command) {
         detailsHtml = `
-          <div class="build-status-info">
-            <div class="build-status-command">${escapeHtml(status.command)}</div>
-            ${status.startedAt ? `<div class="build-status-details">Started: ${status.startedAt.toLocaleTimeString()}</div>` : ""}
+          <div style="margin-top: var(--rams-space-2);">
+            <div class="rams-text-sm rams-text-muted">${escapeHtml(status.command)}</div>
+            ${status.startedAt ? `<div class="rams-text-sm rams-text-muted">Started: ${status.startedAt.toLocaleTimeString()}</div>` : ""}
           </div>
         `;
       }
       break;
     case "completed":
-      statusClass = "completed";
+      badgeClass = "rams-badge-success";
       statusText = "Completed";
       break;
     case "error":
-      statusClass = "error";
+      badgeClass = "rams-badge-error";
       statusText = "Error";
       if (status.error) {
-        detailsHtml = `<div class="build-status-details">${escapeHtml(status.error)}</div>`;
+        detailsHtml = `<div class="rams-text-sm" style="color: var(--rams-error); margin-top: var(--rams-space-2);">${escapeHtml(status.error)}</div>`;
       }
       break;
     default:
-      statusClass = "idle";
+      badgeClass = "rams-badge-idle";
       statusText = "Idle";
   }
 
   const html = `
-<div class="build-status ${statusClass}">
-  <span class="build-status-dot"></span>
-  <span class="build-status-text">${statusText}</span>
-</div>
+<span class="rams-badge ${badgeClass}">
+  <span class="rams-badge-dot"></span>
+  ${statusText}
+</span>
 ${detailsHtml}
 `;
 
@@ -2529,18 +2541,91 @@ ${detailsHtml}
  * GET /api/partials/stream-options
  *
  * Returns HTML options for the stream selector dropdown.
+ * Supports two views via query param `view`:
+ * - "current" (default): All streams in flat list
+ * - "progress": Grouped by completion status
  */
 api.get("/partials/stream-options", (c) => {
   const streams = getStreams();
+  const view = c.req.query("view") || "current";
 
   let optionsHtml = '<option value="">Default (latest)</option>';
 
-  for (const stream of streams) {
-    const completionPercentage =
-      stream.totalStories > 0
-        ? Math.round((stream.completedStories / stream.totalStories) * 100)
-        : 0;
-    optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+  if (view === "progress") {
+    // Categorize streams by completion status
+    const completed: typeof streams = [];
+    const inProgress: typeof streams = [];
+    const notStarted: typeof streams = [];
+
+    for (const stream of streams) {
+      const completionPercentage =
+        stream.totalStories > 0
+          ? Math.round((stream.completedStories / stream.totalStories) * 100)
+          : 0;
+
+      // Categorize based on status and completion percentage
+      if (
+        stream.status === "merged" ||
+        stream.status === "completed" ||
+        completionPercentage === 100
+      ) {
+        completed.push(stream);
+      } else if (
+        stream.status === "running" ||
+        stream.status === "in_progress" ||
+        (completionPercentage > 0 && completionPercentage < 100)
+      ) {
+        inProgress.push(stream);
+      } else {
+        notStarted.push(stream);
+      }
+    }
+
+    // Render with optgroups
+    if (completed.length > 0) {
+      optionsHtml += '<optgroup label="✓ Completed (100%)">';
+      for (const stream of completed) {
+        const completionPercentage =
+          stream.totalStories > 0
+            ? Math.round((stream.completedStories / stream.totalStories) * 100)
+            : 0;
+        optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+      }
+      optionsHtml += "</optgroup>";
+    }
+
+    if (inProgress.length > 0) {
+      optionsHtml += '<optgroup label="⏳ In Progress (1-99%)">';
+      for (const stream of inProgress) {
+        const completionPercentage =
+          stream.totalStories > 0
+            ? Math.round((stream.completedStories / stream.totalStories) * 100)
+            : 0;
+        optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+      }
+      optionsHtml += "</optgroup>";
+    }
+
+    if (notStarted.length > 0) {
+      optionsHtml += '<optgroup label="◯ Not Started (0%)">';
+      for (const stream of notStarted) {
+        const completionPercentage =
+          stream.totalStories > 0
+            ? Math.round((stream.completedStories / stream.totalStories) * 100)
+            : 0;
+        optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+      }
+      optionsHtml += "</optgroup>";
+    }
+  } else {
+    // Current view: flat list
+    for (const stream of streams) {
+      const completionPercentage =
+        stream.totalStories > 0
+          ? Math.round((stream.completedStories / stream.totalStories) * 100)
+          : 0;
+      optionsHtml += `<option value="${stream.id}">PRD-${stream.id}: ${escapeHtml(stream.name)} (${completionPercentage}%)</option>`;
+    }
   }
 
   return c.html(optionsHtml);
@@ -3566,59 +3651,56 @@ api.get("/partials/token-summary", (c) => {
   // Handle empty state
   if (summary.totalInputTokens === 0 && summary.totalOutputTokens === 0) {
     return c.html(`
-<div class="empty-state empty-state-setup">
-  <div class="empty-icon">&#128200;</div>
-  <h3>No token data yet</h3>
-  <p>Token consumption data will appear here after running <code>ralph build</code> commands.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128200;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No token data yet</h3>
+  <p class="rams-text-muted">Token consumption data will appear here after running <code class="rams-code">ralph build</code> commands.</p>
 </div>
 `);
   }
 
   // Trend indicator HTML
   let trendHtml = "";
+  const trendColor = trendDirection === "up" ? "var(--rams-warning)" : trendDirection === "down" ? "var(--rams-success)" : "var(--rams-text-muted)";
   if (trendDirection === "up") {
-    trendHtml = `<span class="token-trend up" title="Cost trend vs previous period">&#9650; +${trendPercentage}%</span>`;
+    trendHtml = `<span style="color: ${trendColor};" title="Cost trend vs previous period">&#9650; +${trendPercentage}%</span>`;
   } else if (trendDirection === "down") {
-    trendHtml = `<span class="token-trend down" title="Cost trend vs previous period">&#9660; ${trendPercentage}%</span>`;
+    trendHtml = `<span style="color: ${trendColor};" title="Cost trend vs previous period">&#9660; ${trendPercentage}%</span>`;
   } else {
-    trendHtml = `<span class="token-trend neutral" title="Cost trend vs previous period">&#8212; 0%</span>`;
+    trendHtml = `<span style="color: ${trendColor};" title="Cost trend vs previous period">&#8212; 0%</span>`;
   }
 
   const totalTokens = summary.totalInputTokens + summary.totalOutputTokens;
 
   const html = `
-<div class="token-summary-cards">
-  <div class="token-card">
-    <div class="token-card-label">Total Tokens</div>
-    <div class="token-card-value">${formatTokens(totalTokens)}</div>
-    <div class="token-card-breakdown">
-      <span class="token-input" title="Input tokens">&#8593; ${formatTokens(summary.totalInputTokens)}</span>
-      <span class="token-output" title="Output tokens">&#8595; ${formatTokens(summary.totalOutputTokens)}</span>
+<div class="rams-card-grid">
+  <div class="rams-metric-card">
+    <div class="rams-metric-label">Total Tokens</div>
+    <div class="rams-metric-value">${formatTokens(totalTokens)}</div>
+    <div class="rams-text-muted" style="font-size: 0.875rem;">
+      <span title="Input tokens">&#8593; ${formatTokens(summary.totalInputTokens)}</span>
+      <span title="Output tokens">&#8595; ${formatTokens(summary.totalOutputTokens)}</span>
     </div>
   </div>
 
-  <div class="token-card token-card-highlight">
-    <div class="token-card-label">Total Cost</div>
-    <div class="token-card-value">${formatCurrency(summary.totalCost)}</div>
-    <div class="token-card-breakdown">
+  <div class="rams-metric-card rams-metric-highlight">
+    <div class="rams-metric-label">Total Cost</div>
+    <div class="rams-metric-value">${formatCurrency(summary.totalCost)}</div>
+    <div style="font-size: 0.875rem;">
       ${trendHtml}
     </div>
   </div>
 
-  <div class="token-card">
-    <div class="token-card-label">Avg Cost / Story</div>
-    <div class="token-card-value">${formatCurrency(summary.avgCostPerStory)}</div>
-    <div class="token-card-breakdown">
-      <span class="token-muted">per completed story</span>
-    </div>
+  <div class="rams-metric-card">
+    <div class="rams-metric-label">Avg Cost / Story</div>
+    <div class="rams-metric-value">${formatCurrency(summary.avgCostPerStory)}</div>
+    <div class="rams-text-muted" style="font-size: 0.875rem;">per completed story</div>
   </div>
 
-  <div class="token-card">
-    <div class="token-card-label">Avg Cost / Run</div>
-    <div class="token-card-value">${formatCurrency(summary.avgCostPerRun)}</div>
-    <div class="token-card-breakdown">
-      <span class="token-muted">per build iteration</span>
-    </div>
+  <div class="rams-metric-card">
+    <div class="rams-metric-label">Avg Cost / Run</div>
+    <div class="rams-metric-value">${formatCurrency(summary.avgCostPerRun)}</div>
+    <div class="rams-text-muted" style="font-size: 0.875rem;">per build iteration</div>
   </div>
 </div>
 `;
@@ -3638,10 +3720,10 @@ api.get("/partials/token-streams", (c) => {
 
   if (summary.byStream.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128203;</div>
-  <h3>No streams found</h3>
-  <p>Create a PRD with <code>ralph prd</code> to start tracking token usage.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No streams found</h3>
+  <p class="rams-text-muted">Create a PRD with <code class="rams-code">ralph prd</code> to start tracking token usage.</p>
 </div>
 `);
   }
@@ -3694,12 +3776,14 @@ api.get("/partials/token-streams", (c) => {
       const efficiencyDisplay =
         stream.efficiencyScore !== null
           ? formatCurrency(stream.efficiencyScore)
-          : '<span class="token-muted">N/A</span>';
+          : '<span class="rams-text-muted">N/A</span>';
       // For sorting, use a high number for N/A so they sort to the end
       const efficiencySortValue = stream.efficiencyScore !== null ? stream.efficiencyScore : 999999;
 
       return `
-<tr class="token-stream-row token-stream-clickable"
+<tr style="cursor: pointer; transition: background 0.2s;"
+    onmouseover="this.style.background='var(--rams-bg-secondary)'"
+    onmouseout="this.style.background='transparent'"
     data-stream-id="${escapeHtml(stream.streamId)}"
     data-stream-name="${escapeHtml(stream.streamName)}"
     data-stories="${stream.storyCount}"
@@ -3709,55 +3793,52 @@ api.get("/partials/token-streams", (c) => {
     data-cost="${stream.totalCost}"
     data-efficiency="${efficiencySortValue}"
     onclick="showTokenStreamDetail('${escapeHtml(stream.streamId)}', '${escapeHtml(stream.streamName).replace(/'/g, "\\'")}')">
-  <td>
-    <span class="stream-id">PRD-${escapeHtml(stream.streamId)}</span>
-    <span class="stream-name">${escapeHtml(stream.streamName)}</span>
+  <td style="padding: var(--rams-space-3);">
+    <span class="rams-label" style="display: block;">PRD-${escapeHtml(stream.streamId)}</span>
+    <span class="rams-text-muted" style="font-size: 0.875rem;">${escapeHtml(stream.streamName)}</span>
   </td>
-  <td class="token-count">${stream.storyCount}</td>
-  <td class="token-count">${stream.runCount}</td>
-  <td class="token-count" title="Input tokens">
-    <span class="token-input">&#8593;</span> ${formatTokens(stream.inputTokens)}
+  <td style="padding: var(--rams-space-3); text-align: center;">${stream.storyCount}</td>
+  <td style="padding: var(--rams-space-3); text-align: center;">${stream.runCount}</td>
+  <td style="padding: var(--rams-space-3); text-align: center;" title="Input tokens">
+    <span style="color: var(--rams-accent);">&#8593;</span> ${formatTokens(stream.inputTokens)}
   </td>
-  <td class="token-count" title="Output tokens">
-    <span class="token-output">&#8595;</span> ${formatTokens(stream.outputTokens)}
+  <td style="padding: var(--rams-space-3); text-align: center;" title="Output tokens">
+    <span style="color: var(--rams-warning);">&#8595;</span> ${formatTokens(stream.outputTokens)}
   </td>
-  <td class="token-cost">
-    <div class="token-cost-bar">
-      <div class="token-cost-fill" style="width: ${costPercentage}%"></div>
-    </div>
-    <span class="token-cost-value">${formatCurrency(stream.totalCost)}</span>
+  <td style="padding: var(--rams-space-3);">
+    ${formatCurrency(stream.totalCost)}
   </td>
-  <td class="token-efficiency" title="Cost per completed story">${efficiencyDisplay}</td>
+  <td style="padding: var(--rams-space-3);" title="Cost per completed story">${efficiencyDisplay}</td>
 </tr>
 `;
     })
     .join("");
 
   const html = `
-<div class="token-table-container">
-  <table class="token-table token-table-sortable" id="token-streams-table">
+<div class="rams-card" style="overflow-x: auto;">
+  <table class="rams-table" id="token-streams-table" style="width: 100%;">
     <thead>
       <tr>
-        <th class="sortable" data-sort="stream" data-sort-type="string">
-          Stream <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Stream
         </th>
-        <th class="token-count-header sortable" data-sort="stories" data-sort-type="number">
-          Stories <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Stories
         </th>
-        <th class="token-count-header sortable" data-sort="runs" data-sort-type="number">
-          Runs <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Runs
         </th>
-        <th class="token-count-header sortable" data-sort="input" data-sort-type="number">
-          Input <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Input
         </th>
-        <th class="token-count-header sortable" data-sort="output" data-sort-type="number">
-          Output <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Output
         </th>
-        <th class="token-cost-header sortable" data-sort="cost" data-sort-type="number">
-          Cost <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600; border-bottom: 2px solid var(--rams-border);">
+          Cost
         </th>
-        <th class="token-efficiency-header sortable" data-sort="efficiency" data-sort-type="number" title="Cost per completed story">
-          Efficiency <span class="sort-icon"></span>
+        <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600; border-bottom: 2px solid var(--rams-border);" title="Cost per completed story">
+          Efficiency
         </th>
       </tr>
     </thead>
@@ -3789,10 +3870,10 @@ api.get("/partials/token-models", (c) => {
 
   if (modelEntries.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#129302;</div>
-  <h3>No model data yet</h3>
-  <p>Model breakdown will appear here after running builds with different Claude models.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#129302;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No model data yet</h3>
+  <p class="rams-text-muted">Model breakdown will appear here after running builds with different Claude models.</p>
 </div>
 `);
   }
@@ -3845,64 +3926,65 @@ api.get("/partials/token-models", (c) => {
       let badges = "";
       if (isBestOverall) {
         badges +=
-          '<span class="model-badge model-badge-best" title="Best overall efficiency">&#9733; Best</span>';
+          '<span class="rams-badge rams-badge-success" style="margin-left: var(--rams-space-2);" title="Best overall efficiency">&#9733; Best</span>';
       }
       if (isBestCost && !isBestOverall) {
         badges +=
-          '<span class="model-badge model-badge-cost" title="Most cost-effective">$ Cost</span>';
+          '<span class="rams-badge" style="margin-left: var(--rams-space-2); background: var(--rams-accent); color: white;" title="Most cost-effective">$ Cost</span>';
       }
       if (isBestSuccess && !isBestOverall) {
         badges +=
-          '<span class="model-badge model-badge-reliable" title="Highest success rate">&#10003; Reliable</span>';
+          '<span class="rams-badge rams-badge-info" style="margin-left: var(--rams-space-2);" title="Highest success rate">&#10003; Reliable</span>';
       }
 
+      const successRateColor = successRate >= 80 ? "var(--rams-success)" : successRate >= 50 ? "var(--rams-warning)" : "var(--rams-error)";
+
       return `
-<div class="token-model-card${isBestOverall ? " token-model-card-recommended" : ""}">
-  <div class="token-model-header">
-    <span class="token-model-name">${escapeHtml(displayName)}</span>
-    <span class="token-model-badges">${badges}</span>
-    <span class="token-model-runs">${metrics.runCount || 0} runs</span>
+<div class="rams-card" style="margin-bottom: var(--rams-space-4);${isBestOverall ? " border-left: 3px solid var(--rams-success);" : ""}">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+    <div>
+      <span style="font-weight: 600; font-size: 1.125rem;">${escapeHtml(displayName)}</span>
+      ${badges}
+    </div>
+    <span class="rams-text-muted">${metrics.runCount || 0} runs</span>
   </div>
-  <div class="token-model-stats">
-    <div class="token-model-stat">
-      <span class="token-model-stat-label">Tokens</span>
-      <span class="token-model-stat-value">${formatTokens(totalTokens)}</span>
+  <div class="rams-card-grid" style="margin-bottom: var(--rams-space-3);">
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;">Tokens</div>
+      <div style="font-weight: 600;">${formatTokens(totalTokens)}</div>
     </div>
-    <div class="token-model-stat">
-      <span class="token-model-stat-label">Cost</span>
-      <span class="token-model-stat-value">${formatCurrency(metrics.totalCost)}</span>
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;">Cost</div>
+      <div style="font-weight: 600;">${formatCurrency(metrics.totalCost)}</div>
     </div>
   </div>
-  <div class="token-model-efficiency">
-    <div class="token-model-metric">
-      <span class="metric-label">Success Rate</span>
-      <span class="metric-value ${successRate >= 80 ? "metric-good" : successRate >= 50 ? "metric-ok" : "metric-low"}">${successRate}%</span>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: var(--rams-space-3); margin-bottom: var(--rams-space-3);">
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;">Success Rate</div>
+      <div style="font-weight: 600; color: ${successRateColor};">${successRate}%</div>
     </div>
-    <div class="token-model-metric">
-      <span class="metric-label">Cost/Story</span>
-      <span class="metric-value">${formatCurrency(costPerStory)}</span>
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;">Cost/Story</div>
+      <div style="font-weight: 600;">${formatCurrency(costPerStory)}</div>
     </div>
-    <div class="token-model-metric">
-      <span class="metric-label">Tokens/Run</span>
-      <span class="metric-value">${formatTokens(tokensPerRun)}</span>
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;">Tokens/Run</div>
+      <div style="font-weight: 600;">${formatTokens(tokensPerRun)}</div>
     </div>
     ${
       efficiencyScore != null
         ? `
-    <div class="token-model-metric">
-      <span class="metric-label" title="Lower is better - combines cost, tokens, and success rate">Efficiency</span>
-      <span class="metric-value metric-score">${(efficiencyScore / 1000).toFixed(1)}K</span>
+    <div>
+      <div class="rams-text-muted" style="font-size: 0.75rem;" title="Lower is better - combines cost, tokens, and success rate">Efficiency</div>
+      <div style="font-weight: 600;">${(efficiencyScore / 1000).toFixed(1)}K</div>
     </div>
     `
         : ""
     }
   </div>
-  <div class="token-model-bar">
-    <div class="token-model-bar-fill" style="width: ${costPercentage}%"></div>
-  </div>
-  <div class="token-model-breakdown">
-    <span class="token-input" title="Input tokens">&#8593; ${formatTokens(metrics.inputTokens)}</span>
-    <span class="token-output" title="Output tokens">&#8595; ${formatTokens(metrics.outputTokens)}</span>
+  <div class="rams-text-muted" style="font-size: 0.875rem;">
+    <span style="color: var(--rams-accent);" title="Input tokens">&#8593; ${formatTokens(metrics.inputTokens)}</span>
+    <span style="color: var(--rams-warning);" title="Output tokens">&#8595; ${formatTokens(metrics.outputTokens)}</span>
   </div>
 </div>
 `;
@@ -3914,29 +3996,29 @@ api.get("/partials/token-models", (c) => {
   if (recommendations.hasData && recommendations.recommendations.length > 0) {
     const recItems = recommendations.recommendations
       .map((rec) => {
-        const confidenceClass =
+        const confidenceColor =
           rec.confidence === "high"
-            ? "confidence-high"
+            ? "var(--rams-success)"
             : rec.confidence === "medium"
-              ? "confidence-medium"
-              : "confidence-low";
+              ? "var(--rams-warning)"
+              : "var(--rams-text-muted)";
         return `
-      <div class="recommendation-item">
-        <div class="recommendation-header">
-          <span class="recommendation-task-type">${escapeHtml(rec.taskType.replace(/-/g, " "))}</span>
-          <span class="recommendation-confidence ${confidenceClass}">${rec.confidence}</span>
+      <div class="rams-card" style="margin-bottom: var(--rams-space-3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-2);">
+          <span class="rams-label">${escapeHtml(rec.taskType.replace(/-/g, " "))}</span>
+          <span class="rams-badge" style="background: ${confidenceColor}; color: white;">${rec.confidence}</span>
         </div>
-        <div class="recommendation-model">Use <strong>${escapeHtml(rec.recommendedModel)}</strong></div>
-        <div class="recommendation-reason">${escapeHtml(rec.reason)}</div>
+        <div style="margin-bottom: var(--rams-space-2);">Use <strong>${escapeHtml(rec.recommendedModel)}</strong></div>
+        <div class="rams-text-muted" style="font-size: 0.875rem;">${escapeHtml(rec.reason)}</div>
       </div>
       `;
       })
       .join("");
 
     recommendationsHtml = `
-    <div class="model-recommendations">
-      <h4>Recommendations by Task Type</h4>
-      <div class="recommendations-grid">
+    <div style="margin-top: var(--rams-space-6);">
+      <h4 class="rams-h4" style="margin-bottom: var(--rams-space-4);">Recommendations by Task Type</h4>
+      <div class="rams-card-grid">
         ${recItems}
       </div>
     </div>
@@ -3954,32 +4036,32 @@ api.get("/partials/token-models", (c) => {
       .join("");
 
     comparisonHtml = `
-    <div class="model-comparison-section">
-      <h4>A/B Model Comparison</h4>
-      <div class="comparison-controls">
-        <div class="comparison-select">
-          <label for="compare-model-a">Model A:</label>
-          <select id="compare-model-a" onchange="updateModelComparison()">
+    <div style="margin-top: var(--rams-space-6);">
+      <h4 class="rams-h4" style="margin-bottom: var(--rams-space-4);">A/B Model Comparison</h4>
+      <div style="display: flex; align-items: center; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); flex-wrap: wrap;">
+        <div>
+          <label for="compare-model-a" class="rams-text-muted" style="font-size: 0.875rem;">Model A:</label>
+          <select id="compare-model-a" class="rams-select" onchange="updateModelComparison()">
             ${modelOptions}
           </select>
         </div>
-        <span class="comparison-vs">vs</span>
-        <div class="comparison-select">
-          <label for="compare-model-b">Model B:</label>
-          <select id="compare-model-b" onchange="updateModelComparison()">
+        <span class="rams-text-muted">vs</span>
+        <div>
+          <label for="compare-model-b" class="rams-text-muted" style="font-size: 0.875rem;">Model B:</label>
+          <select id="compare-model-b" class="rams-select" onchange="updateModelComparison()">
             ${modelOptions}
           </select>
         </div>
       </div>
-      <div id="model-comparison-result" class="comparison-result">
-        <p class="comparison-hint">Select different models to compare their efficiency metrics.</p>
+      <div id="model-comparison-result">
+        <p class="rams-text-muted">Select different models to compare their efficiency metrics.</p>
       </div>
     </div>
     `;
   }
 
   return c.html(`
-<div class="token-models-grid">${modelCards}</div>
+<div class="rams-card-grid">${modelCards}</div>
 ${recommendationsHtml}
 ${comparisonHtml}
 `);
@@ -3999,10 +4081,10 @@ api.get("/partials/token-stories/:streamId", (c) => {
 
   if (!streamTokens || !streamDetails) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128203;</div>
-  <h3>Stream not found</h3>
-  <p>PRD-${escapeHtml(streamId)} does not exist or has no token data.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">Stream not found</h3>
+  <p class="rams-text-muted">PRD-${escapeHtml(streamId)} does not exist or has no token data.</p>
 </div>
 `);
   }
@@ -4065,10 +4147,10 @@ api.get("/partials/token-stories/:streamId", (c) => {
 
   if (storyTokenData.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <div class="empty-icon">&#128221;</div>
-  <h3>No stories found</h3>
-  <p>This stream has no user stories defined.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128221;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No stories found</h3>
+  <p class="rams-text-muted">This stream has no user stories defined.</p>
 </div>
 `);
   }
@@ -4403,12 +4485,12 @@ api.get("/partials/token-budget", (c) => {
   // If no budgets are configured, show configuration hint
   if (!status.daily.hasLimit && !status.monthly.hasLimit) {
     return c.html(`
-<div class="budget-section budget-not-configured">
-  <div class="budget-hint">
-    <span class="budget-hint-icon">&#128176;</span>
-    <div class="budget-hint-text">
-      <strong>Budget tracking not configured</strong>
-      <p>Set <code>RALPH_BUDGET_DAILY</code> and/or <code>RALPH_BUDGET_MONTHLY</code> in <code>.agents/ralph/config.sh</code> to enable budget tracking.</p>
+<div class="rams-card" style="padding: var(--rams-space-6);">
+  <div style="display: flex; align-items: flex-start; gap: var(--rams-space-4);">
+    <span style="font-size: 32px;">&#128176;</span>
+    <div>
+      <strong style="display: block; margin-bottom: var(--rams-space-2);">Budget tracking not configured</strong>
+      <p class="rams-text-muted">Set <code class="rams-code">RALPH_BUDGET_DAILY</code> and/or <code class="rams-code">RALPH_BUDGET_MONTHLY</code> in <code class="rams-code">.agents/ralph/config.sh</code> to enable budget tracking.</p>
     </div>
   </div>
 </div>
@@ -4443,24 +4525,24 @@ api.get("/partials/token-budget", (c) => {
     const dailyStatusIcon = status.daily.exceeded ? "&#9888;" : "&#10003;";
     const dailyStatusText = status.daily.exceeded ? "Exceeded" : "OK";
 
+    const dailyStatusColor = status.daily.exceeded ? "var(--rams-error)" : "var(--rams-success)";
     dailyHtml = `
-<div class="budget-item">
-  <div class="budget-header">
-    <span class="budget-label">Daily Budget</span>
-    <span class="budget-values">
+<div class="rams-card" style="margin-bottom: var(--rams-space-4);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+    <span class="rams-label">Daily Budget</span>
+    <span class="rams-text-muted">
       ${formatCurrency(status.daily.spent)} / ${formatCurrency(status.daily.limit)}
     </span>
   </div>
-  <div class="budget-progress-container">
-    <div class="budget-progress-bar ${dailyColorClass}" style="width: ${dailyBarWidth}%"></div>
+  <div class="rams-progress" style="margin-bottom: var(--rams-space-3);">
+    <div class="rams-progress-fill" style="width: ${dailyBarWidth}%; background: ${dailyStatusColor};"></div>
   </div>
-  <div class="budget-footer">
-    <span class="budget-percentage ${dailyColorClass}">${status.daily.percentage}%</span>
-    <span class="budget-status ${dailyColorClass}">
-      <span class="budget-status-icon">${dailyStatusIcon}</span>
-      ${dailyStatusText}
+  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+    <span style="color: ${dailyStatusColor};">${status.daily.percentage}%</span>
+    <span style="color: ${dailyStatusColor};">
+      ${dailyStatusIcon} ${dailyStatusText}
     </span>
-    ${status.daily.remaining !== null && !status.daily.exceeded ? `<span class="budget-remaining">${formatCurrency(status.daily.remaining)} remaining</span>` : ""}
+    ${status.daily.remaining !== null && !status.daily.exceeded ? `<span class="rams-text-muted">${formatCurrency(status.daily.remaining)} remaining</span>` : ""}
   </div>
 </div>
 `;
@@ -4474,24 +4556,24 @@ api.get("/partials/token-budget", (c) => {
     const monthlyStatusIcon = status.monthly.exceeded ? "&#9888;" : "&#10003;";
     const monthlyStatusText = status.monthly.exceeded ? "Exceeded" : "OK";
 
+    const monthlyStatusColor = status.monthly.exceeded ? "var(--rams-error)" : "var(--rams-success)";
     monthlyHtml = `
-<div class="budget-item">
-  <div class="budget-header">
-    <span class="budget-label">Monthly Budget</span>
-    <span class="budget-values">
+<div class="rams-card" style="margin-bottom: var(--rams-space-4);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+    <span class="rams-label">Monthly Budget</span>
+    <span class="rams-text-muted">
       ${formatCurrency(status.monthly.spent)} / ${formatCurrency(status.monthly.limit)}
     </span>
   </div>
-  <div class="budget-progress-container">
-    <div class="budget-progress-bar ${monthlyColorClass}" style="width: ${monthlyBarWidth}%"></div>
+  <div class="rams-progress" style="margin-bottom: var(--rams-space-3);">
+    <div class="rams-progress-fill" style="width: ${monthlyBarWidth}%; background: ${monthlyStatusColor};"></div>
   </div>
-  <div class="budget-footer">
-    <span class="budget-percentage ${monthlyColorClass}">${status.monthly.percentage}%</span>
-    <span class="budget-status ${monthlyColorClass}">
-      <span class="budget-status-icon">${monthlyStatusIcon}</span>
-      ${monthlyStatusText}
+  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem;">
+    <span style="color: ${monthlyStatusColor};">${status.monthly.percentage}%</span>
+    <span style="color: ${monthlyStatusColor};">
+      ${monthlyStatusIcon} ${monthlyStatusText}
     </span>
-    ${status.monthly.remaining !== null && !status.monthly.exceeded ? `<span class="budget-remaining">${formatCurrency(status.monthly.remaining)} remaining</span>` : ""}
+    ${status.monthly.remaining !== null && !status.monthly.exceeded ? `<span class="rams-text-muted">${formatCurrency(status.monthly.remaining)} remaining</span>` : ""}
   </div>
 </div>
 `;
@@ -4501,11 +4583,13 @@ api.get("/partials/token-budget", (c) => {
   let pauseWarningHtml = "";
   if (status.pauseOnExceeded && status.shouldPause) {
     pauseWarningHtml = `
-<div class="budget-pause-warning">
-  <span class="budget-pause-icon">&#128721;</span>
-  <div class="budget-pause-text">
-    <strong>Builds Paused</strong>
-    <p>Budget exceeded and <code>RALPH_BUDGET_PAUSE_ON_EXCEEDED=true</code> is set. New builds will be blocked until budget resets.</p>
+<div class="rams-card" style="background: var(--rams-error-bg); border-left: 3px solid var(--rams-error); margin-bottom: var(--rams-space-4);">
+  <div style="display: flex; align-items: flex-start; gap: var(--rams-space-3);">
+    <span style="font-size: 24px;">&#128721;</span>
+    <div>
+      <strong style="display: block; color: var(--rams-error);">Builds Paused</strong>
+      <p class="rams-text-muted">Budget exceeded and <code class="rams-code">RALPH_BUDGET_PAUSE_ON_EXCEEDED=true</code> is set. New builds will be blocked until budget resets.</p>
+    </div>
   </div>
 </div>
 `;
@@ -4525,35 +4609,35 @@ api.get("/partials/token-budget", (c) => {
   if (highestDailyAlert || highestMonthlyAlert) {
     const alertItems = [];
     if (highestDailyAlert) {
-      const alertClass =
+      const alertColor =
         highestDailyAlert.threshold >= 100
-          ? "alert-error"
+          ? "var(--rams-error)"
           : highestDailyAlert.threshold >= 90
-            ? "alert-critical"
-            : "alert-warning";
+            ? "var(--rams-warning)"
+            : "var(--rams-warning)";
       alertItems.push(
-        `<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestDailyAlert.message)}</div>`
+        `<div class="rams-badge" style="background: ${alertColor}; color: white; margin-right: var(--rams-space-2);">&#9888; ${escapeHtml(highestDailyAlert.message)}</div>`
       );
     }
     if (highestMonthlyAlert) {
-      const alertClass =
+      const alertColor =
         highestMonthlyAlert.threshold >= 100
-          ? "alert-error"
+          ? "var(--rams-error)"
           : highestMonthlyAlert.threshold >= 90
-            ? "alert-critical"
-            : "alert-warning";
+            ? "var(--rams-warning)"
+            : "var(--rams-warning)";
       alertItems.push(
-        `<div class="budget-alert ${alertClass}"><span class="budget-alert-icon">&#9888;</span> ${escapeHtml(highestMonthlyAlert.message)}</div>`
+        `<div class="rams-badge" style="background: ${alertColor}; color: white;">&#9888; ${escapeHtml(highestMonthlyAlert.message)}</div>`
       );
     }
-    alertsHtml = `<div class="budget-alerts">${alertItems.join("")}</div>`;
+    alertsHtml = `<div style="margin-bottom: var(--rams-space-4); display: flex; flex-wrap: wrap; gap: var(--rams-space-2);">${alertItems.join("")}</div>`;
   }
 
   const html = `
-<div class="budget-section">
+<div>
   ${pauseWarningHtml}
   ${alertsHtml}
-  <div class="budget-items">
+  <div>
     ${dailyHtml}
     ${monthlyHtml}
   </div>
@@ -4617,17 +4701,17 @@ api.get('/partials/estimate-summary', (c) => {
   const model = (c.req.query('model') || 'sonnet') as 'sonnet' | 'opus';
 
   if (!id) {
-    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No PRD ID provided</p></div>`);
   }
 
   const result = getStreamEstimate(id, { model });
 
   if (!result.success || !result.totals) {
     return c.html(`
-<div class="empty-state">
-  <h3>Estimate not available</h3>
-  <p>${escapeHtml(result.error || `Unable to generate estimate for PRD-${id}`)}</p>
-  <p class="text-muted">Make sure plan.md exists and contains user stories.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">Estimate not available</h3>
+  <p class="rams-text-muted">${escapeHtml(result.error || `Unable to generate estimate for PRD-${id}`)}</p>
+  <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">Make sure plan.md exists and contains user stories.</p>
 </div>
 `);
   }
@@ -4711,15 +4795,15 @@ api.get('/partials/estimate-breakdown', (c) => {
   const model = (c.req.query('model') || 'sonnet') as 'sonnet' | 'opus';
 
   if (!id) {
-    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No PRD ID provided</p></div>`);
   }
 
   const result = getStreamEstimate(id, { model });
 
   if (!result.success || !result.estimates || result.estimates.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <p>No story estimates available</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">No story estimates available</p>
 </div>
 `);
   }
@@ -4803,15 +4887,15 @@ api.get('/partials/estimate-comparison', (c) => {
   const id = c.req.query('id');
 
   if (!id) {
-    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No PRD ID provided</p></div>`);
   }
 
   const ralphRoot = getRalphRoot();
 
   if (!ralphRoot) {
     return c.html(`
-<div class="empty-state">
-  <p>Ralph root directory not found</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">Ralph root directory not found</p>
 </div>
 `);
   }
@@ -4820,8 +4904,8 @@ api.get('/partials/estimate-comparison', (c) => {
 
   if (!fs.existsSync(prdFolder)) {
     return c.html(`
-<div class="empty-state">
-  <p>PRD-${id} not found</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">PRD-${id} not found</p>
 </div>
 `);
   }
@@ -4830,19 +4914,19 @@ api.get('/partials/estimate-comparison', (c) => {
 
   if (!report.success) {
     return c.html(`
-<div class="empty-state">
-  <p>Error generating accuracy report</p>
-  <p class="text-muted">${escapeHtml(report.error || 'Unknown error')}</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">Error generating accuracy report</p>
+  <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">${escapeHtml(report.error || 'Unknown error')}</p>
 </div>
 `);
   }
 
   if (!report.hasData || !report.comparisons || report.comparisons.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <h3>No comparison data available</h3>
-  <p>${escapeHtml(report.message || 'No matching estimate-to-actual pairs found.')}</p>
-  <p class="text-muted">Complete some builds after running estimates to see comparisons.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No comparison data available</h3>
+  <p class="rams-text-muted">${escapeHtml(report.message || 'No matching estimate-to-actual pairs found.')}</p>
+  <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">Complete some builds after running estimates to see comparisons.</p>
 </div>
 `);
   }
@@ -4966,15 +5050,15 @@ api.get('/partials/estimate-history', (c) => {
   const limit = parseInt(c.req.query('limit') || '10', 10);
 
   if (!id) {
-    return c.html(`<div class="empty-state"><p>No PRD ID provided</p></div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No PRD ID provided</p></div>`);
   }
 
   const ralphRoot = getRalphRoot();
 
   if (!ralphRoot) {
     return c.html(`
-<div class="empty-state">
-  <p>Ralph root directory not found</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">Ralph root directory not found</p>
 </div>
 `);
   }
@@ -4983,8 +5067,8 @@ api.get('/partials/estimate-history', (c) => {
 
   if (!fs.existsSync(prdFolder)) {
     return c.html(`
-<div class="empty-state">
-  <p>PRD-${id} not found</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">PRD-${id} not found</p>
 </div>
 `);
   }
@@ -4993,9 +5077,9 @@ api.get('/partials/estimate-history', (c) => {
 
   if (!result.success) {
     return c.html(`
-<div class="empty-state">
-  <p>Error loading estimate history</p>
-  <p class="text-muted">${escapeHtml(result.error || 'Unknown error')}</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);">
+  <p class="rams-text-muted">Error loading estimate history</p>
+  <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">${escapeHtml(result.error || 'Unknown error')}</p>
 </div>
 `);
   }
@@ -5004,10 +5088,10 @@ api.get('/partials/estimate-history', (c) => {
 
   if (estimates.length === 0) {
     return c.html(`
-<div class="empty-state">
-  <h3>No estimate history</h3>
-  <p>No saved estimates found for PRD-${id}.</p>
-  <p class="text-muted">Estimates are automatically saved when you run builds or manually trigger estimates.</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No estimate history</h3>
+  <p class="rams-text-muted">No saved estimates found for PRD-${id}.</p>
+  <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">Estimates are automatically saved when you run builds or manually trigger estimates.</p>
 </div>
 `);
   }
@@ -5445,14 +5529,12 @@ api.get('/partials/accuracy-widget', (c) => {
 
   if (!ralphRoot) {
     return c.html(`
-<div class="accuracy-widget">
-  <div class="accuracy-widget-header">
-    <h3>Estimation Accuracy</h3>
+<div class="rams-card" style="padding: var(--rams-space-4);">
+  <div style="margin-bottom: var(--rams-space-2);">
+    <h3 class="rams-h4">Estimation Accuracy</h3>
   </div>
-  <div class="accuracy-widget-content">
-    <div class="empty-state-small">
-      <p>Ralph root not found</p>
-    </div>
+  <div>
+    <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">Ralph root not found</p>
   </div>
 </div>
 `);
@@ -5475,15 +5557,13 @@ api.get('/partials/accuracy-widget', (c) => {
   // Need at least 3 samples for meaningful metrics
   if (allComparisons.length < 3) {
     return c.html(`
-<div class="accuracy-widget">
-  <div class="accuracy-widget-header">
-    <h3>Estimation Accuracy</h3>
+<div class="rams-card" style="padding: var(--rams-space-4);">
+  <div style="margin-bottom: var(--rams-space-2);">
+    <h3 class="rams-h4">Estimation Accuracy</h3>
   </div>
-  <div class="accuracy-widget-content">
-    <div class="empty-state-small">
-      <p>Insufficient data</p>
-      <p class="text-muted">Need at least 3 completed stories with estimates</p>
-    </div>
+  <div>
+    <p class="rams-text-muted" style="font-size: var(--rams-text-sm);">Insufficient data</p>
+    <p class="rams-text-muted" style="font-size: var(--rams-text-xs);">Need at least 3 completed stories with estimates</p>
   </div>
 </div>
 `);
@@ -5679,10 +5759,10 @@ api.get('/partials/rollback-stats', (c) => {
 
   if (!analytics.hasData) {
     return c.html(`
-<div class="rollback-stats empty-state">
-  <div class="empty-icon">✓</div>
-  <h3>No Rollbacks</h3>
-  <p>No rollback events recorded for this stream. This means all builds succeeded without test failures!</p>
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-6);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-3); color: var(--rams-success);">&#10003;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No Rollbacks</h3>
+  <p class="rams-text-muted">No rollback events recorded for this stream. This means all builds succeeded without test failures!</p>
 </div>
 `);
   }
@@ -6019,37 +6099,38 @@ api.get("/partials/cost-chart", (c) => {
   // Format token numbers with commas for readability
   const formatNumber = (num: number) => num.toLocaleString('en-US');
 
+  const varianceColor = hasBudget && totalVariance >= 0 ? "var(--rams-success)" : "var(--rams-error)";
   const html = `
-    <div class="trend-summary-grid">
-      <div class="trend-stat">
-        <span class="trend-stat-value">$${trends.totalCost.toFixed(2)}</span>
-        <span class="trend-stat-label">Total Cost</span>
+    <div class="rams-card-grid" style="margin-bottom: var(--rams-space-4);">
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">$${trends.totalCost.toFixed(2)}</div>
+        <div class="rams-metric-label">Total Cost</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.totalRuns}</span>
-        <span class="trend-stat-label">Total Runs</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.totalRuns}</div>
+        <div class="rams-metric-label">Total Runs</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.totalStories}</span>
-        <span class="trend-stat-label">Stories</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.totalStories}</div>
+        <div class="rams-metric-label">Stories</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">$${trends.avgCostPerStory.toFixed(4)}</span>
-        <span class="trend-stat-label">Avg Cost/Story</span>
-        <span class="trend-stat-detail">${formatNumber(totalInputTokens)} in / ${formatNumber(totalOutputTokens)} out tokens</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">$${trends.avgCostPerStory.toFixed(4)}</div>
+        <div class="rams-metric-label">Avg Cost/Story</div>
+        <div class="rams-text-muted" style="font-size: 0.75rem;">${formatNumber(totalInputTokens)} in / ${formatNumber(totalOutputTokens)} out tokens</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">$${trends.avgCostPerRun.toFixed(4)}</span>
-        <span class="trend-stat-label">Avg Cost/Run</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">$${trends.avgCostPerRun.toFixed(4)}</div>
+        <div class="rams-metric-label">Avg Cost/Run</div>
       </div>
       ${hasBudget ? `
-      <div class="trend-stat ${varianceClass}">
-        <span class="trend-stat-value">${varianceSign}$${Math.abs(totalVariance).toFixed(2)}</span>
-        <span class="trend-stat-label">vs Budget</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value" style="color: ${varianceColor};">${varianceSign}$${Math.abs(totalVariance).toFixed(2)}</div>
+        <div class="rams-metric-label">vs Budget</div>
       </div>
       ` : ""}
     </div>
-    <div class="trend-period-info">
+    <div class="rams-text-muted" style="font-size: 0.875rem;">
       Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.dailyMetrics.length} data points
     </div>
   `;
@@ -6074,23 +6155,25 @@ api.get("/partials/cost-filters", (c) => {
     .join("");
 
   const html = `
-    <div class="control-group">
-      <label for="cost-prd-filter">PRD:</label>
-      <select id="cost-prd-filter" onchange="updateCostChart()">
-        <option value="all" selected>All PRDs</option>
-        ${prdOptions}
-      </select>
-    </div>
-    <div class="control-group">
-      <label for="cost-model-filter">Model:</label>
-      <select id="cost-model-filter" onchange="updateCostChart()">
-        <option value="all" selected>All Models</option>
-        ${modelOptions}
-      </select>
-    </div>
-    <div class="control-group">
-      <label for="cost-budget-input">Budget ($/day):</label>
-      <input type="number" id="cost-budget-input" min="0" step="0.01" placeholder="Optional" onchange="updateCostChart()" style="width: 80px;">
+    <div style="display: flex; gap: var(--rams-space-4); flex-wrap: wrap; align-items: center;">
+      <div>
+        <label for="cost-prd-filter" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">PRD:</label>
+        <select id="cost-prd-filter" class="rams-select" onchange="updateCostChart()">
+          <option value="all" selected>All PRDs</option>
+          ${prdOptions}
+        </select>
+      </div>
+      <div>
+        <label for="cost-model-filter" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">Model:</label>
+        <select id="cost-model-filter" class="rams-select" onchange="updateCostChart()">
+          <option value="all" selected>All Models</option>
+          ${modelOptions}
+        </select>
+      </div>
+      <div>
+        <label for="cost-budget-input" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">Budget ($/day):</label>
+        <input type="number" id="cost-budget-input" class="rams-input" min="0" step="0.01" placeholder="Optional" onchange="updateCostChart()" style="width: 100px;">
+      </div>
     </div>
   `;
 
@@ -6135,45 +6218,46 @@ api.get("/partials/success-rate-chart", (c) => {
       .slice(0, 3) // Show max 3
       .map((change) => {
         const icon = change.direction === "improved" ? "↑" : "↓";
-        const changeClass = change.direction;
+        const changeColor = change.direction === "improved" ? "var(--rams-success)" : "var(--rams-error)";
         const formattedDate = new Date(change.date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
         });
-        return `<div class="significant-change ${changeClass}">
-          <span class="change-icon">${icon}</span>
-          <span class="change-date">${formattedDate}</span>
-          <span class="change-delta">${change.delta > 0 ? "+" : ""}${change.delta}%</span>
+        return `<div style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-2) 0; border-bottom: 1px solid var(--rams-border);">
+          <span style="color: ${changeColor}; font-weight: 600;">${icon}</span>
+          <span class="rams-text-muted">${formattedDate}</span>
+          <span style="color: ${changeColor}; font-weight: 600;">${change.delta > 0 ? "+" : ""}${change.delta}%</span>
         </div>`;
       })
       .join("");
-    changesHtml = `<div class="significant-changes">
-      <h4>Significant Changes</h4>
+    changesHtml = `<div class="rams-card" style="margin-top: var(--rams-space-4);">
+      <h4 class="rams-h4" style="margin-bottom: var(--rams-space-3);">Significant Changes</h4>
       ${changeItems}
     </div>`;
   }
 
   // Build summary card
+  const trendColor = trendClass === "improved" ? "var(--rams-success)" : trendClass === "declined" ? "var(--rams-error)" : "var(--rams-text-muted)";
   const html = `
-    <div class="success-rate-summary">
-      <div class="summary-card">
-        <div class="summary-value">${trends.overallSuccessRate !== null ? trends.overallSuccessRate + "%" : "N/A"}</div>
-        <div class="summary-label">Success Rate</div>
-        <div class="summary-trend ${trendClass}">
-          <span class="trend-arrow">${trendArrow}</span>
-          <span class="trend-delta">${deltaText}</span>
-          <span class="trend-label">vs last week</span>
+    <div class="rams-card-grid" style="margin-bottom: var(--rams-space-4);">
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.overallSuccessRate !== null ? trends.overallSuccessRate + "%" : "N/A"}</div>
+        <div class="rams-metric-label">Success Rate</div>
+        <div style="font-size: 0.875rem; color: ${trendColor};">
+          <span>${trendArrow}</span>
+          <span>${deltaText}</span>
+          <span class="rams-text-muted" style="margin-left: var(--rams-space-1);">vs last week</span>
         </div>
       </div>
-      <div class="summary-card">
-        <div class="summary-value">${trends.totalRuns}</div>
-        <div class="summary-label">Total Runs</div>
-        <div class="summary-detail">${trends.totalPassed} passed, ${trends.totalFailed} failed</div>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.totalRuns}</div>
+        <div class="rams-metric-label">Total Runs</div>
+        <div class="rams-text-muted" style="font-size: 0.875rem;">${trends.totalPassed} passed, ${trends.totalFailed} failed</div>
       </div>
-      <div class="summary-card">
-        <div class="summary-value">${trends.dailyMetrics.length}</div>
-        <div class="summary-label">Active Days</div>
-        <div class="summary-detail">${period === "7d" ? "Last 7 days" : "Last 30 days"}</div>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.dailyMetrics.length}</div>
+        <div class="rams-metric-label">Active Days</div>
+        <div class="rams-text-muted" style="font-size: 0.875rem;">${period === "7d" ? "Last 7 days" : "Last 30 days"}</div>
       </div>
     </div>
     ${changesHtml}
@@ -6204,17 +6288,19 @@ api.get("/partials/success-rate-filters", (c) => {
   }
 
   const html = `
-    <div class="filter-group">
-      <label for="trend-prd-filter">PRD:</label>
-      <select id="trend-prd-filter" onchange="updateSuccessRateChart()">
-        ${prdOptions}
-      </select>
-    </div>
-    <div class="filter-group">
-      <label for="trend-agent-filter">Agent:</label>
-      <select id="trend-agent-filter" onchange="updateSuccessRateChart()">
-        ${agentOptions}
-      </select>
+    <div style="display: flex; gap: var(--rams-space-4); flex-wrap: wrap; align-items: center;">
+      <div>
+        <label for="trend-prd-filter" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">PRD:</label>
+        <select id="trend-prd-filter" class="rams-select" onchange="updateSuccessRateChart()">
+          ${prdOptions}
+        </select>
+      </div>
+      <div>
+        <label for="trend-agent-filter" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">Agent:</label>
+        <select id="trend-agent-filter" class="rams-select" onchange="updateSuccessRateChart()">
+          ${agentOptions}
+        </select>
+      </div>
     </div>
   `;
 
@@ -6313,29 +6399,29 @@ api.get("/partials/velocity-chart", (c) => {
   const trends = getVelocityTrends(period, { prd });
 
   const html = `
-    <div class="trend-summary-grid">
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.totalStories}</span>
-        <span class="trend-stat-label">Stories Completed</span>
+    <div class="rams-card-grid" style="margin-bottom: var(--rams-space-4);">
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.totalStories}</div>
+        <div class="rams-metric-label">Stories Completed</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.storiesPerDay}</span>
-        <span class="trend-stat-label">Stories/Day</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.storiesPerDay}</div>
+        <div class="rams-metric-label">Stories/Day</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.storiesPerWeek}</span>
-        <span class="trend-stat-label">Stories/Week</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.storiesPerWeek}</div>
+        <div class="rams-metric-label">Stories/Week</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.avgTimePerStoryMinutes} min</span>
-        <span class="trend-stat-label">Avg Time/Story</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.avgTimePerStoryMinutes} min</div>
+        <div class="rams-metric-label">Avg Time/Story</div>
       </div>
-      <div class="trend-stat">
-        <span class="trend-stat-value">${trends.totalRuns}</span>
-        <span class="trend-stat-label">Total Runs</span>
+      <div class="rams-metric-card">
+        <div class="rams-metric-value">${trends.totalRuns}</div>
+        <div class="rams-metric-label">Total Runs</div>
       </div>
     </div>
-    <div class="trend-period-info">
+    <div class="rams-text-muted" style="font-size: 0.875rem;">
       Showing data for ${period === "7d" ? "last 7 days" : "last 30 days"} &bull; ${trends.velocityMetrics.length} data points
     </div>
   `;
@@ -6354,42 +6440,42 @@ api.get("/partials/burndown-chart/:prdId", (c) => {
   const burndown = getBurndown(prdId);
 
   if (!burndown) {
-    return c.html(`<div class="no-data-message">PRD-${prdId} not found</div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">PRD-${prdId} not found</p></div>`);
   }
 
   // Calculate status
-  let statusClass = "on-track";
+  let statusColor = "var(--rams-success)";
   let statusText = "On Track";
   if (burndown.remainingStories === 0) {
-    statusClass = "complete";
+    statusColor = "var(--rams-accent)";
     statusText = "Complete";
   } else if (burndown.velocity < 0.5 && burndown.remainingStories > 0) {
-    statusClass = "at-risk";
+    statusColor = "var(--rams-warning)";
     statusText = "At Risk";
   }
 
   const html = `
-    <div class="burndown-summary">
-      <div class="burndown-header">
-        <h3>PRD-${prdId} Burndown</h3>
-        <span class="burndown-status ${statusClass}">${statusText}</span>
+    <div class="rams-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-4);">
+        <h3 class="rams-h3">PRD-${prdId} Burndown</h3>
+        <span class="rams-badge" style="background: ${statusColor}; color: white;">${statusText}</span>
       </div>
-      <div class="burndown-stats">
-        <div class="stat">
-          <span class="stat-value">${burndown.completedStories}/${burndown.totalStories}</span>
-          <span class="stat-label">Stories Done</span>
+      <div class="rams-card-grid">
+        <div>
+          <div class="rams-metric-value">${burndown.completedStories}/${burndown.totalStories}</div>
+          <div class="rams-text-muted" style="font-size: 0.875rem;">Stories Done</div>
         </div>
-        <div class="stat">
-          <span class="stat-value">${burndown.percentComplete}%</span>
-          <span class="stat-label">Complete</span>
+        <div>
+          <div class="rams-metric-value">${burndown.percentComplete}%</div>
+          <div class="rams-text-muted" style="font-size: 0.875rem;">Complete</div>
         </div>
-        <div class="stat">
-          <span class="stat-value">${burndown.velocity}</span>
-          <span class="stat-label">Velocity (stories/day)</span>
+        <div>
+          <div class="rams-metric-value">${burndown.velocity}</div>
+          <div class="rams-text-muted" style="font-size: 0.875rem;">Velocity (stories/day)</div>
         </div>
-        <div class="stat">
-          <span class="stat-value">${burndown.estimatedCompletion || "N/A"}</span>
-          <span class="stat-label">Est. Completion</span>
+        <div>
+          <div class="rams-metric-value">${burndown.estimatedCompletion || "N/A"}</div>
+          <div class="rams-text-muted" style="font-size: 0.875rem;">Est. Completion</div>
         </div>
       </div>
     </div>
@@ -6410,48 +6496,48 @@ api.get("/partials/stream-comparison", (c) => {
   const comparison = getStreamVelocityComparison(period);
 
   if (comparison.streams.length === 0) {
-    return c.html(`<div class="no-data-message">No streams with velocity data found.</div>`);
+    return c.html(`<div class="rams-card" style="text-align: center; padding: var(--rams-space-4);"><p class="rams-text-muted">No streams with velocity data found.</p></div>`);
   }
 
   const streamRows = comparison.streams
     .map((stream) => `
-      <tr>
-        <td>${stream.name}</td>
-        <td>${stream.totalStories}</td>
-        <td>${stream.storiesPerDay}</td>
-        <td>${stream.avgTimePerStoryMinutes} min</td>
-        <td>
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${stream.percentComplete}%"></div>
-            <span class="progress-text">${stream.percentComplete}%</span>
+      <tr style="border-bottom: 1px solid var(--rams-border);">
+        <td style="padding: var(--rams-space-3);">${stream.name}</td>
+        <td style="padding: var(--rams-space-3); text-align: center;">${stream.totalStories}</td>
+        <td style="padding: var(--rams-space-3); text-align: center;">${stream.storiesPerDay}</td>
+        <td style="padding: var(--rams-space-3); text-align: center;">${stream.avgTimePerStoryMinutes} min</td>
+        <td style="padding: var(--rams-space-3);">
+          <div class="rams-progress" style="min-width: 100px;">
+            <div class="rams-progress-fill" style="width: ${stream.percentComplete}%"></div>
           </div>
+          <span class="rams-text-muted" style="font-size: 0.75rem;">${stream.percentComplete}%</span>
         </td>
-        <td>${stream.estimatedCompletion || "N/A"}</td>
+        <td style="padding: var(--rams-space-3);">${stream.estimatedCompletion || "N/A"}</td>
       </tr>
     `)
     .join("");
 
   const html = `
-    <div class="stream-comparison-summary">
-      <div class="comparison-header">
-        <span>Overall: ${comparison.overall.avgStoriesPerDay} stories/day across ${comparison.streamCount} streams</span>
-      </div>
+    <div class="rams-card" style="margin-bottom: var(--rams-space-4); padding: var(--rams-space-3);">
+      <span class="rams-text-muted">Overall: ${comparison.overall.avgStoriesPerDay} stories/day across ${comparison.streamCount} streams</span>
     </div>
-    <table class="stream-comparison-table">
-      <thead>
-        <tr>
-          <th>Stream</th>
-          <th>Stories</th>
-          <th>Velocity</th>
-          <th>Avg Time</th>
-          <th>Progress</th>
-          <th>Est. Completion</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${streamRows}
-      </tbody>
-    </table>
+    <div class="rams-card" style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr style="border-bottom: 2px solid var(--rams-border);">
+            <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600;">Stream</th>
+            <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600;">Stories</th>
+            <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600;">Velocity</th>
+            <th style="padding: var(--rams-space-3); text-align: center; font-weight: 600;">Avg Time</th>
+            <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600;">Progress</th>
+            <th style="padding: var(--rams-space-3); text-align: left; font-weight: 600;">Est. Completion</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${streamRows}
+        </tbody>
+      </table>
+    </div>
   `;
 
   return c.html(html);
@@ -6470,12 +6556,14 @@ api.get("/partials/velocity-filters", (c) => {
     .join("");
 
   const html = `
-    <div class="control-group">
-      <label for="velocity-prd-filter">PRD:</label>
-      <select id="velocity-prd-filter" onchange="updateVelocityChart()">
-        <option value="all" selected>All PRDs</option>
-        ${prdOptions}
-      </select>
+    <div style="display: flex; gap: var(--rams-space-4); flex-wrap: wrap; align-items: center;">
+      <div>
+        <label for="velocity-prd-filter" class="rams-text-muted" style="font-size: 0.875rem; display: block; margin-bottom: var(--rams-space-1);">PRD:</label>
+        <select id="velocity-prd-filter" class="rams-select" onchange="updateVelocityChart()">
+          <option value="all" selected>All PRDs</option>
+          ${prdOptions}
+        </select>
+      </div>
     </div>
   `;
 

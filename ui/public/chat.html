@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/css/rams-ui.css">
   <script src="/js/htmx.min.js"></script>
   <style>
+    /* Chat Container Layout */
     .chat-container {
       display: flex;
       flex-direction: column;
@@ -14,19 +15,20 @@
       max-width: 900px;
       margin: 0 auto;
     }
+
+    /* Chat Header */
     .chat-header {
       text-align: center;
       padding: var(--rams-space-6);
-      border-bottom: var(--rams-border-width) solid var(--rams-border);
-    }
-    .chat-header h2 {
-      margin-bottom: var(--rams-space-2);
-      color: var(--rams-gray-900);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
     }
     .chat-header p {
       color: var(--rams-gray-500);
       font-size: var(--rams-text-sm);
+      margin-top: var(--rams-space-2);
     }
+
+    /* Chat Messages Area */
     .chat-messages {
       flex: 1;
       overflow-y: auto;
@@ -35,6 +37,8 @@
       flex-direction: column;
       gap: var(--rams-space-4);
     }
+
+    /* Individual Message */
     .chat-message {
       display: flex;
       gap: var(--rams-space-3);
@@ -47,11 +51,13 @@
     .chat-message.assistant {
       align-self: flex-start;
     }
+
+    /* Avatar */
     .chat-avatar {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: var(--rams-gray-900);
+      background: var(--rams-accent);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -63,22 +69,36 @@
     .chat-message.user .chat-avatar {
       background: var(--rams-gray-600);
     }
+
+    /* Message Bubble */
     .chat-bubble {
       background: var(--rams-gray-50);
-      border: var(--rams-border-width) solid var(--rams-border);
+      border: var(--rams-border-width) solid var(--rams-border-color);
       border-radius: var(--rams-radius-lg);
       padding: var(--rams-space-3) var(--rams-space-4);
-      line-height: 1.6;
+      line-height: var(--rams-leading-relaxed);
       font-size: var(--rams-text-sm);
     }
     .chat-message.user .chat-bubble {
-      background: var(--rams-gray-900);
+      background: var(--rams-accent);
       color: white;
-      border-color: var(--rams-gray-900);
+      border-color: var(--rams-accent);
     }
+    .chat-bubble code {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-xs);
+      background: rgba(0, 0, 0, 0.06);
+      padding: 2px 6px;
+      border-radius: var(--rams-radius-sm);
+    }
+    .chat-message.user .chat-bubble code {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Input Container */
     .chat-input-container {
       padding: var(--rams-space-6);
-      border-top: var(--rams-border-width) solid var(--rams-border);
+      border-top: var(--rams-border-width) solid var(--rams-border-color);
       background: var(--rams-gray-50);
     }
     .chat-input-form {
@@ -87,37 +107,11 @@
       max-width: 800px;
       margin: 0 auto;
     }
-    .chat-input {
+    .chat-input-form .rams-input {
       flex: 1;
-      padding: var(--rams-space-3) var(--rams-space-4);
-      border: var(--rams-border-width) solid var(--rams-border);
-      border-radius: var(--rams-radius-md);
-      font-size: var(--rams-text-sm);
-      background: white;
-      outline: none;
-      transition: border-color 0.2s;
     }
-    .chat-input:focus {
-      border-color: var(--rams-gray-400);
-    }
-    .chat-send-btn {
-      padding: var(--rams-space-3) var(--rams-space-5);
-      background: var(--rams-gray-900);
-      color: white;
-      border: none;
-      border-radius: var(--rams-radius-md);
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-size: var(--rams-text-sm);
-    }
-    .chat-send-btn:hover {
-      background: var(--rams-gray-700);
-    }
-    .chat-send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+
+    /* Quick Actions */
     .quick-actions {
       display: flex;
       flex-wrap: wrap;
@@ -125,30 +119,24 @@
       margin-top: var(--rams-space-4);
       justify-content: center;
     }
-    .quick-action-btn {
-      padding: var(--rams-space-2) var(--rams-space-4);
-      background: white;
-      border: var(--rams-border-width) solid var(--rams-border);
-      border-radius: var(--rams-radius-full);
+    .quick-actions .rams-btn {
+      border-radius: 999px;
       font-size: var(--rams-text-xs);
-      color: var(--rams-gray-600);
-      cursor: pointer;
-      transition: all 0.2s;
+      padding: var(--rams-space-2) var(--rams-space-4);
     }
-    .quick-action-btn:hover {
-      border-color: var(--rams-gray-400);
-      color: var(--rams-gray-900);
-    }
+
+    /* Welcome Message */
     .welcome-message {
       text-align: center;
       padding: var(--rams-space-6);
       color: var(--rams-gray-500);
     }
-    .welcome-message h3 {
-      color: var(--rams-gray-900);
-      margin-bottom: var(--rams-space-2);
+    .welcome-message p {
+      margin-top: var(--rams-space-2);
     }
-    .capabilities-list {
+
+    /* Capabilities Grid */
+    .capabilities-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: var(--rams-space-4);
@@ -156,21 +144,18 @@
       padding: 0 var(--rams-space-4);
     }
     .capability-card {
-      background: white;
-      border: var(--rams-border-width) solid var(--rams-border);
-      border-radius: var(--rams-radius-md);
-      padding: var(--rams-space-4);
       text-align: left;
+      padding: var(--rams-space-4);
     }
-    .capability-card h4 {
-      color: var(--rams-gray-900);
-      font-size: var(--rams-text-sm);
+    .capability-card .rams-label {
       margin-bottom: var(--rams-space-1);
+      display: block;
     }
     .capability-card p {
       color: var(--rams-gray-500);
       font-size: var(--rams-text-xs);
       line-height: 1.4;
+      margin: 0;
     }
     .capability-icon {
       font-size: 1.5rem;
@@ -237,34 +222,34 @@
 
       <div class="chat-container">
         <div class="chat-header">
-          <h2>Chat with Ralph</h2>
+          <h2 class="rams-h2">Chat with Ralph</h2>
           <p>Ask questions about your project, get help with PRDs, or discuss implementation strategies.</p>
         </div>
 
         <div class="chat-messages" id="chat-messages">
           <div class="welcome-message">
-            <h3>Welcome to Ralph Chat</h3>
+            <h3 class="rams-h3">Welcome to Ralph Chat</h3>
             <p>I can help you with PRD creation, planning, troubleshooting, and more.</p>
 
-            <div class="capabilities-list">
-              <div class="capability-card">
-                <div class="capability-icon">📝</div>
-                <h4>PRD Assistance</h4>
+            <div class="capabilities-grid">
+              <div class="rams-card capability-card">
+                <div class="capability-icon">&#128221;</div>
+                <span class="rams-label">PRD Assistance</span>
                 <p>Help writing and refining your Product Requirements Documents</p>
               </div>
-              <div class="capability-card">
-                <div class="capability-icon">📋</div>
-                <h4>Planning Help</h4>
+              <div class="rams-card capability-card">
+                <div class="capability-icon">&#128203;</div>
+                <span class="rams-label">Planning Help</span>
                 <p>Break down features into actionable user stories</p>
               </div>
-              <div class="capability-card">
-                <div class="capability-icon">🔧</div>
-                <h4>Troubleshooting</h4>
+              <div class="rams-card capability-card">
+                <div class="capability-icon">&#128295;</div>
+                <span class="rams-label">Troubleshooting</span>
                 <p>Diagnose and fix issues with builds, streams, or git</p>
               </div>
-              <div class="capability-card">
-                <div class="capability-icon">💡</div>
-                <h4>Best Practices</h4>
+              <div class="rams-card capability-card">
+                <div class="capability-icon">&#128161;</div>
+                <span class="rams-label">Best Practices</span>
                 <p>Get tips on using Ralph more effectively</p>
               </div>
             </div>
@@ -290,20 +275,20 @@
           <form class="chat-input-form" id="chat-form" onsubmit="handleChatSubmit(event)">
             <input
               type="text"
-              class="chat-input"
+              class="rams-input"
               id="chat-input"
               placeholder="Ask Ralph a question..."
               autocomplete="off"
             />
-            <button type="submit" class="chat-send-btn" id="send-btn">
+            <button type="submit" class="rams-btn rams-btn-primary" id="send-btn">
               Send
             </button>
           </form>
           <div class="quick-actions">
-            <button class="quick-action-btn" onclick="insertQuickAction('How do I create a new PRD?')">Create PRD</button>
-            <button class="quick-action-btn" onclick="insertQuickAction('How do I run a build?')">Run Build</button>
-            <button class="quick-action-btn" onclick="insertQuickAction('How do I use streams for parallel development?')">Use Streams</button>
-            <button class="quick-action-btn" onclick="insertQuickAction('What commands are available?')">Show Commands</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I create a new PRD?')">Create PRD</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I run a build?')">Run Build</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I use streams for parallel development?')">Use Streams</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('What commands are available?')">Show Commands</button>
           </div>
         </div>
       </div>

@@ -282,29 +282,75 @@
       border-color: var(--rams-accent);
     }
 
-    .rams-quick-links {
-      display: flex;
-      align-items: center;
-      gap: var(--rams-space-4);
-      flex-wrap: wrap;
-      font-size: var(--rams-text-sm);
+    /* Floating Page Navigation */
+    .rams-page-nav {
+      position: fixed;
+      top: 140px;
+      right: var(--rams-space-8);
+      width: 180px;
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-lg);
+      padding: var(--rams-space-4);
+      box-shadow: var(--rams-shadow-sm);
+      z-index: 40;
+      transition: all var(--rams-transition-normal);
     }
 
-    .rams-quick-links-label {
+    .rams-page-nav-header {
+      font-size: var(--rams-text-xs);
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--rams-gray-500);
+      padding: var(--rams-space-2) var(--rams-space-3);
+      margin-bottom: var(--rams-space-2);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+    }
+
+    .rams-page-nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-1);
+    }
+
+    .rams-page-nav-link {
+      display: block;
+      padding: var(--rams-space-2) var(--rams-space-3);
+      font-size: var(--rams-text-sm);
       color: var(--rams-gray-700);
-    }
-
-    .rams-quick-link {
-      color: var(--rams-accent);
       text-decoration: none;
-      font-weight: 500;
-      transition: color var(--rams-transition-fast);
+      border-radius: var(--rams-radius-sm);
+      border-left: 2px solid transparent;
+      transition: all var(--rams-transition-fast);
+      position: relative;
     }
 
-    .rams-quick-link:hover {
-      color: var(--rams-accent-light);
-      text-decoration: underline;
+    .rams-page-nav-link:hover {
+      color: var(--rams-gray-900);
+      background: var(--rams-gray-50);
+    }
+
+    .rams-page-nav-link.active {
+      color: var(--rams-accent);
+      background: rgba(26, 77, 46, 0.04);
+      border-left-color: var(--rams-accent);
+      font-weight: 500;
+    }
+
+    .rams-page-nav-link.active::before {
+      content: '';
+      position: absolute;
+      left: var(--rams-space-1);
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 4px;
+      background: var(--rams-accent);
+      border-radius: 50%;
     }
 
     /* Footer */
@@ -353,6 +399,12 @@
     .rams-no-results p {
       font-size: var(--rams-text-base);
       color: var(--rams-gray-600);
+    }
+
+    @media (max-width: 1280px) {
+      .rams-page-nav {
+        display: none;
+      }
     }
 
     @media (max-width: 768px) {
@@ -468,15 +520,19 @@
         <button class="rams-filter-pill" data-filter="advanced">Advanced</button>
       </div>
 
-      <div class="rams-quick-links">
-        <span class="rams-quick-links-label">Jump to:</span>
-        <a href="#setup" class="rams-quick-link">Setup</a>
-        <a href="#prd" class="rams-quick-link">PRD</a>
-        <a href="#planning" class="rams-quick-link">Planning</a>
-        <a href="#building" class="rams-quick-link">Building</a>
-        <a href="#streams" class="rams-quick-link">Streams</a>
-      </div>
     </div>
+
+    <!-- Floating Page Navigation -->
+    <nav class="rams-page-nav" id="page-nav">
+      <div class="rams-page-nav-header">Navigation</div>
+      <ul class="rams-page-nav-list">
+        <li><a href="#setup" class="rams-page-nav-link" data-section="setup">Setup</a></li>
+        <li><a href="#prd" class="rams-page-nav-link" data-section="prd">PRD</a></li>
+        <li><a href="#planning" class="rams-page-nav-link" data-section="planning">Planning</a></li>
+        <li><a href="#building" class="rams-page-nav-link" data-section="building">Building</a></li>
+        <li><a href="#streams" class="rams-page-nav-link" data-section="streams">Streams</a></li>
+      </ul>
+    </nav>
 
     <!-- Content Area -->
     <article class="rams-content">
@@ -1485,18 +1541,56 @@ ralph stream cleanup 1</code></pre>
       filterCommands();
     }
 
-    // Smooth scroll for quick links
-    document.querySelectorAll('.rams-quick-link').forEach(link => {
+    // Floating Page Navigation - Active Section Detection
+    const pageNavLinks = document.querySelectorAll('.rams-page-nav-link');
+    const sectionElements = document.querySelectorAll('[data-section]');
+
+    // Smooth scroll for page navigation links
+    pageNavLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        const target = document.querySelector(link.getAttribute('href'));
+        const targetId = link.getAttribute('href');
+        const target = document.querySelector(targetId);
         if (target) {
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
+          // Offset for fixed header
+          const offset = 80;
+          const targetPosition = target.getBoundingClientRect().top + window.scrollY - offset;
+
+          window.scrollTo({
+            top: targetPosition,
+            behavior: 'smooth'
           });
         }
       });
+    });
+
+    // Intersection Observer for active section detection
+    const observerOptions = {
+      root: null,
+      rootMargin: '-100px 0px -66%',
+      threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const sectionId = entry.target.getAttribute('data-section');
+
+          // Remove active class from all links
+          pageNavLinks.forEach(link => link.classList.remove('active'));
+
+          // Add active class to current section link
+          const activeLink = document.querySelector(`.rams-page-nav-link[data-section="${sectionId}"]`);
+          if (activeLink) {
+            activeLink.classList.add('active');
+          }
+        }
+      });
+    }, observerOptions);
+
+    // Observe all sections
+    sectionElements.forEach(section => {
+      observer.observe(section);
     });
 
     // Keyboard shortcuts

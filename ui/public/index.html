@@ -105,7 +105,19 @@
             </div>
 
             <div class="rams-form-group">
-              <label for="stream" class="rams-form-label">Stream</label>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--rams-space-1);">
+                <label for="stream" class="rams-form-label" style="margin-bottom: 0;">Stream</label>
+                <button
+                  type="button"
+                  id="stream-view-toggle"
+                  class="rams-btn rams-btn-secondary"
+                  onclick="toggleStreamView()"
+                  style="padding: var(--rams-space-1) var(--rams-space-2); font-size: 0.75rem; height: auto;"
+                  title="Toggle between Current View and Completion Progress View"
+                >
+                  📊 Progress View
+                </button>
+              </div>
               <select
                 id="stream"
                 name="stream"
@@ -340,6 +352,56 @@
 
       htmx.trigger(progressContainer, "load");
       htmx.trigger(storiesContainer, "load");
+    });
+
+    // Stream View Toggle
+    var streamViewMode = localStorage.getItem("streamViewMode") || "current";
+
+    function toggleStreamView() {
+      var toggleBtn = document.getElementById("stream-view-toggle");
+      var streamSelect = document.getElementById("stream");
+      var currentSelection = streamSelect.value;
+
+      // Toggle the view mode
+      streamViewMode = streamViewMode === "current" ? "progress" : "current";
+      localStorage.setItem("streamViewMode", streamViewMode);
+
+      // Update button text and appearance
+      if (streamViewMode === "progress") {
+        toggleBtn.innerHTML = "📋 Current View";
+        toggleBtn.title = "Switch to Current View";
+      } else {
+        toggleBtn.innerHTML = "📊 Progress View";
+        toggleBtn.title = "Switch to Completion Progress View";
+      }
+
+      // Reload the stream options with the new view
+      var newUrl = "/api/partials/stream-options?view=" + streamViewMode;
+      streamSelect.setAttribute("hx-get", newUrl);
+      htmx.process(streamSelect);
+      htmx.trigger(streamSelect, "load");
+
+      // Restore the selection after options are loaded
+      setTimeout(function() {
+        if (currentSelection) {
+          streamSelect.value = currentSelection;
+        }
+      }, 100);
+    }
+
+    // Initialize view on page load
+    document.addEventListener("DOMContentLoaded", function() {
+      var toggleBtn = document.getElementById("stream-view-toggle");
+      var streamSelect = document.getElementById("stream");
+
+      if (streamViewMode === "progress") {
+        toggleBtn.innerHTML = "📋 Current View";
+        toggleBtn.title = "Switch to Current View";
+        streamSelect.setAttribute("hx-get", "/api/partials/stream-options?view=progress");
+      } else {
+        toggleBtn.innerHTML = "📊 Progress View";
+        toggleBtn.title = "Switch to Completion Progress View";
+      }
     });
 
     // Error Toast Management
