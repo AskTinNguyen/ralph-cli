@@ -184,6 +184,110 @@ added 45 packages in 3.2s
             </div>
           </div>
 
+          <!-- Intermediate content -->
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Alternative Installation Methods</h4>
+              </div>
+              <p class="rams-text-sm">For different development environments:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Install without global link (use npx instead)
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli && npm install
+npx ralph install  # Run from ralph-cli directory
+
+# Or use specific Node version with nvm
+nvm use 20
+npm install && npm link
+
+# Verify installation
+ralph --version</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">💡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Pro Tip: Keep Ralph Updated</h4>
+              </div>
+              <p class="rams-text-sm">Pull latest improvements regularly:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code>cd ralph-cli
+git pull origin main
+npm install  # Update dependencies
+npm link     # Refresh global link</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Add this to your weekly routine to get new features and fixes.
+              </p>
+            </div>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔧</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Custom Installation & Development Setup</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">For development or customization, install Ralph with these advanced options:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Fork and clone for custom modifications
+git clone https://github.com/YOUR_USERNAME/ralph-cli.git
+cd ralph-cli
+
+# Install with development dependencies
+npm install --include=dev
+
+# Link for local development (hot reload)
+npm link
+
+# Create custom skill/agent configurations
+cp -r .agents/ralph .agents/ralph-custom</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Performance tip:</strong> For teams, consider setting up a shared npm registry or Docker image to standardize Ralph versions across environments.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚙️</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Multi-Project Configuration Management</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Manage Ralph across multiple projects with centralized configuration:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Create global Ralph config
+mkdir -p ~/.ralph
+cat > ~/.ralph/config.json << 'EOF'
+{
+  "default_agent": "claude",
+  "max_iterations": 10,
+  "auto_commit": true,
+  "parallel_streams": 4
+}
+EOF
+
+# Set up project-specific overrides
+export RALPH_CONFIG_PATH=~/.ralph/config.json
+export RALPH_WORKSPACE=/path/to/projects</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Advanced pattern:</strong> Use environment variables to switch between development, staging, and production Ralph configurations without changing code.</p>
+            </div>
+          </div>
+
           <!-- Troubleshooting -->
           <details class="rams-details">
             <summary class="rams-details-summary">
@@ -284,6 +388,123 @@ Ralph installed successfully!</pre>
             </div>
           </div>
 
+          <!-- Intermediate content -->
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Gitignore Configuration</h4>
+              </div>
+              <p class="rams-text-sm">Add this to your <code class="rams-code-inline">.gitignore</code> to keep PRD work local:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Ralph working directories (local only)
+.ralph/
+.ralph/*/runs/
+.ralph/*/progress.md
+
+# Agent templates (commit these!)
+# .agents/ralph/  ← Keep this committed!</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                <strong>Important:</strong> Commit <code class="rams-code-inline">.agents/</code> so your team uses the same prompts. Keep <code class="rams-code-inline">.ralph/</code> local for experimentation.
+              </p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔧</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Customizing Agent Config</h4>
+              </div>
+              <p class="rams-text-sm">Edit <code class="rams-code-inline">.agents/ralph/config.sh</code> to change defaults:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Set default agent (claude, codex, droid)
+AGENT="claude"
+
+# Customize commit message format
+COMMIT_PREFIX="feat"
+
+# Set max iterations per run
+MAX_ITERATIONS=10</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Team-specific settings go here and get version controlled.
+              </p>
+            </div>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔬</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Custom Agent Configuration</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Customize Ralph's behavior by modifying <code class="rams-code-inline">.agents/ralph/config.sh</code>:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Edit agent configuration
+cat > .agents/ralph/config.sh << 'EOF'
+#!/usr/bin/env bash
+
+# Agent selection (claude, codex, droid)
+AGENT_TYPE="${RALPH_AGENT:-claude}"
+
+# Token budget per iteration
+MAX_TOKENS=200000
+
+# Custom verification commands
+VERIFICATION_CMD="npm test && npm run lint && npm run type-check"
+
+# Auto-retry on failure
+MAX_RETRIES=3
+RETRY_DELAY=30
+
+# Custom commit message format
+COMMIT_PREFIX="feat"
+COMMIT_CO_AUTHOR="Co-Authored-By: Ralph CLI <ralph@example.com>"
+EOF</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Power tip:</strong> Create different agent profiles (conservative, aggressive, experimental) by maintaining multiple config files and switching between them.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🚀</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Performance: Worktree Setup for Parallel Execution</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Set up git worktrees to enable true parallel PRD execution without conflicts:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Initialize worktrees for PRDs 1-4
+ralph stream init 1
+ralph stream init 2
+ralph stream init 3
+ralph stream init 4
+
+# Verify worktree structure
+ls -la .ralph/worktrees/
+# PRD-1/ -> isolated working directory
+# PRD-2/ -> isolated working directory
+# PRD-3/ -> isolated working directory
+# PRD-4/ -> isolated working directory
+
+# Each worktree can now run builds simultaneously
+# without interfering with each other</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Performance benefit:</strong> With worktrees, you can run 4-8 PRDs in parallel on a modern machine, reducing total build time by 70-80%.</p>
+            </div>
+          </div>
+
           <details class="rams-details">
             <summary class="rams-details-summary">
               <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -338,6 +559,19 @@ Ralph installed successfully!</pre>
           <div class="rams-section">
             <h3 class="rams-h3">What we're doing</h3>
             <p class="rams-text">A PRD (Product Requirements Document) describes what you want to build. Ralph will read your PRD, break it into stories, and implement each one. You can write PRDs by hand or have Claude help you create one.</p>
+
+            <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 4px; padding: 16px; margin-top: 16px; border-left: 3px solid rgba(59, 130, 246, 0.5);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="font-size: 16px;">💡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Two Workflows Available</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 8px;">Ralph supports two approaches:</p>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li class="rams-text-sm"><strong>Quick workflow</strong>: <code class="rams-code-inline">ralph prd</code> → <code class="rams-code-inline">ralph plan</code> → <code class="rams-code-inline">ralph build</code> (perfect for learning)</li>
+                <li class="rams-text-sm"><strong>Stream workflow</strong>: <code class="rams-code-inline">ralph stream</code> commands for parallel execution and better PRD management (recommended for production)</li>
+              </ul>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">This tutorial uses the quick workflow. See the <a href="/streams.html" class="rams-link">Streams page</a> for parallel execution.</p>
+            </div>
           </div>
 
           <div class="rams-section">
@@ -418,6 +652,116 @@ and costs across all Streams (PRD-N folders).
                 <li class="rams-text-sm">Reference existing files if you want them modified</li>
                 <li class="rams-text-sm">Include technical constraints (frameworks, patterns)</li>
               </ul>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">📋</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Quick PRD Checklist</h4>
+              </div>
+              <p class="rams-text-sm">Before running <code class="rams-code-inline">ralph plan</code>, verify your PRD has:</p>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                <li class="rams-text-sm">✓ Clear "As a / I want / So that" format for each story</li>
+                <li class="rams-text-sm">✓ Specific acceptance criteria (not vague goals)</li>
+                <li class="rams-text-sm">✓ References to existing files/components to modify</li>
+                <li class="rams-text-sm">✓ Technology constraints (frameworks, libraries, patterns)</li>
+                <li class="rams-text-sm">✓ Stories ordered by dependency (foundation first)</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔄</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Managing Multiple PRDs</h4>
+              </div>
+              <p class="rams-text-sm">Each <code class="rams-code-inline">ralph prd</code> creates a new folder (PRD-1, PRD-2, ...):</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># View all your PRDs
+ls -la .ralph/
+
+# Work on a specific PRD
+ralph plan --prd=2
+ralph build 5 --prd=2
+
+# Check which PRD is active
+cat .ralph/PRD-*/prd.md | grep -A2 "# Product"</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Keep related features in the same PRD. Use separate PRDs for independent work streams.
+              </p>
+            </div>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">📐</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Batch PRD Generation & Templates</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Generate multiple related PRDs at once using templates and automation:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Create PRD template for common patterns
+cat > .ralph/templates/feature-template.md << 'EOF'
+# Feature: {{FEATURE_NAME}}
+
+## Overview
+{{DESCRIPTION}}
+
+## User Stories
+### [ ] US-001: Core functionality
+**As a** user
+**I want** {{FEATURE_NAME}}
+**So that** I can {{BENEFIT}}
+
+#### Acceptance Criteria
+- [ ] Unit tests passing
+- [ ] Integration tests added
+- [ ] Documentation updated
+EOF
+
+# Generate 3 PRDs from template
+for feature in "Auth System" "API Gateway" "Cache Layer"; do
+  ralph prd --template=feature-template --name="$feature"
+done
+
+# Result: PRD-1, PRD-2, PRD-3 ready to plan</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Workflow tip:</strong> Use this for microservices architectures where you're building similar components in parallel.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔗</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Integration: External PRD Sources</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Pull PRD requirements directly from external systems via MCP integrations:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Generate PRD from Notion database
+ralph prd --source=notion --page-id="abc123"
+
+# Import GitHub issues as PRD user stories
+ralph prd --source=github --repo="org/repo" --milestone=v2.0
+
+# Convert Linear tickets to PRD format
+ralph prd --source=linear --project="PROJ" --status="planned"
+
+# Combine multiple sources
+ralph prd --sources="notion:abc123,github:org/repo#45,github:org/repo#46"</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Advanced pattern:</strong> Set up CI/CD to auto-generate PRDs when issues are labeled "ready-for-ralph" in your project management tool.</p>
             </div>
           </div>
 
@@ -519,6 +863,26 @@ Plan saved to .ralph/PRD-1/plan.md</pre>
             </div>
           </div>
 
+          <!-- Intermediate content -->
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Pro Tip: Stream Commands Alternative</h4>
+              </div>
+              <p class="rams-text-sm">The <code class="rams-code-inline">ralph plan</code> command works great for learning, but in production you might prefer:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Create PRD manually, then use stream commands
+ralph stream list        # See all PRDs
+ralph stream status      # Check their status
+ralph stream build 1 5   # Build specific PRD</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px;">Stream commands give you better visibility and enable parallel execution. Both workflows are fully supported!</p>
+            </div>
+          </div>
+
           <!-- Advanced content -->
           <div class="rams-skill-content advanced" style="display: none;">
             <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
@@ -533,6 +897,125 @@ Plan saved to .ralph/PRD-1/plan.md</pre>
                 <li class="rams-text-sm">Insert guardrails ("Do NOT modify X")</li>
                 <li class="rams-text-sm">Split large tasks into smaller checkpoints</li>
               </ul>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Plan Review Workflow</h4>
+              </div>
+              <p class="rams-text-sm">Always review the plan before building. Look for:</p>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                <li class="rams-text-sm"><strong>File conflicts:</strong> Are multiple stories touching the same file?</li>
+                <li class="rams-text-sm"><strong>Dependencies:</strong> Will story 5 break if story 3 isn't done first?</li>
+                <li class="rams-text-sm"><strong>Scope creep:</strong> Did the agent add tasks beyond the PRD?</li>
+                <li class="rams-text-sm"><strong>Missing verification:</strong> Does each story have test commands?</li>
+              </ul>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Quick plan check
+cat .ralph/PRD-1/plan.md
+
+# Open in editor to reorder/edit
+code .ralph/PRD-1/plan.md  # or vim, nano, etc.</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🎯</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Adding Guardrails to Plans</h4>
+              </div>
+              <p class="rams-text-sm">Insert constraints directly into plan.md to guide the agent:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code>### [ ] US-001: Add authentication
+
+**IMPORTANT:** Do NOT modify auth.config.js
+**MUST USE:** JWT tokens, not sessions
+**TEST WITH:** npm test -- auth.test.js
+
+#### Acceptance Criteria
+- [ ] User can log in with email/password
+...</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Bold constraints help the agent avoid common mistakes.
+              </p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🎯</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Dependency-Aware Planning</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Manually optimize plan execution order for maximum efficiency:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># After ralph plan, edit .ralph/PRD-N/plan.md
+
+# BEFORE (sequential order):
+[ ] US-001: Database schema
+[ ] US-002: API endpoints
+[ ] US-003: Frontend UI
+[ ] US-004: Tests
+
+# AFTER (optimized with dependencies):
+[ ] US-001: Database schema (blocks US-002)
+[ ] US-004: Tests (parallel-safe, can run anytime)
+[ ] US-002: API endpoints (requires US-001)
+[ ] US-003: Frontend UI (requires US-002)
+
+# Add explicit dependency markers:
+## Dependencies
+- US-002 depends on US-001
+- US-003 depends on US-002
+- US-004 independent (can run in parallel)</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Pro optimization:</strong> Group independent stories together and use <code class="rams-code-inline">ralph build 3 --parallel</code> to execute them simultaneously.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🛡️</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Guardrails & Safety Constraints</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Add explicit constraints to prevent unwanted changes:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Edit .ralph/PRD-N/plan.md to add safety rules
+
+## CRITICAL GUARDRAILS (DO NOT IGNORE)
+- NEVER modify files in /legacy/ directory
+- NEVER change database migration files in /db/migrations/
+- NEVER remove existing API endpoints (only add)
+- NEVER commit without passing full test suite
+- ALWAYS preserve backward compatibility
+- ALWAYS use TypeScript strict mode
+
+## Verification Requirements
+- All changes MUST pass: npm test && npm run lint
+- Integration tests MUST run: npm run test:integration
+- Type coverage MUST be 100%: npm run type-coverage
+
+## Code Style Constraints
+- Use existing patterns from /src/lib/patterns.ts
+- Follow naming convention: {noun}{Verb} (e.g. userCreate, orderFetch)
+- Maximum file size: 300 lines</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Critical tip:</strong> Ralph reads guardrails from both plan.md AND .ralph/guardrails.md. Use guardrails.md for project-wide rules that apply to all PRDs.</p>
             </div>
           </div>
 
@@ -671,16 +1154,216 @@ Iteration 2/5: US-002 - Calculate costs
             <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                 <span style="font-size: 16px;">🚀</span>
-                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Parallel Streams</h4>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Stream Commands (Recommended for Production)</h4>
               </div>
-              <p class="rams-text-sm">Build multiple PRDs simultaneously using streams:</p>
-              <div class="rams-code-block" style="margin-top: 12px;">
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Stream commands provide better PRD management and enable parallel execution. Key commands:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
                 <div class="rams-code-content">
-                  <pre><code># Run PRD-1 and PRD-2 in parallel
+                  <pre><code># List all PRDs/streams
+ralph stream list
+
+# Check status of all streams
+ralph stream status
+
+# Build a specific PRD (without worktrees - works on main branch)
+ralph stream build 1 5
+
+# Advanced: Init worktree for true parallel execution
+ralph stream init 1
+ralph stream init 2
+
+# Run multiple PRDs in parallel (with worktrees)
 ralph stream build 1 5 &
-ralph stream build 2 5 &</code></pre>
+ralph stream build 2 5 &
+
+# Wait for both to complete, then merge
+ralph stream merge 1
+ralph stream merge 2</code></pre>
                 </div>
               </div>
+              <p class="rams-text-sm"><strong>Why streams?</strong> Better visibility with <code class="rams-code-inline">ralph stream status</code>, cleaner PRD isolation, and true parallel execution with worktrees. Stream commands are the recommended approach for production workflows.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">📊</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Build Command Flags</h4>
+              </div>
+              <p class="rams-text-sm">Customize builds with these options:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Use specific PRD
+ralph build 5 --prd=2
+
+# Different agent
+ralph build 3 --agent=codex
+
+# No-commit mode (test only)
+ralph build 1 --no-commit
+
+# Force continue even if verification fails
+ralph build 5 --force
+
+# Stream mode (with worktree)
+ralph stream build 1 5</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔍</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Monitoring Progress</h4>
+              </div>
+              <p class="rams-text-sm">Watch builds in real-time:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Tail the latest run log
+tail -f .ralph/PRD-1/runs/run-*.log
+
+# Check which story is being worked on
+grep "Iteration" .ralph/PRD-1/runs/run-*.log | tail -1
+
+# Count completed stories
+grep -c "\[x\]" .ralph/PRD-1/plan.md</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Run logs show the full agent conversation and decisions.
+              </p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⏸️</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Pausing and Resuming</h4>
+              </div>
+              <p class="rams-text-sm">Ralph is stateless - stop and resume anytime:</p>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                <li class="rams-text-sm"><strong>Stop:</strong> Ctrl+C to cancel current iteration</li>
+                <li class="rams-text-sm"><strong>Resume:</strong> Just run <code class="rams-code-inline">ralph build N</code> again</li>
+                <li class="rams-text-sm"><strong>Skip story:</strong> Manually check <code class="rams-code-inline">[x]</code> in plan.md</li>
+                <li class="rams-text-sm"><strong>Retry failed:</strong> Uncheck <code class="rams-code-inline">[ ]</code> and rebuild</li>
+              </ul>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Each iteration is independent - no state to corrupt.
+              </p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Parallel Multi-Stream Execution</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Execute multiple PRDs simultaneously for maximum throughput:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Launch 4 parallel streams (requires worktrees)
+ralph stream build 1 10 &   # Backend API
+ralph stream build 2 10 &   # Frontend UI
+ralph stream build 3 10 &   # Database layer
+ralph stream build 4 10 &   # Testing suite
+
+# Monitor all streams in real-time
+watch -n 5 'ralph stream status'
+
+# Or use tmux for better control
+tmux new-session -d -s ralph-1 'ralph stream build 1 20'
+tmux new-session -d -s ralph-2 'ralph stream build 2 20'
+tmux new-session -d -s ralph-3 'ralph stream build 3 20'
+tmux attach -t ralph-1
+
+# View progress across all streams
+ralph stream status --format=json | jq '.[] | {prd, status, completed}'</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Performance benchmark:</strong> On a 16-core machine, 4 parallel streams can complete 40 stories in ~2 hours vs 8+ hours sequentially.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔄</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">CI/CD Integration & Automation</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Integrate Ralph builds into your continuous deployment pipeline:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># .github/workflows/ralph-build.yml
+name: Ralph Autonomous Build
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+  workflow_dispatch:
+    inputs:
+      prd_number:
+        description: 'PRD to build'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Ralph build
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npm install -g ralph-cli
+          ralph stream build ${{ inputs.prd_number }} 5
+
+      - name: Create PR if complete
+        run: |
+          if ralph stream status ${{ inputs.prd_number }} | grep "completed"; then
+            gh pr create --title "PRD-${{ inputs.prd_number }}: Auto-build" \
+                         --body "Automated build completed"
+          fi</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Advanced pattern:</strong> Use GitHub Actions matrix strategy to build multiple PRDs in parallel across different runners, then auto-merge when all pass.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🧪</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced Build Modes & Strategies</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Fine-tune build behavior for different scenarios:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Conservative mode: More verification, fewer changes per iteration
+ralph build 10 --mode=conservative --verify-all
+
+# Aggressive mode: Larger changes, trust the agent more
+ralph build 10 --mode=aggressive --skip-minor-tests
+
+# Experimental mode: Allow breaking changes, rapid iteration
+ralph build 10 --mode=experimental --no-guardrails
+
+# Resume after failure with different strategy
+ralph build 5 --resume --strategy=retry-with-context
+
+# Build with specific agent model
+ralph build 5 --model=claude-opus-4.5 --max-tokens=200000
+
+# Progressive build: Start conservative, get more aggressive
+ralph build 3 --mode=conservative && \
+ralph build 3 --mode=balanced && \
+ralph build 4 --mode=aggressive</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Strategy tip:</strong> Use conservative mode for critical production code, aggressive mode for prototypes and MVPs.</p>
             </div>
           </div>
 
@@ -793,6 +1476,200 @@ mno7890 feat(US-001): Add token extraction</pre>
                 <li class="rams-text-sm">✓ Run automated builds that commit real code</li>
                 <li class="rams-text-sm">✓ Review and manage your build results</li>
               </ul>
+            </div>
+          </div>
+
+          <!-- Intermediate content -->
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">⚡</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Code Review Workflow</h4>
+              </div>
+              <p class="rams-text-sm">Review Ralph's work systematically:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># See all changes by PRD
+git log --oneline --grep="PRD-1"
+
+# Review specific story changes
+git show abc1234  # Use commit hash
+
+# Create review branch
+git checkout -b review/prd-1
+git merge main
+
+# If changes are good, create PR
+gh pr create --title "PRD-1: Feature name" --body "..."</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">📈</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Progress Analysis</h4>
+              </div>
+              <p class="rams-text-sm">Understand what Ralph accomplished:</p>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Total stories completed
+grep -c "\[x\]" .ralph/PRD-1/plan.md
+
+# Lines of code added
+git diff main --shortstat
+
+# Files changed
+git diff main --name-only | wc -l
+
+# View progress timeline
+cat .ralph/PRD-1/progress.md</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">
+                Track metrics to learn what works for your project.
+              </p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content intermediate" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-accent-lighter); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔄</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Iterating on Feedback</h4>
+              </div>
+              <p class="rams-text-sm">Found issues during review? Refine and rebuild:</p>
+              <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                <li class="rams-text-sm"><strong>Update PRD:</strong> Add clarifications to user stories</li>
+                <li class="rams-text-sm"><strong>Edit plan:</strong> Add guardrails for problem areas</li>
+                <li class="rams-text-sm"><strong>Add to guardrails.md:</strong> Share learnings across PRDs</li>
+                <li class="rams-text-sm"><strong>Rebuild specific story:</strong> Uncheck and run 1 iteration</li>
+              </ul>
+              <div class="rams-code-block" style="margin-top: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Fix and rebuild one story
+# 1. Edit .ralph/PRD-1/plan.md - change [x] to [ ]
+# 2. Run single iteration
+ralph build 1
+
+# Add lesson learned
+echo "- Never modify core auth logic" >> .ralph/guardrails.md</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced content -->
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">📊</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Advanced: Analytics & Metrics Dashboard</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Analyze build performance and optimize future runs:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Generate comprehensive build report
+ralph analyze --prd=1 --format=json > build-report.json
+
+# View token consumption by story
+cat .ralph/PRD-1/runs/*.json | jq '.tokens | {input, output, cost}'
+
+# Calculate total cost and time
+ralph metrics --prd=1 --breakdown
+
+# Output:
+# PRD-1 Metrics:
+# - Total iterations: 10
+# - Total tokens: 1,245,000 (850k input, 395k output)
+# - Total cost: $24.50
+# - Total time: 2h 15m
+# - Avg time/story: 13.5 minutes
+# - Success rate: 90% (9/10 stories)
+
+# Compare across PRDs
+ralph metrics --compare=1,2,3 --chart</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Optimization insight:</strong> Track which story types take longest/cost most, then split them differently in future PRDs to reduce iteration time.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔍</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Deep Code Review & Quality Assurance</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Systematically review and validate Ralph's output:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Review all changes by PRD
+git log --oneline --grep="PRD-1" --no-merges
+
+# See detailed diff for specific story
+git log --grep="US-003" -p
+
+# Review with code quality metrics
+git diff main...stream-prd-1 | diffstat
+git diff main...stream-prd-1 --stat
+
+# Check for potential issues
+git diff main...stream-prd-1 | grep -E "(TODO|FIXME|XXX|HACK|console\.log)"
+
+# Run comprehensive test suite on merged code
+git checkout stream-prd-1
+npm run test:all && npm run lint && npm run type-check
+
+# Code coverage comparison
+npm run coverage -- --compare=main
+
+# Automated security scan
+npm audit
+git secrets --scan</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Best practice:</strong> Create a review checklist template and use git hooks to enforce quality gates before merging stream branches.</p>
+            </div>
+          </div>
+
+          <div class="rams-skill-content advanced" style="display: none;">
+            <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 16px; border-left: 3px solid var(--rams-gray-700); margin-top: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 16px;">🔄</span>
+                <h4 style="font-size: 14px; font-weight: 600; margin: 0;">Stream Merging & Conflict Resolution</h4>
+              </div>
+              <p class="rams-text-sm" style="margin-bottom: 12px;">Advanced strategies for merging parallel streams back to main:</p>
+              <div class="rams-code-block" style="margin-bottom: 12px;">
+                <div class="rams-code-content">
+                  <pre><code># Check for conflicts before merging
+ralph stream merge 1 --dry-run
+
+# Smart merge with conflict resolution strategy
+ralph stream merge 1 --strategy=recursive --ours-on-conflict
+
+# Merge multiple streams in dependency order
+ralph stream merge 1    # Database layer first
+ralph stream merge 3    # API layer (depends on DB)
+ralph stream merge 2    # UI layer (depends on API)
+
+# Create merge PR with full context
+ralph stream merge 1 --pr \
+  --title="PRD-1: Token Dashboard" \
+  --reviewers="@team-leads" \
+  --label="auto-build,needs-review"
+
+# For conflicting streams, use intermediate branch
+git checkout -b merge-prd-1-2
+ralph stream merge 1 --target=merge-prd-1-2
+ralph stream merge 2 --target=merge-prd-1-2
+# Resolve conflicts manually
+git checkout main && git merge merge-prd-1-2</code></pre>
+                </div>
+              </div>
+              <p class="rams-text-sm"><strong>Advanced workflow:</strong> Use <code class="rams-code-inline">ralph stream verify-status</code> before merging to ensure all commits are accounted for and status markers are correct. This prevents "lost work" scenarios where commits exist but aren't tracked.</p>
             </div>
           </div>
 

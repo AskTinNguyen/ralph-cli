@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Guide - Ralph CLI</title>
+  <meta name="description" content="Concise reference for AI agents working with Ralph CLI on behalf of users.">
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* Compact agent-focused layout */
+    .rams-main { padding: 12px 24px; }
+    .rams-header { padding: 8px 0; margin-bottom: 12px; }
+    .rams-h1 { font-size: 22px; margin-bottom: 4px; }
+    .rams-lead { font-size: 13px; margin-bottom: 0; }
+    .rams-section { margin-bottom: 16px; }
+    .rams-h2 { font-size: 17px; margin-bottom: 8px; }
+    .rams-h3 { font-size: 14px; margin-bottom: 6px; margin-top: 12px; }
+    .rams-text { font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
+    .rams-text-sm { font-size: 12px; line-height: 1.3; }
+    .rams-code-block { margin-bottom: 8px; }
+    .rams-code-content { padding: 6px 10px; }
+    .rams-code-content pre { font-size: 11px; line-height: 1.4; }
+    .rams-info-box, .rams-warning-box { padding: 8px 10px; margin-bottom: 8px; }
+    ul, ol { margin-top: 3px; margin-bottom: 6px; }
+    li { margin-bottom: 1px; }
+    pre { margin: 0; }
+    table { margin-bottom: 8px; }
+    th, td { padding: 5px 8px; }
+  </style>
+</head>
+<body class="rams-page">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+      <ul class="rams-nav-items">
+        <li><a href="/" class="rams-nav-link">← Back to Dashboard</a></li>
+      </ul>
+    </div>
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link active">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Agent Guide</span>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Agent Operation Guide</h1>
+      <p class="rams-lead">Concise reference for AI agents working with Ralph CLI. Follow these patterns when users request Ralph-related tasks.</p>
+    </header>
+
+    <!-- Content -->
+    <article class="rams-content">
+
+      <!-- Quick Decision Tree -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Decision Tree</h2>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 10px; font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin: 0;">User wants to...
+├─ Install → <strong>ralph install</strong>
+├─ List PRDs → <strong>ralph stream list</strong>
+├─ Check status → <strong>ralph stream status</strong>
+├─ New PRD → <strong>ralph prd "description"</strong>
+├─ Build PRD → <strong>ralph stream build N [iters]</strong>
+├─ Parallel (no worktree) → <strong>ralph stream build 1 5 --no-worktree &</strong>
+├─ Parallel (worktree) → <strong>ralph stream init N && ralph stream build N 5 &</strong>
+├─ Merge → <strong>ralph stream merge N</strong>
+└─ Dashboard → <strong>ralph ui</strong></pre>
+        </div>
+      </section>
+
+      <!-- Command Patterns -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Common Task Patterns</h2>
+
+        <h3 class="rams-h3">Pattern 1: Quick Single-PRD Build</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build a new feature X"
+ralph prd "Feature X description"
+# Wait for PRD generation (creates .ralph/PRD-N/prd.md)
+ralph plan
+# Wait for plan generation (creates .ralph/PRD-N/plan.md)
+ralph build 5
+# Monitor output, report completion</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 2: Stream-Based Build (Recommended)</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build feature X using streams"
+ralph prd "Feature X description"
+# Note the PRD number from output (e.g., "PRD-3")
+ralph stream status
+# Verify PRD created, status shows "ready"
+ralph stream build 3 5
+# Monitor progress, check status periodically</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 3: Parallel Execution (Advanced)</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build PRD-1 and PRD-2 in parallel"
+# Option A: Without worktrees (simpler, commits to main)
+ralph stream build 1 5 --no-worktree &
+ralph stream build 2 5 --no-worktree &
+wait  # Wait for both to complete
+
+# Option B: With worktrees (true isolation, requires merge)
+ralph stream init 1
+ralph stream init 2
+ralph stream build 1 5 &
+ralph stream build 2 5 &
+wait
+ralph stream merge 1
+ralph stream merge 2</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 4: Status Check & Monitoring</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "What's the status of my PRDs?"
+ralph stream status
+# Shows: ready, running, completed, merged, in_progress
+
+# Check specific PRD progress
+cat .ralph/PRD-N/progress.md
+
+# View recent commits
+git log --oneline --grep="PRD-N" -10</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- File Structure -->
+      <section class="rams-section">
+        <h2 class="rams-h2">File Structure</h2>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code>.agents/ralph/    # Templates (commit)
+  loop.sh, stream.sh, PROMPT_*.md
+.ralph/           # Working dir (local)
+  PRD-N/          # Each PRD isolated
+    prd.md, plan.md, progress.md, runs/
+  locks/          # Prevent concurrent runs
+  worktrees/      # Parallel execution
+.mcp.json         # MCP config</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Critical Rules -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Critical Rules</h2>
+        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8); margin-bottom: 6px;">
+          <strong style="font-size: 12px;">❌ DO NOT</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li>Run build and stream build simultaneously on same PRD</li>
+            <li>Edit .ralph/PRD-N/ while build running</li>
+            <li>Use --force without user permission</li>
+            <li>Merge before status is "completed"/"merged"</li>
+            <li>Trust checkboxes (git log is source of truth)</li>
+          </ul>
+        </div>
+        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(16, 185, 129, 0.8);">
+          <strong style="font-size: 12px;">✅ DO</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li>Check ralph stream status before builds</li>
+            <li>Use --no-worktree for simple builds</li>
+            <li>Verify git log --grep="PRD-N"</li>
+            <li>Read .ralph/PRD-N/progress.md</li>
+            <li>Launch ralph ui for monitoring</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Status Interpretation -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Status Codes</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Status</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Meaning</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>ready</code></td>
+              <td style="padding: 3px 6px;">Not started</td>
+              <td style="padding: 3px 6px;"><code>ralph stream build N</code></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>running</code></td>
+              <td style="padding: 3px 6px;">In progress</td>
+              <td style="padding: 3px 6px;">Wait or check progress.md</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>in_progress</code></td>
+              <td style="padding: 3px 6px;">No commits yet</td>
+              <td style="padding: 3px 6px;">Resume build</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>completed</code></td>
+              <td style="padding: 3px 6px;">Direct-to-main</td>
+              <td style="padding: 3px 6px;">Done. Review git log</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>merged</code></td>
+              <td style="padding: 3px 6px;">Worktree merged</td>
+              <td style="padding: 3px 6px;">Done</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 6px;"><code>not_found</code></td>
+              <td style="padding: 3px 6px;">Doesn't exist</td>
+              <td style="padding: 3px 6px;"><code>ralph prd</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Troubleshooting -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Quick Troubleshooting</h2>
+
+        <h3 class="rams-h3">Build hangs or fails</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Check if lock exists
+ls -la .ralph/locks/
+
+# Remove stale lock (only if process truly dead)
+rm .ralph/locks/PRD-N.lock
+
+# Check error logs
+cat .ralph/PRD-N/errors.log
+tail -n 50 .ralph/PRD-N/runs/run-*.log</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Status shows wrong state</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Verify status with git history (source of truth)
+git log --all --oneline --grep="PRD-N"
+
+# Auto-fix stale status markers
+ralph stream verify-status
+
+# Manually mark as completed (if commits exist)
+ralph stream mark-completed N</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Merge conflicts</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># If merge fails, check worktree branch
+cd .ralph/worktrees/PRD-N/
+git status
+git diff main
+
+# Return to main repo
+cd ../../..
+
+# User must resolve conflicts manually</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- MCP Integration -->
+      <section class="rams-section">
+        <h2 class="rams-h2">MCP Tools</h2>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Notion
+mcp__notion__API-post-search({ query: "PRD template" })
+
+# Slack
+mcp__slack__slack_post_message({ channel_id: "C123", text: "Build done" })
+
+# GitHub
+mcp__github__create_issue({ owner: "user", repo: "proj", title: "Failed", body: "..." })
+
+# Playwright (disabled by default, enable: .agents/ralph/enable-playwright.sh)
+mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:3000" })</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Response Templates -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Response Templates</h2>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 5px 8px; font-size: 11px; margin-bottom: 5px; line-height: 1.5;">
+          <strong>Build complete:</strong><br>
+          ✓ PRD-N: [X] stories, [Y] commits<br>
+          Recent: abc1234 feat(US-001), def5678 feat(US-002)<br>
+          Progress: .ralph/PRD-N/progress.md
+        </div>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 5px 8px; font-size: 11px; line-height: 1.5;">
+          <strong>Status check:</strong><br>
+          • PRD-1: completed (10 commits)<br>
+          • PRD-2: running (on US-003)<br>
+          • PRD-3: ready
+        </div>
+      </section>
+
+      <!-- Quick Reference Card -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Quick Reference</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 10px;">
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Core</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              ralph install<br>ralph prd "desc"<br>ralph plan<br>ralph build [N]<br>ralph ui
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Stream</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              ralph stream list<br>ralph stream status<br>ralph stream init N<br>ralph stream build N [i]<br>ralph stream merge N
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Flags</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              --no-worktree<br>--force<br>--prd=N<br>--agent=claude<br>--no-commit
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </article>
+
+  </main>
+
+</body>
+</html>

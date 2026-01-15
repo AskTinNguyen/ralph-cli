@@ -308,7 +308,7 @@
    Page Header
    ======================================== */
 .rams-header {
-  padding: var(--rams-space-8);
+  padding: var(--rams-space-5);
   background: var(--rams-white);
   border-bottom: var(--rams-border-width) solid var(--rams-border-color);
 }
@@ -454,7 +454,7 @@
    Content Area
    ======================================== */
 .rams-content {
-  padding: var(--rams-space-8);
+  padding: var(--rams-space-5);
   max-width: 920px;
 }
 
@@ -473,7 +473,7 @@
   display: flex;
   align-items: center;
   gap: var(--rams-space-4);
-  padding: var(--rams-space-6);
+  padding: var(--rams-space-4);
   border-bottom: var(--rams-border-width) solid var(--rams-border-color);
   background: var(--rams-gray-50);
 }
@@ -512,7 +512,7 @@
 }
 
 .rams-step-body {
-  padding: var(--rams-space-6);
+  padding: var(--rams-space-4);
 }
 
 .rams-section {
@@ -872,7 +872,7 @@
 
 @media (max-width: 768px) {
   .rams-header {
-    padding: var(--rams-space-6);
+    padding: var(--rams-space-4);
   }
 
   .rams-h1 {
@@ -966,25 +966,25 @@
 
 /* Section Components */
 .rams-section {
-  padding: var(--rams-space-12) 0;
+  padding: var(--rams-space-5) 0;
 }
 
 .rams-section-gray {
   background: var(--rams-gray-50);
-  margin-left: calc(var(--rams-space-8) * -1);
-  margin-right: calc(var(--rams-space-8) * -1);
-  padding-left: var(--rams-space-8);
-  padding-right: var(--rams-space-8);
+  margin-left: calc(var(--rams-space-5) * -1);
+  margin-right: calc(var(--rams-space-5) * -1);
+  padding-left: var(--rams-space-5);
+  padding-right: var(--rams-space-5);
 }
 
 .rams-section-header {
   text-align: center;
-  margin-bottom: var(--rams-space-8);
+  margin-bottom: var(--rams-space-5);
 }
 
 .rams-section-footer {
   text-align: center;
-  margin-top: var(--rams-space-8);
+  margin-top: var(--rams-space-5);
 }
 
 /* Text Utilities */
@@ -1000,7 +1000,7 @@
 }
 
 .rams-feature-card {
-  padding: var(--rams-space-6);
+  padding: var(--rams-space-4);
   background: var(--rams-white);
   border: var(--rams-border-width) solid var(--rams-border-color);
   border-radius: var(--rams-radius-md);

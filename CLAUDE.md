@@ -217,18 +217,42 @@ Ralph agents have access to MCP (Model Context Protocol) servers for external in
 
 ### Available Integrations
 
-| Server     | Purpose                            | Env Variable                       |
-| ---------- | ---------------------------------- | ---------------------------------- |
-| **Notion** | Docs, databases, task tracking     | `NOTION_API_KEY`                   |
-| **Slack**  | Team notifications, context search | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
-| **GitHub** | Issues, PRs, code search           | `GITHUB_TOKEN`                     |
-| **Miro**   | Visual diagrams, boards            | `MIRO_API_TOKEN`                   |
+| Server         | Purpose                            | Status               | Env Variable                       |
+| -------------- | ---------------------------------- | -------------------- | ---------------------------------- |
+| **Notion**     | Docs, databases, task tracking     | Auto-start           | `NOTION_API_KEY`                   |
+| **Slack**      | Team notifications, context search | Auto-start           | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
+| **GitHub**     | Issues, PRs, code search           | Auto-start           | `GITHUB_TOKEN`                     |
+| **Miro**       | Visual diagrams, boards            | Auto-start           | `MIRO_API_TOKEN`                   |
+| **Playwright** | Browser automation, UI testing     | On-demand (disabled) | None                               |
 
 ### Setup
 
 1. Set required environment variables in your shell or `.env`
-2. MCP servers auto-start when Claude Code runs
+2. MCP servers auto-start when Claude Code runs (except Playwright)
 3. Tools are available as `mcp__<server>__<action>`
+
+### Playwright On-Demand Configuration
+
+**Why disabled by default?** Playwright spawns browser windows for each Claude Code session, which can cause multiple empty browser windows to appear.
+
+**Enable when needed:**
+```bash
+# Enable for UI testing session
+.agents/ralph/enable-playwright.sh
+
+# Restart Claude Code
+claude
+
+# Disable when done
+.agents/ralph/disable-playwright.sh
+```
+
+**Or manually edit `.mcp.json`:**
+```json
+"playwright": {
+  "disabled": false  // Change true to false
+}
+```
 
 ### Usage Examples
 
@@ -288,3 +312,21 @@ When testing UI features:
 7. ✅ Take screenshots for visual verification
 
 **Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.
+
+## Agent Operation Guide
+
+When working with Ralph CLI tasks on behalf of users, reference the Agent Guide at:
+- **Web**: http://localhost:3000/docs/agent-guide.html (when UI server running)
+- **File**: `ui/public/docs/agent-guide.html`
+
+This concise, agent-friendly reference contains:
+- Decision trees for command selection
+- Common task patterns (single PRD, streams, parallel execution)
+- File structure reference
+- Critical rules (do's and don'ts)
+- Status interpretation
+- Quick troubleshooting
+- MCP integration examples
+- Response templates
+
+**When to reference**: Before executing Ralph commands, check the Agent Guide for the correct pattern to follow.
