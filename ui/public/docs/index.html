@@ -6,197 +6,224 @@
   <title>Ralph CLI - Your Autonomous Coding Companion</title>
   <meta name="description" content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="/docs/docs-theme.css">
-  <style>
-    /* Page-specific styles */
-    html, body {
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-    }
-  </style>
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
 </head>
-<body class="docs-page">
-  <!-- Header Navigation -->
-  <header class="docs-header">
-    <a href="/docs/" class="docs-header-brand">
-      <span class="docs-header-logo">Ralph CLI</span>
-      <span class="docs-header-tag">Documentation</span>
-    </a>
-    <nav class="docs-header-nav">
-      <a href="/docs/" class="docs-header-link active">Home</a>
-      <a href="/docs/tutorial.html" class="docs-header-link">Tutorial</a>
-      <a href="/docs/commands.html" class="docs-header-link">Commands</a>
-      <a href="/docs/examples.html" class="docs-header-link">Examples</a>
-      <a href="/docs/tips.html" class="docs-header-link">Tips & Tricks</a>
-      <a href="/docs/streams.html" class="docs-header-link">Stream Workflows</a>
-      <a href="/docs/troubleshooting.html" class="docs-header-link">Troubleshooting</a>
-      <a href="/" class="docs-header-link">Dashboard</a>
+<body class="rams-page">
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link active">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/docs/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+        </ul>
+      </div>
     </nav>
-  </header>
 
-  <!-- Hero Section -->
-  <section class="docs-hero">
-    <span class="docs-hero-badge">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-        <path d="M2 17l10 5 10-5"/>
-        <path d="M2 12l10 5 10-5"/>
-      </svg>
-      Autonomous Coding Made Simple
-    </span>
-    <h1 class="docs-hero-title">Meet Ralph, Your Coding Companion</h1>
-    <p class="docs-hero-subtitle">
-      Imagine having a tireless assistant who takes your ideas and turns them into working code,
-      one careful step at a time. That's Ralph.
-    </p>
-    <div class="docs-flex docs-justify-center docs-gap-md">
-      <a href="#quickstart" class="docs-btn docs-btn-primary docs-btn-lg">
-        Get Started
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current">Home</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero Header -->
+    <header class="rams-header rams-header-hero">
+      <div class="rams-hero-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
         </svg>
-      </a>
-      <a href="/docs/tutorial.html" class="docs-btn docs-btn-secondary docs-btn-lg">
-        View Tutorial
-      </a>
-    </div>
-  </section>
-
-  <!-- What is Ralph? Section -->
-  <section class="docs-section">
-    <div class="docs-container">
-      <div class="docs-text-center docs-mb-2xl">
-        <h2 class="docs-heading docs-heading-2 docs-mb-md">What is Ralph?</h2>
-        <p class="docs-body docs-body-lg" style="max-width: 700px; margin: 0 auto;">
-          Think of Ralph as a meticulous craftsperson for your software projects.
-          You describe what you want to build, and Ralph works through it methodically &mdash;
-          reading your requirements, making a plan, and building feature by feature.
-        </p>
+        Autonomous Coding Made Simple
       </div>
+      <h1 class="rams-h1">Meet Ralph, Your Coding Companion</h1>
+      <p class="rams-lead">
+        Imagine having a tireless assistant who takes your ideas and turns them into working code,
+        one careful step at a time. That's Ralph.
+      </p>
+      <div class="rams-hero-actions">
+        <a href="#quickstart" class="rams-btn rams-btn-primary rams-btn-lg">
+          Get Started
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <a href="/docs/tutorial.html" class="rams-btn rams-btn-secondary rams-btn-lg">
+          View Tutorial
+        </a>
+      </div>
+    </header>
 
-      <div class="docs-card-grid">
-        <div class="docs-card">
-          <div class="docs-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
-            </svg>
-          </div>
-          <h3 class="docs-card-title">Describe Your Vision</h3>
-          <p class="docs-card-description">
-            Write what you want in plain language. Ralph understands requirements documents (PRDs)
-            and breaks them down into manageable stories.
+    <!-- What is Ralph? Section -->
+    <article class="rams-content">
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">What is Ralph?</h2>
+          <p class="rams-text rams-text-center" style="max-width: 700px; margin: 0 auto;">
+            Think of Ralph as a meticulous craftsperson for your software projects.
+            You describe what you want to build, and Ralph works through it methodically &mdash;
+            reading your requirements, making a plan, and building feature by feature.
           </p>
         </div>
 
-        <div class="docs-card">
-          <div class="docs-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 11l3 3L22 4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
+        <div class="rams-card-grid">
+          <div class="rams-feature-card">
+            <div class="rams-feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <h3 class="rams-h3">Describe Your Vision</h3>
+            <p class="rams-text">
+              Write what you want in plain language. Ralph understands requirements documents (PRDs)
+              and breaks them down into manageable stories.
+            </p>
           </div>
-          <h3 class="docs-card-title">Watch It Work</h3>
-          <p class="docs-card-description">
-            Ralph picks up one story at a time, implements it, tests it, and commits the code.
-            Each step is logged so you always know what's happening.
+
+          <div class="rams-feature-card">
+            <div class="rams-feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+            </div>
+            <h3 class="rams-h3">Watch It Work</h3>
+            <p class="rams-text">
+              Ralph picks up one story at a time, implements it, tests it, and commits the code.
+              Each step is logged so you always know what's happening.
+            </p>
+          </div>
+
+          <div class="rams-feature-card">
+            <div class="rams-feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <h3 class="rams-h3">Save Time</h3>
+            <p class="rams-text">
+              No more context switching. Start a build, step away for coffee, and come back
+              to find your feature implemented and committed.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- How Ralph Works -->
+      <section class="rams-section rams-section-gray">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">How Ralph Works</h2>
+          <p class="rams-text rams-text-center">
+            Three simple steps from idea to implementation
           </p>
         </div>
 
-        <div class="docs-card">
-          <div class="docs-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+        <div class="rams-workflow">
+          <div class="rams-workflow-step">
+            <div class="rams-workflow-number">1</div>
+            <div class="rams-workflow-title">PRD</div>
+            <div class="rams-workflow-desc">
+              Define your<br>requirements
+            </div>
           </div>
-          <h3 class="docs-card-title">Save Time</h3>
-          <p class="docs-card-description">
-            No more context switching. Start a build, step away for coffee, and come back
-            to find your feature implemented and committed.
+
+          <div class="rams-workflow-arrow">→</div>
+
+          <div class="rams-workflow-step">
+            <div class="rams-workflow-number">2</div>
+            <div class="rams-workflow-title">Plan</div>
+            <div class="rams-workflow-desc">
+              Break into<br>user stories
+            </div>
+          </div>
+
+          <div class="rams-workflow-arrow">→</div>
+
+          <div class="rams-workflow-step">
+            <div class="rams-workflow-number">3</div>
+            <div class="rams-workflow-title">Build</div>
+            <div class="rams-workflow-desc">
+              Execute story<br>by story
+            </div>
+          </div>
+        </div>
+
+        <div class="rams-section-footer">
+          <p class="rams-text rams-text-center" style="max-width: 600px; margin: 0 auto;">
+            Each phase is designed to give you control. Edit the PRD anytime.
+            Review the plan before building. Pause or stop whenever you need to.
           </p>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- Visual Workflow Diagram -->
-  <section class="docs-section" style="background: var(--docs-bg-secondary);">
-    <div class="docs-container">
-      <div class="docs-text-center docs-mb-2xl">
-        <h2 class="docs-heading docs-heading-2 docs-mb-md">How Ralph Works</h2>
-        <p class="docs-body docs-body-lg">
-          Three simple steps from idea to implementation
-        </p>
-      </div>
-
-      <div class="docs-workflow">
-        <div class="docs-workflow-step">
-          <div class="docs-workflow-number">1</div>
-          <div class="docs-workflow-title">PRD</div>
-          <div class="docs-workflow-desc">
-            Define your<br>requirements
-          </div>
+      <!-- Quick Start -->
+      <section class="rams-section" id="quickstart">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">Quick Start</h2>
+          <p class="rams-text rams-text-center" style="max-width: 500px; margin: 0 auto;">
+            Get up and running in just a few commands
+          </p>
         </div>
 
-        <div class="docs-workflow-arrow">→</div>
-
-        <div class="docs-workflow-step">
-          <div class="docs-workflow-number">2</div>
-          <div class="docs-workflow-title">Plan</div>
-          <div class="docs-workflow-desc">
-            Break into<br>user stories
-          </div>
-        </div>
-
-        <div class="docs-workflow-arrow">→</div>
-
-        <div class="docs-workflow-step">
-          <div class="docs-workflow-number">3</div>
-          <div class="docs-workflow-title">Build</div>
-          <div class="docs-workflow-desc">
-            Execute story<br>by story
-          </div>
-        </div>
-      </div>
-
-      <div class="docs-text-center docs-mt-2xl">
-        <p class="docs-body" style="max-width: 600px; margin: 0 auto;">
-          Each phase is designed to give you control. Edit the PRD anytime.
-          Review the plan before building. Pause or stop whenever you need to.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Quick Start Section -->
-  <section class="docs-section" id="quickstart">
-    <div class="docs-container">
-      <div class="docs-quickstart">
-        <h2 class="docs-quickstart-title">Quick Start</h2>
-        <p class="docs-body docs-text-center docs-mb-xl" style="max-width: 500px; margin-left: auto; margin-right: auto;">
-          Get up and running in just a few commands
-        </p>
-
-        <div class="docs-quickstart-steps">
+        <div class="rams-quickstart-steps">
           <!-- Step 1 -->
-          <div class="docs-quickstart-step">
-            <div class="docs-quickstart-num">1</div>
-            <div class="docs-quickstart-content">
-              <div class="docs-quickstart-label">Install Ralph CLI</div>
-              <div class="docs-code-block">
-                <div class="docs-code-header">
-                  <span class="docs-code-lang">Terminal</span>
-                  <button class="docs-code-copy" onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link')">
+          <div class="rams-quickstart-step">
+            <div class="rams-quickstart-num">1</div>
+            <div class="rams-quickstart-content">
+              <div class="rams-quickstart-label">Install Ralph CLI</div>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -204,7 +231,7 @@
                     Copy
                   </button>
                 </div>
-                <div class="docs-code-content">
+                <div class="rams-code-content">
                   <pre><code>git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link</code></pre>
                 </div>
               </div>
@@ -212,14 +239,14 @@
           </div>
 
           <!-- Step 2 -->
-          <div class="docs-quickstart-step">
-            <div class="docs-quickstart-num">2</div>
-            <div class="docs-quickstart-content">
-              <div class="docs-quickstart-label">Install Ralph in your project</div>
-              <div class="docs-code-block">
-                <div class="docs-code-header">
-                  <span class="docs-code-lang">Terminal</span>
-                  <button class="docs-code-copy" onclick="copyCode(this, 'cd your-project && ralph install')">
+          <div class="rams-quickstart-step">
+            <div class="rams-quickstart-num">2</div>
+            <div class="rams-quickstart-content">
+              <div class="rams-quickstart-label">Install Ralph in your project</div>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyCode(this, 'cd your-project && ralph install')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -227,7 +254,7 @@
                     Copy
                   </button>
                 </div>
-                <div class="docs-code-content">
+                <div class="rams-code-content">
                   <pre><code>cd your-project && ralph install</code></pre>
                 </div>
               </div>
@@ -235,14 +262,14 @@
           </div>
 
           <!-- Step 3 -->
-          <div class="docs-quickstart-step">
-            <div class="docs-quickstart-num">3</div>
-            <div class="docs-quickstart-content">
-              <div class="docs-quickstart-label">Generate a PRD and start building</div>
-              <div class="docs-code-block">
-                <div class="docs-code-header">
-                  <span class="docs-code-lang">Terminal</span>
-                  <button class="docs-code-copy" onclick="copyCode(this, 'ralph prd\nralph plan\nralph build 5')">
+          <div class="rams-quickstart-step">
+            <div class="rams-quickstart-num">3</div>
+            <div class="rams-quickstart-content">
+              <div class="rams-quickstart-label">Generate a PRD and start building</div>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd\nralph plan\nralph build 5')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -250,7 +277,7 @@
                     Copy
                   </button>
                 </div>
-                <div class="docs-code-content">
+                <div class="rams-code-content">
                   <pre><code>ralph prd      # Generate requirements document
 ralph plan     # Create implementation plan
 ralph build 5  # Run 5 build iterations</code></pre>
@@ -260,108 +287,107 @@ ralph build 5  # Run 5 build iterations</code></pre>
           </div>
         </div>
 
-        <div class="docs-text-center docs-mt-xl">
-          <a href="/docs/tutorial.html" class="docs-btn docs-btn-primary">
+        <div class="rams-section-footer">
+          <a href="/docs/tutorial.html" class="rams-btn rams-btn-primary">
             Follow the Full Tutorial
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </a>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- Success Stories / Testimonials -->
-  <section class="docs-section">
-    <div class="docs-container">
-      <div class="docs-text-center docs-mb-2xl">
-        <h2 class="docs-heading docs-heading-2 docs-mb-md">What Teams Are Saying</h2>
-        <p class="docs-body docs-body-lg">
-          Real experiences from developers using Ralph
+      <!-- What Teams Are Saying -->
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">What Teams Are Saying</h2>
+          <p class="rams-text rams-text-center">
+            Real experiences from developers using Ralph
+          </p>
+        </div>
+
+        <div class="rams-testimonial-grid">
+          <div class="rams-testimonial">
+            <p class="rams-testimonial-content">
+              "I used to spend hours on repetitive refactoring tasks. Now I describe what I want in a PRD,
+              start Ralph, and come back to find it done. It's like having a junior dev who never gets tired."
+            </p>
+            <div class="rams-testimonial-author">
+              <div class="rams-testimonial-avatar">PM</div>
+              <div>
+                <div class="rams-testimonial-name">Product Manager</div>
+                <div class="rams-testimonial-role">Startup Team</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-testimonial">
+            <p class="rams-testimonial-content">
+              "The parallel streams feature is a game-changer. We run multiple features simultaneously
+              and merge them when ready. Our velocity has increased without adding headcount."
+            </p>
+            <div class="rams-testimonial-author">
+              <div class="rams-testimonial-avatar">TL</div>
+              <div>
+                <div class="rams-testimonial-name">Tech Lead</div>
+                <div class="rams-testimonial-role">Engineering Team</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-testimonial">
+            <p class="rams-testimonial-content">
+              "As a designer learning to code, Ralph helped me understand the development process.
+              Watching it break down PRDs into stories taught me how developers think."
+            </p>
+            <div class="rams-testimonial-author">
+              <div class="rams-testimonial-avatar">UX</div>
+              <div>
+                <div class="rams-testimonial-name">UX Designer</div>
+                <div class="rams-testimonial-role">Product Team</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ready to Get Started -->
+      <section class="rams-section rams-section-gray">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">Ready to Get Started?</h2>
+          <p class="rams-text rams-text-center" style="max-width: 500px; margin: 0 auto;">
+            Join developers who are shipping faster with Ralph CLI
+          </p>
+        </div>
+        <div class="rams-cta-actions">
+          <a href="#quickstart" class="rams-btn rams-btn-primary rams-btn-lg">
+            Install Now
+          </a>
+          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            View on GitHub
+          </a>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="rams-footer">
+        <p class="rams-text-sm rams-text-center">
+          Made with care for developers everywhere.
+          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-link">Ralph CLI</a> is open source.
         </p>
-      </div>
+      </footer>
+    </article>
 
-      <div class="docs-card-grid">
-        <div class="docs-testimonial">
-          <p class="docs-testimonial-content">
-            "I used to spend hours on repetitive refactoring tasks. Now I describe what I want in a PRD,
-            start Ralph, and come back to find it done. It's like having a junior dev who never gets tired."
-          </p>
-          <div class="docs-testimonial-author">
-            <div class="docs-testimonial-avatar">PM</div>
-            <div>
-              <div class="docs-testimonial-name">Product Manager</div>
-              <div class="docs-testimonial-role">Startup Team</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="docs-testimonial">
-          <p class="docs-testimonial-content">
-            "The parallel streams feature is a game-changer. We run multiple features simultaneously
-            and merge them when ready. Our velocity has increased without adding headcount."
-          </p>
-          <div class="docs-testimonial-author">
-            <div class="docs-testimonial-avatar">TL</div>
-            <div>
-              <div class="docs-testimonial-name">Tech Lead</div>
-              <div class="docs-testimonial-role">Engineering Team</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="docs-testimonial">
-          <p class="docs-testimonial-content">
-            "As a designer learning to code, Ralph helped me understand the development process.
-            Watching it break down PRDs into stories taught me how developers think."
-          </p>
-          <div class="docs-testimonial-author">
-            <div class="docs-testimonial-avatar">UX</div>
-            <div>
-              <div class="docs-testimonial-name">UX Designer</div>
-              <div class="docs-testimonial-role">Product Team</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer CTA -->
-  <section class="docs-section" style="background: var(--docs-bg-secondary);">
-    <div class="docs-container docs-text-center">
-      <h2 class="docs-heading docs-heading-2 docs-mb-md">Ready to Get Started?</h2>
-      <p class="docs-body docs-body-lg docs-mb-xl" style="max-width: 500px; margin-left: auto; margin-right: auto;">
-        Join developers who are shipping faster with Ralph CLI
-      </p>
-      <div class="docs-flex docs-justify-center docs-gap-md">
-        <a href="#quickstart" class="docs-btn docs-btn-primary docs-btn-lg">
-          Install Now
-        </a>
-        <a href="https://github.com/AskTinNguyen/ralph-cli" class="docs-btn docs-btn-secondary docs-btn-lg" target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          View on GitHub
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer style="padding: var(--docs-space-xl); text-align: center; border-top: 1px solid var(--docs-border-light);">
-    <p class="docs-caption">
-      Made with care for developers everywhere.
-      <a href="https://github.com/AskTinNguyen/ralph-cli" style="color: var(--docs-link); text-decoration: none;">Ralph CLI</a> is open source.
-    </p>
-  </footer>
+  </main>
 
   <script>
     // Copy to clipboard functionality
     function copyCode(button, text) {
       navigator.clipboard.writeText(text).then(() => {
-        const originalText = button.innerHTML;
+        const originalHTML = button.innerHTML;
         button.classList.add('copied');
         button.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -371,7 +397,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
         `;
         setTimeout(() => {
           button.classList.remove('copied');
-          button.innerHTML = originalText;
+          button.innerHTML = originalHTML;
         }, 2000);
       }).catch(err => {
         console.error('Failed to copy:', err);

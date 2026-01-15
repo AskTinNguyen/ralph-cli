@@ -3,828 +3,645 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Examples - Ralph CLI Documentation</title>
+  <title>Examples Gallery - Ralph CLI Documentation</title>
   <meta name="description" content="Real examples of what Ralph CLI has accomplished - completed features, refactors, and improvements from actual production use.">
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+</head>
+<body class="rams-page">
 
-  <link rel="stylesheet" href="/docs/docs-theme.css">
-  <link rel="stylesheet" href="/docs/navigation.css">
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link active">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/docs/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Examples Gallery</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Examples Gallery</h1>
+      <p class="rams-lead">Real examples from production use. These PRDs showcase features, refactors, and improvements built autonomously by Ralph CLI in this repository.</p>
+
+      <!-- Filter Pills -->
+      <div class="rams-skill-selector" style="margin-top: var(--rams-space-6);">
+        <span class="rams-label">Filter:</span>
+        <div class="rams-pills">
+          <button class="rams-pill active" data-category="all" onclick="filterExamples('all')">All</button>
+          <button class="rams-pill" data-category="feature" onclick="filterExamples('feature')">Features</button>
+          <button class="rams-pill" data-category="refactor" onclick="filterExamples('refactor')">Refactors</button>
+          <button class="rams-pill" data-category="documentation" onclick="filterExamples('documentation')">Docs</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Examples Grid -->
+    <article class="rams-content" style="max-width: 1200px;">
+      <div class="rams-examples-grid" id="examples-grid">
+
+        <!-- Example 1: Token Dashboard (PRD-9) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-9</div>
+          </div>
+          <h3 class="rams-example-title">Token & Cost Tracking Dashboard</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No visibility into token consumption or costs across autonomous builds. Users couldn't track spending or identify expensive operations.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built comprehensive token tracking dashboard with real-time metrics, cost calculations, budget alerts, model efficiency comparison, and CSV/JSON export capabilities.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">10</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">18</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~4hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/a995b69" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Commits
+            </a>
+            <a href="/tokens.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Live Demo
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 2: Ralph Web UI (PRD-3) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-3</div>
+          </div>
+          <h3 class="rams-example-title">Ralph CLI Web Dashboard</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No visual interface for monitoring builds. Users had to check terminal output and log files manually to track progress across multiple streams.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Created a full web UI with Hono + HTMX: real-time build monitoring, stream status visualization, log viewer, PRD editor, file watcher, and process management.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">15+</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">35+</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~8hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Repository
+            </a>
+            <a href="/" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Dashboard
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 3: Shell Completions (PRD-15) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-15</div>
+          </div>
+          <h3 class="rams-example-title">Shell Completions for Bash/Zsh/Fish</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">Users had to memorize all Ralph commands and flags. Tab completion is a standard developer expectation that improves productivity.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Generated shell completion scripts for Bash, Zsh, and Fish with dynamic PRD number completion, flag completion, and auto-install capability via <code class="rams-code-inline">ralph completions --install</code>.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">6</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/c516b03" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Commits
+            </a>
+            <a href="/docs/commands.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Commands
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 4: Tutorial & Documentation (PRD-36) -->
+        <div class="rams-example-card" data-category="documentation">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-documentation">Documentation</div>
+            <div class="rams-example-prd">PRD-36</div>
+          </div>
+          <h3 class="rams-example-title">Interactive Tutorial & Docs Hub</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No comprehensive tutorial for new users. Documentation was scattered across README files. Non-technical users found CLI intimidating.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built a warm, welcoming documentation site with step-by-step tutorial, interactive command reference, real examples gallery, and Sofitel-inspired design aesthetic.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">3</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~3hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Repository
+            </a>
+            <a href="/docs/tutorial.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              Tutorial
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 5: Risk Assessment (PRD-22) -->
+        <div class="rams-example-card" data-category="refactor">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-refactor">Refactor</div>
+            <div class="rams-example-prd">PRD-22</div>
+          </div>
+          <h3 class="rams-example-title">Risk Assessment Scoring System</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">All stories treated equally regardless of risk. Security-critical changes had no additional safeguards. No way to flag high-risk operations for review.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Implemented risk analysis engine that scores stories based on keywords, file patterns, and scope. Flags high-risk changes for human review before execution.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">8</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/bee3719" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Merge
+            </a>
+            <a href="/docs/commands.html#build" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Learn More
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 6: Smart Context Window (PRD-24) -->
+        <div class="rams-example-card" data-category="refactor">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-refactor">Refactor</div>
+            <div class="rams-example-prd">PRD-24</div>
+          </div>
+          <h3 class="rams-example-title">Smart Context Selection</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">Agents had limited context windows. Full PRD/plan consumed most tokens, leaving little room for actual code context. Inefficient use of context budget.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built intelligent context selector that dynamically chooses the most relevant files per story using relevance scoring, token budgeting, and smart truncation.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">7</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/d91b4dd" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              Merge
+            </a>
+            <a href="/docs/tutorial.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+              See in Action
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Empty State (hidden by default) -->
+      <div class="rams-empty-state" id="empty-state" style="display: none;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <p class="rams-empty-text">No examples found for this category.</p>
+      </div>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/docs/commands.html" class="rams-page-nav-card rams-page-nav-prev">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Command Reference</div>
+      </a>
+      <a href="/docs/tips.html" class="rams-page-nav-card rams-page-nav-next">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Best Practices</div>
+      </a>
+    </nav>
+
+  </main>
+
   <style>
-    /* Page-specific styles */
-    .examples-filters {
-      display: flex;
-      gap: 1rem;
-      margin: 2rem 0;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .examples-filter-group {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .filter-btn {
-      padding: 0.5rem 1rem;
-      background: var(--cream);
-      border: 1px solid var(--warm-gray-300);
-      border-radius: 6px;
-      font-family: 'Inter', sans-serif;
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--warm-gray-800);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .filter-btn:hover {
-      background: var(--soft-gold-light);
-      border-color: var(--soft-gold);
-      transform: translateY(-1px);
-    }
-
-    .filter-btn.active {
-      background: var(--sage);
-      color: white;
-      border-color: var(--sage);
-    }
-
-    .examples-grid {
+    /* ========================================
+       Examples-specific styles
+       ======================================== */
+    .rams-examples-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-      gap: 2rem;
-      margin-top: 2rem;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: var(--rams-space-6);
+      margin-bottom: var(--rams-space-8);
     }
 
-    .example-card {
-      background: white;
-      border: 1px solid var(--warm-gray-200);
-      border-radius: 12px;
-      padding: 1.75rem;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .example-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--sage), var(--soft-gold));
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .example-card:hover {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-      transform: translateY(-4px);
-      border-color: var(--sage);
-    }
-
-    .example-card:hover::before {
-      opacity: 1;
-    }
-
-    .example-header {
+    .rams-example-card {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-lg);
+      padding: var(--rams-space-6);
+      transition: all var(--rams-transition-normal);
       display: flex;
-      align-items: flex-start;
+      flex-direction: column;
+      gap: var(--rams-space-4);
+    }
+
+    .rams-example-card:hover {
+      border-color: var(--rams-accent);
+      box-shadow: var(--rams-shadow-lg);
+    }
+
+    .rams-example-header {
+      display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1rem;
+      gap: var(--rams-space-3);
     }
 
-    .example-title {
-      flex: 1;
-    }
-
-    .example-title h3 {
-      font-family: 'Lora', serif;
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--warm-gray-900);
-      margin: 0 0 0.25rem 0;
-      line-height: 1.3;
-    }
-
-    .example-prd {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      color: var(--warm-gray-600);
-      font-weight: 500;
-    }
-
-    .example-category {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
-      font-size: 0.75rem;
+    .rams-example-category {
+      font-size: var(--rams-text-xs);
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
+      letter-spacing: 0.05em;
+      padding: var(--rams-space-1) var(--rams-space-3);
+      border-radius: 100px;
     }
 
-    .category-feature {
-      background: var(--sage-light);
-      color: var(--sage-dark);
+    .rams-category-feature {
+      background: rgba(26, 77, 46, 0.08);
+      color: var(--rams-accent);
     }
 
-    .category-refactor {
-      background: var(--soft-gold-light);
-      color: var(--soft-gold-dark);
+    .rams-category-refactor {
+      background: rgba(245, 158, 11, 0.08);
+      color: #D97706;
     }
 
-    .category-bug-fix {
-      background: #FFE5E5;
-      color: #C41E3A;
+    .rams-category-documentation {
+      background: rgba(59, 130, 246, 0.08);
+      color: #2563EB;
     }
 
-    .category-documentation {
-      background: #E8F4F8;
-      color: #1E5F8C;
+    .rams-example-prd {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      color: var(--rams-gray-500);
+      background: var(--rams-gray-100);
+      padding: var(--rams-space-1) var(--rams-space-3);
+      border-radius: var(--rams-radius-sm);
     }
 
-    .example-description {
-      margin: 1rem 0;
+    .rams-example-title {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      letter-spacing: var(--rams-tracking-tight);
+      line-height: var(--rams-leading-snug);
     }
 
-    .example-problem {
-      margin-bottom: 1rem;
+    .rams-example-problem,
+    .rams-example-solution {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-2);
     }
 
-    .example-label {
-      font-size: 0.75rem;
+    .rams-example-label {
+      font-size: var(--rams-text-xs);
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--warm-gray-600);
-      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+      color: var(--rams-gray-600);
     }
 
-    .example-text {
-      font-size: 0.9rem;
-      line-height: 1.6;
-      color: var(--warm-gray-700);
+    .rams-example-text {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
     }
 
-    .example-solution {
-      padding: 1rem;
-      background: var(--sage-light);
-      border-left: 3px solid var(--sage);
-      border-radius: 6px;
-      margin: 1rem 0;
+    .rams-example-solution {
+      padding: var(--rams-space-3);
+      background: rgba(26, 77, 46, 0.04);
+      border-left: 2px solid var(--rams-accent);
+      border-radius: var(--rams-radius-sm);
     }
 
-    .example-solution .example-label {
-      color: var(--sage-dark);
+    .rams-example-solution .rams-example-label {
+      color: var(--rams-accent);
     }
 
-    .example-metrics {
+    .rams-example-metrics {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
-      margin: 1.5rem 0 1rem 0;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--warm-gray-200);
+      gap: var(--rams-space-4);
+      padding-top: var(--rams-space-4);
+      border-top: var(--rams-border-width) solid var(--rams-border-color);
     }
 
-    .metric {
-      text-align: center;
-    }
-
-    .metric-value {
-      display: block;
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--sage);
-      font-family: 'Inter', sans-serif;
-    }
-
-    .metric-label {
-      display: block;
-      font-size: 0.75rem;
-      color: var(--warm-gray-600);
-      margin-top: 0.25rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .example-links {
+    .rams-metric {
       display: flex;
-      gap: 0.75rem;
-      margin-top: 1.5rem;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--rams-space-1);
     }
 
-    .example-link {
+    .rams-metric-value {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-accent);
+      font-family: var(--rams-font-mono);
+      letter-spacing: var(--rams-tracking-tight);
+    }
+
+    .rams-metric-label {
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+      color: var(--rams-gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .rams-example-actions {
+      display: flex;
+      gap: var(--rams-space-3);
+      margin-top: auto;
+    }
+
+    .rams-example-link {
       flex: 1;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
-      padding: 0.625rem 1rem;
-      background: white;
-      border: 1px solid var(--warm-gray-300);
-      border-radius: 6px;
-      font-size: 0.875rem;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-2) var(--rams-space-4);
+      font-size: var(--rams-text-sm);
       font-weight: 500;
-      color: var(--warm-gray-700);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      color: var(--rams-gray-700);
       text-decoration: none;
-      transition: all 0.2s;
+      transition: all var(--rams-transition-fast);
     }
 
-    .example-link:hover {
-      background: var(--sage);
-      color: white;
-      border-color: var(--sage);
-      transform: translateY(-1px);
+    .rams-example-link:hover {
+      background: var(--rams-gray-100);
+      border-color: var(--rams-gray-300);
+      color: var(--rams-gray-900);
     }
 
-    .example-link svg {
-      width: 14px;
-      height: 14px;
+    .rams-example-link-primary {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      border-color: var(--rams-accent);
     }
 
-    .example-link.primary {
-      background: var(--sage);
-      color: white;
-      border-color: var(--sage);
+    .rams-example-link-primary:hover {
+      background: var(--rams-accent-light);
+      border-color: var(--rams-accent-light);
     }
 
-    .example-link.primary:hover {
-      background: var(--sage-dark);
-      border-color: var(--sage-dark);
-    }
-
-    .empty-state {
+    .rams-empty-state {
       text-align: center;
-      padding: 4rem 2rem;
-      color: var(--warm-gray-600);
+      padding: var(--rams-space-12) var(--rams-space-6);
+      color: var(--rams-gray-500);
     }
 
-    .empty-state svg {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 1rem;
+    .rams-empty-state svg {
       opacity: 0.3;
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .rams-empty-text {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-600);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1024px) {
+      .rams-examples-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      }
     }
 
     @media (max-width: 768px) {
-      .examples-grid {
+      .rams-examples-grid {
         grid-template-columns: 1fr;
       }
 
-      .example-metrics {
+      .rams-example-metrics {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: var(--rams-space-3);
       }
 
-      .metric {
-        display: flex;
+      .rams-metric {
+        flex-direction: row;
         justify-content: space-between;
-        align-items: center;
-        text-align: left;
       }
 
-      .metric-value {
-        order: 2;
-      }
-
-      .metric-label {
-        order: 1;
+      .rams-example-actions {
+        flex-direction: column;
       }
     }
   </style>
-</head>
-<body class="docs-page has-sidebar">
-  <!-- Collapsible Sidebar Navigation -->
-  <aside class="docs-sidebar">
-    <nav aria-label="Documentation navigation">
-      <div class="docs-sidebar-section">
-        <h2 class="docs-sidebar-title">
-          Getting Started
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </h2>
-        <ul class="docs-sidebar-items">
-          <li class="docs-sidebar-item"><a href="/docs/" class="docs-sidebar-link">Home</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/tutorial.html" class="docs-sidebar-link">Interactive Tutorial</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/commands.html" class="docs-sidebar-link">Command Reference</a></li>
-        </ul>
-      </div>
-
-      <div class="docs-sidebar-section">
-        <h2 class="docs-sidebar-title">
-          Resources
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </h2>
-        <ul class="docs-sidebar-items">
-          <li class="docs-sidebar-item"><a href="/docs/examples.html" class="docs-sidebar-link active">Examples Gallery</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/tips.html" class="docs-sidebar-link">Tips & Best Practices</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/troubleshooting.html" class="docs-sidebar-link">Troubleshooting</a></li>
-        </ul>
-      </div>
-
-      <div class="docs-sidebar-section">
-        <h2 class="docs-sidebar-title">
-          Advanced
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </h2>
-        <ul class="docs-sidebar-items">
-          <li class="docs-sidebar-item"><a href="/docs/streams.html" class="docs-sidebar-link">Stream Workflows</a></li>
-          <li class="docs-sidebar-item"><a href="/docs/integration.html" class="docs-sidebar-link">Integrations</a></li>
-        </ul>
-      </div>
-    </nav>
-  </aside>
-
-  <!-- Mobile Hamburger Menu -->
-  <button class="docs-hamburger" aria-label="Toggle navigation menu">
-    <div class="docs-hamburger-icon">
-      <span class="docs-hamburger-line"></span>
-      <span class="docs-hamburger-line"></span>
-      <span class="docs-hamburger-line"></span>
-    </div>
-  </button>
-
-  <!-- Mobile Overlay -->
-  <div class="docs-mobile-overlay"></div>
-
-  <!-- Global Search Modal -->
-  <div class="docs-global-search">
-    <div class="docs-search-modal">
-      <div class="docs-search-input-wrapper">
-        <input type="text" class="docs-search-input" placeholder="Search documentation..." autocomplete="off">
-      </div>
-      <div class="docs-search-results">
-        <div class="docs-search-empty">Type to search documentation...</div>
-      </div>
-      <div class="docs-search-footer">
-        <div class="docs-search-hint">
-          <kbd class="docs-search-kbd">↑</kbd>
-          <kbd class="docs-search-kbd">↓</kbd>
-          <span>to navigate</span>
-        </div>
-        <div class="docs-search-hint">
-          <kbd class="docs-search-kbd">esc</kbd>
-          <span>to close</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Header Navigation -->
-  <header class="docs-header">
-    <a href="/docs/" class="docs-header-brand">
-      <span class="docs-header-logo">Ralph CLI</span>
-      <span class="docs-header-tag">Documentation</span>
-    </a>
-    <nav class="docs-header-nav">
-      <a href="/docs/" class="docs-header-link">Home</a>
-      <a href="/docs/tutorial.html" class="docs-header-link">Tutorial</a>
-      <a href="/docs/commands.html" class="docs-header-link">Commands</a>
-      <a href="/docs/examples.html" class="docs-header-link active">Examples</a>
-      <a href="/docs/tips.html" class="docs-header-link">Tips & Tricks</a>
-      <a href="/docs/streams.html" class="docs-header-link">Stream Workflows</a>
-      <a href="/docs/troubleshooting.html" class="docs-header-link">Troubleshooting</a>
-      <a href="/" class="docs-header-link">Dashboard</a>
-    </nav>
-  </header>
-
-  <!-- Main Content -->
-  <main class="docs-container">
-    <div class="docs-content">
-      <div style="max-width: 900px; margin: 0 auto;">
-        <!-- Page Header -->
-        <div style="margin-bottom: 2rem;">
-          <h1 class="docs-h1">Real Examples</h1>
-          <p class="docs-lead">
-            See what Ralph CLI has accomplished in actual production use. These are real PRDs from this repository,
-            showcasing features, refactors, and improvements built autonomously.
-          </p>
-        </div>
-
-        <!-- Filters -->
-        <div class="examples-filters">
-          <span style="font-weight: 500; color: var(--warm-gray-700);">Filter by type:</span>
-          <div class="examples-filter-group">
-            <button class="filter-btn active" data-category="all" onclick="filterExamples('all')">
-              All
-            </button>
-            <button class="filter-btn" data-category="feature" onclick="filterExamples('feature')">
-              Features
-            </button>
-            <button class="filter-btn" data-category="refactor" onclick="filterExamples('refactor')">
-              Refactors
-            </button>
-            <button class="filter-btn" data-category="documentation" onclick="filterExamples('documentation')">
-              Docs
-            </button>
-          </div>
-        </div>
-
-        <!-- Examples Grid -->
-        <div class="examples-grid" id="examples-grid">
-
-          <!-- Example 1: Token Dashboard (PRD-9) -->
-          <div class="example-card" data-category="feature">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Token & Cost Tracking Dashboard</h3>
-                <span class="example-prd">PRD-9</span>
-              </div>
-              <span class="example-category category-feature">Feature</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  No visibility into token consumption or costs across autonomous builds. Users couldn't track spending or identify expensive operations.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Built comprehensive token tracking dashboard with real-time metrics, cost calculations, budget alerts, model efficiency comparison, and CSV/JSON export capabilities.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">10</span>
-                <span class="metric-label">Iterations</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">18</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~4hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli/commit/a995b69" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Commits
-              </a>
-              <a href="/tokens.html" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                Live Demo
-              </a>
-            </div>
-          </div>
-
-          <!-- Example 2: Ralph Web UI (PRD-3) -->
-          <div class="example-card" data-category="feature">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Ralph CLI Web Dashboard</h3>
-                <span class="example-prd">PRD-3</span>
-              </div>
-              <span class="example-category category-feature">Feature</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  No visual interface for monitoring builds. Users had to check terminal output and log files manually to track progress across multiple streams.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Created a full web UI with Hono + HTMX: real-time build monitoring, stream status visualization, log viewer, PRD editor, file watcher, and process management.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">15+</span>
-                <span class="metric-label">User Stories</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">35+</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~8hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Repository
-              </a>
-              <a href="/" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                Live Dashboard
-              </a>
-            </div>
-          </div>
-
-          <!-- Example 3: Shell Completions (PRD-15) -->
-          <div class="example-card" data-category="feature">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Shell Completions for Bash/Zsh/Fish</h3>
-                <span class="example-prd">PRD-15</span>
-              </div>
-              <span class="example-category category-feature">Feature</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  Users had to memorize all Ralph commands and flags. Tab completion is a standard developer expectation that improves productivity.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Generated shell completion scripts for Bash, Zsh, and Fish with dynamic PRD number completion, flag completion, and auto-install capability via <code>ralph completions --install</code>.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">4</span>
-                <span class="metric-label">Iterations</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">6</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~2hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli/commit/c516b03" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Commits
-              </a>
-              <a href="/docs/commands.html" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                Command Docs
-              </a>
-            </div>
-          </div>
-
-          <!-- Example 4: Tutorial & Documentation (PRD-36) -->
-          <div class="example-card" data-category="documentation">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Interactive Tutorial & Docs Hub</h3>
-                <span class="example-prd">PRD-36</span>
-              </div>
-              <span class="example-category category-documentation">Documentation</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  No comprehensive tutorial for new users. Documentation was scattered across README files. Non-technical users found CLI intimidating.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Built a warm, welcoming documentation site with step-by-step tutorial, interactive command reference, real examples gallery, and Sofitel-inspired design aesthetic.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">3</span>
-                <span class="metric-label">Iterations</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">4</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~3hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Repository
-              </a>
-              <a href="/docs/tutorial.html" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                </svg>
-                Start Tutorial
-              </a>
-            </div>
-          </div>
-
-          <!-- Example 5: Risk Assessment (PRD-22) -->
-          <div class="example-card" data-category="refactor">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Risk Assessment Scoring System</h3>
-                <span class="example-prd">PRD-22</span>
-              </div>
-              <span class="example-category category-refactor">Refactor</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  All stories treated equally regardless of risk. Security-critical changes had no additional safeguards. No way to flag high-risk operations for review.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Implemented risk analysis engine that scores stories based on keywords, file patterns, and scope. Flags high-risk changes for human review before execution.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">4</span>
-                <span class="metric-label">User Stories</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">8</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~2hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli/commit/bee3719" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Merge
-              </a>
-              <a href="/docs/commands.html#build" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                Learn More
-              </a>
-            </div>
-          </div>
-
-          <!-- Example 6: Smart Context Window (PRD-24) -->
-          <div class="example-card" data-category="refactor">
-            <div class="example-header">
-              <div class="example-title">
-                <h3>Smart Context Selection</h3>
-                <span class="example-prd">PRD-24</span>
-              </div>
-              <span class="example-category category-refactor">Refactor</span>
-            </div>
-
-            <div class="example-description">
-              <div class="example-problem">
-                <div class="example-label">Problem</div>
-                <p class="example-text">
-                  Agents had limited context windows. Full PRD/plan consumed most tokens, leaving little room for actual code context. Inefficient use of context budget.
-                </p>
-              </div>
-
-              <div class="example-solution">
-                <div class="example-label">Solution</div>
-                <p class="example-text">
-                  Built intelligent context selector that dynamically chooses the most relevant files per story using relevance scoring, token budgeting, and smart truncation.
-                </p>
-              </div>
-            </div>
-
-            <div class="example-metrics">
-              <div class="metric">
-                <span class="metric-value">4</span>
-                <span class="metric-label">User Stories</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">7</span>
-                <span class="metric-label">Files Changed</span>
-              </div>
-              <div class="metric">
-                <span class="metric-value">~2hrs</span>
-                <span class="metric-label">Time Saved</span>
-              </div>
-            </div>
-
-            <div class="example-links">
-              <a href="https://github.com/AskTinNguyen/ralph-cli/commit/d91b4dd" class="example-link" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-                </svg>
-                View Merge
-              </a>
-              <a href="/docs/tutorial.html" class="example-link primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                </svg>
-                See in Action
-              </a>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Empty State (hidden by default) -->
-        <div class="empty-state" id="empty-state" style="display: none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
-          </svg>
-          <p>No examples found for this category.</p>
-        </div>
-
-      </div>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="docs-footer">
-    <div class="docs-footer-content">
-      <p>Built with Ralph CLI &middot; Powered by Claude</p>
-      <p style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.8;">
-        <a href="https://github.com/AskTinNguyen/ralph-cli" style="color: inherit; text-decoration: none;">
-          View on GitHub
-        </a>
-      </p>
-    </div>
-  </footer>
 
   <script>
     // Filter examples by category
     function filterExamples(category) {
-      const cards = document.querySelectorAll('.example-card');
+      const cards = document.querySelectorAll('.rams-example-card');
       const emptyState = document.getElementById('empty-state');
+      const pills = document.querySelectorAll('.rams-pill');
       let visibleCount = 0;
 
-      // Update active filter button
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.category === category) {
-          btn.classList.add('active');
+      // Update active pill
+      pills.forEach(pill => {
+        pill.classList.remove('active');
+        if (pill.dataset.category === category) {
+          pill.classList.add('active');
         }
       });
 
@@ -841,23 +658,7 @@
       // Show/hide empty state
       emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
     }
-
-    // Copy code blocks
-    document.querySelectorAll('code').forEach(code => {
-      code.style.cursor = 'pointer';
-      code.title = 'Click to copy';
-      code.addEventListener('click', () => {
-        navigator.clipboard.writeText(code.textContent);
-        const original = code.textContent;
-        code.textContent = 'Copied!';
-        setTimeout(() => {
-          code.textContent = original;
-        }, 1000);
-      });
-    });
   </script>
 
-  <!-- Navigation System -->
-  <script src="/docs/navigation.js"></script>
 </body>
 </html>
