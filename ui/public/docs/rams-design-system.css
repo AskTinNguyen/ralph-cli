@@ -996,12 +996,14 @@
 }
 
 .rams-section-header {
-  text-align: left;
+  text-align: center;
   margin-bottom: var(--rams-space-5);
 }
 
 .rams-section-footer {
-  text-align: left;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-top: var(--rams-space-5);
 }
 
