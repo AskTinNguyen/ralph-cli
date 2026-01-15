@@ -366,7 +366,55 @@
     document.addEventListener("DOMContentLoaded", () => {
       loadStreams();
       setInterval(() => loadStreams(true), 10000);
+
+      // Check for URL parameters to auto-load a PRD
+      const urlParams = new URLSearchParams(window.location.search);
+      const prdParam = urlParams.get('prd');
+      const fileParam = urlParams.get('file') || 'prd';
+
+      if (prdParam) {
+        // Wait for streams to load, then auto-select
+        setTimeout(async () => {
+          await loadPrdFromUrl(prdParam, fileParam);
+        }, 500);
+      }
     });
+
+    async function loadPrdFromUrl(prdId, fileType) {
+      try {
+        // Set the stream selector
+        const streamSelector = document.getElementById("stream-selector");
+        streamSelector.value = prdId;
+        currentStreamId = prdId;
+
+        // Trigger stream change to load files
+        const event = new Event('change');
+        streamSelector.dispatchEvent(event);
+
+        // Wait for files to load, then select the file
+        setTimeout(() => {
+          const fileSelector = document.getElementById("file-selector");
+          fileSelector.value = fileType;
+          currentFile = fileType;
+
+          // Trigger file change to load content
+          const fileEvent = new Event('change');
+          fileSelector.dispatchEvent(fileEvent);
+        }, 300);
+
+        // Update breadcrumb to show we're editing a specific PRD
+        const breadcrumb = document.querySelector('.rams-breadcrumb');
+        if (breadcrumb) {
+          breadcrumb.innerHTML = `
+            <a href="/editor.html" style="color: var(--rams-gray-600); text-decoration: none;">Editor</a>
+            <span style="color: var(--rams-gray-400); margin: 0 var(--rams-space-2);">/</span>
+            <span class="rams-breadcrumb-current">PRD-${prdId}</span>
+          `;
+        }
+      } catch (error) {
+        console.error("Failed to load PRD from URL:", error);
+      }
+    }
 
     // Switch between viewer and preview
     function switchView(view) {

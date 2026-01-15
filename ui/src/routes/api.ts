@@ -7816,4 +7816,133 @@ api.post("/stream/:id/generation-cancel", (c) => {
   });
 });
 
+/**
+ * GET /api/prd/:id/content
+ *
+ * Get the content of a PRD file (prd.md, plan.md, or progress.md)
+ *
+ * Query params:
+ *   - file: 'prd' | 'plan' | 'progress' (default: 'prd')
+ *
+ * Returns:
+ *   - 200 with { content: string, path: string }
+ *   - 404 if PRD or file not found
+ */
+api.get('/api/prd/:id/content', (c) => {
+  const prdId = c.req.param('id');
+  const fileType = c.req.query('file') || 'prd';
+
+  const ralphRoot = getRalphRoot();
+  const prdFolder = path.join(ralphRoot, `.ralph/PRD-${prdId}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const fileMap: Record<string, string> = {
+    prd: 'prd.md',
+    plan: 'plan.md',
+    progress: 'progress.md',
+  };
+
+  const fileName = fileMap[fileType] || 'prd.md';
+  const filePath = path.join(prdFolder, fileName);
+
+  if (!fs.existsSync(filePath)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `File ${fileName} not found in PRD-${prdId}`,
+      },
+      404
+    );
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+
+  return c.json({
+    content,
+    path: filePath,
+    prdId,
+    fileType,
+  });
+});
+
+/**
+ * POST /api/prd/:id/content
+ *
+ * Save content to a PRD file (prd.md, plan.md, or progress.md)
+ *
+ * Body:
+ *   - content: string (required)
+ *   - file: 'prd' | 'plan' | 'progress' (default: 'prd')
+ *
+ * Returns:
+ *   - 200 with { success: true, path: string }
+ *   - 400 if content is missing
+ *   - 404 if PRD not found
+ */
+api.post('/api/prd/:id/content', async (c) => {
+  const prdId = c.req.param('id');
+  const body = await c.req.json();
+  const { content, file: fileType = 'prd' } = body;
+
+  if (typeof content !== 'string') {
+    return c.json(
+      {
+        error: 'invalid_request',
+        message: 'content must be a string',
+      },
+      400
+    );
+  }
+
+  const ralphRoot = getRalphRoot();
+  const prdFolder = path.join(ralphRoot, `.ralph/PRD-${prdId}`);
+
+  if (!fs.existsSync(prdFolder)) {
+    return c.json(
+      {
+        error: 'not_found',
+        message: `PRD-${prdId} not found`,
+      },
+      404
+    );
+  }
+
+  const fileMap: Record<string, string> = {
+    prd: 'prd.md',
+    plan: 'plan.md',
+    progress: 'progress.md',
+  };
+
+  const fileName = fileMap[fileType] || 'prd.md';
+  const filePath = path.join(prdFolder, fileName);
+
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8');
+
+    return c.json({
+      success: true,
+      path: filePath,
+      prdId,
+      fileType,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        error: 'write_failed',
+        message: error.message || 'Failed to write file',
+      },
+      500
+    );
+  }
+});
+
 export { api };

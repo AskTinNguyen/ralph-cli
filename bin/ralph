@@ -352,6 +352,9 @@ const commandOptions = {
 // Command Dispatch
 // ============================================================================
 async function main() {
+  // Alias: gui -> ui
+  const actualCmd = cmd === "gui" ? "ui" : cmd;
+
   // Commands with dedicated modules (extracted to lib/commands/)
   const moduleCommands = [
     // Getting Started
@@ -366,13 +369,13 @@ async function main() {
     "error",
   ];
 
-  if (moduleCommands.includes(cmd)) {
+  if (moduleCommands.includes(actualCmd)) {
     try {
-      const command = require(`../lib/commands/${cmd}`);
+      const command = require(`../lib/commands/${actualCmd}`);
       const exitCode = await command.run(args, env, commandOptions);
       process.exit(exitCode ?? 0);
     } catch (err) {
-      error(`Error in ${cmd}: ${err.message}`);
+      error(`Error in ${actualCmd}: ${err.message}`);
       if (process.env.DEBUG) console.error(err);
       process.exit(1);
     }
