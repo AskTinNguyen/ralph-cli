@@ -1,231 +1,338 @@
-# Ralph CLI Documentation - Standalone Website
+# Ralph CLI
 
-This directory contains the **standalone documentation website** for Ralph CLI, built for deployment to static hosting services.
+![Ralph](ralph.webp)
 
-## 🎯 What's Inside
+Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time.
 
-This is a fully self-contained documentation website that:
+## Quick Start (5 minutes)
 
-- ✅ **Works without Claude Code CLI** - All stream features are appropriately disabled
-- ✅ **Fully static** - Can be hosted on GitHub Pages, Vercel, Cloudflare, etc.
-- ✅ **SEO optimized** - Includes sitemap.xml, robots.txt, meta tags
-- ✅ **Responsive** - Mobile-friendly design
-- ✅ **Fast** - No server required, pure static HTML/CSS/JS
+### Prerequisites
 
-## 📦 Contents
+- Node.js 18+
+- Git
+- An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
 
-```
-docs/
-├── index.html              # Redirect to /docs/
-├── .nojekyll               # Disable Jekyll (GitHub Pages)
-├── sitemap.xml             # SEO sitemap
-├── robots.txt              # Search engine instructions
-├── build-info.json         # Build metadata
-├── docs/                   # Documentation pages
-│   ├── index.html          # Documentation home
-│   ├── tutorial.html       # Getting started guide
-│   ├── commands.html       # Command reference
-│   ├── examples.html       # Usage examples
-│   ├── tips.html           # Best practices
-│   ├── troubleshooting.html
-│   ├── streams.html        # Streams (with CLI warnings)
-│   ├── integration.html    # MCP integrations
-│   └── agent-guide.html    # Agent reference
-├── css/                    # Stylesheets
-│   ├── rams-ui.css
-│   ├── docs-theme.css
-│   └── docs-mode.css       # ⚠️ Greys out CLI features
-├── js/                     # JavaScript
-│   ├── htmx.min.js
-│   ├── marked.min.js
-│   └── docs-mode.js        # ⚠️ Disables CLI features
-└── *.md                    # Root documentation
-
-Total: 44 files, ~9 MB
-```
-
-## 🚀 Quick Test
-
-Test the documentation locally:
+### Install Ralph
 
 ```bash
-# Install serve (if not already installed)
-npm install -g serve
-
-# Serve the docs directory
-serve docs -p 8080
-
-# Open in browser
-open http://localhost:8080
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install && npm link
 ```
 
-## 🔒 How Stream Features Are Disabled
+### Use in Your Project
 
-### 1. **CSS (Visual)**
-
-File: `css/docs-mode.css`
-
-- Greys out all stream-related elements (opacity: 0.4)
-- Adds "⚠️ Requires Claude Code CLI" tooltip on hover
-- Displays prominent warning banner at top of pages
-- Disables pointer events (clicks don't work)
-
-### 2. **JavaScript (Functional)**
-
-File: `js/docs-mode.js`
-
-- Detects if running on non-localhost domain
-- Marks all `[data-requires="cli"]` elements as disabled
-- Blocks HTMX API requests
-- Mocks `/api/*` endpoints to return 503 errors
-- Prevents wizard overlays from opening
-- Shows alert message when CLI features are clicked
-
-### 3. **Build-Time (HTML)**
-
-Script: `ui/scripts/prepare-docs-deployment.js`
-
-- Adds `docs-mode` class to `<html>` and `<body>`
-- Injects warning banners at top of each page
-- Adds `cli-only` class to stream elements
-- Injects docs-mode CSS and JavaScript links
-- Special warning on `streams.html` page
-
-## 🌐 Deployment Options
-
-### Option 1: GitHub Pages (Simplest)
-
-**Setup:**
-1. Go to repo **Settings** → **Pages**
-2. Source: **Deploy from a branch**
-3. Branch: **gh-pages** / **root**
-4. Folder: Select `/docs`
-5. Save
-
-**Auto-deploy:** GitHub Actions workflow at `.github/workflows/deploy-docs.yml`
-
-**URL:** `https://<username>.github.io/ralph-cli/docs/`
-
----
-
-### Option 2: Vercel (Most Flexible)
-
-**Setup:**
 ```bash
-npm install -g vercel
-vercel login
-vercel --prod
+cd your-project
+ralph install          # Install templates
+ralph prd              # Generate requirements (interactive)
+ralph plan             # Create implementation plan
+ralph build 5          # Run 5 build iterations
 ```
 
-**Configuration:** `vercel.json` at repo root
+That's it! Ralph will execute your plan one story at a time.
 
-**URL:** `https://ralph-cli-docs.vercel.app`
+## How It Works
 
----
+Ralph treats **files and git** as memory, not the model context:
 
-### Option 3: Cloudflare Pages
+- **PRD** defines what's required
+- **Plan** breaks it into concrete tasks
+- **Loop** executes one story per iteration
+- **State** persists in `.ralph/`
 
-**Setup:**
-1. Connect GitHub repo at https://dash.cloudflare.com/
-2. Build command: `cd ui && npm run build:docs`
-3. Output directory: `docs`
-4. Deploy
+![Ralph architecture](diagram.svg)
 
-**URL:** `https://ralph-cli-docs.pages.dev`
+## Installation
 
----
-
-## 🛠️ Rebuilding Documentation
-
-To rebuild the documentation after making changes:
+### From GitHub (Recommended)
 
 ```bash
-# 1. Navigate to ui directory
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install && npm link
+```
+
+### From npm (Alternative)
+
+```bash
+npm install -g github:AskTinNguyen/ralph-cli
+```
+
+### Install Templates to Your Project
+
+```bash
+ralph install
+```
+
+This creates `.agents/ralph/` in your project so you can customize prompts and loop behavior. You'll be asked if you want to add optional skills.
+
+### Install Skills (Optional)
+
+```bash
+ralph install --skills
+```
+
+You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **dev-browser**, **prd**.
+
+## Basic Workflow
+
+### 1. Generate PRD
+
+```bash
+ralph prd
+```
+
+Example prompt:
+
+```
+A lightweight uptime monitor (Hono app), deployed on Cloudflare, with email alerts via AWS SES
+```
+
+### 2. Create Plan
+
+```bash
+ralph plan
+```
+
+Generates `.ralph/PRD-1/plan.md` with ordered stories from your PRD.
+
+### 3. Run Build Iterations
+
+```bash
+ralph build 5          # Run 5 iterations
+ralph build 1 --no-commit   # Dry run (no commits)
+```
+
+Each iteration picks the next unchecked story, executes it, commits, and marks it done.
+
+## Documentation & Web Interface
+
+Ralph includes a **complete web-based interface** for managing and exploring your projects.
+
+### Start the UI Server
+
+```bash
 cd ui
-
-# 2. Install dependencies (first time only)
 npm install
-
-# 3. Build static docs + inject docs-mode
-npm run build:docs
-
-# 4. Test locally
-npx serve ../docs -p 8080
+npm run dev          # Starts on http://localhost:3000
 ```
 
-**Build steps:**
-- `npm run build:static-docs` - Copies files, generates sitemap, robots.txt
-- `node scripts/prepare-docs-deployment.js` - Injects docs-mode CSS/JS, adds warnings
+Once running, you can access:
 
-## 📝 File Overview
+- **Documentation** (`/docs/`) - Interactive guides with persistent sidebar navigation
+  - [Tutorial](http://localhost:3000/docs/tutorial.html) - Step-by-step getting started
+  - [Commands](http://localhost:3000/docs/commands.html) - Complete command reference
+  - [Examples](http://localhost:3000/docs/examples.html) - Real-world usage patterns
+  - [Best Practices](http://localhost:3000/docs/tips.html) - Tips and optimization strategies
+  - [Troubleshooting](http://localhost:3000/docs/troubleshooting.html) - Solutions to common issues
+  - [Streams](http://localhost:3000/docs/streams.html) - Parallel execution guide
+  - [Integrations](http://localhost:3000/docs/integration.html) - MCP server setup
 
-### Key Files Created
+- **Dashboard** - View PRDs, plans, and execution progress
+- **Editor** - Edit requirements and plans directly
+- **Logs & Trends** - Monitor build history and metrics
 
-| File | Purpose |
-|------|---------|
-| `ui/public/css/docs-mode.css` | Greys out stream features |
-| `ui/public/js/docs-mode.js` | Disables CLI functionality |
-| `ui/scripts/build-static-docs.js` | Builds static site |
-| `ui/scripts/prepare-docs-deployment.js` | Injects docs-mode |
-| `DEPLOYMENT_GUIDE.md` | Complete deployment guide |
+### Design System
 
-### Modified Files
+The entire UI follows Dieter Rams' principle of "less but better" with a minimalist, functional aesthetic. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.
 
-| File | Changes |
-|------|---------|
-| `ui/package.json` | Added `build:docs` script |
-| All HTML pages in `docs/` | Injected docs-mode assets, warning banners |
+### Override Paths
 
-## 🔍 Testing Checklist
+```bash
+ralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md
+ralph build 1 --prd docs/prd-api.md --plan .ralph/api-plan.md
+ralph build 1 --progress .ralph/progress-api.md
+```
 
-Before deploying:
+## Multi-Stream (Parallel Execution)
 
-- [ ] Run `npm run build:docs` successfully
-- [ ] Test locally with `npx serve docs -p 8080`
-- [ ] Verify warning banner appears on all pages
-- [ ] Check stream links are greyed out
-- [ ] Click stream links → see warning message
-- [ ] Verify navigation works (sidebar, breadcrumbs)
-- [ ] Test on mobile (responsive design)
-- [ ] Check browser console for errors
-- [ ] Verify all CSS/JS assets load
-- [ ] Test search functionality (if implemented)
+Work on multiple features simultaneously using isolated git worktrees.
 
-## 📚 Documentation
+### When to Use
 
-See `DEPLOYMENT_GUIDE.md` for:
-- Detailed deployment instructions
-- Custom domain setup
-- CI/CD configuration
-- Troubleshooting
-- Cost analysis
-- Monitoring setup
+- Building 2+ independent features at once
+- Testing different approaches in parallel
+- Maximizing throughput on large projects
 
-## 🆘 Troubleshooting
+### Workflow
 
-**Issue:** Stream features not greyed out
-- **Fix:** Run `npm run build:docs` again (ensures docs-mode.css is injected)
+```bash
+# 1. Create streams (one per feature)
+ralph stream new                    # Creates PRD-1
+ralph stream new                    # Creates PRD-2
 
-**Issue:** Warning banner not showing
-- **Fix:** Check if `docs-mode-banner` class exists in HTML
+# 2. Edit your PRDs
+# → .ralph/PRD-1/prd.md (Feature A)
+# → .ralph/PRD-2/prd.md (Feature B)
 
-**Issue:** Clicking streams still works
-- **Fix:** Verify `docs-mode.js` is loaded (check browser console)
+# 3. Initialize isolated worktrees
+ralph stream init 1
+ralph stream init 2
 
-**Issue:** CSS not loading
-- **Fix:** Check paths in HTML are absolute (`/css/...` not `css/...`)
+# 4. Run builds in parallel
+ralph stream build 1 5 &            # 5 iterations on PRD-1
+ralph stream build 2 5 &            # 5 iterations on PRD-2
+wait                                # Wait for both
 
-**Issue:** Build fails
-- **Fix:** Ensure `fs-extra` is installed: `npm install fs-extra`
+# 5. Check progress
+ralph stream status
 
-## 📞 Support
+# 6. Merge completed work
+ralph stream merge 1
+ralph stream merge 2
 
-- **Issues:** https://github.com/AskTinNguyen/ralph-cli/issues
-- **Full Guide:** [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)
-- **Main Repo:** https://github.com/AskTinNguyen/ralph-cli
+# 7. Clean up
+ralph stream cleanup 1
+ralph stream cleanup 2
+```
 
----
+### Commands Reference
 
-**Built with:** Node.js, JSDOM, fs-extra
-**Last updated:** January 15, 2026
-**Version:** 1.0.0
+| Command                  | Description                   |
+| ------------------------ | ----------------------------- |
+| `ralph stream new`       | Create new PRD-N folder       |
+| `ralph stream list`      | List all streams with status  |
+| `ralph stream status`    | Detailed status table         |
+| `ralph stream init N`    | Create worktree for stream N  |
+| `ralph stream build N X` | Run X iterations on stream N  |
+| `ralph stream merge N`   | Merge stream N to main branch |
+| `ralph stream cleanup N` | Remove worktree for stream N  |
+
+## Configuration
+
+### Choose the Agent Runner
+
+Set in `.agents/ralph/config.sh`:
+
+```bash
+AGENT_CMD="codex exec --yolo -"
+AGENT_CMD="claude -p --dangerously-skip-permissions"
+AGENT_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
+```
+
+Or override per run:
+
+```bash
+ralph build 1 --agent=codex
+ralph build 1 --agent=claude
+ralph build 1 --agent=droid
+```
+
+If the CLI isn't installed, Ralph prints install hints:
+
+```
+codex  -> npm i -g @openai/codex
+claude -> curl -fsSL https://claude.ai/install.sh | bash
+droid  -> curl -fsSL https://app.factory.ai/cli | sh
+```
+
+## File Structure
+
+```
+project/
+├── .agents/ralph/              # Templates (customizable)
+│   ├── loop.sh                 # Main execution loop
+│   ├── stream.sh               # Multi-stream commands
+│   ├── config.sh               # Configuration overrides
+│   ├── agents.sh               # Agent command definitions
+│   └── PROMPT_*.md             # Prompt templates
+└── .ralph/                     # State (per-project)
+    ├── PRD-1/                  # First plan (isolated)
+    │   ├── prd.md              # Requirements document
+    │   ├── plan.md             # Implementation plan
+    │   ├── progress.md         # Progress log
+    │   └── runs/               # Run logs
+    ├── PRD-2/                  # Second plan (isolated)
+    ├── guardrails.md           # Shared lessons learned
+    └── worktrees/              # Git worktrees for parallel execution
+```
+
+### Template Hierarchy
+
+Ralph looks for templates in this order:
+
+1. `.agents/ralph/` in your project (if present)
+2. Bundled defaults shipped with the CLI
+
+State and logs always go to `.ralph/` in your project.
+
+## State Files
+
+| File            | Purpose                              |
+| --------------- | ------------------------------------ |
+| `prd.md`        | Requirements and acceptance criteria |
+| `plan.md`       | Task plan grouped by story           |
+| `progress.md`   | Append-only progress log             |
+| `guardrails.md` | Lessons learned ("Signs")            |
+| `activity.log`  | Activity + timing log                |
+| `errors.log`    | Repeated failures and notes          |
+| `runs/`         | Raw run logs + summaries             |
+
+## Testing
+
+> **Full testing documentation**: See [TESTING.md](TESTING.md) for complete details on test organization, structure, and best practices.
+
+### Running Tests
+
+```bash
+# Dry-run smoke tests (no agent required)
+npm test
+
+# Fast agent health check
+npm run test:ping
+
+# Optional integration test (requires agents installed)
+RALPH_INTEGRATION=1 npm test
+
+# Full real-agent loop test
+npm run test:real
+
+# Specific integration tests
+npm run test:checkpoint
+npm run test:switcher
+npm run test:risk
+npm run test:actions
+npm run test:notify
+npm run test:metrics
+npm run test:doctor
+npm run test:watch
+npm run test:ui-api
+
+# End-to-end workflow test
+npm run test:e2e
+
+# All integration tests
+npm run test:all
+```
+
+### UI Testing
+
+For web interface testing, Ralph uses **Playwright with MCP** for browser automation. This allows agents to:
+- Navigate and interact with the UI
+- Verify rendered elements and layouts
+- Take screenshots for visual validation
+- Simulate user workflows
+
+See [CLAUDE.md](CLAUDE.md) for UI testing best practices with Playwright MCP.
+
+## Integrations (MCP Servers)
+
+Ralph agents have access to **MCP (Model Context Protocol) servers** for external integrations. Configuration is in `.mcp.json`.
+
+| Server   | Purpose                            | Setup                        |
+| -------- | ---------------------------------- | ---------------------------- |
+| Notion   | Docs, databases, task tracking     | `NOTION_API_KEY`             |
+| Slack    | Team notifications, context search | `SLACK_BOT_TOKEN`            |
+| GitHub   | Issues, PRs, code search           | `GITHUB_TOKEN`               |
+| Miro     | Visual diagrams, boards            | `MIRO_API_TOKEN`             |
+| Playwright | Browser automation, UI testing     | Auto-enabled                 |
+
+Set environment variables and Ralph agents automatically gain access to these tools during runs.
+
+## Notes
+
+- `.agents/ralph` is portable and can be copied between repos
+- `.ralph` is per-project state (add to `.gitignore`)
+- Use `{prompt}` in `AGENT_CMD` when the agent needs a file path instead of stdin
+- Each `ralph plan` creates a new PRD-N folder (plans are never overwritten)

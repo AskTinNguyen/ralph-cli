@@ -126,82 +126,21 @@ async function copyRootDocs() {
 }
 
 /**
- * Create index.html redirect
+ * Copy landing page as root index.html
  */
-async function createIndexRedirect() {
-  console.log('🔀 Creating index redirect...');
+async function copyLandingPage() {
+  console.log('🏠 Copying Ralph landing page as root index...');
 
-  const indexHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=/docs/">
-  <title>Ralph CLI Documentation</title>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    .container {
-      text-align: center;
-      padding: 40px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    }
-    h1 {
-      margin: 0 0 16px 0;
-      font-size: 32px;
-      font-weight: 600;
-    }
-    p {
-      margin: 0 0 24px 0;
-      font-size: 16px;
-      opacity: 0.9;
-    }
-    a {
-      color: white;
-      text-decoration: underline;
-      font-weight: 600;
-    }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      margin: 20px auto;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>📖 Ralph CLI Documentation</h1>
-    <p>Redirecting to <a href="/docs/">documentation</a>...</p>
-    <div class="spinner"></div>
-  </div>
-</body>
-</html>`;
+  const landingPageSrc = path.join(publicDir, 'docs/index.html');
+  const landingPageDest = path.join(outputDir, 'index.html');
 
-  await fs.writeFile(
-    path.join(outputDir, 'index.html'),
-    indexHTML
-  );
-
-  console.log('✅ Index redirect created');
+  if (await fs.pathExists(landingPageSrc)) {
+    await fs.copy(landingPageSrc, landingPageDest);
+    console.log('✅ Copied landing page to root');
+  } else {
+    console.error('❌ Landing page not found at:', landingPageSrc);
+    throw new Error('Landing page not found');
+  }
 }
 
 /**
@@ -420,7 +359,7 @@ async function build() {
     await cleanOutput();
     await copyFiles();
     await copyRootDocs();
-    await createIndexRedirect();
+    await copyLandingPage();
     await createNoJekyll();
     await createCNAME();
     await generateSitemap();

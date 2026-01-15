@@ -24,8 +24,8 @@ const docsDir = path.join(__dirname, '../../docs');
 
 const CONFIG = {
   docsDir,
-  cssPath: '/css/docs-mode.css',
-  jsPath: '/js/docs-mode.js',
+  cssPath: '/ralph-cli/css/docs-mode.css',
+  jsPath: '/ralph-cli/js/docs-mode.js',
 
   // Selectors for stream features
   streamSelectors: [
@@ -41,6 +41,7 @@ const CONFIG = {
 
   // Pages to process
   pages: [
+    'index.html',          // Root landing page
     'docs/index.html',
     'docs/tutorial.html',
     'docs/commands.html',
