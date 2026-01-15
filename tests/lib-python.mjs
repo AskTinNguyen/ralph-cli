@@ -7,6 +7,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { spawnPython, isPythonAvailable } from '../lib/utils/python-spawn.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -50,7 +51,7 @@ function testPrdParser() {
   // Test: Script compiles
   runTest();
   try {
-    const result = spawnSync('python3', ['-m', 'py_compile', prdParser], { encoding: 'utf8' });
+    const result = spawnPython(['-m', 'py_compile', prdParser], { encoding: 'utf8' });
     if (result.status === 0) {
       pass('prd-parser.py compiles without error');
     } else {
@@ -63,7 +64,7 @@ function testPrdParser() {
   // Test: Script shows usage when run with unknown command
   runTest();
   try {
-    const result = spawnSync('python3', [prdParser, 'unknown_command'], { encoding: 'utf8' });
+    const result = spawnPython([prdParser, 'unknown_command'], { encoding: 'utf8' });
     // Should print usage info
     if (result.stdout.includes('Commands:') || result.stdout.includes('render_prompt')) {
       pass('prd-parser.py displays usage for unknown commands');
@@ -107,7 +108,7 @@ Test PRD
   writeFileSync(prdFile, testPrd);
 
   try {
-    const result = spawnSync('python3', [prdParser, 'select_story', prdFile, metaOut, blockOut], { encoding: 'utf8' });
+    const result = spawnPython([prdParser, 'select_story', prdFile, metaOut, blockOut], { encoding: 'utf8' });
     if (result.status === 0) {
       // Check that meta file was created and contains US-001
       const meta = readFileSync(metaOut, 'utf8');
@@ -126,7 +127,7 @@ Test PRD
   // Test: story_field extracts ID
   runTest();
   try {
-    const result = spawnSync('python3', [prdParser, 'story_field', metaOut, 'id'], { encoding: 'utf8' });
+    const result = spawnPython([prdParser, 'story_field', metaOut, 'id'], { encoding: 'utf8' });
     if (result.stdout.trim() === 'US-001') {
       pass('prd-parser.py story_field extracts story ID');
     } else {
@@ -151,7 +152,7 @@ function testRunMetaWriter() {
   // Test: Script exists and compiles
   runTest();
   try {
-    const result = spawnSync('python3', ['-m', 'py_compile', metaWriter], { encoding: 'utf8' });
+    const result = spawnPython(['-m', 'py_compile', metaWriter], { encoding: 'utf8' });
     if (result.status === 0) {
       pass('run-meta-writer.py compiles without error');
     } else {
@@ -193,7 +194,7 @@ function testRunMetaWriter() {
   writeFileSync(jsonFile, JSON.stringify(jsonInput));
 
   try {
-    const result = spawnSync('python3', [metaWriter, jsonFile, outputFile], { encoding: 'utf8' });
+    const result = spawnPython([metaWriter, jsonFile, outputFile], { encoding: 'utf8' });
     if (result.status === 0) {
       const content = readFileSync(outputFile, 'utf8');
       if (content.includes('Ralph Run Summary') && content.includes('US-001')) {
@@ -236,7 +237,7 @@ function testPythonEnvironment() {
   // Test: Python 3 available
   runTest();
   try {
-    const result = spawnSync('python3', ['--version'], { encoding: 'utf8' });
+    const result = spawnPython(['--version'], { encoding: 'utf8' });
     if (result.status === 0 && result.stdout.includes('Python 3')) {
       pass(`Python 3 available (${result.stdout.trim()})`);
     } else {
@@ -249,7 +250,7 @@ function testPythonEnvironment() {
   // Test: Required modules available
   runTest();
   try {
-    const result = spawnSync('python3', ['-c', 'import json, sys, os, re; print("OK")'], { encoding: 'utf8' });
+    const result = spawnPython(['-c', 'import json, sys, os, re; print("OK")'], { encoding: 'utf8' });
     if (result.stdout.trim() === 'OK') {
       pass('Required Python modules available');
     } else {

@@ -18,6 +18,11 @@
 # Dependencies (must be defined/sourced before using):
 #   SCRIPT_DIR           - Directory containing this script (set by sourcing script)
 #   RALPH_ROOT           - Optional root path override
+
+# Source Python utilities for cross-platform compatibility
+# shellcheck source=python-utils.sh
+CHECKPOINT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$CHECKPOINT_LIB_DIR/python-utils.sh"
 #   git_head             - Function from git-utils.sh
 #   msg_dim, msg_warn, msg_error - Functions from output.sh
 #   C_YELLOW, C_CYAN, C_BOLD, C_DIM, C_RESET - Color variables from output.sh
@@ -150,11 +155,11 @@ load_checkpoint() {
   fi
 
   # Parse JSON output using Python (more reliable than bash parsing)
-  CHECKPOINT_ITERATION=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
-  CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
-  CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
-  CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
-  CHECKPOINT_PLAN_HASH=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('plan_hash', ''))" 2>/dev/null)
+  CHECKPOINT_ITERATION=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
+  CHECKPOINT_STORY_ID=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
+  CHECKPOINT_GIT_SHA=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
+  CHECKPOINT_AGENT=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
+  CHECKPOINT_PLAN_HASH=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('plan_hash', ''))" 2>/dev/null)
 
   if [[ -n "$CHECKPOINT_ITERATION" ]]; then
     return 0

@@ -12,7 +12,11 @@
 #   SCRIPT_DIR  - Path to the ralph agents directory
 #   ROOT_DIR    - Path to the repository root
 #   RALPH_ROOT  - (optional) Root path for ralph installation
-#
+
+# Source Python utilities for cross-platform compatibility
+# shellcheck source=python-utils.sh
+ROUTING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$ROUTING_LIB_DIR/python-utils.sh"
 # External dependencies:
 #   python3     - Required for parse_json_field
 #   node        - Required for routing, estimation, and cost calculation
@@ -35,7 +39,7 @@ parse_json_field() {
   local json="$1"
   local field="$2"
   local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  result=$($PYTHON_CMD -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty - return empty string to prevent arithmetic errors
   if [[ -z "$result" ]] || [[ "$result" = "None" ]] || [[ "$result" = "null" ]]; then
     echo ""

@@ -35,17 +35,20 @@ source "$SCRIPT_DIR/lib/git-utils.sh"
 # shellcheck source=lib/telemetry.sh
 source "$SCRIPT_DIR/lib/telemetry.sh"
 
+# Source Python detection utilities for cross-platform compatibility
+# shellcheck source=lib/python-utils.sh
+source "$SCRIPT_DIR/lib/python-utils.sh"
+
+# Validate Python availability early (fail fast with helpful error)
+validate_python || exit 1
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
+# Note: PYTHON3_AVAILABLE is now set by python-utils.sh
 # ─────────────────────────────────────────────────────────────────────────────
-PYTHON3_AVAILABLE=false
 NODE_AVAILABLE=false
 GIT_AVAILABLE=false
-
-if command -v python3 >/dev/null 2>&1; then
-  PYTHON3_AVAILABLE=true
-fi
 
 if command -v node >/dev/null 2>&1; then
   NODE_AVAILABLE=true
@@ -731,7 +734,7 @@ render_prompt() {
   local iter="$6"
   local run_log="$7"
   local run_meta="$8"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
+  $PYTHON_CMD - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
 import sys
 from pathlib import Path
 
@@ -803,7 +806,7 @@ render_retry_prompt() {
   local failure_context_file="${9:-}"
   local retry_attempt="${10:-1}"
   local retry_max="${11:-3}"
-  python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
+  $PYTHON_CMD - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" "$failure_context_file" "$retry_attempt" "$retry_max" <<'PY'
 import sys
 from pathlib import Path
 
@@ -954,7 +957,7 @@ PY
 select_story() {
   local meta_out="$1"
   local block_out="$2"
-  python3 - "$PRD_PATH" "$meta_out" "$block_out" <<'PY'
+  $PYTHON_CMD - "$PRD_PATH" "$meta_out" "$block_out" <<'PY'
 import json
 import re
 import sys
@@ -1012,7 +1015,7 @@ PY
 
 remaining_stories() {
   local meta_file="$1"
-  python3 - "$meta_file" <<'PY'
+  $PYTHON_CMD - "$meta_file" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -1025,7 +1028,7 @@ PY
 story_field() {
   local meta_file="$1"
   local field="$2"
-  python3 - "$meta_file" "$field" <<'PY'
+  $PYTHON_CMD - "$meta_file" "$field" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -1207,10 +1210,10 @@ load_checkpoint() {
   fi
 
   # Parse JSON output using Python (more reliable than bash parsing)
-  CHECKPOINT_ITERATION=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
-  CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
-  CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
-  CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
+  CHECKPOINT_ITERATION=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
+  CHECKPOINT_STORY_ID=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
+  CHECKPOINT_GIT_SHA=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
+  CHECKPOINT_AGENT=$(echo "$output" | $PYTHON_CMD -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
 
   if [ -n "$CHECKPOINT_ITERATION" ]; then
     return 0
@@ -1746,7 +1749,7 @@ parse_routing_field() {
   local json="$1"
   local field="$2"
   local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  result=$($PYTHON_CMD -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty
   if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
     echo ""
@@ -2037,7 +2040,7 @@ print_summary_table() {
 
 append_run_summary() {
   local line="$1"
-  python3 - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
+  $PYTHON_CMD - "$ACTIVITY_LOG_PATH" "$line" <<'PY'
 import sys
 from pathlib import Path
 
@@ -2079,7 +2082,7 @@ write_run_meta() {
   echo "$json_data" > "$json_tmp"
 
   # Call Python script to generate markdown
-  if ! python3 "$SCRIPT_DIR/lib/run-meta-writer.py" "$json_tmp" "$output_path" 2>/dev/null; then
+  if ! $PYTHON_CMD "$SCRIPT_DIR/lib/run-meta-writer.py" "$json_tmp" "$output_path" 2>/dev/null; then
     # Fallback: write minimal metadata if Python script fails
     {
       echo "# Ralph Run Summary"
@@ -2097,10 +2100,10 @@ write_run_meta() {
   # Handle actual cost calculation if needed (requires bash routing lib)
   # Extract values from JSON for cost calculation
   local input_tokens output_tokens routed_model token_model
-  input_tokens="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('input_tokens',''))" 2>/dev/null || echo "")"
-  output_tokens="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('output_tokens',''))" 2>/dev/null || echo "")"
-  routed_model="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('routed_model',''))" 2>/dev/null || echo "")"
-  token_model="$(echo "$json_data" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('token_model',''))" 2>/dev/null || echo "")"
+  input_tokens="$(echo "$json_data" | $PYTHON_CMD -c "import json,sys; d=json.load(sys.stdin); print(d.get('input_tokens',''))" 2>/dev/null || echo "")"
+  output_tokens="$(echo "$json_data" | $PYTHON_CMD -c "import json,sys; d=json.load(sys.stdin); print(d.get('output_tokens',''))" 2>/dev/null || echo "")"
+  routed_model="$(echo "$json_data" | $PYTHON_CMD -c "import json,sys; d=json.load(sys.stdin); print(d.get('routed_model',''))" 2>/dev/null || echo "")"
+  token_model="$(echo "$json_data" | $PYTHON_CMD -c "import json,sys; d=json.load(sys.stdin); print(d.get('token_model',''))" 2>/dev/null || echo "")"
 
   # Calculate and append actual cost if we have the data
   if [[ -n "$input_tokens" ]] && [[ "$input_tokens" != "null" ]] && [[ -n "$output_tokens" ]] && [[ "$output_tokens" != "null" ]]; then
@@ -2242,7 +2245,7 @@ parse_token_field() {
     return
   fi
 
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  result=$($PYTHON_CMD -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty - return empty string to prevent arithmetic errors
   if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
     echo ""
@@ -2616,7 +2619,7 @@ load_switch_state() {
 
   # Parse JSON using Python
   local parsed
-  parsed=$(python3 -c "
+  parsed=$($PYTHON_CMD -c "
 import json
 import sys
 try:
@@ -2814,7 +2817,7 @@ check_risk() {
 
   # Parse the JSON result
   local is_high_risk
-  is_high_risk=$(echo "$risk_result" | python3 -c "import sys, json; d=json.load(sys.stdin); print('true' if d.get('isHighRisk') else 'false')" 2>/dev/null) || is_high_risk="false"
+  is_high_risk=$(echo "$risk_result" | $PYTHON_CMD -c "import sys, json; d=json.load(sys.stdin); print('true' if d.get('isHighRisk') else 'false')" 2>/dev/null) || is_high_risk="false"
 
   if [ "$is_high_risk" = "false" ]; then
     return 0
@@ -2824,9 +2827,9 @@ check_risk() {
   local score
   local risk_level
   local prompt_text
-  score=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('score', 0))" 2>/dev/null) || score="?"
-  risk_level=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('riskLevel', 'unknown'))" 2>/dev/null) || risk_level="unknown"
-  prompt_text=$(echo "$risk_result" | python3 -c "import sys, json; print(json.load(sys.stdin).get('prompt', ''))" 2>/dev/null) || prompt_text=""
+  score=$(echo "$risk_result" | $PYTHON_CMD -c "import sys, json; print(json.load(sys.stdin).get('score', 0))" 2>/dev/null) || score="?"
+  risk_level=$(echo "$risk_result" | $PYTHON_CMD -c "import sys, json; print(json.load(sys.stdin).get('riskLevel', 'unknown'))" 2>/dev/null) || risk_level="unknown"
+  prompt_text=$(echo "$risk_result" | $PYTHON_CMD -c "import sys, json; print(json.load(sys.stdin).get('prompt', ''))" 2>/dev/null) || prompt_text=""
 
   echo ""
   printf "${C_YELLOW}╔══════════════════════════════════════════════════════════╗${C_RESET}\n"
@@ -3186,7 +3189,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
   # Build JSON object for run metadata
-  RUN_META_JSON=$(python3 -c "import json, sys; print(json.dumps({
+  RUN_META_JSON=$($PYTHON_CMD -c "import json, sys; print(json.dumps({
     'mode': '$MODE',
     'iteration': '$i',
     'run_id': '$RUN_TAG',
@@ -3369,7 +3372,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
                 CHANGED_FILES="$(git_changed_files "$HEAD_BEFORE" "$HEAD_AFTER")"
 
                 # Update run meta for the retry
-                RETRY_META_JSON=$(python3 -c "import json; print(json.dumps({
+                RETRY_META_JSON=$($PYTHON_CMD -c "import json; print(json.dumps({
                   'mode': '$MODE',
                   'iteration': '$i',
                   'run_id': '$RUN_TAG',

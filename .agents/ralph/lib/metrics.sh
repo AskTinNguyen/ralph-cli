@@ -2,6 +2,11 @@
 # Metrics tracking and token extraction utilities
 # Source this file to get metrics functions
 
+# Source Python utilities for cross-platform compatibility
+# shellcheck source=python-utils.sh
+METRICS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$METRICS_LIB_DIR/python-utils.sh"
+
 # ============================================================================
 # Token extraction
 # ============================================================================
@@ -31,7 +36,7 @@ parse_token_field() {
   local json="$1"
   local field="$2"
   local result
-  result=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
+  result=$($PYTHON_CMD -c "import json,sys; d=json.loads(sys.argv[1]); v=d.get('$field',''); print('' if v is None else str(v))" "$json" 2>/dev/null)
   # Handle None, null, and empty - return empty string to prevent arithmetic errors
   if [ -z "$result" ] || [ "$result" = "None" ] || [ "$result" = "null" ]; then
     echo ""

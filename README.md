@@ -8,9 +8,32 @@ Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration 
 
 ### Prerequisites
 
-- Node.js 18+
-- Git
-- An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
+- **Node.js 18+**
+- **Git** (includes Git Bash on Windows)
+- **Python 3.8+** (required for JSON parsing and PRD processing)
+- **An AI agent**: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
+
+#### Python Installation
+
+**Windows** (Git Bash users):
+1. Download from [python.org](https://www.python.org/downloads/)
+2. During installation: **✓ CHECK "Add to PATH"** (critical!)
+3. Restart your terminal
+4. Verify: `python --version` or `python3 --version` shows 3.8+
+
+> **Important for Windows**: Git Bash does not include Python. You must install it separately. Ralph will auto-detect either `python` or `python3` command.
+
+**Mac**:
+- `brew install python3`
+- OR download from [python.org](https://www.python.org/downloads/)
+- Verify: `python3 --version`
+
+**Linux**:
+- Usually pre-installed
+- If needed: `sudo apt install python3` (Debian/Ubuntu) or `sudo yum install python3` (RedHat/CentOS)
+- Verify: `python3 --version`
+
+**Having issues?** See [PYTHON_TROUBLESHOOTING.md](documentation/PYTHON_TROUBLESHOOTING.md)
 
 ### Install Ralph
 

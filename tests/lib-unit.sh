@@ -8,6 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LIB_DIR="$ROOT_DIR/.agents/ralph/lib"
 
+# Source Python utilities for cross-platform compatibility
+# shellcheck source=../.agents/ralph/lib/python-utils.sh
+source "$LIB_DIR/python-utils.sh"
+
 # Test counters
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -479,7 +483,7 @@ test_python_syntax() {
 
   # Test: prd-parser.py compiles
   run_test
-  if python3 -m py_compile "$LIB_DIR/prd-parser.py" 2>/dev/null; then
+  if $PYTHON_CMD -m py_compile "$LIB_DIR/prd-parser.py" 2>/dev/null; then
     pass "prd-parser.py syntax valid"
   else
     fail "prd-parser.py has syntax errors"
@@ -487,7 +491,7 @@ test_python_syntax() {
 
   # Test: run-meta-writer.py compiles
   run_test
-  if python3 -m py_compile "$LIB_DIR/run-meta-writer.py" 2>/dev/null; then
+  if $PYTHON_CMD -m py_compile "$LIB_DIR/run-meta-writer.py" 2>/dev/null; then
     pass "run-meta-writer.py syntax valid"
   else
     fail "run-meta-writer.py has syntax errors"
