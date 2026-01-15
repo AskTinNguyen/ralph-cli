@@ -254,6 +254,35 @@ RALPH_INTEGRATION=1 npm test
 npm run test:real
 ```
 
+## Playwright/ChromeMCP Troubleshooting
+
+Playwright and ChromeMCP MCP servers can sometimes leave orphan browser processes or get stuck. Use these scripts to manage them:
+
+| Script                   | Purpose                                      |
+| ------------------------ | -------------------------------------------- |
+| `cleanup-playwright.sh`  | Kill stuck Playwright MCP processes          |
+| `disable-playwright.sh`  | Disable Playwright in `.mcp.json`            |
+| `enable-playwright.sh`   | Enable Playwright in `.mcp.json`             |
+
+### Usage
+
+```bash
+# Clean up stuck browser windows and processes
+.agents/ralph/cleanup-playwright.sh
+
+# Disable Playwright (prevents browser spawning)
+.agents/ralph/disable-playwright.sh
+
+# Enable Playwright for UI testing
+.agents/ralph/enable-playwright.sh
+```
+
+### Common Issues
+
+- **Multiple browser windows spawning**: Run `cleanup-playwright.sh` then `disable-playwright.sh`
+- **Browser stuck/unresponsive**: Run `cleanup-playwright.sh` and restart Claude Code
+- **Need UI testing**: Run `enable-playwright.sh`, restart Claude Code, test, then `disable-playwright.sh`
+
 ## Notes
 
 - `.agents/ralph` is portable and can be copied between repos

@@ -254,6 +254,32 @@ claude
 }
 ```
 
+### Playwright/ChromeMCP Troubleshooting
+
+Playwright and ChromeMCP can sometimes leave orphan browser processes or get stuck. Use these scripts:
+
+| Script                   | Purpose                                      |
+| ------------------------ | -------------------------------------------- |
+| `cleanup-playwright.sh`  | Kill stuck Playwright MCP processes          |
+| `disable-playwright.sh`  | Disable Playwright in `.mcp.json`            |
+| `enable-playwright.sh`   | Enable Playwright in `.mcp.json`             |
+
+```bash
+# Clean up stuck browser windows and processes
+.agents/ralph/cleanup-playwright.sh
+
+# Disable Playwright (prevents browser spawning)
+.agents/ralph/disable-playwright.sh
+
+# Enable Playwright for UI testing
+.agents/ralph/enable-playwright.sh
+```
+
+**Common fixes:**
+- **Multiple browser windows spawning**: `cleanup-playwright.sh` then `disable-playwright.sh`
+- **Browser stuck/unresponsive**: `cleanup-playwright.sh` and restart Claude Code
+- **Need UI testing**: `enable-playwright.sh`, restart Claude Code, test, then `disable-playwright.sh`
+
 ### Usage Examples
 
 ```
