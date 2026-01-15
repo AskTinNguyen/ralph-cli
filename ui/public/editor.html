@@ -71,6 +71,19 @@
       background: var(--rams-accent);
       color: white;
     }
+    .pane-header-right {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-3);
+    }
+    .pane-actions {
+      display: flex;
+      gap: var(--rams-space-2);
+    }
+    .rams-btn-sm {
+      padding: var(--rams-space-2) var(--rams-space-3);
+      font-size: var(--rams-text-xs);
+    }
     .editor-textarea {
       flex: 1;
       border: none;
@@ -305,18 +318,22 @@
 
       <section class="rams-section">
         <div class="editor-container">
-          <!-- Document Viewer Pane -->
-          <div id="viewer-pane" class="editor-pane">
+          <!-- Edit Pane -->
+          <div id="edit-pane" class="editor-pane">
             <div class="pane-header">
-              <span class="pane-title">Document Viewer</span>
-              <div class="view-toggle">
-                <button class="view-toggle-btn active" onclick="switchView('viewer')">Document Viewer</button>
-                <button class="view-toggle-btn" onclick="switchView('preview')">Preview</button>
+              <span class="pane-title">Edit</span>
+              <div class="pane-header-right">
+                <div class="view-toggle">
+                  <button class="view-toggle-btn active" onclick="switchView('edit')">Edit</button>
+                  <button class="view-toggle-btn" onclick="switchView('preview')">Preview</button>
+                </div>
+                <div class="pane-actions">
+                  <button id="copy-btn" class="rams-btn rams-btn-secondary rams-btn-sm" onclick="copyContent()">Copy</button>
+                  <button id="save-btn" class="rams-btn rams-btn-primary rams-btn-sm" onclick="saveFile()" disabled>Save</button>
+                </div>
               </div>
             </div>
-            <div id="syntax-view" class="syntax-view">
-              <pre><code id="syntax-code" class="language-markdown">Select a stream and file to view...</code></pre>
-            </div>
+            <textarea id="editor-textarea" class="editor-textarea" placeholder="Select a stream and file to edit..."></textarea>
           </div>
 
           <!-- Preview Pane -->
@@ -324,7 +341,7 @@
             <div class="pane-header">
               <span class="pane-title">Preview</span>
               <div class="view-toggle">
-                <button class="view-toggle-btn" onclick="switchView('viewer')">Document Viewer</button>
+                <button class="view-toggle-btn" onclick="switchView('edit')">Edit</button>
                 <button class="view-toggle-btn active" onclick="switchView('preview')">Preview</button>
               </div>
             </div>
@@ -345,7 +362,8 @@
     let currentStreamId = "";
     let currentFile = "";
     let currentFilePath = "";
-    let currentView = "viewer"; // viewer or preview
+    let currentView = "edit"; // edit or preview
+    let originalContent = "";
 
     if (typeof marked !== "undefined") {
       marked.setOptions({
@@ -366,6 +384,9 @@
     document.addEventListener("DOMContentLoaded", () => {
       loadStreams();
       setInterval(() => loadStreams(true), 10000);
+
+      // Track changes in textarea
+      document.getElementById("editor-textarea").addEventListener("input", updateSaveButton);
 
       // Check for URL parameters to auto-load a PRD
       const urlParams = new URLSearchParams(window.location.search);
@@ -394,8 +415,9 @@
         // Wait for files to load, then select the file
         setTimeout(() => {
           const fileSelector = document.getElementById("file-selector");
-          fileSelector.value = fileType;
-          currentFile = fileType;
+          const fileValue = fileType.endsWith('.md') ? fileType : `${fileType}.md`;
+          fileSelector.value = fileValue;
+          currentFile = fileValue;
 
           // Trigger file change to load content
           const fileEvent = new Event('change');
@@ -416,19 +438,88 @@
       }
     }
 
-    // Switch between viewer and preview
+    // Switch between edit and preview
     function switchView(view) {
       currentView = view;
-      const viewerPane = document.getElementById("viewer-pane");
+      const editPane = document.getElementById("edit-pane");
       const previewPane = document.getElementById("preview-pane");
 
-      if (view === "viewer") {
-        viewerPane.classList.remove("pane-hidden");
+      if (view === "edit") {
+        editPane.classList.remove("pane-hidden");
         previewPane.classList.add("pane-hidden");
       } else {
-        viewerPane.classList.add("pane-hidden");
+        editPane.classList.add("pane-hidden");
         previewPane.classList.remove("pane-hidden");
+        // Update preview with current editor content
+        const textarea = document.getElementById("editor-textarea");
+        updatePreview(textarea.value);
       }
+
+      // Update toggle button states in both panes
+      document.querySelectorAll(".view-toggle-btn").forEach(btn => {
+        const btnView = btn.textContent.toLowerCase();
+        btn.classList.toggle("active", btnView === view);
+      });
+    }
+
+    // Copy content to clipboard
+    async function copyContent() {
+      const textarea = document.getElementById("editor-textarea");
+      const copyBtn = document.getElementById("copy-btn");
+
+      try {
+        await navigator.clipboard.writeText(textarea.value);
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => copyBtn.textContent = "Copy", 1500);
+      } catch (err) {
+        console.error("Copy failed:", err);
+        copyBtn.textContent = "Failed";
+        setTimeout(() => copyBtn.textContent = "Copy", 1500);
+      }
+    }
+
+    // Save file to server
+    async function saveFile() {
+      const textarea = document.getElementById("editor-textarea");
+      const saveBtn = document.getElementById("save-btn");
+
+      if (!currentFilePath) return;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+
+      try {
+        const response = await fetch(`/api/files/${encodeURIComponent(currentFilePath)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "text/plain" },
+          body: textarea.value
+        });
+
+        if (!response.ok) throw new Error("Failed to save");
+
+        originalContent = textarea.value;
+        saveBtn.textContent = "Saved!";
+
+        setTimeout(() => {
+          saveBtn.textContent = "Save";
+          updateSaveButton();
+        }, 1500);
+      } catch (error) {
+        console.error("Save failed:", error);
+        saveBtn.textContent = "Failed";
+        setTimeout(() => {
+          saveBtn.textContent = "Save";
+          saveBtn.disabled = false;
+        }, 2000);
+      }
+    }
+
+    // Enable/disable save button based on changes
+    function updateSaveButton() {
+      const textarea = document.getElementById("editor-textarea");
+      const saveBtn = document.getElementById("save-btn");
+      const hasChanges = textarea.value !== originalContent;
+      saveBtn.disabled = !hasChanges || !currentFilePath;
     }
 
     async function loadStreams(preserveSelection = false) {
@@ -467,18 +558,20 @@
       currentStreamId = e.target.value;
       currentFile = "";
       currentFilePath = "";
+      originalContent = "";
       const fileSelector = document.getElementById("file-selector");
-      const syntaxCode = document.getElementById("syntax-code");
+      const textarea = document.getElementById("editor-textarea");
       const preview = document.getElementById("preview-content");
       const openBtn = document.getElementById("open-in-editor-btn");
 
       if (!currentStreamId) {
         fileSelector.innerHTML = '<option value="">Select a file...</option>';
         fileSelector.disabled = true;
-        syntaxCode.textContent = "Select a stream and file to view...";
-        syntaxCode.className = "language-markdown";
+        textarea.value = "";
+        textarea.placeholder = "Select a stream and file to edit...";
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
         openBtn.disabled = true;
+        updateSaveButton();
         return;
       }
 
@@ -517,16 +610,18 @@
 
     document.getElementById("file-selector").addEventListener("change", async (e) => {
       currentFile = e.target.value;
-      const syntaxCode = document.getElementById("syntax-code");
+      const textarea = document.getElementById("editor-textarea");
       const preview = document.getElementById("preview-content");
       const openBtn = document.getElementById("open-in-editor-btn");
 
       if (!currentFile || !currentStreamId) {
-        syntaxCode.textContent = "Select a stream and file to view...";
-        syntaxCode.className = "language-markdown";
+        textarea.value = "";
+        textarea.placeholder = "Select a stream and file to edit...";
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
         openBtn.disabled = true;
         currentFilePath = "";
+        originalContent = "";
+        updateSaveButton();
         return;
       }
 
@@ -541,24 +636,24 @@
 
         const content = await response.text();
 
-        // Update syntax viewer
-        syntaxCode.textContent = content;
-        syntaxCode.className = "language-markdown";
-        if (typeof Prism !== "undefined") {
-          Prism.highlightElement(syntaxCode);
-        }
+        // Load into textarea
+        textarea.value = content;
+        originalContent = content;
 
         // Update preview
         updatePreview(content);
 
         openBtn.disabled = false;
+        updateSaveButton();
       } catch (error) {
         console.error("Failed to load file:", error);
-        syntaxCode.textContent = "Error loading file";
-        syntaxCode.className = "language-markdown";
+        textarea.value = "";
+        textarea.placeholder = "Error loading file";
         preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
         openBtn.disabled = true;
         currentFilePath = "";
+        originalContent = "";
+        updateSaveButton();
       }
     });
 
