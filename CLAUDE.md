@@ -352,44 +352,133 @@ See `.agents/ralph/MCP_TOOLS.md` for full documentation.
 
 ## UI Testing
 
-**IMPORTANT**: All UI-related testing MUST use the `chromemcp` MCP server for browser automation.
+**IMPORTANT**: All UI-related testing uses browser automation. We have two options:
 
-### Why ChromeMCP?
+### Option 1: agent-browser CLI (Recommended)
 
-- **Live browser interaction**: Test actual UI behavior, not just API responses
-- **Visual validation**: Verify charts, layouts, and interactive elements render correctly
-- **User flow testing**: Simulate real user interactions (clicks, form fills, navigation)
-- **Screenshot verification**: Capture visual evidence of UI state
-- **Error detection**: Catch JavaScript errors, failed network requests, console warnings
+**Vercel's agent-browser** - Fast Rust-based CLI for browser automation, optimized for AI agents.
 
-### Usage
+**Why agent-browser?**
+- **Fast & reliable**: Rust CLI with Node.js fallback
+- **AI-optimized**: Snapshot + ref workflow (`@e1`, `@e2`) for deterministic selection
+- **No buggy MCP**: Standalone CLI tool, no MCP server issues
+- **Persistent sessions**: Isolated browser instances with cookies/storage
+- **JSON output**: Machine-readable results for agents
 
-The Ralph UI server (`ui/`) should be tested using browser automation tools via MCP:
-
+**Installation:**
 ```bash
-# Start the UI server (usually runs on http://localhost:3000)
+npm install -g agent-browser
+agent-browser install  # Downloads Chromium
+```
+
+**Usage Examples:**
+```bash
+# Start the UI server
 cd ui && npm run dev
 
-# Use chromemcp tools via MCP for testing:
+# Navigate and take snapshot
+agent-browser open http://localhost:3000
+agent-browser snapshot -i  # Interactive elements only
+
+# Click elements by reference
+agent-browser click @e2
+
+# Fill forms
+agent-browser fill @e3 "test@example.com"
+
+# Take screenshot
+agent-browser screenshot --full
+
+# Get element text
+agent-browser get text @e1
+
+# Run JavaScript
+agent-browser eval "document.title"
+
+# Find and click by role
+agent-browser find role button click --name Submit
+```
+
+**Common Commands:**
+```bash
+# Navigation
+agent-browser open <url>
+agent-browser back
+agent-browser reload
+
+# Interaction
+agent-browser click <selector|@ref>
+agent-browser type <selector|@ref> "text"
+agent-browser fill <selector|@ref> "text"
+agent-browser press Enter
+
+# Verification
+agent-browser snapshot [-i] [-c]  # -i = interactive only, -c = compact
+agent-browser screenshot [--full]
+agent-browser get text <selector|@ref>
+agent-browser is visible <selector|@ref>
+
+# Debug
+agent-browser console
+agent-browser errors
+agent-browser network requests
+```
+
+### Option 2: Playwright MCP (Disabled by default)
+
+The `chromemcp` MCP server is available but disabled due to reliability issues. Enable only if needed:
+
+```bash
+# Enable Playwright MCP
+.agents/ralph/enable-playwright.sh
+
+# Use MCP tools (after enabling):
 # - mcp__plugin_playwright_playwright__browser_navigate(url)
 # - mcp__plugin_playwright_playwright__browser_snapshot()
 # - mcp__plugin_playwright_playwright__browser_click(element, ref)
-# - mcp__plugin_playwright_playwright__browser_take_screenshot(filename)
-# - mcp__plugin_playwright_playwright__browser_evaluate(function)
+
+# Disable when done
+.agents/ralph/disable-playwright.sh
 ```
 
 ### Testing Checklist
 
-When testing UI features:
-1. ✅ Navigate to the page using `browser_navigate`
-2. ✅ Take snapshot using `browser_snapshot` to see page structure
-3. ✅ Verify elements are visible and functional
-4. ✅ Test user interactions (clicks, form fills, etc.)
-5. ✅ Check for JavaScript errors in console
-6. ✅ Validate data loads correctly from API endpoints
-7. ✅ Take screenshots for visual verification
+When testing UI features with **agent-browser**:
+1. ✅ Navigate to the page: `agent-browser open http://localhost:3000`
+2. ✅ Take snapshot: `agent-browser snapshot -i` to see interactive elements
+3. ✅ Verify elements visible: `agent-browser is visible @e1`
+4. ✅ Test interactions: `agent-browser click @e2`, `agent-browser fill @e3 "text"`
+5. ✅ Check console errors: `agent-browser console` and `agent-browser errors`
+6. ✅ Validate data loads: `agent-browser get text @e1` or `agent-browser eval "..."`
+7. ✅ Take screenshots: `agent-browser screenshot --full`
 
 **Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.
+
+### UI Testing Helper Script
+
+For common testing scenarios, use the provided helper script:
+
+```bash
+# Quick snapshot of homepage
+.agents/ralph/test-ui.sh snapshot
+
+# Test PRD list page (automated)
+.agents/ralph/test-ui.sh test-list
+
+# Test logs page (automated)
+.agents/ralph/test-ui.sh test-logs
+
+# Interactive mode (opens headed browser)
+.agents/ralph/test-ui.sh interactive
+
+# Clean up browser session
+.agents/ralph/test-ui.sh cleanup
+```
+
+**Custom UI URL:**
+```bash
+UI_URL=http://localhost:8080 .agents/ralph/test-ui.sh snapshot
+```
 
 ### UI Server Configuration
 
