@@ -79,6 +79,7 @@ async function processHTMLFile(filePath) {
     addDocsModeClass(document);
   }
   fixGitHubPagesPaths(document);
+  fixJavaScriptPaths(document);
   if (!isLandingPage) {
     // Only inject docs-mode assets for documentation pages
     injectDocsModeAssets(document);
@@ -148,6 +149,49 @@ function fixGitHubPagesPaths(document) {
     const href = link.getAttribute('href');
     if (href && href.startsWith('/') && !href.startsWith(basePath)) {
       link.setAttribute('href', basePath + href);
+    }
+  });
+}
+
+/**
+ * Fix image and navigation paths in inline JavaScript
+ * Replaces absolute paths with /ralph-cli/ prefix for GitHub Pages
+ */
+function fixJavaScriptPaths(document) {
+  const basePath = '/ralph-cli';
+
+  // Find all inline script tags
+  const scriptTags = document.querySelectorAll('script:not([src])');
+
+  scriptTags.forEach(script => {
+    if (!script.innerHTML) return;
+
+    let content = script.innerHTML;
+
+    // Define path replacements (pattern -> replacement)
+    const pathReplacements = [
+      { from: "'/ralph-logo-bw.png'", to: "'/ralph-cli/ralph-logo-bw.png'" },
+      { from: '"/ralph-logo-bw.png"', to: '"/ralph-cli/ralph-logo-bw.png"' },
+      { from: "'/ralph-logo.png'", to: "'/ralph-cli/ralph-logo.png'" },
+      { from: '"/ralph-logo.png"', to: '"/ralph-cli/ralph-logo.png"' },
+      { from: "'/ralph-agent-bw.png'", to: "'/ralph-cli/ralph-agent-bw.png'" },
+      { from: '"/ralph-agent-bw.png"', to: '"/ralph-cli/ralph-agent-bw.png"' },
+      { from: "'/dashboard.html'", to: "'/ralph-cli/docs/'" },
+      { from: '"/dashboard.html"', to: '"/ralph-cli/docs/"' }
+    ];
+
+    // Apply each replacement
+    let modified = false;
+    pathReplacements.forEach(({ from, to }) => {
+      if (content.includes(from)) {
+        content = content.split(from).join(to);
+        modified = true;
+      }
+    });
+
+    // Update script content if modified
+    if (modified) {
+      script.innerHTML = content;
     }
   });
 }

@@ -460,14 +460,14 @@
   </section>
 
   <!-- Fixed CTA Button -->
-  <a href="/dashboard.html" class="enter-btn">
+  <a href="/ralph-cli/docs/" class="enter-btn">
     READY TO LOOP?
     <span class="enter-btn-hint">Press Enter ↵</span>
   </a>
 
   <script>
     const grid = document.getElementById('grid');
-    const logoSrc = '/ralph-logo-bw.png';
+    const logoSrc = '/ralph-cli/ralph-logo-bw.png';
 
     // Calculate grid size based on viewport
     function getGridSize() {
@@ -560,7 +560,7 @@
 
     // Traversing Color Ralph
     const traversersContainer = document.getElementById('traversers');
-    const colorLogoSrc = '/ralph-logo.png';
+    const colorLogoSrc = '/ralph-cli/ralph-logo.png';
     const activeTraversers = [];
     const maxTraversers = 3;
 
@@ -653,7 +653,7 @@
         // Only trigger if not typing in an input field
         if (document.activeElement.tagName !== 'INPUT' &&
             document.activeElement.tagName !== 'TEXTAREA') {
-          window.location.href = '/dashboard.html';
+          window.location.href = '/ralph-cli/docs/';
         }
       }
     });
@@ -663,7 +663,7 @@
     const agentCount = 16;
     for (let i = 0; i < agentCount; i++) {
       const agent = document.createElement('img');
-      agent.src = '/ralph-agent-bw.png';
+      agent.src = '/ralph-cli/ralph-agent-bw.png';
       agent.alt = `Agent ${i + 1}`;
       agent.className = 'agent-icon';
       agent.style.setProperty('--agent-index', i);
