@@ -47,58 +47,30 @@
       display: block;
     }
 
-    /* Documentation styles within monitoring page */
-    .docs-section {
-      margin-bottom: var(--rams-space-8);
+    /* Documentation tab specific overrides */
+    #documentation-tab .rams-step {
+      margin-bottom: var(--rams-space-6);
     }
 
-    .docs-section h3 {
-      font-size: var(--rams-text-xl);
-      font-weight: 600;
-      margin-bottom: var(--rams-space-3);
-      color: var(--rams-gray-900);
+    #documentation-tab .rams-section {
+      margin-bottom: var(--rams-space-6);
     }
 
-    .docs-section p {
-      color: var(--rams-gray-700);
-      line-height: 1.6;
-      margin-bottom: var(--rams-space-3);
-    }
-
-    .docs-step-number {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--rams-accent);
-      color: var(--rams-white);
-      font-weight: 600;
-      margin-right: var(--rams-space-3);
-    }
-
-    .docs-code {
-      background: var(--rams-gray-50);
-      padding: var(--rams-space-4);
-      border-radius: var(--rams-radius-md);
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-      font-size: 0.875rem;
+    #documentation-tab ul {
+      list-style: disc;
+      padding-left: var(--rams-space-6);
       margin: var(--rams-space-3) 0;
-      overflow-x: auto;
     }
 
-    .docs-info-box {
-      background: rgba(26, 77, 46, 0.04);
-      border-left: 3px solid var(--rams-accent);
-      padding: var(--rams-space-4);
-      margin: var(--rams-space-4) 0;
-      border-radius: var(--rams-radius-md);
+    #documentation-tab ul li {
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+      margin-bottom: var(--rams-space-2);
     }
 
-    .docs-info-box strong {
-      font-weight: 600;
+    #documentation-tab ul li strong {
       color: var(--rams-gray-900);
+      font-weight: 600;
     }
 
     /* Wizard Modal Styles */
@@ -796,184 +768,435 @@
       <div id="documentation-tab" class="rams-tab-content">
 
         <!-- Introduction -->
-        <section class="docs-section">
-          <h3>What Are Streams?</h3>
-          <p>
-            Streams allow you to run multiple PRD builds in parallel, each in complete isolation.
-            Think of it like having multiple workbenches in a workshop - each craftsperson can work
-            on their own project simultaneously without interfering with others.
-          </p>
-          <div class="docs-info-box">
-            <strong>Key Benefits:</strong>
-            <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-              <li><strong>Speed:</strong> Build multiple PRDs simultaneously (40-55% time savings)</li>
-              <li><strong>Isolation:</strong> Each stream has its own working directory</li>
-              <li><strong>Safety:</strong> Built-in locks and validation prevent conflicts</li>
-            </ul>
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <div class="rams-step-info">
+              <h2 class="rams-h2">What Are Streams?</h2>
+              <p class="rams-subtitle">Parallel execution for faster development</p>
+            </div>
           </div>
-        </section>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <p class="rams-text">
+                Streams allow you to run multiple PRD builds in parallel, each in complete isolation.
+                Think of it like having multiple workbenches in a workshop - each craftsperson can work
+                on their own project simultaneously without interfering with others.
+              </p>
+              <div class="rams-info-box">
+                <div class="rams-info-icon">i</div>
+                <div class="rams-info-content">
+                  <div class="rams-info-title">Key Benefits</div>
+                  <ul>
+                    <li><strong>Speed:</strong> Build multiple PRDs simultaneously (40-55% time savings)</li>
+                    <li><strong>Isolation:</strong> Each stream has its own working directory</li>
+                    <li><strong>Safety:</strong> Built-in locks and validation prevent conflicts</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Quick Start -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">1</span> Quick Start Guide</h3>
-          <p><strong>Step 1: Create Multiple PRDs</strong></p>
-          <div class="docs-code">ralph prd  # Creates PRD-1
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">1</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Quick Start Guide</h2>
+              <p class="rams-subtitle">Get started with parallel streams in 5 steps</p>
+            </div>
+          </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <h3 class="rams-h3">Step 1: Create Multiple PRDs</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph prd  # Creates PRD-1\nralph prd  # Creates PRD-2\n# Edit .ralph/PRD-N/prd.md for each')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph prd  # Creates PRD-1
 ralph prd  # Creates PRD-2
-# Edit .ralph/PRD-N/prd.md for each</div>
+# Edit .ralph/PRD-N/prd.md for each</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Step 2: Create Plans</strong></p>
-          <div class="docs-code">ralph plan --prd=1
-ralph plan --prd=2</div>
+            <div class="rams-section">
+              <h3 class="rams-h3">Step 2: Create Plans</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph plan --prd=1\nralph plan --prd=2')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph plan --prd=1
+ralph plan --prd=2</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Step 3: Initialize Worktrees</strong></p>
-          <div class="docs-code">ralph stream init 1  # Creates branch ralph/PRD-1
-ralph stream init 2  # Creates branch ralph/PRD-2</div>
+            <div class="rams-section">
+              <h3 class="rams-h3">Step 3: Initialize Worktrees</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream init 1  # Creates branch ralph/PRD-1\nralph stream init 2  # Creates branch ralph/PRD-2')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream init 1  # Creates branch ralph/PRD-1
+ralph stream init 2  # Creates branch ralph/PRD-2</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Step 4: Build in Parallel</strong></p>
-          <div class="docs-code">ralph stream build 1 5 &  # Run in background
+            <div class="rams-section">
+              <h3 class="rams-h3">Step 4: Build in Parallel</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream build 1 5 &  # Run in background\nralph stream build 2 5 &  # Run in background\nralph stream status      # Monitor progress')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream build 1 5 &  # Run in background
 ralph stream build 2 5 &  # Run in background
-ralph stream status      # Monitor progress</div>
+ralph stream status      # Monitor progress</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Step 5: Merge When Complete</strong></p>
-          <div class="docs-code">ralph stream merge 1
-ralph stream merge 2</div>
-        </section>
+            <div class="rams-section">
+              <h3 class="rams-h3">Step 5: Merge When Complete</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream merge 1\nralph stream merge 2')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream merge 1
+ralph stream merge 2</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Architecture -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">2</span> Stream Architecture</h3>
-          <p>Each stream operates in isolated layers:</p>
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">2</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Stream Architecture</h2>
+              <p class="rams-subtitle">Understanding isolated execution layers</p>
+            </div>
+          </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <p class="rams-text">Each stream operates in isolated layers:</p>
+            </div>
 
-          <p><strong>Git Branches</strong></p>
-          <div class="docs-code">ralph/PRD-1  - Feature branch for PRD 1
+            <div class="rams-section">
+              <h3 class="rams-h3">Git Branches</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Branch Structure</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph/PRD-1  - Feature branch for PRD 1\nralph/PRD-2  - Feature branch for PRD 2\nralph/PRD-3  - Feature branch for PRD 3')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph/PRD-1  - Feature branch for PRD 1
 ralph/PRD-2  - Feature branch for PRD 2
-ralph/PRD-3  - Feature branch for PRD 3</div>
+ralph/PRD-3  - Feature branch for PRD 3</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Worktrees (Isolated Directories)</strong></p>
-          <div class="docs-code">.ralph/worktrees/PRD-1/  - Complete repo checkout on ralph/PRD-1
+            <div class="rams-section">
+              <h3 class="rams-h3">Worktrees (Isolated Directories)</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Directory Structure</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, '.ralph/worktrees/PRD-1/  - Complete repo checkout on ralph/PRD-1\n.ralph/worktrees/PRD-2/  - Complete repo checkout on ralph/PRD-2\n.ralph/worktrees/PRD-3/  - Complete repo checkout on ralph/PRD-3')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>.ralph/worktrees/PRD-1/  - Complete repo checkout on ralph/PRD-1
 .ralph/worktrees/PRD-2/  - Complete repo checkout on ralph/PRD-2
-.ralph/worktrees/PRD-3/  - Complete repo checkout on ralph/PRD-3</div>
+.ralph/worktrees/PRD-3/  - Complete repo checkout on ralph/PRD-3</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Safety Mechanisms</strong></p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li><strong>Lock Files:</strong> Prevent concurrent builds of same PRD</li>
-            <li><strong>Status Validation:</strong> Git history is source of truth</li>
-            <li><strong>Merge Queue:</strong> Only one merge to main at a time</li>
-          </ul>
-        </section>
+            <div class="rams-section">
+              <h3 class="rams-h3">Safety Mechanisms</h3>
+              <ul>
+                <li><strong>Lock Files:</strong> Prevent concurrent builds of same PRD</li>
+                <li><strong>Status Validation:</strong> Git history is source of truth</li>
+                <li><strong>Merge Queue:</strong> Only one merge to main at a time</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
         <!-- Understanding Worktrees -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">3</span> Understanding Worktrees</h3>
-          <p>
-            Worktrees are Git's feature for having multiple working directories from the same repository.
-            Traditional Git requires switching branches, which changes all your files. With worktrees,
-            you can have multiple branches checked out simultaneously in different directories.
-          </p>
-
-          <div class="docs-info-box">
-            <strong>The Office Analogy:</strong><br>
-            <strong>Traditional Git:</strong> One desk. To work on a different project, clear your desk and bring out new files.<br>
-            <strong>With Worktrees:</strong> Multiple desks in different rooms. Walk between rooms and work on whichever project you want.
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">3</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Understanding Worktrees</h2>
+              <p class="rams-subtitle">Multiple working directories from the same repository</p>
+            </div>
           </div>
-        </section>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <p class="rams-text">
+                Worktrees are Git's feature for having multiple working directories from the same repository.
+                Traditional Git requires switching branches, which changes all your files. With worktrees,
+                you can have multiple branches checked out simultaneously in different directories.
+              </p>
+            </div>
+
+            <div class="rams-section">
+              <div class="rams-info-box">
+                <div class="rams-info-icon">i</div>
+                <div class="rams-info-content">
+                  <div class="rams-info-title">The Office Analogy</div>
+                  <p class="rams-text-sm">
+                    <strong>Traditional Git:</strong> One desk. To work on a different project, clear your desk and bring out new files.
+                  </p>
+                  <p class="rams-text-sm">
+                    <strong>With Worktrees:</strong> Multiple desks in different rooms. Walk between rooms and work on whichever project you want.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Safety Features -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">4</span> Safety Features</h3>
-
-          <p><strong>Lock Files</strong></p>
-          <p>Each stream gets a lock file when a build starts, preventing duplicate runs:</p>
-          <div class="docs-code">.ralph/locks/PRD-N.lock  # Contains process ID (PID)
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">4</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Safety Features</h2>
+              <p class="rams-subtitle">Built-in conflict prevention and validation</p>
+            </div>
+          </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <h3 class="rams-h3">Lock Files</h3>
+              <p class="rams-text">Each stream gets a lock file when a build starts, preventing duplicate runs:</p>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Lock File Structure</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, '.ralph/locks/PRD-N.lock  # Contains process ID (PID)\n- Created when build starts\n- Validated before each build\n- Stale locks auto-removed')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>.ralph/locks/PRD-N.lock  # Contains process ID (PID)
 - Created when build starts
 - Validated before each build
-- Stale locks auto-removed</div>
+- Stale locks auto-removed</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Status Validation</strong></p>
-          <p>Ralph cross-checks file markers against Git history:</p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li>Git is the source of truth, not file markers</li>
-            <li>Auto-corrects missing .merged markers</li>
-            <li>Detects and fixes stale status</li>
-          </ul>
+            <div class="rams-section">
+              <h3 class="rams-h3">Status Validation</h3>
+              <p class="rams-text">Ralph cross-checks file markers against Git history:</p>
+              <ul>
+                <li>Git is the source of truth, not file markers</li>
+                <li>Auto-corrects missing .merged markers</li>
+                <li>Detects and fixes stale status</li>
+              </ul>
+            </div>
 
-          <p><strong>Merge Queue</strong></p>
-          <p>Only one stream can merge to main at a time:</p>
-          <div class="docs-code"># Global lock prevents parallel merges
+            <div class="rams-section">
+              <h3 class="rams-h3">Merge Queue</h3>
+              <p class="rams-text">Only one stream can merge to main at a time:</p>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Merge Lock</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, '# Global lock prevents parallel merges\n.ralph/locks/merge.lock\n- Auto-cleanup if process dies\n- 5-minute max wait timeout')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code># Global lock prevents parallel merges
 .ralph/locks/merge.lock
 - Auto-cleanup if process dies
-- 5-minute max wait timeout</div>
-        </section>
+- 5-minute max wait timeout</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- When to Use Streams -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">5</span> When to Use Streams</h3>
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">5</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">When to Use Streams</h2>
+              <p class="rams-subtitle">Optimal scenarios for parallel execution</p>
+            </div>
+          </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <h3 class="rams-h3">✓ Use Streams When:</h3>
+              <ul>
+                <li>Features touch different files (no overlap)</li>
+                <li>Multiple features needed for same deadline</li>
+                <li>Long-running builds (30+ minutes each)</li>
+                <li>Team collaboration on separate features</li>
+              </ul>
+            </div>
 
-          <p><strong>✓ Use Streams When:</strong></p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li>Features touch different files (no overlap)</li>
-            <li>Multiple features needed for same deadline</li>
-            <li>Long-running builds (30+ minutes each)</li>
-            <li>Team collaboration on separate features</li>
-          </ul>
-
-          <p><strong>✗ Avoid Streams When:</strong></p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li>Sequential dependencies (PRD-2 needs PRD-1 first)</li>
-            <li>Multiple PRDs modifying same files</li>
-            <li>Quick fixes (1-2 iterations only)</li>
-            <li>Learning Ralph (master sequential builds first)</li>
-          </ul>
-        </section>
+            <div class="rams-section">
+              <h3 class="rams-h3">✗ Avoid Streams When:</h3>
+              <ul>
+                <li>Sequential dependencies (PRD-2 needs PRD-1 first)</li>
+                <li>Multiple PRDs modifying same files</li>
+                <li>Quick fixes (1-2 iterations only)</li>
+                <li>Learning Ralph (master sequential builds first)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
         <!-- Performance -->
-        <section class="docs-section">
-          <h3><span class="docs-step-number">6</span> Performance Tips</h3>
-
-          <p><strong>Optimal Configuration</strong></p>
-          <div class="docs-info-box">
-            <strong>Recommended: 2-3 parallel streams</strong><br>
-            Best speed vs complexity trade-off. Manageable on most laptops (4GB+ RAM).
-            Low risk of rate limiting.
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <span class="rams-step-num">6</span>
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Performance Tips</h2>
+              <p class="rams-subtitle">Maximizing speed and efficiency</p>
+            </div>
           </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <h3 class="rams-h3">Optimal Configuration</h3>
+              <div class="rams-info-box">
+                <div class="rams-info-icon">i</div>
+                <div class="rams-info-content">
+                  <div class="rams-info-title">Recommended: 2-3 parallel streams</div>
+                  <p class="rams-text-sm">
+                    Best speed vs complexity trade-off. Manageable on most laptops (4GB+ RAM).
+                    Low risk of rate limiting.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Time Savings</strong></p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li>2 medium PRDs: ~35 min sequential → ~20 min parallel (43% faster)</li>
-            <li>3 small PRDs: ~30 min sequential → ~15 min parallel (50% faster)</li>
-            <li>4 small PRDs: ~40 min sequential → ~18 min parallel (55% faster)</li>
-          </ul>
+            <div class="rams-section">
+              <h3 class="rams-h3">Time Savings</h3>
+              <ul>
+                <li>2 medium PRDs: ~35 min sequential → ~20 min parallel (43% faster)</li>
+                <li>3 small PRDs: ~30 min sequential → ~15 min parallel (50% faster)</li>
+                <li>4 small PRDs: ~40 min sequential → ~18 min parallel (55% faster)</li>
+              </ul>
+            </div>
 
-          <p><strong>Optimization Tips</strong></p>
-          <ul style="margin: var(--rams-space-2) 0 0 var(--rams-space-5); color: var(--rams-gray-700);">
-            <li>Stagger starts 1-2 minutes apart to avoid API burst</li>
-            <li>Group small PRDs together, large PRDs separately</li>
-            <li>Monitor logs in .ralph/PRD-N/runs/</li>
-            <li>Merge completed streams immediately to free resources</li>
-          </ul>
-        </section>
+            <div class="rams-section">
+              <h3 class="rams-h3">Optimization Tips</h3>
+              <ul>
+                <li>Stagger starts 1-2 minutes apart to avoid API burst</li>
+                <li>Group small PRDs together, large PRDs separately</li>
+                <li>Monitor logs in .ralph/PRD-N/runs/</li>
+                <li>Merge completed streams immediately to free resources</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
         <!-- Common Commands -->
-        <section class="docs-section">
-          <h3>Common Commands Reference</h3>
-
-          <p><strong>Stream Management</strong></p>
-          <div class="docs-code">ralph stream list          # List all streams
+        <div class="rams-step">
+          <div class="rams-step-header">
+            <div class="rams-step-info">
+              <h2 class="rams-h2">Common Commands Reference</h2>
+              <p class="rams-subtitle">Quick reference for stream operations</p>
+            </div>
+          </div>
+          <div class="rams-step-body">
+            <div class="rams-section">
+              <h3 class="rams-h3">Stream Management</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream list          # List all streams\nralph stream status        # Show stream status\nralph stream init N        # Initialize worktree for PRD-N')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream list          # List all streams
 ralph stream status        # Show stream status
-ralph stream init N        # Initialize worktree for PRD-N</div>
+ralph stream init N        # Initialize worktree for PRD-N</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Building</strong></p>
-          <div class="docs-code">ralph stream build N 5     # Build PRD-N for 5 iterations
+            <div class="rams-section">
+              <h3 class="rams-h3">Building</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream build N 5     # Build PRD-N for 5 iterations\nralph stream build N 5 --no-worktree  # Build without worktree\nralph stream build N 5 --force        # Force build (ignore locks)')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream build N 5     # Build PRD-N for 5 iterations
 ralph stream build N 5 --no-worktree  # Build without worktree
-ralph stream build N 5 --force        # Force build (ignore locks)</div>
+ralph stream build N 5 --force        # Force build (ignore locks)</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Merging</strong></p>
-          <div class="docs-code">ralph stream merge N       # Merge PRD-N to main</div>
+            <div class="rams-section">
+              <h3 class="rams-h3">Merging</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream merge N       # Merge PRD-N to main')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream merge N       # Merge PRD-N to main</code></pre>
+                </div>
+              </div>
+            </div>
 
-          <p><strong>Status Management</strong></p>
-          <div class="docs-code">ralph stream mark-completed N    # Mark as completed
-ralph stream verify-status       # Auto-fix stale status</div>
-        </section>
+            <div class="rams-section">
+              <h3 class="rams-h3">Status Management</h3>
+              <div class="rams-code-block">
+                <div class="rams-code-header">
+                  <span class="rams-code-label">Terminal</span>
+                  <button class="rams-code-copy" onclick="copyToClipboard(this, 'ralph stream mark-completed N    # Mark as completed\nralph stream verify-status       # Auto-fix stale status')">
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <div class="rams-code-content">
+                  <pre><code>ralph stream mark-completed N    # Mark as completed
+ralph stream verify-status       # Auto-fix stale status</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -1075,6 +1298,31 @@ ralph stream verify-status       # Auto-fix stale status</div>
         document.querySelector('.rams-tab[onclick*="documentation"]').click();
       }
     });
+
+    // Copy to clipboard function for documentation code blocks
+    function copyToClipboard(button, text) {
+      // Copy text to clipboard
+      navigator.clipboard.writeText(text).then(() => {
+        // Visual feedback
+        const span = button.querySelector('span');
+        const originalText = span.textContent;
+        span.textContent = 'Copied!';
+        button.classList.add('copied');
+
+        // Reset after 2 seconds
+        setTimeout(() => {
+          span.textContent = originalText;
+          button.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy text:', err);
+        const span = button.querySelector('span');
+        span.textContent = 'Failed';
+        setTimeout(() => {
+          span.textContent = 'Copy';
+        }, 2000);
+      });
+    }
 
     // Show stream detail view
     function showStreamDetail(streamId, streamName) {
@@ -1346,6 +1594,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
     var wizardState = {
       currentStep: 1,
       streamId: null,
+      pid: null, // Process ID for reliable cancellation
       data: {
         description: '',
         prdContent: '',
@@ -1370,6 +1619,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
       wizardState = {
         currentStep: 1,
         streamId: null,
+        pid: null,
         data: {
           description: '',
           prdContent: '',
@@ -1421,6 +1671,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
 
       // Reset state
       wizardState.isGenerating = false;
+      wizardState.pid = null;
     }
 
     // Navigate to previous step
@@ -1996,6 +2247,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
       .then(function(data) {
         if (data.success && data.streamId) {
           wizardState.streamId = data.streamId;
+          wizardState.pid = data.pid || null; // Store PID for reliable cancellation
           wizardState.data.prdContent = data.prdContent || '';
 
           // Connect to SSE for progress updates if available
@@ -2527,23 +2779,40 @@ ralph stream verify-status       # Auto-fix stale status</div>
 
     // Cancel ongoing generation
     function cancelGeneration() {
-      if (!wizardState.streamId) return;
-
-      // Stop timer
+      // Stop timer first
       cleanupGenerationState();
 
-      // Call cancel API
-      fetch('/api/stream/' + wizardState.streamId + '/cancel', {
-        method: 'POST'
-      }).then(function(r) {
-        return r.json();
-      }).then(function(data) {
-        showAlert('info', 'Generation cancelled');
+      // Use PID-based cancellation if available (more reliable)
+      if (wizardState.pid) {
+        fetch('/api/wizard/cancel-pid/' + wizardState.pid, {
+          method: 'POST'
+        }).then(function(r) {
+          return r.json();
+        }).then(function(data) {
+          showAlert('info', 'Generation cancelled');
+          wizardState.pid = null;
+          closeWizard();
+        }).catch(function(e) {
+          console.error('Cancel by PID failed:', e);
+          showAlert('error', 'Failed to cancel generation');
+        });
+      } else if (wizardState.streamId) {
+        // Fallback to stream-based cancellation
+        fetch('/api/stream/' + wizardState.streamId + '/cancel', {
+          method: 'POST'
+        }).then(function(r) {
+          return r.json();
+        }).then(function(data) {
+          showAlert('info', 'Generation cancelled');
+          closeWizard();
+        }).catch(function(e) {
+          console.error('Cancel failed:', e);
+          showAlert('error', 'Failed to cancel generation');
+        });
+      } else {
+        // No process to cancel, just close the wizard
         closeWizard();
-      }).catch(function(e) {
-        console.error('Cancel failed:', e);
-        showAlert('error', 'Failed to cancel generation');
-      });
+      }
     }
 
     // Cleanup generation state (timer, dialog, etc.)

@@ -84,14 +84,14 @@ class WizardProcessManager {
   /**
    * Start PRD generation for a stream
    * @param description The feature description to generate PRD for (required)
-   * @returns Initial generation status with eventEmitter for streaming
+   * @returns Initial generation status with eventEmitter for streaming and process PID
    *
    * Note: ralph prd auto-creates a new PRD-N folder. The created PRD ID
    * will be emitted via the 'prd-created' event on the eventEmitter.
    */
   startPrdGeneration(
     description: string
-  ): { success: boolean; status: GenerationStatus; eventEmitter?: EventEmitter } {
+  ): { success: boolean; status: GenerationStatus; eventEmitter?: EventEmitter; pid?: number } {
     // Use a temporary key for new PRD generation (will be updated once we know the ID)
     const tempKey = `new-prd-${Date.now()}`;
 
@@ -182,6 +182,7 @@ class WizardProcessManager {
           output: [],
         },
         eventEmitter,
+        pid: childProcess.pid,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -750,6 +751,28 @@ class WizardProcessManager {
         success: false,
         message: `Failed to cancel generation: ${errorMessage}`,
       };
+    }
+  }
+
+  /**
+   * Cancel a generation process by its PID.
+   * More reliable than key-based cancellation as PID is available immediately.
+   * @param pid The process ID to kill
+   * @returns Whether cancellation was successful
+   */
+  cancelByPid(pid: number): { success: boolean; message: string } {
+    try {
+      process.kill(pid, "SIGTERM");
+      console.log(`[WizardProcessManager] Cancelled process by PID: ${pid}`);
+      return { success: true, message: `Process ${pid} terminated` };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") {
+        // Process doesn't exist (already terminated)
+        return { success: true, message: `Process ${pid} already terminated` };
+      }
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.log(`[WizardProcessManager] Failed to cancel PID ${pid}: ${errorMessage}`);
+      return { success: false, message: `Failed to kill process ${pid}: ${errorMessage}` };
     }
   }
 

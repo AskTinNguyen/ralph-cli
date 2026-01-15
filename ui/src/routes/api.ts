@@ -6790,6 +6790,9 @@ api.post("/stream/wizard/start", async (c) => {
       );
     }
 
+    // Store PID immediately (available before folder creation)
+    const processPid = result.pid;
+
     // Wait for the PRD folder to be created (ralph prd outputs this early)
     // Timeout after 10 seconds if no folder is created
     const streamId = await new Promise<string>((resolve, reject) => {
@@ -6838,6 +6841,7 @@ api.post("/stream/wizard/start", async (c) => {
       path: streamPath,
       message: "PRD generation started",
       sseEndpoint: `/api/stream/${streamId}/generation-stream?type=prd`,
+      pid: processPid,
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -6940,6 +6944,36 @@ api.post("/stream/:id/cancel", (c) => {
 
   // Try to cancel using wizard process manager
   const result = wizardProcessManager.cancel(id);
+
+  if (result.success) {
+    return c.json({ success: true, message: result.message });
+  }
+
+  return c.json(
+    { error: "cancel_failed", message: result.message },
+    400
+  );
+});
+
+/**
+ * POST /api/wizard/cancel-pid/:pid
+ *
+ * Cancel a generation process by its PID.
+ * More reliable than stream-based cancellation as PID is available immediately
+ * after process starts, before the stream ID is determined.
+ */
+api.post("/wizard/cancel-pid/:pid", (c) => {
+  const pidStr = c.req.param("pid");
+  const pid = parseInt(pidStr, 10);
+
+  if (isNaN(pid) || pid <= 0) {
+    return c.json(
+      { error: "invalid_pid", message: "Invalid PID" },
+      400
+    );
+  }
+
+  const result = wizardProcessManager.cancelByPid(pid);
 
   if (result.success) {
     return c.json({ success: true, message: result.message });
