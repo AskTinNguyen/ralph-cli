@@ -7,12 +7,12 @@ const {
   extractStoryId,
   getCompletedStoriesFromGit,
   getStoriesWithFallback
-} = require('./git-fallback');
+} = require('../lib/metrics/git-fallback');
 
 // Test PRD-28
 console.log('=== Testing Git Fallback for PRD-28 ===\n');
 
-const prdPath = path.join(__dirname, '../../.ralph/PRD-28');
+const prdPath = path.join(__dirname, '../.ralph/PRD-28');
 
 console.log('1. Getting commits for PRD-28...');
 const commits = getPrdCommits(28);

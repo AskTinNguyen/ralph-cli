@@ -127,8 +127,22 @@ ralph-cli/
 │   ├── commit/           # Git commit helper
 │   ├── dev-browser/      # Browser automation
 │   └── prd/              # PRD generation
+├── tests/                # Test files (IMPORTANT: ALL tests go here)
+│   ├── *.mjs             # Integration and E2E tests
+│   ├── test-*.js         # Unit tests
+│   ├── fixtures/         # Test fixtures
+│   ├── helpers/          # Test utilities
+│   └── mocks/            # Mock implementations
 └── package.json
 ```
+
+**Testing Rules:**
+- ✅ All test files must be in `/tests` directory
+- ✅ Integration/E2E tests use `.mjs` extension
+- ✅ Unit tests use `test-*.js` naming pattern
+- ❌ Never place test files in `/lib`, `/bin`, or other source directories
+
+> **Full testing guide**: See [TESTING.md](TESTING.md) for comprehensive documentation on test organization and best practices.
 
 ## How It Works
 

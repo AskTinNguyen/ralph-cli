@@ -240,6 +240,10 @@ State and logs always go to `.ralph/` in your project.
 
 ## Tests
 
+> **Full testing documentation**: See [TESTING.md](TESTING.md) for complete details on test organization, structure, and best practices.
+
+### Running Tests
+
 ```bash
 # Dry-run smoke tests (no agent required)
 npm test
@@ -252,6 +256,23 @@ RALPH_INTEGRATION=1 npm test
 
 # Full real-agent loop test
 npm run test:real
+
+# Specific integration tests
+npm run test:checkpoint
+npm run test:switcher
+npm run test:risk
+npm run test:actions
+npm run test:notify
+npm run test:metrics
+npm run test:doctor
+npm run test:watch
+npm run test:ui-api
+
+# End-to-end workflow test
+npm run test:e2e
+
+# All integration tests
+npm run test:all
 ```
 
 ## Notes
