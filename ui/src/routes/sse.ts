@@ -139,11 +139,15 @@ sse.get("/events", (c) => {
       }
     }, 30000); // Send heartbeat every 30 seconds
 
-    // Wait for abort signal (client disconnect)
+    // Keep the stream alive using a loop instead of stream.sleep
+    // This ensures the stream doesn't close prematurely
     try {
-      await stream.sleep(Number.MAX_SAFE_INTEGER);
-    } catch {
+      while (isConnected) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    } catch (error) {
       // Stream closed or aborted
+      console.log(`[SSE] Stream loop ended: ${error}`);
     }
 
     // Cleanup on disconnect

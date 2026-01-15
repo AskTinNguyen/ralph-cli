@@ -1,90 +1,229 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ralph CLI - Viewer</title>
-    <link rel="stylesheet" href="/css/styles.css" />
-    <script src="/js/htmx.min.js"></script>
-    <script src="/js/marked.min.js"></script>
-  </head>
-  <body>
-    <!-- Error Toast Container -->
-    <div id="error-toast" class="error-toast hidden">
-      <div class="error-toast-header">
-        <span class="error-toast-title">Error</span>
-        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph CLI - Editor</title>
+  <link rel="stylesheet" href="/css/rams-ui.css">
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/marked.min.js"></script>
+  <style>
+    /* Editor-specific styles following Rams design system principles */
+    .editor-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--rams-space-6);
+      height: calc(100vh - 240px);
+    }
+    .editor-pane, .preview-pane {
+      display: flex;
+      flex-direction: column;
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      overflow: hidden;
+      background: var(--rams-white);
+    }
+    .pane-header {
+      padding: var(--rams-space-3) var(--rams-space-4);
+      background: var(--rams-gray-50);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      font-weight: 500;
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+    }
+    .editor-textarea {
+      flex: 1;
+      border: none;
+      padding: var(--rams-space-4);
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      background: var(--rams-white);
+      color: var(--rams-gray-900);
+    }
+    .editor-textarea:focus {
+      outline: none;
+    }
+    .editor-textarea:disabled {
+      background: var(--rams-gray-50);
+      color: var(--rams-gray-500);
+      cursor: not-allowed;
+    }
+    .preview-content {
+      flex: 1;
+      padding: var(--rams-space-4);
+      overflow-y: auto;
+      line-height: var(--rams-leading-relaxed);
+      color: var(--rams-gray-700);
+    }
+    .preview-content h1 {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      letter-spacing: var(--rams-tracking-tight);
+      color: var(--rams-gray-900);
+      margin-top: var(--rams-space-6);
+      margin-bottom: var(--rams-space-3);
+    }
+    .preview-content h2 {
+      font-size: var(--rams-text-xl);
+      font-weight: 600;
+      letter-spacing: var(--rams-tracking-tight);
+      color: var(--rams-gray-900);
+      margin-top: var(--rams-space-6);
+      margin-bottom: var(--rams-space-3);
+    }
+    .preview-content h3 {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      letter-spacing: var(--rams-tracking-tight);
+      color: var(--rams-gray-900);
+      margin-top: var(--rams-space-6);
+      margin-bottom: var(--rams-space-3);
+    }
+    .preview-content h1:first-child,
+    .preview-content h2:first-child,
+    .preview-content h3:first-child {
+      margin-top: 0;
+    }
+    .preview-content p {
+      margin-bottom: var(--rams-space-4);
+    }
+    .preview-content ul, .preview-content ol {
+      margin-bottom: var(--rams-space-4);
+      padding-left: var(--rams-space-6);
+    }
+    .preview-content li {
+      margin-bottom: var(--rams-space-2);
+    }
+    .preview-content code {
+      background: var(--rams-gray-100);
+      padding: 2px 6px;
+      border-radius: var(--rams-radius-sm);
+      font-family: var(--rams-font-mono);
+      font-size: 0.9em;
+      color: var(--rams-gray-900);
+    }
+    .preview-content pre {
+      background: var(--rams-gray-900);
+      padding: var(--rams-space-4);
+      border-radius: var(--rams-radius-md);
+      overflow-x: auto;
+      margin-bottom: var(--rams-space-4);
+      border: var(--rams-border-width) solid var(--rams-gray-800);
+    }
+    .preview-content pre code {
+      background: none;
+      padding: 0;
+      color: var(--rams-gray-200);
+    }
+    .preview-content blockquote {
+      border-left: 3px solid var(--rams-accent);
+      padding-left: var(--rams-space-4);
+      margin: var(--rams-space-4) 0;
+      color: var(--rams-gray-600);
+      font-style: italic;
+    }
+    .preview-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: var(--rams-space-4);
+    }
+    .preview-content table th {
+      text-align: left;
+      padding: var(--rams-space-3) var(--rams-space-4);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--rams-gray-500);
+      background: var(--rams-gray-50);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+    }
+    .preview-content table td {
+      padding: var(--rams-space-3) var(--rams-space-4);
+      border-bottom: var(--rams-border-width) solid var(--rams-gray-200);
+    }
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--rams-gray-500);
+      font-size: var(--rams-text-sm);
+    }
+  </style>
+</head>
+<body class="rams-page">
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
       </div>
-      <div class="error-toast-message" id="error-toast-message"></div>
-      <div class="error-toast-actions">
-        <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
-          <span class="retry-icon">&#8635;</span> Retry
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Main</div>
+        <ul class="rams-nav-items">
+          <li><a href="/" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Monitoring</div>
+        <ul class="rams-nav-items">
+          <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
+          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
+          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Tools</div>
+        <ul class="rams-nav-items">
+          <li><a href="/editor.html" class="rams-nav-link active">Editor</a></li>
+          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current">Editor</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <select id="stream-selector" class="rams-select" style="width: auto; min-width: 150px;">
+          <option value="">Select a stream...</option>
+        </select>
+        <select id="file-selector" class="rams-select" style="width: auto; min-width: 150px;" disabled>
+          <option value="">Select a file...</option>
+        </select>
+        <button id="open-in-editor-btn" class="rams-btn rams-btn-secondary" disabled>
+          Open in Editor
         </button>
       </div>
     </div>
 
-    <header>
-      <div class="header-content">
-        <h1>Ralph CLI</h1>
-        <span class="subtitle">Autonomous Coding Loop</span>
-      </div>
-      <nav>
-        <a href="/">Dashboard</a>
-        <a href="/chat.html">Chat</a>
-        <a href="/streams.html">Streams</a>
-        <a href="/logs.html">Logs</a>
-        <a href="/tokens.html">Tokens</a>
-        <a href="/trends.html">Trends</a>
-        <a href="/editor.html" class="active">Editor</a>
-      </nav>
-    </header>
+    <!-- Content Area -->
+    <article class="rams-content">
 
-    <main class="editor-main">
-      <!-- Breadcrumbs -->
-      <nav id="editor-breadcrumbs" class="breadcrumbs" style="display: none">
-        <a href="/editor.html">Viewer</a>
-        <span class="breadcrumb-separator">&rsaquo;</span>
-        <span id="breadcrumb-stream"></span>
-        <span class="breadcrumb-separator">&rsaquo;</span>
-        <span id="breadcrumb-file"></span>
-      </nav>
-
-      <!-- Editor Controls Section -->
-      <section id="editor-controls">
-        <div class="editor-toolbar">
-          <div class="editor-selectors">
-            <select id="stream-selector">
-              <option value="">Select a stream...</option>
-            </select>
-            <button
-              id="refresh-streams-btn"
-              class="btn btn-secondary btn-sm"
-              onclick="loadStreams(true)"
-              title="Refresh stream list"
-              style="margin-left: 8px"
-            >
-              &#8635;
-            </button>
-            <select id="file-selector" name="file" disabled>
-              <option value="">Select a file...</option>
-            </select>
-          </div>
-          <div class="editor-status">
-            <button
-              id="open-in-editor-btn"
-              class="btn btn-primary btn-sm"
-              onclick="openInExternalEditor()"
-              disabled
-              title="Open file in your text editor"
-            >
-              Open in Editor
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Editor Section -->
-      <section id="editor-section">
+      <section class="rams-section">
         <div class="editor-container">
           <!-- Viewer Pane -->
           <div class="editor-pane">
@@ -113,389 +252,209 @@
           </div>
         </div>
       </section>
-    </main>
 
-    <footer>
-      <p>
-        Ralph CLI Web UI &mdash;
-        <span
-          id="status-indicator"
-          hx-get="/api/partials/status-indicator"
-          hx-trigger="load, every 5s"
-          hx-swap="innerHTML"
-          >checking...</span
-        >
-      </p>
-    </footer>
+    </article>
 
-    <script>
-      // State management
-      let currentStreamId = "";
-      let currentFile = "";
-      let currentFilePath = "";
+  </main>
 
-      // Initialize marked options
-      if (typeof marked !== "undefined") {
-        marked.setOptions({
-          breaks: true,
-          gfm: true,
-        });
-      }
+  <script>
+    let currentStreamId = "";
+    let currentFile = "";
+    let currentFilePath = "";
 
-      // Load streams on page load
-      document.addEventListener("DOMContentLoaded", () => {
-        loadStreams();
-        // Refresh stream names periodically to catch title changes
-        setInterval(() => loadStreams(true), 10000); // Every 10 seconds
+    if (typeof marked !== "undefined") {
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
       });
+    }
 
-      // Load available streams into the selector
-      // preserveSelection: if true, keeps the currently selected stream ID
-      async function loadStreams(preserveSelection = false) {
-        const refreshBtn = document.getElementById("refresh-streams-btn");
+    document.addEventListener("DOMContentLoaded", () => {
+      loadStreams();
+      setInterval(() => loadStreams(true), 10000);
+    });
 
-        try {
-          // Show loading state on refresh button
-          if (refreshBtn && preserveSelection) {
-            refreshBtn.classList.add("loading");
-            refreshBtn.disabled = true;
-          }
+    async function loadStreams(preserveSelection = false) {
+      try {
+        const response = await fetch("/api/streams");
+        const data = await response.json();
 
-          const response = await fetch("/api/streams");
-          const data = await response.json();
+        const selector = document.getElementById("stream-selector");
+        const currentSelection = preserveSelection ? selector.value : "";
 
-          const selector = document.getElementById("stream-selector");
-          const currentSelection = preserveSelection ? selector.value : "";
-
-          // Only update if we have valid data
-          if (!data.streams) {
-            console.warn("No streams data received");
-            return;
-          }
-
-          selector.innerHTML = '<option value="">Select a stream...</option>';
-
-          if (data.streams.length > 0) {
-            data.streams.forEach((stream) => {
-              const option = document.createElement("option");
-              option.value = stream.id;
-              option.textContent = `PRD-${stream.id}: ${stream.name}`;
-              selector.appendChild(option);
-            });
-
-            // Restore previous selection if it still exists
-            if (currentSelection && data.streams.some((s) => s.id === currentSelection)) {
-              selector.value = currentSelection;
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load streams:", error);
-          showErrorToast("Failed to load stream list. Please refresh the page.", "/api/streams");
-        } finally {
-          // Remove loading state
-          if (refreshBtn && preserveSelection) {
-            setTimeout(() => {
-              refreshBtn.classList.remove("loading");
-              refreshBtn.disabled = false;
-            }, 300);
-          }
-        }
-      }
-
-      // Update breadcrumbs display
-      function updateBreadcrumbs() {
-        const breadcrumbs = document.getElementById("editor-breadcrumbs");
-        const streamEl = document.getElementById("breadcrumb-stream");
-        const fileEl = document.getElementById("breadcrumb-file");
-        const streamSelector = document.getElementById("stream-selector");
-
-        if (currentStreamId && currentFile) {
-          const streamOption = streamSelector.options[streamSelector.selectedIndex];
-          const streamName = streamOption ? streamOption.textContent : `PRD-${currentStreamId}`;
-          streamEl.textContent = streamName;
-          fileEl.textContent = currentFile;
-          breadcrumbs.style.display = "flex";
-        } else {
-          breadcrumbs.style.display = "none";
-        }
-      }
-
-      // Handle stream selection change
-      document.getElementById("stream-selector").addEventListener("change", async (e) => {
-        currentStreamId = e.target.value;
-        currentFile = "";
-        currentFilePath = "";
-        updateBreadcrumbs();
-        const fileSelector = document.getElementById("file-selector");
-        const textarea = document.getElementById("editor-textarea");
-        const preview = document.getElementById("preview-content");
-        const openBtn = document.getElementById("open-in-editor-btn");
-
-        if (!currentStreamId) {
-          fileSelector.innerHTML = '<option value="">Select a file...</option>';
-          fileSelector.disabled = true;
-          textarea.value = "";
-          textarea.disabled = true;
-          preview.innerHTML =
-            '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
-          openBtn.disabled = true;
+        if (!data.streams) {
+          console.warn("No streams data received");
           return;
         }
 
-        // Load files for selected stream
-        try {
-          const response = await fetch(`/api/streams/${currentStreamId}`);
-          const data = await response.json();
+        selector.innerHTML = '<option value="">Select a stream...</option>';
 
-          fileSelector.innerHTML = '<option value="">Select a file...</option>';
-
-          // Add available files based on what exists
-          const files = [];
-          if (data.hasPrd) files.push({ value: "prd.md", label: "prd.md (Product Requirements)" });
-          if (data.hasPlan)
-            files.push({ value: "plan.md", label: "plan.md (Implementation Plan)" });
-          if (data.hasProgress)
-            files.push({ value: "progress.md", label: "progress.md (Progress Log)" });
-
-          files.forEach((file) => {
+        if (data.streams.length > 0) {
+          data.streams.forEach((stream) => {
             const option = document.createElement("option");
-            option.value = file.value;
-            option.textContent = file.label;
-            fileSelector.appendChild(option);
+            option.value = stream.id;
+            option.textContent = `PRD-${stream.id}: ${stream.name}`;
+            selector.appendChild(option);
           });
 
-          fileSelector.disabled = files.length === 0;
-
-          if (files.length === 0) {
-            fileSelector.innerHTML = '<option value="">No files available</option>';
-          } else {
-            // Auto-select the first file (PRD) if available
-            if (files.length > 0) {
-              fileSelector.value = files[0].value;
-              // Trigger the file selector change event to load the content
-              fileSelector.dispatchEvent(new Event("change"));
-            }
+          if (currentSelection && data.streams.some((s) => s.id === currentSelection)) {
+            selector.value = currentSelection;
           }
-        } catch (error) {
-          console.error("Failed to load stream details:", error);
-          fileSelector.innerHTML = '<option value="">Error loading files</option>';
-          fileSelector.disabled = true;
         }
-      });
+      } catch (error) {
+        console.error("Failed to load streams:", error);
+      }
+    }
 
-      // Handle file selection change
-      document.getElementById("file-selector").addEventListener("change", async (e) => {
-        currentFile = e.target.value;
-        updateBreadcrumbs();
-        const textarea = document.getElementById("editor-textarea");
-        const preview = document.getElementById("preview-content");
-        const openBtn = document.getElementById("open-in-editor-btn");
+    document.getElementById("stream-selector").addEventListener("change", async (e) => {
+      currentStreamId = e.target.value;
+      currentFile = "";
+      currentFilePath = "";
+      const fileSelector = document.getElementById("file-selector");
+      const textarea = document.getElementById("editor-textarea");
+      const preview = document.getElementById("preview-content");
+      const openBtn = document.getElementById("open-in-editor-btn");
 
-        if (!currentFile || !currentStreamId) {
-          textarea.value = "";
-          textarea.disabled = true;
-          preview.innerHTML =
-            '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
-          openBtn.disabled = true;
-          currentFilePath = "";
-          return;
-        }
-
-        // Load file content
-        try {
-          const filePath = `PRD-${currentStreamId}/${currentFile}`;
-          currentFilePath = filePath;
-          const response = await fetch(`/api/files/${encodeURIComponent(filePath)}`);
-
-          if (!response.ok) {
-            throw new Error(`Failed to load file: ${response.status}`);
-          }
-
-          const content = await response.text();
-          textarea.value = content;
-          textarea.disabled = false;
-
-          // Update preview
-          updatePreview(content);
-
-          // Enable the "Open in Editor" button
-          openBtn.disabled = false;
-        } catch (error) {
-          console.error("Failed to load file:", error);
-          textarea.value = "";
-          textarea.disabled = true;
-          preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
-          openBtn.disabled = true;
-          currentFilePath = "";
-        }
-      });
-
-      // Open file in external editor
-      async function openInExternalEditor() {
-        if (!currentFilePath) {
-          return;
-        }
-
-        const openBtn = document.getElementById("open-in-editor-btn");
+      if (!currentStreamId) {
+        fileSelector.innerHTML = '<option value="">Select a file...</option>';
+        fileSelector.disabled = true;
+        textarea.value = "";
+        textarea.disabled = true;
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
         openBtn.disabled = true;
-        openBtn.textContent = "Opening...";
+        return;
+      }
 
-        try {
-          const response = await fetch(`/api/files/${encodeURIComponent(currentFilePath)}/open`, {
-            method: "POST",
-          });
+      try {
+        const response = await fetch(`/api/streams/${currentStreamId}`);
+        const data = await response.json();
 
-          if (!response.ok) {
-            throw new Error("Failed to open file");
-          }
+        fileSelector.innerHTML = '<option value="">Select a file...</option>';
 
-          // Reset button after a short delay
-          setTimeout(() => {
-            openBtn.textContent = "Open in Editor";
-            openBtn.disabled = false;
-          }, 1000);
-        } catch (error) {
-          console.error("Failed to open file:", error);
+        const files = [];
+        if (data.hasPrd) files.push({ value: "prd.md", label: "prd.md (Product Requirements)" });
+        if (data.hasPlan) files.push({ value: "plan.md", label: "plan.md (Implementation Plan)" });
+        if (data.hasProgress) files.push({ value: "progress.md", label: "progress.md (Progress Log)" });
+
+        files.forEach((file) => {
+          const option = document.createElement("option");
+          option.value = file.value;
+          option.textContent = file.label;
+          fileSelector.appendChild(option);
+        });
+
+        fileSelector.disabled = files.length === 0;
+
+        if (files.length === 0) {
+          fileSelector.innerHTML = '<option value="">No files available</option>';
+        } else if (files.length > 0) {
+          fileSelector.value = files[0].value;
+          fileSelector.dispatchEvent(new Event("change"));
+        }
+      } catch (error) {
+        console.error("Failed to load stream details:", error);
+        fileSelector.innerHTML = '<option value="">Error loading files</option>';
+        fileSelector.disabled = true;
+      }
+    });
+
+    document.getElementById("file-selector").addEventListener("change", async (e) => {
+      currentFile = e.target.value;
+      const textarea = document.getElementById("editor-textarea");
+      const preview = document.getElementById("preview-content");
+      const openBtn = document.getElementById("open-in-editor-btn");
+
+      if (!currentFile || !currentStreamId) {
+        textarea.value = "";
+        textarea.disabled = true;
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        openBtn.disabled = true;
+        currentFilePath = "";
+        return;
+      }
+
+      try {
+        const filePath = `PRD-${currentStreamId}/${currentFile}`;
+        currentFilePath = filePath;
+        const response = await fetch(`/api/files/${encodeURIComponent(filePath)}`);
+
+        if (!response.ok) {
+          throw new Error(`Failed to load file: ${response.status}`);
+        }
+
+        const content = await response.text();
+        textarea.value = content;
+        textarea.disabled = false;
+
+        updatePreview(content);
+
+        openBtn.disabled = false;
+      } catch (error) {
+        console.error("Failed to load file:", error);
+        textarea.value = "";
+        textarea.disabled = true;
+        preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
+        openBtn.disabled = true;
+        currentFilePath = "";
+      }
+    });
+
+    async function openInExternalEditor() {
+      if (!currentFilePath) {
+        return;
+      }
+
+      const openBtn = document.getElementById("open-in-editor-btn");
+      openBtn.disabled = true;
+      openBtn.textContent = "Opening...";
+
+      try {
+        const response = await fetch(`/api/files/${encodeURIComponent(currentFilePath)}/open`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to open file");
+        }
+
+        setTimeout(() => {
           openBtn.textContent = "Open in Editor";
           openBtn.disabled = false;
-          showErrorToast(
-            "Failed to open file in editor. Make sure VSCode or a text editor is installed."
-          );
-        }
+        }, 1000);
+      } catch (error) {
+        console.error("Failed to open file:", error);
+        openBtn.textContent = "Open in Editor";
+        openBtn.disabled = false;
+      }
+    }
+
+    document.getElementById("open-in-editor-btn").addEventListener("click", openInExternalEditor);
+
+    function updatePreview(content) {
+      const preview = document.getElementById("preview-content");
+
+      if (!content || content.trim() === "") {
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        return;
       }
 
-      // Update preview content
-      function updatePreview(content) {
-        const preview = document.getElementById("preview-content");
-
-        if (!content || content.trim() === "") {
-          preview.innerHTML =
-            '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
-          return;
-        }
-
-        try {
-          if (typeof marked !== "undefined" && typeof marked.parse === "function") {
-            preview.innerHTML = marked.parse(content);
-          } else {
-            // Fallback: show raw content with basic formatting
-            preview.innerHTML = "<pre>" + escapeHtml(content) + "</pre>";
-          }
-        } catch (error) {
-          console.error("Markdown parsing error:", error);
+      try {
+        if (typeof marked !== "undefined" && typeof marked.parse === "function") {
+          preview.innerHTML = marked.parse(content);
+        } else {
           preview.innerHTML = "<pre>" + escapeHtml(content) + "</pre>";
         }
+      } catch (error) {
+        console.error("Markdown parsing error:", error);
+        preview.innerHTML = "<pre>" + escapeHtml(content) + "</pre>";
       }
+    }
 
-      // Escape HTML for safe display
-      function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
-      }
-
-      // ============================================
-      // Error Toast Handling
-      // ============================================
-
-      var lastFailedRequest = null;
-
-      function showErrorToast(message, endpoint) {
-        console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
-        var toast = document.getElementById("error-toast");
-        var messageEl = document.getElementById("error-toast-message");
-        var retryBtn = document.getElementById("error-toast-retry");
-
-        messageEl.textContent = message;
-
-        if (lastFailedRequest) {
-          retryBtn.style.display = "inline-flex";
-        } else {
-          retryBtn.style.display = "none";
-        }
-
-        toast.classList.remove("hidden", "dismissing");
-      }
-
-      function dismissErrorToast() {
-        var toast = document.getElementById("error-toast");
-        toast.classList.add("dismissing");
-        setTimeout(function () {
-          toast.classList.add("hidden");
-          toast.classList.remove("dismissing");
-        }, 300);
-      }
-
-      function retryLastRequest() {
-        if (lastFailedRequest) {
-          var retryBtn = document.getElementById("error-toast-retry");
-          retryBtn.classList.add("loading");
-          retryBtn.disabled = true;
-
-          // For editor, just reload the current file
-          if (currentFile && currentStreamId) {
-            const fileSelector = document.getElementById("file-selector");
-            fileSelector.dispatchEvent(new Event("change"));
-          }
-
-          setTimeout(function () {
-            retryBtn.classList.remove("loading");
-            retryBtn.disabled = false;
-            lastFailedRequest = null;
-            dismissErrorToast();
-          }, 1000);
-        }
-      }
-
-      // HTMX error handlers
-      document.body.addEventListener("htmx:responseError", function (event) {
-        var xhr = event.detail.xhr;
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-
-        var message = "Request failed";
-        if (xhr && xhr.status) {
-          if (xhr.status === 0) {
-            message = "Unable to connect to server. Check if the server is running.";
-          } else if (xhr.status === 404) {
-            message = "Resource not found: " + path;
-          } else if (xhr.status === 500) {
-            message = "Server error occurred. Please try again.";
-            try {
-              var response = JSON.parse(xhr.responseText);
-              if (response.message) {
-                message = response.message;
-              }
-            } catch (e) {}
-          } else {
-            message = "Request failed with status " + xhr.status;
-          }
-        }
-
-        lastFailedRequest = { element: event.target };
-        showErrorToast(message, path);
-      });
-
-      document.body.addEventListener("htmx:sendError", function (event) {
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-        console.error("[HTMX Send Error] Failed to send request:", path, event.detail);
-        lastFailedRequest = { element: event.target };
-        showErrorToast("Network error: Unable to send request. Check your connection.", path);
-      });
-
-      document.body.addEventListener("htmx:timeout", function (event) {
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-        console.error("[HTMX Timeout] Request timed out:", path);
-        lastFailedRequest = { element: event.target };
-        showErrorToast("Request timed out. The server may be busy.", path);
-      });
-
-      // Auto-dismiss error toast after 10 seconds
-      setInterval(function () {
-        var toast = document.getElementById("error-toast");
-        if (!toast.classList.contains("hidden") && !lastFailedRequest) {
-          dismissErrorToast();
-        }
-      }, 10000);
-    </script>
-  </body>
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
 </html>

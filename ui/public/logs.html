@@ -1,79 +1,102 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ralph CLI - Live Logs</title>
-    <link rel="stylesheet" href="/css/styles.css" />
-    <script src="/js/htmx.min.js"></script>
-  </head>
-  <body>
-    <!-- Error Toast Container -->
-    <div id="error-toast" class="error-toast hidden">
-      <div class="error-toast-header">
-        <span class="error-toast-title">Error</span>
-        <button class="error-toast-dismiss" onclick="dismissErrorToast()">&times;</button>
-      </div>
-      <div class="error-toast-message" id="error-toast-message"></div>
-      <div class="error-toast-actions">
-        <button class="retry-button" id="error-toast-retry" onclick="retryLastRequest()">
-          <span class="retry-icon">&#8635;</span> Retry
-        </button>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph CLI - Logs</title>
+  <link rel="stylesheet" href="/css/rams-ui.css">
+  <script src="/js/htmx.min.js"></script>
+</head>
+<body class="rams-page">
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
 
-    <header>
-      <div class="header-content">
-        <h1>Ralph CLI</h1>
-        <span class="subtitle">Autonomous Coding Loop</span>
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Main</div>
+        <ul class="rams-nav-items">
+          <li><a href="/" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
+        </ul>
       </div>
-      <nav>
-        <a href="/">Dashboard</a>
-        <a href="/chat.html">Chat</a>
-        <a href="/streams.html">Streams</a>
-        <a href="/logs.html" class="active">Logs</a>
-        <a href="/tokens.html">Tokens</a>
-        <a href="/trends.html">Trends</a>
-        <a href="/editor.html">Editor</a>
-      </nav>
-    </header>
 
-    <main>
-      <!-- Activity Logs Section -->
-      <section id="logs-section">
-        <h2>Activity Logs</h2>
-        <div class="logs-controls">
-          <select
-            id="stream-filter"
-            hx-get="/api/partials/activity-logs"
-            hx-trigger="change"
-            hx-target="#logs-container"
-            hx-include="#stream-filter, #level-filter"
-            hx-indicator=".logs-refresh-indicator"
-            name="streamId"
-          >
-            <option value="">All Streams</option>
-          </select>
-          <select
-            id="level-filter"
-            hx-get="/api/partials/activity-logs"
-            hx-trigger="change"
-            hx-target="#logs-container"
-            hx-include="#stream-filter, #level-filter"
-            hx-indicator=".logs-refresh-indicator"
-            name="level"
-          >
-            <option value="">All Levels</option>
-            <option value="error">Errors Only</option>
-            <option value="warning">Warnings & Errors</option>
-            <option value="info">Info & Above</option>
-          </select>
-          <span class="logs-refresh-indicator htmx-indicator"
-            ><span class="loading-spinner"></span> Refreshing...</span
-          >
-        </div>
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Monitoring</div>
+        <ul class="rams-nav-items">
+          <li><a href="/logs.html" class="rams-nav-link active">Logs</a></li>
+          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
+          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+        </ul>
+      </div>
 
-        <!-- Terminal Commands Section -->
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Tools</div>
+        <ul class="rams-nav-items">
+          <li><a href="/editor.html" class="rams-nav-link">Editor</a></li>
+          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current">Logs</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <select
+          id="stream-filter"
+          class="rams-select"
+          style="width: auto; min-width: 150px;"
+          hx-get="/api/partials/activity-logs"
+          hx-trigger="change"
+          hx-target="#logs-container"
+          hx-include="#stream-filter, #level-filter"
+          hx-indicator="#logs-indicator"
+          name="streamId"
+        >
+          <option value="">All Streams</option>
+        </select>
+        <select
+          id="level-filter"
+          class="rams-select"
+          style="width: auto; min-width: 130px;"
+          hx-get="/api/partials/activity-logs"
+          hx-trigger="change"
+          hx-target="#logs-container"
+          hx-include="#stream-filter, #level-filter"
+          hx-indicator="#logs-indicator"
+          name="level"
+        >
+          <option value="">All Levels</option>
+          <option value="error">Errors Only</option>
+          <option value="warning">Warnings & Errors</option>
+          <option value="info">Info & Above</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <article class="rams-content">
+
+      <!-- Terminal Commands Section -->
+      <section class="rams-section">
         <div
           id="terminal-commands"
           hx-get="/api/partials/terminal-commands"
@@ -81,197 +104,53 @@
           hx-swap="innerHTML"
           hx-include="#stream-filter"
         ></div>
+      </section>
 
+      <!-- Activity Logs Section -->
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">
+            Activity Logs
+            <span class="htmx-indicator" id="logs-indicator">
+              <span class="rams-spinner"></span>
+            </span>
+          </h2>
+        </div>
         <div
           id="logs-container"
           hx-get="/api/partials/activity-logs"
           hx-trigger="load, every 2s"
           hx-swap="innerHTML"
           hx-include="#stream-filter, #level-filter"
-          hx-indicator=".logs-refresh-indicator"
+          hx-indicator="#logs-indicator"
         >
-          <div class="loading"><span class="loading-spinner"></span> Loading activity logs...</div>
+          <div class="rams-loading">
+            <span class="rams-spinner"></span> Loading activity logs...
+          </div>
         </div>
       </section>
 
-      <!-- Run Logs Section -->
-      <section id="runs-section">
-        <h2>
-          Recent Runs
-          <span class="htmx-indicator" id="runs-indicator"
-            ><span class="loading-spinner"></span
-          ></span>
-        </h2>
+      <!-- Recent Runs Section -->
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">Recent Runs</h2>
+        </div>
         <div
           id="runs-container"
-          hx-get="/api/partials/run-list"
-          hx-trigger="load, every 5s, change from:#stream-filter"
-          hx-swap="innerHTML"
-          hx-include="#stream-filter"
-          hx-indicator="#runs-indicator"
-        >
-          <div class="loading"><span class="loading-spinner"></span> Loading runs...</div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <p>
-        Ralph CLI Web UI &mdash;
-        <span
-          id="status-indicator"
-          hx-get="/api/partials/status-indicator"
+          hx-get="/api/partials/recent-runs"
           hx-trigger="load, every 5s"
           hx-swap="innerHTML"
-          >checking...</span
+          hx-include="#stream-filter"
         >
-      </p>
-    </footer>
+          <div class="rams-loading">
+            <span class="rams-spinner"></span> Loading recent runs...
+          </div>
+        </div>
+      </section>
 
-    <script>
-      // ============================================
-      // Error Handling
-      // ============================================
+    </article>
 
-      var lastFailedRequest = null;
+  </main>
 
-      // Show error toast
-      function showErrorToast(message, endpoint) {
-        console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
-        var toast = document.getElementById("error-toast");
-        var messageEl = document.getElementById("error-toast-message");
-        var retryBtn = document.getElementById("error-toast-retry");
-
-        messageEl.textContent = message;
-
-        if (lastFailedRequest) {
-          retryBtn.style.display = "inline-flex";
-        } else {
-          retryBtn.style.display = "none";
-        }
-
-        toast.classList.remove("hidden", "dismissing");
-      }
-
-      // Dismiss error toast
-      function dismissErrorToast() {
-        var toast = document.getElementById("error-toast");
-        toast.classList.add("dismissing");
-        setTimeout(function () {
-          toast.classList.add("hidden");
-          toast.classList.remove("dismissing");
-        }, 300);
-      }
-
-      // Retry last failed request
-      function retryLastRequest() {
-        if (lastFailedRequest) {
-          var retryBtn = document.getElementById("error-toast-retry");
-          retryBtn.classList.add("loading");
-          retryBtn.disabled = true;
-
-          var element = lastFailedRequest.element;
-          htmx.trigger(element, "load");
-
-          setTimeout(function () {
-            retryBtn.classList.remove("loading");
-            retryBtn.disabled = false;
-            lastFailedRequest = null;
-            dismissErrorToast();
-          }, 1000);
-        }
-      }
-
-      // HTMX error handlers
-      document.body.addEventListener("htmx:responseError", function (event) {
-        var xhr = event.detail.xhr;
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-
-        var message = "Request failed";
-        if (xhr && xhr.status) {
-          if (xhr.status === 0) {
-            message = "Unable to connect to server. Check if the server is running.";
-          } else if (xhr.status === 404) {
-            message = "Resource not found: " + path;
-          } else if (xhr.status === 500) {
-            message = "Server error occurred. Please try again.";
-            try {
-              var response = JSON.parse(xhr.responseText);
-              if (response.message) {
-                message = response.message;
-              }
-            } catch (e) {}
-          } else {
-            message = "Request failed with status " + xhr.status;
-          }
-        }
-
-        lastFailedRequest = { element: event.target };
-        showErrorToast(message, path);
-      });
-
-      document.body.addEventListener("htmx:sendError", function (event) {
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-        console.error("[HTMX Send Error] Failed to send request:", path, event.detail);
-        lastFailedRequest = { element: event.target };
-        showErrorToast("Network error: Unable to send request. Check your connection.", path);
-      });
-
-      document.body.addEventListener("htmx:timeout", function (event) {
-        var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-        console.error("[HTMX Timeout] Request timed out:", path);
-        lastFailedRequest = { element: event.target };
-        showErrorToast("Request timed out. The server may be busy.", path);
-      });
-
-      // Auto-dismiss error toast after 10 seconds
-      setInterval(function () {
-        var toast = document.getElementById("error-toast");
-        if (!toast.classList.contains("hidden") && !lastFailedRequest) {
-          dismissErrorToast();
-        }
-      }, 10000);
-
-      // ============================================
-      // Stream Selector Population
-      // ============================================
-
-      // Load available streams on page load
-      document.addEventListener("DOMContentLoaded", function () {
-        loadStreams();
-      });
-
-      // Load streams into the stream-filter dropdown
-      async function loadStreams() {
-        try {
-          const response = await fetch("/api/streams");
-          const data = await response.json();
-
-          const selector = document.getElementById("stream-filter");
-
-          // Keep the "All Streams" option
-          selector.innerHTML = '<option value="">All Streams</option>';
-
-          if (data.streams && data.streams.length > 0) {
-            // Add each stream as an option
-            data.streams.forEach(function (stream) {
-              const option = document.createElement("option");
-              option.value = stream.id;
-              option.textContent = "PRD-" + stream.id + ": " + stream.name;
-              selector.appendChild(option);
-            });
-
-            // Auto-select the latest stream (last in the list)
-            const latestStream = data.streams[data.streams.length - 1];
-            selector.value = latestStream.id;
-
-            // Trigger change to load logs for the selected stream
-            htmx.trigger(selector, "change");
-          }
-        } catch (error) {
-          console.error("Failed to load streams:", error);
-        }
-      }
-    </script>
-  </body>
+</body>
 </html>
