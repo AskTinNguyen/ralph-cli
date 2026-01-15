@@ -3,474 +3,245 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ralph CLI - Dashboard</title>
-  <link rel="stylesheet" href="/css/rams-ui.css">
-  <script src="/js/htmx.min.js"></script>
-  <script src="/js/htmx-ext-sse.js"></script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Ralph CLI - From One to Many</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Grid container */
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), 1fr);
+      gap: 2px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      perspective: 1000px;
+      transform-style: preserve-3d;
+    }
+
+    /* Individual tile */
+    .tile {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    }
+
+    .tile img {
+      width: 80%;
+      height: 80%;
+      object-fit: contain;
+      filter: grayscale(100%);
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+
+    .tile.elevated {
+      transform: translateZ(30px) scale(1.02);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+    }
+
+    .tile.elevated img {
+      opacity: 1;
+    }
+
+    .tile.slight-elevated {
+      transform: translateZ(15px) scale(1.01);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .tile.slight-elevated img {
+      opacity: 0.85;
+    }
+
+    /* Content overlay */
+    .content-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .tagline {
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 300;
+      color: #1a1a1a;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1.5rem 3rem;
+      border: 2px solid #1a1a1a;
+      text-shadow: none;
+      margin-bottom: 1rem;
+    }
+
+    .tagline strong {
+      font-weight: 700;
+    }
+
+    .enter-btn {
+      pointer-events: auto;
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #fff;
+      background: #1a1a1a;
+      border: 2px solid #1a1a1a;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      margin-top: 1rem;
+    }
+
+    .enter-btn:hover {
+      background: #fff;
+      color: #1a1a1a;
+    }
+
+    /* Responsive grid columns */
+    @media (min-width: 1400px) {
+      :root { --cols: 12; }
+    }
+    @media (min-width: 1000px) and (max-width: 1399px) {
+      :root { --cols: 10; }
+    }
+    @media (min-width: 700px) and (max-width: 999px) {
+      :root { --cols: 8; }
+    }
+    @media (max-width: 699px) {
+      :root { --cols: 6; }
+    }
+  </style>
 </head>
-<body class="rams-page" hx-ext="sse" sse-connect="/api/events">
+<body>
+  <div class="logo-grid" id="grid"></div>
 
-  <!-- Persistent Sidebar -->
-  <aside class="rams-sidebar">
-    <div class="rams-sidebar-header">
-      <div class="rams-logo">
-        <div class="rams-logo-mark"></div>
-        <span class="rams-logo-text">RALPH</span>
-      </div>
-    </div>
-
-    <nav class="rams-nav">
-      <div class="rams-nav-section">
-        <div class="rams-nav-label">Main</div>
-        <ul class="rams-nav-items">
-          <li><a href="/" class="rams-nav-link active">Dashboard</a></li>
-          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
-          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
-        </ul>
-      </div>
-
-      <div class="rams-nav-section">
-        <div class="rams-nav-label">Monitoring</div>
-        <ul class="rams-nav-items">
-          <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
-          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
-          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
-        </ul>
-      </div>
-
-      <div class="rams-nav-section">
-        <div class="rams-nav-label">Tools</div>
-        <ul class="rams-nav-items">
-          <li><a href="/editor.html" class="rams-nav-link">Editor</a></li>
-          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
-        </ul>
-      </div>
-
-      <div class="rams-nav-section">
-        <div class="rams-nav-label">Advanced</div>
-        <ul class="rams-nav-items">
-          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
-        </ul>
-      </div>
-    </nav>
-
-    <div class="rams-sidebar-footer">
-      <div class="rams-version">v1.0.0</div>
-    </div>
-  </aside>
-
-  <!-- Main Content -->
-  <main class="rams-main">
-
-    <!-- Top Bar -->
-    <div class="rams-topbar">
-      <div class="rams-breadcrumb">
-        <span class="rams-breadcrumb-current">Dashboard</span>
-      </div>
-      <div class="rams-topbar-actions">
-        <div
-          id="status-indicator-top"
-          hx-get="/api/partials/status-indicator"
-          hx-trigger="load, every 5s, sse:run_started, sse:run_completed"
-          hx-swap="innerHTML"
-        ></div>
-      </div>
-    </div>
-
-    <!-- Content Area -->
-    <article class="rams-content">
-
-      <!-- Command Center Section -->
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">Command Center</h2>
-        </div>
-
-        <div class="rams-card">
-          <!-- Build Controls -->
-          <div class="rams-form-grid">
-            <div class="rams-form-group">
-              <label for="iterations" class="rams-form-label">Iterations</label>
-              <input
-                type="number"
-                id="iterations"
-                name="iterations"
-                value="5"
-                min="1"
-                max="100"
-                class="rams-input"
-              />
-            </div>
-
-            <div class="rams-form-group">
-              <label for="agent" class="rams-form-label">Agent</label>
-              <select id="agent" name="agent" class="rams-select">
-                <option value="claude" selected>Claude</option>
-                <option value="codex">Codex</option>
-                <option value="droid">Droid</option>
-              </select>
-            </div>
-
-            <div class="rams-form-group">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--rams-space-1);">
-                <label for="stream" class="rams-form-label" style="margin-bottom: 0;">Stream</label>
-                <button
-                  type="button"
-                  id="stream-view-toggle"
-                  class="rams-btn rams-btn-secondary"
-                  onclick="toggleStreamView()"
-                  style="padding: var(--rams-space-1) var(--rams-space-2); font-size: 0.75rem; height: auto;"
-                  title="Toggle between Current View and Completion Progress View"
-                >
-                  📊 Progress View
-                </button>
-              </div>
-              <select
-                id="stream"
-                name="stream"
-                class="rams-select"
-                hx-get="/api/partials/stream-options"
-                hx-trigger="load"
-                hx-swap="innerHTML"
-              >
-                <option value="">Default (latest)</option>
-              </select>
-            </div>
-
-            <div class="rams-form-group rams-form-group-flex-end">
-              <label class="rams-checkbox-label">
-                <input type="checkbox" id="no-commit" name="noCommit" class="rams-checkbox" />
-                <span class="rams-text-sm">Dry run (no commit)</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="rams-action-group">
-            <button
-              type="button"
-              id="start-build-btn"
-              class="rams-btn rams-btn-primary"
-              hx-post="/api/build/start"
-              hx-vals="js:{iterations: parseInt(document.getElementById('iterations').value), agent: document.getElementById('agent').value, stream: document.getElementById('stream').value || undefined, noCommit: document.getElementById('no-commit').checked}"
-              hx-target="#build-status-container"
-              hx-swap="innerHTML"
-              hx-indicator="#build-indicator"
-            >
-              <span class="btn-text">Start Build</span>
-              <span class="htmx-indicator" id="build-indicator">
-                <span class="rams-spinner"></span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              id="stop-build-btn"
-              class="rams-btn rams-btn-danger"
-              disabled
-              hx-post="/api/build/stop"
-              hx-target="#build-status-container"
-              hx-swap="innerHTML"
-            >
-              Stop Build
-            </button>
-          </div>
-
-          <!-- Build Status -->
-          <div class="rams-status-box">
-            <div class="rams-label">Build Status</div>
-            <div
-              id="build-status-container"
-              hx-get="/api/partials/build-status"
-              hx-trigger="load, every 3s, sse:run_started, sse:run_completed"
-              hx-swap="innerHTML"
-            >
-              <span class="rams-badge rams-badge-idle">
-                <span class="rams-badge-dot"></span>
-                Idle
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Progress Section -->
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">
-            Overall Progress
-            <span class="htmx-indicator" id="progress-indicator">
-              <span class="rams-spinner"></span>
-            </span>
-          </h2>
-        </div>
-        <div
-          id="progress-container"
-          hx-get="/api/partials/progress"
-          hx-trigger="load, every 5s, sse:progress_updated, sse:file_changed, sse:run_completed"
-          hx-swap="innerHTML transition:true"
-          hx-indicator="#progress-indicator"
-          class="sse-updatable"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading progress...
-          </div>
-        </div>
-      </section>
-
-      <!-- User Stories Section -->
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">
-            User Stories
-            <span class="htmx-indicator" id="stories-indicator">
-              <span class="rams-spinner"></span>
-            </span>
-          </h2>
-        </div>
-        <div
-          id="stories-container"
-          hx-get="/api/partials/stories"
-          hx-trigger="load, every 5s, sse:progress_updated, sse:file_changed, sse:story_updated"
-          hx-swap="innerHTML transition:true"
-          hx-indicator="#stories-indicator"
-          class="sse-updatable"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading stories...
-          </div>
-        </div>
-      </section>
-
-      <!-- Accuracy Metrics Section -->
-      <section class="rams-section">
-        <div
-          id="accuracy-container"
-          hx-get="/api/partials/accuracy-widget"
-          hx-trigger="load, every 60s, sse:run_completed"
-          hx-swap="innerHTML transition:true"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading accuracy metrics...
-          </div>
-        </div>
-      </section>
-
-    </article>
-
-  </main>
-
-  <!-- Alert Toast for Errors -->
-  <div id="error-toast" class="rams-alert rams-alert-error rams-hidden rams-toast">
-    <div class="rams-toast-content">
-      <div class="rams-toast-body">
-        <div class="rams-toast-title">Error</div>
-        <div id="error-toast-message" class="rams-text-sm"></div>
-      </div>
-      <button onclick="dismissErrorToast()" class="rams-toast-close">&times;</button>
-    </div>
-  </div>
-
-  <!-- Connection Lost Banner -->
-  <div id="connection-banner" class="rams-alert rams-alert-warning rams-hidden rams-banner">
-    <div class="rams-banner-content">
-      <span>Connection lost. Reconnecting...</span>
-      <button onclick="window.location.reload()" class="rams-btn rams-btn-secondary rams-btn-sm">Reload Page</button>
-    </div>
+  <div class="content-overlay">
+    <div class="tagline"><strong>Ralph</strong> &mdash; From One to Many</div>
+    <a href="/dashboard.html" class="enter-btn">Enter Dashboard</a>
   </div>
 
   <script>
-    // SSE Visual Feedback
-    document.body.addEventListener("htmx:sseMessage", function (event) {
-      var target = event.target;
-      if (target && target.classList) {
-        target.classList.add("sse-updated");
-        setTimeout(function () {
-          target.classList.remove("sse-updated");
-        }, 1000);
-      }
-    });
+    const grid = document.getElementById('grid');
+    const logoSrc = '/ralph-logo-bw.png';
 
-    document.body.addEventListener("htmx:afterSwap", function (event) {
-      var target = event.detail.target;
-      if (target && target.classList && target.classList.contains("sse-updatable")) {
-        target.classList.add("sse-updated");
-        setTimeout(function () {
-          target.classList.remove("sse-updated");
-        }, 1000);
-      }
-    });
+    // Calculate grid size based on viewport
+    function getGridSize() {
+      const width = window.innerWidth;
+      let cols;
+      if (width >= 1400) cols = 12;
+      else if (width >= 1000) cols = 10;
+      else if (width >= 700) cols = 8;
+      else cols = 6;
 
-    // SSE Connection Status
-    document.body.addEventListener("htmx:sseOpen", function (event) {
-      console.log("[SSE] Connected to event stream");
-      var banner = document.getElementById("connection-banner");
-      banner.classList.add("rams-hidden");
-    });
+      const tileSize = width / cols;
+      const rows = Math.ceil(window.innerHeight / tileSize) + 1;
+      return { cols, rows, total: cols * rows };
+    }
 
-    document.body.addEventListener("htmx:sseError", function (event) {
-      console.warn("[SSE] Connection error, will retry...");
-      var banner = document.getElementById("connection-banner");
-      banner.classList.remove("rams-hidden");
-    });
+    // Create tiles
+    function createGrid() {
+      const { cols, rows, total } = getGridSize();
+      grid.innerHTML = '';
+      grid.style.setProperty('--cols', cols);
 
-    // Build Button State Management
-    function updateBuildButtons(isRunning) {
-      var startBtn = document.getElementById("start-build-btn");
-      var stopBtn = document.getElementById("stop-build-btn");
-      var inputs = document.querySelectorAll(".rams-input, .rams-select, .rams-checkbox");
+      for (let i = 0; i < total; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.index = i;
+        tile.dataset.col = i % cols;
+        tile.dataset.row = Math.floor(i / cols);
 
-      if (isRunning) {
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        inputs.forEach(function (input) {
-          input.disabled = true;
-        });
-      } else {
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        inputs.forEach(function (input) {
-          input.disabled = false;
-        });
+        const img = document.createElement('img');
+        img.src = logoSrc;
+        img.alt = 'Ralph';
+        img.draggable = false;
+
+        tile.appendChild(img);
+        grid.appendChild(tile);
       }
     }
 
-    document.body.addEventListener("htmx:afterSwap", function (event) {
-      if (event.detail.target && event.detail.target.id === "build-status-container") {
-        var statusEl = event.detail.target.querySelector(".rams-badge-running");
-        updateBuildButtons(!!statusEl);
-      }
-    });
+    // Wave animation
+    let animationId;
+    let time = 0;
 
-    // Stream Selector Integration
-    document.getElementById("stream").addEventListener("change", function (e) {
-      var streamId = e.target.value;
-      var progressContainer = document.getElementById("progress-container");
-      var storiesContainer = document.getElementById("stories-container");
+    function animateWave() {
+      const tiles = document.querySelectorAll('.tile');
+      const { cols } = getGridSize();
+      const centerX = cols / 2;
+      const centerY = (tiles.length / cols) / 2;
 
-      var progressUrl = "/api/partials/progress" + (streamId ? "?streamId=" + streamId : "");
-      var storiesUrl = "/api/partials/stories" + (streamId ? "?streamId=" + streamId : "");
+      tiles.forEach(tile => {
+        const col = parseInt(tile.dataset.col);
+        const row = parseInt(tile.dataset.row);
 
-      progressContainer.setAttribute("hx-get", progressUrl);
-      storiesContainer.setAttribute("hx-get", storiesUrl);
+        // Create wave pattern emanating from center
+        const dx = col - centerX;
+        const dy = row - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-      htmx.process(progressContainer);
-      htmx.process(storiesContainer);
+        // Multiple wave sources for more dynamic effect
+        const wave1 = Math.sin(distance * 0.8 - time * 2) * 0.5 + 0.5;
+        const wave2 = Math.sin(distance * 0.5 + time * 1.5 + Math.PI) * 0.3 + 0.5;
+        const combined = (wave1 + wave2) / 2;
 
-      htmx.trigger(progressContainer, "load");
-      htmx.trigger(storiesContainer, "load");
-    });
+        tile.classList.remove('elevated', 'slight-elevated');
 
-    // Stream View Toggle
-    var streamViewMode = localStorage.getItem("streamViewMode") || "current";
-
-    function toggleStreamView() {
-      var toggleBtn = document.getElementById("stream-view-toggle");
-      var streamSelect = document.getElementById("stream");
-      var currentSelection = streamSelect.value;
-
-      // Toggle the view mode
-      streamViewMode = streamViewMode === "current" ? "progress" : "current";
-      localStorage.setItem("streamViewMode", streamViewMode);
-
-      // Update button text and appearance
-      if (streamViewMode === "progress") {
-        toggleBtn.innerHTML = "📋 Current View";
-        toggleBtn.title = "Switch to Current View";
-      } else {
-        toggleBtn.innerHTML = "📊 Progress View";
-        toggleBtn.title = "Switch to Completion Progress View";
-      }
-
-      // Reload the stream options with the new view
-      var newUrl = "/api/partials/stream-options?view=" + streamViewMode;
-      streamSelect.setAttribute("hx-get", newUrl);
-      htmx.process(streamSelect);
-      htmx.trigger(streamSelect, "load");
-
-      // Restore the selection after options are loaded
-      setTimeout(function() {
-        if (currentSelection) {
-          streamSelect.value = currentSelection;
+        if (combined > 0.75) {
+          tile.classList.add('elevated');
+        } else if (combined > 0.55) {
+          tile.classList.add('slight-elevated');
         }
-      }, 100);
+      });
+
+      time += 0.03;
+      animationId = requestAnimationFrame(animateWave);
     }
 
-    // Initialize view on page load
-    document.addEventListener("DOMContentLoaded", function() {
-      var toggleBtn = document.getElementById("stream-view-toggle");
-      var streamSelect = document.getElementById("stream");
+    // Initialize
+    createGrid();
+    animateWave();
 
-      if (streamViewMode === "progress") {
-        toggleBtn.innerHTML = "📋 Current View";
-        toggleBtn.title = "Switch to Current View";
-        streamSelect.setAttribute("hx-get", "/api/partials/stream-options?view=progress");
-      } else {
-        toggleBtn.innerHTML = "📊 Progress View";
-        toggleBtn.title = "Switch to Completion Progress View";
-      }
-    });
-
-    // Error Toast Management
-    var lastFailedRequest = null;
-
-    function showErrorToast(message, endpoint) {
-      console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
-      var toast = document.getElementById("error-toast");
-      var messageEl = document.getElementById("error-toast-message");
-
-      messageEl.textContent = message;
-      toast.classList.remove("rams-hidden");
-
-      setTimeout(function() {
-        dismissErrorToast();
-      }, 10000);
-    }
-
-    function dismissErrorToast() {
-      var toast = document.getElementById("error-toast");
-      toast.classList.add("rams-hidden");
-    }
-
-    document.body.addEventListener("htmx:responseError", function (event) {
-      var xhr = event.detail.xhr;
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-
-      var message = "Request failed";
-      if (xhr && xhr.status) {
-        if (xhr.status === 0) {
-          message = "Unable to connect to server. Check if the server is running.";
-        } else if (xhr.status === 404) {
-          message = "Resource not found: " + path;
-        } else if (xhr.status === 500) {
-          message = "Server error occurred. Please try again.";
-          try {
-            var response = JSON.parse(xhr.responseText);
-            if (response.message) {
-              message = response.message;
-            }
-          } catch (e) {}
-        } else {
-          message = "Request failed with status " + xhr.status;
-        }
-      }
-
-      lastFailedRequest = { element: event.target };
-      showErrorToast(message, path);
-    });
-
-    document.body.addEventListener("htmx:sendError", function (event) {
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-      console.error("[HTMX Send Error] Failed to send request:", path, event.detail);
-      lastFailedRequest = { element: event.target };
-      showErrorToast("Network error: Unable to send request. Check your connection.", path);
-    });
-
-    document.body.addEventListener("htmx:timeout", function (event) {
-      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
-      console.error("[HTMX Timeout] Request timed out:", path);
-      lastFailedRequest = { element: event.target };
-      showErrorToast("Request timed out. The server may be busy.", path);
+    // Handle resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        cancelAnimationFrame(animationId);
+        createGrid();
+        animateWave();
+      }, 200);
     });
   </script>
 </body>
