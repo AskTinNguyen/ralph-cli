@@ -145,22 +145,20 @@
 }
 
 .rams-logo-mark {
-  width: 24px;
-  height: 24px;
-  background: var(--rams-accent);
+  width: 32px;
+  height: 32px;
+  background-image: url('/ralph-logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   border-radius: var(--rams-radius-sm);
-  position: relative;
 }
 
-.rams-logo-mark::after {
-  content: '';
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 12px;
-  height: 12px;
-  background: var(--rams-white);
-  border-radius: 1px;
+/* Dark mode uses B&W logo */
+@media (prefers-color-scheme: dark) {
+  .rams-logo-mark {
+    background-image: url('/ralph-logo-bw.png');
+  }
 }
 
 .rams-logo-text {
