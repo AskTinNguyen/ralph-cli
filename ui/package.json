@@ -6,7 +6,9 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:test": "RALPH_ROOT=./ui/.ralph tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "start:test": "RALPH_ROOT=./ui/.ralph tsx src/server.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "validate-links": "node validate-links.js"

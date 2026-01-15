@@ -15,8 +15,25 @@ let cachedRalphRoot: string | null = null;
 /**
  * Find the .ralph directory by walking up from the current working directory.
  * Returns the absolute path to .ralph/ or null if not found.
+ *
+ * Configuration priority:
+ * 1. RALPH_ROOT environment variable (if set and exists)
+ * 2. Walk up from current directory
+ *
+ * Use RALPH_ROOT to explicitly point to production .ralph directory when running
+ * server from subdirectories (e.g., ui/.ralph for tests vs ../.ralph for production)
  */
 export function getRalphRoot(): string | null {
+  // Check if RALPH_ROOT is explicitly configured
+  if (process.env.RALPH_ROOT) {
+    const explicitPath = path.resolve(process.env.RALPH_ROOT);
+    if (fs.existsSync(explicitPath) && fs.statSync(explicitPath).isDirectory()) {
+      cachedRalphRoot = explicitPath;
+      return explicitPath;
+    }
+    console.warn(`RALPH_ROOT set to ${process.env.RALPH_ROOT} but directory not found`);
+  }
+
   if (cachedRalphRoot !== null) {
     // Verify cache is still valid
     if (fs.existsSync(cachedRalphRoot)) {

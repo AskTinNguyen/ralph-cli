@@ -391,6 +391,38 @@ When testing UI features:
 
 **Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.
 
+### UI Server Configuration
+
+The Ralph UI server uses `RALPH_ROOT` environment variable to determine which `.ralph` directory to read from:
+
+**Production mode (default):**
+```bash
+# Uses parent directory's .ralph/ (ralph-cli/.ralph)
+cd ui && npm run dev
+# or
+npm start
+```
+
+**Test mode:**
+```bash
+# Uses ui/.ralph/ for isolated testing
+cd ui && npm run dev:test
+# or
+npm run start:test
+```
+
+**Custom RALPH_ROOT:**
+```bash
+# Point to any .ralph directory
+RALPH_ROOT=/path/to/.ralph npm run dev
+```
+
+**Directory structure:**
+- `ralph-cli/.ralph/` - Production PRD directories (PRD-1 through PRD-N)
+- `ralph-cli/ui/.ralph/` - Test/isolated PRD directories (used with `:test` scripts)
+
+The server automatically uses `ralph-cli/.ralph` unless `RALPH_ROOT` is explicitly set. This prevents the UI from showing test PRDs in production while allowing isolated testing when needed.
+
 ## Agent Operation Guide
 
 When working with Ralph CLI tasks on behalf of users, reference the Agent Guide at:

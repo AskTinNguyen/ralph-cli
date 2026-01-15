@@ -10,6 +10,14 @@ import { sse } from "./routes/sse.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Configure RALPH_ROOT to use parent directory's .ralph unless explicitly set
+// This prevents ui/.ralph (test directory) from being used in production
+// Use RALPH_ROOT=./ui/.ralph for testing with isolated test data
+if (!process.env.RALPH_ROOT) {
+  const parentRalphPath = path.join(__dirname, "../../.ralph");
+  process.env.RALPH_ROOT = parentRalphPath;
+}
+
 const app = new Hono();
 
 // Logging middleware
@@ -34,6 +42,7 @@ app.use(
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 console.log(`Starting Ralph UI server on port ${PORT}...`);
+console.log(`RALPH_ROOT: ${process.env.RALPH_ROOT}`);
 
 serve(
   {
