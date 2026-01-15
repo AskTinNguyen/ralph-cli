@@ -16,10 +16,36 @@
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
     /* Editor-specific styles following Rams design system principles */
+
+    /* Constrain main area to viewport height for proper flex distribution */
+    .rams-main {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Make content area fill available vertical space */
+    .rams-content {
+      display: flex;
+      flex-direction: column;
+      padding-bottom: var(--rams-space-6); /* Suitable bottom padding */
+      overflow: hidden; /* Prevent overflow, let children handle scroll */
+    }
+
+    /* Make section fill remaining space */
+    .rams-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 0; /* Remove default margin since we're using padding on parent */
+      min-height: 0; /* Allow flex child to shrink below content size */
+    }
+
     .editor-container {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 240px);
+      flex: 1; /* Fill available space in section */
+      min-height: 0; /* Allow flex child to shrink */
     }
     .editor-pane, .preview-pane {
       display: flex;
@@ -28,7 +54,8 @@
       border-radius: var(--rams-radius-md);
       overflow: hidden;
       background: var(--rams-white);
-      height: 100%;
+      flex: 1; /* Fill available space in container */
+      min-height: 0; /* Allow flex child to shrink */
     }
     .pane-hidden {
       display: none;
@@ -86,6 +113,7 @@
     }
     .editor-textarea {
       flex: 1;
+      min-height: 0; /* Allow flex child to shrink */
       border: none;
       padding: var(--rams-space-4);
       font-family: var(--rams-font-mono);
@@ -124,6 +152,7 @@
     }
     .preview-content {
       flex: 1;
+      min-height: 0; /* Allow flex child to shrink */
       padding: var(--rams-space-4);
       overflow-y: auto;
       line-height: var(--rams-leading-relaxed);
