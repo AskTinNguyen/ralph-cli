@@ -73,24 +73,83 @@
           id="stream-filter"
           class="rams-select"
           style="width: auto; min-width: 150px;"
-          hx-get="/api/partials/activity-logs"
-          hx-trigger="change"
-          hx-target="#logs-container"
-          hx-include="#stream-filter, #level-filter"
-          hx-indicator="#logs-indicator"
           name="streamId"
         >
-          <option value="">All Streams</option>
+          <option value="">Default (latest)</option>
         </select>
+        <script>
+          // Load stream options on page load
+          document.addEventListener('DOMContentLoaded', function() {
+            var streamSelect = document.getElementById('stream-filter');
+
+            // Fetch stream options
+            fetch('/api/partials/stream-options')
+              .then(response => response.text())
+              .then(html => {
+                streamSelect.innerHTML = html;
+                // Trigger initial load of logs with latest stream
+                triggerLogsRefresh();
+              });
+
+            // Setup change listener
+            streamSelect.addEventListener('change', function() {
+              triggerLogsRefresh();
+            });
+          });
+
+          function triggerLogsRefresh() {
+            var streamFilter = document.getElementById('stream-filter');
+            var levelFilter = document.getElementById('level-filter');
+            var logsContainer = document.getElementById('logs-container');
+            var indicator = document.getElementById('logs-indicator');
+
+            // Show loading indicator
+            indicator.classList.add('htmx-swapping');
+
+            // Build query params
+            var params = new URLSearchParams();
+            if (streamFilter.value) params.append('streamId', streamFilter.value);
+            if (levelFilter.value) params.append('level', levelFilter.value);
+
+            // Fetch activity logs
+            fetch('/api/partials/activity-logs?' + params.toString())
+              .then(response => response.text())
+              .then(html => {
+                logsContainer.innerHTML = html;
+                indicator.classList.remove('htmx-swapping');
+              })
+              .catch(error => {
+                console.error('Error loading logs:', error);
+                indicator.classList.remove('htmx-swapping');
+              });
+
+            // Also trigger terminal commands refresh
+            var terminalCommands = document.getElementById('terminal-commands');
+            var terminalParams = new URLSearchParams();
+            if (streamFilter.value) terminalParams.append('streamId', streamFilter.value);
+
+            fetch('/api/partials/terminal-commands?' + terminalParams.toString())
+              .then(response => response.text())
+              .then(html => {
+                terminalCommands.innerHTML = html;
+              });
+
+            // Also trigger recent runs refresh
+            var runsContainer = document.getElementById('runs-container');
+            var runsParams = new URLSearchParams();
+            if (streamFilter.value) runsParams.append('streamId', streamFilter.value);
+
+            fetch('/api/partials/recent-runs?' + runsParams.toString())
+              .then(response => response.text())
+              .then(html => {
+                runsContainer.innerHTML = html;
+              });
+          }
+        </script>
         <select
           id="level-filter"
           class="rams-select"
           style="width: auto; min-width: 130px;"
-          hx-get="/api/partials/activity-logs"
-          hx-trigger="change"
-          hx-target="#logs-container"
-          hx-include="#stream-filter, #level-filter"
-          hx-indicator="#logs-indicator"
           name="level"
         >
           <option value="">All Levels</option>
@@ -98,6 +157,15 @@
           <option value="warning">Warnings & Errors</option>
           <option value="info">Info & Above</option>
         </select>
+        <script>
+          // Setup level filter change listener
+          document.addEventListener('DOMContentLoaded', function() {
+            var levelFilter = document.getElementById('level-filter');
+            levelFilter.addEventListener('change', function() {
+              triggerLogsRefresh();
+            });
+          });
+        </script>
       </div>
     </div>
 
@@ -106,13 +174,11 @@
 
       <!-- Terminal Commands Section -->
       <section class="rams-section">
-        <div
-          id="terminal-commands"
-          hx-get="/api/partials/terminal-commands"
-          hx-trigger="load, change from:#stream-filter"
-          hx-swap="innerHTML"
-          hx-include="#stream-filter"
-        ></div>
+        <div id="terminal-commands">
+          <div class="rams-loading">
+            <span class="rams-spinner"></span> Loading terminal commands...
+          </div>
+        </div>
       </section>
 
       <!-- Activity Logs Section -->
@@ -125,18 +191,19 @@
             </span>
           </h2>
         </div>
-        <div
-          id="logs-container"
-          hx-get="/api/partials/activity-logs"
-          hx-trigger="load, every 2s"
-          hx-swap="innerHTML"
-          hx-include="#stream-filter, #level-filter"
-          hx-indicator="#logs-indicator"
-        >
+        <div id="logs-container">
           <div class="rams-loading">
             <span class="rams-spinner"></span> Loading activity logs...
           </div>
         </div>
+        <script>
+          // Auto-refresh logs every 2 seconds
+          setInterval(function() {
+            if (typeof triggerLogsRefresh !== 'undefined') {
+              triggerLogsRefresh();
+            }
+          }, 2000);
+        </script>
       </section>
 
       <!-- Recent Runs Section -->
@@ -144,17 +211,32 @@
         <div class="rams-section-header">
           <h2 class="rams-h2">Recent Runs</h2>
         </div>
-        <div
-          id="runs-container"
-          hx-get="/api/partials/recent-runs"
-          hx-trigger="load, every 5s"
-          hx-swap="innerHTML"
-          hx-include="#stream-filter"
-        >
+        <div id="runs-container">
           <div class="rams-loading">
             <span class="rams-spinner"></span> Loading recent runs...
           </div>
         </div>
+        <script>
+          // Auto-refresh recent runs every 5 seconds
+          setInterval(function() {
+            var streamFilter = document.getElementById('stream-filter');
+            var runsContainer = document.getElementById('runs-container');
+
+            var params = new URLSearchParams();
+            if (streamFilter && streamFilter.value) {
+              params.append('streamId', streamFilter.value);
+            }
+
+            fetch('/api/partials/recent-runs?' + params.toString())
+              .then(response => response.text())
+              .then(html => {
+                runsContainer.innerHTML = html;
+              })
+              .catch(error => {
+                console.error('Error loading recent runs:', error);
+              });
+          }, 5000);
+        </script>
       </section>
 
     </article>
