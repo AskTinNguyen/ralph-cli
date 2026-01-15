@@ -72,6 +72,7 @@ async function processHTMLFile(filePath) {
 
   // Apply modifications
   addDocsModeClass(document);
+  fixGitHubPagesPaths(document);
   injectDocsModeAssets(document);
   injectWarningBanner(document);
   markStreamFeatures(document);
@@ -91,6 +92,55 @@ function addDocsModeClass(document) {
   document.documentElement.classList.add('docs-mode');
   document.body.classList.add('docs-mode');
   document.body.setAttribute('data-docs-mode', 'true');
+}
+
+/**
+ * Fix absolute paths for GitHub Pages project sites
+ * GitHub Pages serves project sites at /repo-name/ not at root
+ */
+function fixGitHubPagesPaths(document) {
+  const basePath = '/ralph-cli';
+
+  // Fix CSS links
+  document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('/') && !href.startsWith(basePath)) {
+      link.setAttribute('href', basePath + href);
+    }
+  });
+
+  // Fix JS scripts
+  document.querySelectorAll('script[src]').forEach(script => {
+    const src = script.getAttribute('src');
+    if (src && src.startsWith('/') && !src.startsWith(basePath)) {
+      script.setAttribute('src', basePath + src);
+    }
+  });
+
+  // Fix anchor links (href)
+  document.querySelectorAll('a[href]').forEach(anchor => {
+    const href = anchor.getAttribute('href');
+    // Only fix absolute paths that aren't external or already prefixed
+    if (href && href.startsWith('/') && !href.startsWith(basePath) && !href.startsWith('http')) {
+      anchor.setAttribute('href', basePath + href);
+    }
+  });
+
+  // Fix image sources
+  document.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src');
+    if (src && src.startsWith('/') && !src.startsWith(basePath)) {
+      img.setAttribute('src', basePath + src);
+    }
+  });
+
+  // Fix favicon
+  document.querySelectorAll('link[rel="icon"]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('/') && !href.startsWith(basePath)) {
+      link.setAttribute('href', basePath + href);
+    }
+  });
 }
 
 /**

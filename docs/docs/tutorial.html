@@ -1,11 +1,11 @@
 <!DOCTYPE html><html lang="en" class="docs-mode"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="icon" type="image/png" href="/ralph-cli/favicon.png">
   <title>Interactive Tutorial - Ralph CLI</title>
   <meta name="description" content="Learn Ralph CLI step-by-step with hands-on examples. Go from zero to autonomous coding in minutes.">
 
-  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <link rel="stylesheet" href="/ralph-cli/docs/rams-design-system.css">
 <link rel="stylesheet" href="/ralph-cli/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Interactive Tutorial - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Interactive Tutorial - Ralph CLI"></head>
 <body class="rams-page docs-mode" data-docs-mode="true">
 
@@ -20,34 +20,34 @@
 
     <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
         <ul class="rams-nav-items">
-          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+          <li><a href="/ralph-cli/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
         </ul>
       </div>
       <nav class="rams-nav">
       <div class="rams-nav-section">
         <div class="rams-nav-label">Getting Started</div>
         <ul class="rams-nav-items">
-          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
-          <li><a href="/docs/tutorial.html" class="rams-nav-link active">Tutorial</a></li>
-          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+          <li><a href="/ralph-cli/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/ralph-cli/docs/tutorial.html" class="rams-nav-link active">Tutorial</a></li>
+          <li><a href="/ralph-cli/docs/commands.html" class="rams-nav-link">Commands</a></li>
         </ul>
       </div>
 
       <div class="rams-nav-section">
         <div class="rams-nav-label">Resources</div>
         <ul class="rams-nav-items">
-          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
-          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
-          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
-          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+          <li><a href="/ralph-cli/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/ralph-cli/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/ralph-cli/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/ralph-cli/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
         </ul>
       </div>
 
       <div class="rams-nav-section">
         <div class="rams-nav-label">Advanced</div>
         <ul class="rams-nav-items">
-          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
-          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+          <li><a href="/ralph-cli/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/ralph-cli/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
         </ul>
       </div>
     </nav>
@@ -71,7 +71,7 @@
     <!-- Top Bar -->
     <div class="rams-topbar">
       <div class="rams-breadcrumb">
-        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <a href="/ralph-cli/docs/" class="rams-breadcrumb-link">Documentation</a>
         <span class="rams-breadcrumb-sep">/</span>
         <span class="rams-breadcrumb-current">Tutorial</span>
       </div>
@@ -578,7 +578,7 @@ ls -la .ralph/worktrees/
                 <li class="rams-text-sm"><strong>Quick workflow</strong>: <code class="rams-code-inline">ralph prd</code> → <code class="rams-code-inline">ralph plan</code> → <code class="rams-code-inline">ralph build</code> (perfect for learning)</li>
                 <li class="rams-text-sm"><strong>Stream workflow</strong>: <code class="rams-code-inline">ralph stream</code> commands for parallel execution and better PRD management (recommended for production)</li>
               </ul>
-              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">This tutorial uses the quick workflow. See the <a href="/streams.html" class="rams-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams page</a> for parallel execution.</p>
+              <p class="rams-text-sm" style="margin-top: 8px; color: var(--rams-gray-600);">This tutorial uses the quick workflow. See the <a href="/ralph-cli/streams.html" class="rams-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams page</a> for parallel execution.</p>
             </div>
           </div>
 
@@ -1684,17 +1684,17 @@ git checkout main &amp;&amp; git merge merge-prd-1-2</code></pre>
           <div class="rams-section">
             <h3 class="rams-h3" style="font-size: 20px; margin-bottom: 16px;">What's Next?</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
-              <a href="/docs/commands.html" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
+              <a href="/ralph-cli/docs/commands.html" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
                 <div style="font-size: 28px; margin-bottom: 12px;">📚</div>
                 <strong style="font-size: 14px; font-weight: 600; color: var(--rams-gray-900); display: block; margin-bottom: 4px;">Command Reference</strong>
                 <p class="rams-text-sm" style="color: var(--rams-gray-600); margin: 0;">Explore all Ralph commands and options</p>
               </a>
-              <a href="/docs/examples.html" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
+              <a href="/ralph-cli/docs/examples.html" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
                 <div style="font-size: 28px; margin-bottom: 12px;">🎯</div>
                 <strong style="font-size: 14px; font-weight: 600; color: var(--rams-gray-900); display: block; margin-bottom: 4px;">Real Examples</strong>
                 <p class="rams-text-sm" style="color: var(--rams-gray-600); margin: 0;">See completed PRDs from this repository</p>
               </a>
-              <a href="/" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
+              <a href="/ralph-cli/" style="text-decoration: none; background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 4px; padding: 20px; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.08)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.boxShadow='none'">
                 <div style="font-size: 28px; margin-bottom: 12px;">📊</div>
                 <strong style="font-size: 14px; font-weight: 600; color: var(--rams-gray-900); display: block; margin-bottom: 4px;">Dashboard</strong>
                 <p class="rams-text-sm" style="color: var(--rams-gray-600); margin: 0;">Monitor your builds in real-time</p>
@@ -1711,7 +1711,7 @@ git checkout main &amp;&amp; git merge merge-prd-1-2</code></pre>
             </svg>
             Previous
           </button>
-          <a href="/docs/" class="rams-btn rams-btn-secondary" style="text-decoration: none;">
+          <a href="/ralph-cli/docs/" class="rams-btn rams-btn-secondary" style="text-decoration: none;">
             Back to Home
           </a>
         </div>
@@ -1721,7 +1721,7 @@ git checkout main &amp;&amp; git merge merge-prd-1-2</code></pre>
 
     <!-- Page Footer Navigation -->
     <nav class="rams-page-nav">
-      <a href="/docs/" class="rams-page-nav-card rams-page-nav-prev">
+      <a href="/ralph-cli/docs/" class="rams-page-nav-card rams-page-nav-prev">
         <div class="rams-page-nav-label">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M19 12H5M12 19l-7-7 7-7"></path>
@@ -1730,7 +1730,7 @@ git checkout main &amp;&amp; git merge merge-prd-1-2</code></pre>
         </div>
         <div class="rams-page-nav-title">Getting Started</div>
       </a>
-      <a href="/docs/commands.html" class="rams-page-nav-card rams-page-nav-next">
+      <a href="/ralph-cli/docs/commands.html" class="rams-page-nav-card rams-page-nav-next">
         <div class="rams-page-nav-label">
           Next
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
