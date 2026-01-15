@@ -15,13 +15,11 @@
     body {
       background: #ffffff;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
       position: relative;
+      scroll-behavior: smooth;
     }
 
     /* Grid container */
@@ -79,14 +77,18 @@
       opacity: 0.85;
     }
 
-    /* Content overlay */
-    .content-overlay {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
+    /* Hero section */
+    .hero-section {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       z-index: 100;
+    }
+
+    .hero-content {
+      text-align: center;
       pointer-events: none;
     }
 
@@ -100,17 +102,188 @@
       padding: 1.5rem 3rem;
       border: 2px solid #1a1a1a;
       text-shadow: none;
-      margin-bottom: 1rem;
+      margin-bottom: 2rem;
     }
 
     .tagline strong {
       font-weight: 700;
     }
 
+    .scroll-hint {
+      font-size: 0.875rem;
+      color: #666;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 0.75rem 1.5rem;
+      border: 1px solid #ccc;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: translateY(0); }
+      50% { opacity: 0.6; transform: translateY(-5px); }
+    }
+
+    /* Philosophy section */
+    .philosophy-section {
+      position: relative;
+      min-height: 100vh;
+      background: rgba(255, 255, 255, 0.98);
+      z-index: 100;
+      padding: 4rem 2rem;
+      border-top: 2px solid #1a1a1a;
+    }
+
+    .philosophy-content {
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.8;
+    }
+
+    .philosophy-content h2 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+      text-transform: uppercase;
+      color: #1a1a1a;
+    }
+
+    .philosophy-content p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #333;
+      margin-bottom: 1.5rem;
+    }
+
+    .philosophy-content strong {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .philosophy-content ul {
+      list-style: none;
+      margin: 2rem 0;
+      padding-left: 1rem;
+    }
+
+    .philosophy-content li {
+      font-size: clamp(1rem, 2vw, 1.125rem);
+      color: #333;
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .philosophy-content li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+      font-weight: bold;
+    }
+
+    .philosophy-content code {
+      background: #f5f5f5;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+      border: 1px solid #e0e0e0;
+    }
+
+    /* Visual story section */
+    .visual-story {
+      text-align: center;
+      margin: 0 0 4rem 0;
+      padding: 2rem 0;
+    }
+
+    .hero-ralph {
+      max-width: 300px;
+      width: 100%;
+      height: auto;
+      margin: 0 auto 3rem;
+      display: block;
+      filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
+    }
+
+    .arrow-down {
+      font-size: 2rem;
+      color: #1a1a1a;
+      margin: 1rem 0 2rem;
+      animation: arrowBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes arrowBounce {
+      0%, 100% { transform: translateY(0); opacity: 1; }
+      50% { transform: translateY(10px); opacity: 0.6; }
+    }
+
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 1.5rem;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: rgba(245, 245, 245, 0.5);
+      border-radius: 8px;
+      border: 2px dashed #ccc;
+    }
+
+    .agent-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto;
+      animation: agentVibrate 0.3s ease-in-out infinite;
+      animation-delay: calc(var(--agent-index) * 0.1s);
+      filter: grayscale(100%);
+      opacity: 0.8;
+      transition: all 0.3s ease;
+    }
+
+    .agent-icon:hover {
+      filter: grayscale(0%);
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    @keyframes agentVibrate {
+      0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+        transform: translate(-2px, -1px) rotate(-1deg);
+      }
+      50% {
+        transform: translate(2px, 1px) rotate(1deg);
+      }
+      75% {
+        transform: translate(-1px, 2px) rotate(-0.5deg);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .agents-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        padding: 1.5rem;
+      }
+
+      .agent-icon {
+        width: 60px;
+        height: 60px;
+      }
+    }
+
+    /* Fixed CTA button - bottom right */
     .enter-btn {
-      pointer-events: auto;
-      display: inline-block;
-      padding: 0.75rem 2rem;
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 2rem;
       font-size: 0.875rem;
       font-weight: 500;
       letter-spacing: 0.15em;
@@ -119,13 +292,25 @@
       background: #1a1a1a;
       border: 2px solid #1a1a1a;
       text-decoration: none;
-      transition: all 0.2s ease;
-      margin-top: 1rem;
+      transition: all 0.3s ease;
+      z-index: 200;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
     }
 
     .enter-btn:hover {
       background: #fff;
       color: #1a1a1a;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .enter-btn-hint {
+      display: block;
+      font-size: 0.7rem;
+      margin-top: 0.25rem;
+      opacity: 0.7;
+      letter-spacing: 0.1em;
     }
 
     /* Traversing color Ralph */
@@ -177,10 +362,108 @@
   <div class="logo-grid" id="grid"></div>
   <div id="traversers"></div>
 
-  <div class="content-overlay">
-    <div class="tagline"><strong>Ralph</strong> &mdash; From One to Many</div>
-    <a href="/dashboard.html" class="enter-btn">Enter Dashboard</a>
-  </div>
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <div class="tagline"><strong>Ralph</strong> &mdash; From One to Many</div>
+      <div class="scroll-hint">↓ Scroll to Explore ↓</div>
+    </div>
+  </section>
+
+  <!-- Philosophy Section -->
+  <section class="philosophy-section">
+    <div class="philosophy-content">
+      <!-- Visual Story -->
+      <div class="visual-story">
+        <img src="/ralph-hero.png" alt="Ralph - The One" class="hero-ralph">
+        <div class="arrow-down">↓</div>
+        <div class="agents-grid" id="agents-grid">
+          <!-- Agents generated by JavaScript -->
+        </div>
+      </div>
+
+      <h2>🚀 The Ralph Wiggum Technique</h2>
+
+      <p>
+        Named after the persistent (and often confused) Simpsons character, the <strong>Ralph Wiggum Loop</strong>
+        is a methodology for autonomous software development that embraces a counterintuitive truth:
+        <strong>"Iteration beats perfection."</strong>
+      </p>
+
+      <p>
+        Instead of trying to coax a perfect result from an AI in one shot, you put the agent in an infinite loop.
+        Feed it a prompt, let it write code and tests, and if it fails or tries to exit before the task is truly done—the
+        loop re-injects the same prompt. Again. And again.
+      </p>
+
+      <p>
+        <strong>Why it works:</strong> Large language models are probabilistic. They might fail spectacularly on iteration 1
+        but nail it on iteration 10. By clearing the context window but preserving updated files and git history,
+        the AI effectively "wakes up" fresh—seeing the progress made by its predecessor without the baggage of previous failures.
+      </p>
+
+      <p>
+        <strong>Real-world proof:</strong> Huntley famously used this technique to build "Cursed Lang," a programming language
+        featuring Gen Z slang keywords like <code>no_cap</code> and <code>fr</code>, by running a Ralph loop continuously
+        for <strong>three consecutive months</strong>. The result? A fully functional, battle-tested language born from
+        relentless iteration.
+      </p>
+
+      <h2>From One to Many</h2>
+
+      <p>
+        Ralph loops scale the technique horizontally. What starts as a single agent iterating on one task becomes
+        <strong>many agents executing in parallel streams</strong>—each with its own isolated workspace, progress tracking,
+        and autonomous decision-making.
+      </p>
+
+      <p>
+        Traditional development is linear: one developer, one task, one outcome. Ralph loops are exponential:
+        one specification multiplies into concurrent work streams, each progressing independently while maintaining coherence
+        through shared learnings captured in guardrails.
+      </p>
+
+      <h2>Beyond Software</h2>
+
+      <p>
+        This implementation is the <strong>first iteration</strong> of a paradigm that extends far beyond code.
+        Any domain requiring systematic execution, learning from failures, and relentless iteration can benefit:
+      </p>
+
+      <ul>
+        <li><strong>Research & Development:</strong> Parallel hypothesis testing with autonomous learning from failures</li>
+        <li><strong>Content Creation:</strong> Multi-stream narrative development with coherent convergence</li>
+        <li><strong>Design Systems:</strong> Concurrent exploration of design spaces with automated constraint satisfaction</li>
+        <li><strong>Business Strategy:</strong> Parallel scenario planning with adaptive resource allocation</li>
+        <li><strong>Scientific Computing:</strong> Multi-parameter optimization with autonomous backtracking</li>
+      </ul>
+
+      <h2>The Vision</h2>
+
+      <p>
+        As large language models become more capable, the complexity and scope of what Ralph loops can autonomously
+        accomplish will expand dramatically. This isn't about replacing human creativity—it's about
+        <strong>amplifying human intent</strong>.
+      </p>
+
+      <p>
+        We define the vision. Ralph loops execute with machine precision and tireless iteration. The result?
+        Productivity that scales not with headcount, but with the clarity of human goals and the boundless capacity
+        of AI to pursue them relentlessly.
+      </p>
+
+      <p>
+        <strong>This is just the beginning.</strong> Every iteration brings us closer to unlocking humanity's full
+        productive potential.
+      </p>
+    </div>
+  </section>
+
+  <!-- Fixed CTA Button -->
+  <a href="/dashboard.html" class="enter-btn">
+    READY TO LOOP?
+    <span class="enter-btn-hint">Press Enter ↵</span>
+  </a>
 
   <script>
     const grid = document.getElementById('grid');
@@ -363,6 +646,30 @@
       createTraverser();
       scheduleNextTraverser();
     }, 2000);
+
+    // Enter key shortcut to navigate to dashboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Only trigger if not typing in an input field
+        if (document.activeElement.tagName !== 'INPUT' &&
+            document.activeElement.tagName !== 'TEXTAREA') {
+          window.location.href = '/dashboard.html';
+        }
+      }
+    });
+
+    // Generate agent icons (2 rows of 8 = 16 agents)
+    const agentsGrid = document.getElementById('agents-grid');
+    const agentCount = 16;
+    for (let i = 0; i < agentCount; i++) {
+      const agent = document.createElement('img');
+      agent.src = '/ralph-agent-bw.png';
+      agent.alt = `Agent ${i + 1}`;
+      agent.className = 'agent-icon';
+      agent.style.setProperty('--agent-index', i);
+      agent.draggable = false;
+      agentsGrid.appendChild(agent);
+    }
   </script>
 </body>
 </html>
