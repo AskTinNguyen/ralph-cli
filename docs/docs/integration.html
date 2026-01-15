@@ -1,0 +1,969 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Integrations - Ralph CLI</title>
+  <meta name="description" content="Advanced integration guides for MCP servers, CI/CD pipelines, git hooks, and team collaboration with Ralph CLI.">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Integrations - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Integrations - Ralph CLI"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link active">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Integrations</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Integration &amp; Advanced Topics</h1>
+      <p class="rams-lead">Extend Ralph's capabilities with external integrations, custom configuration, and team collaboration workflows.</p>
+    </header>
+
+    <!-- Content Area -->
+    <article class="rams-content">
+
+      <!-- Quick Navigation -->
+      <section class="rams-section" style="margin-bottom: var(--rams-space-10);">
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6);">
+          <h2 class="rams-h3" style="margin-bottom: var(--rams-space-4);">Quick Jump</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--rams-space-3);">
+            <a href="#mcp-servers" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              MCP Servers
+            </a>
+            <a href="#custom-agents" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+              </svg>
+              Custom Agents
+            </a>
+            <a href="#ci-cd" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              CI/CD
+            </a>
+            <a href="#git-hooks" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6"></path>
+              </svg>
+              Git Hooks
+            </a>
+            <a href="#monorepos" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 7h-9M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
+              </svg>
+              Monorepos
+            </a>
+            <a href="#team-collab" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              Team Collaboration
+            </a>
+            <a href="#metrics" style="display: flex; align-items: center; gap: var(--rams-space-2); padding: var(--rams-space-3); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); text-decoration: none; color: var(--rams-gray-900); font-size: var(--rams-text-sm); font-weight: 500; transition: all var(--rams-transition-fast);" onmouseover="this.style.borderColor='var(--rams-accent)'; this.style.background='var(--rams-white)'" onmouseout="this.style.borderColor='var(--rams-border-color)'; this.style.background='var(--rams-gray-50)'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+              Metrics &amp; Reporting
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- MCP Server Integration -->
+      <section id="mcp-servers" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">🔌</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">MCP Server Integration</h2>
+            <p class="rams-subtitle">Connect Ralph to Notion, Slack, GitHub, and other services</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">What are MCP Servers?</h3>
+            <p class="rams-text">Model Context Protocol (MCP) servers provide Ralph agents with access to external tools and services. This enables agents to read documentation from Notion, post updates to Slack, create GitHub issues, and more—all autonomously during builds.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Available Integrations</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--rams-space-3); margin-top: var(--rams-space-4);">
+              <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-accent-dark); margin-bottom: var(--rams-space-2);">Notion</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Access docs, databases, and pages</div>
+              </div>
+              <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-accent-dark); margin-bottom: var(--rams-space-2);">Slack</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Send messages and search conversations</div>
+              </div>
+              <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-accent-dark); margin-bottom: var(--rams-space-2);">GitHub</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Manage issues, PRs, and code</div>
+              </div>
+              <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-accent-dark); margin-bottom: var(--rams-space-2);">Miro</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Create boards and diagrams</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Setup Instructions</h3>
+            <ol style="list-style: none; padding: 0; margin: var(--rams-space-4) 0;">
+              <li style="display: flex; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4); border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">1</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Set Environment Variables</strong>
+                  <p class="rams-text-sm">Create a <code class="rams-code-inline">.env</code> file in your project root or set variables in your shell profile.</p>
+                </div>
+              </li>
+              <li style="display: flex; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4); border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">2</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Configure API Tokens</strong>
+                  <p class="rams-text-sm">Obtain API tokens from each service you want to integrate.</p>
+                </div>
+              </li>
+              <li style="display: flex; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4); border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">3</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Start Claude Code</strong>
+                  <p class="rams-text-sm">MCP servers auto-start when Claude Code runs—no manual configuration needed.</p>
+                </div>
+              </li>
+              <li style="display: flex; gap: var(--rams-space-4);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">4</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Verify Access</strong>
+                  <p class="rams-text-sm">Tools are available as <code class="rams-code-inline">mcp__&lt;server&gt;__&lt;action&gt;</code> during builds.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Required Environment Variables</h3>
+            <div style="background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); padding: var(--rams-space-4); margin-top: var(--rams-space-4);">
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 200px;">NOTION_API_KEY</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Notion integration token (starts with <code class="rams-code-inline">secret_</code>)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 200px;">SLACK_BOT_TOKEN</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Slack bot user OAuth token (starts with <code class="rams-code-inline">xoxb-</code>)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 200px;">SLACK_TEAM_ID</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Slack workspace ID (starts with <code class="rams-code-inline">T</code>)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 200px;">GITHUB_TOKEN</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">GitHub personal access token (starts with <code class="rams-code-inline">ghp_</code>)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0;">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 200px;">MIRO_API_TOKEN</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Miro OAuth access token</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Example: Posting Build Status to Slack</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, 'export SLACK_BOT_TOKEN=&quot;xoxb-your-token&quot;\nexport SLACK_TEAM_ID=&quot;T123456&quot;\n\n# In your PRD, mention:\n# &quot;Post a build status update to #builds channel after completion&quot;\n\n# Agent will automatically use:\n# mcp__slack__slack_post_message(channel_id=&quot;C...&quot;, text=&quot;Build completed&quot;)')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>export SLACK_BOT_TOKEN="xoxb-your-token"
+export SLACK_TEAM_ID="T123456"
+
+# In your PRD, mention:
+# "Post a build status update to #builds channel after completion"
+
+# Agent will automatically use:
+# mcp__slack__slack_post_message(channel_id="C...", text="Build completed")</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Common Use Cases</h3>
+            <ul style="line-height: var(--rams-leading-relaxed); color: var(--rams-gray-700); padding-left: var(--rams-space-5);">
+              <li><strong>Notion:</strong> Fetch project requirements, update task statuses, create documentation pages</li>
+              <li><strong>Slack:</strong> Notify team of build completion, post error alerts, search for context</li>
+              <li><strong>GitHub:</strong> Create issues for discovered bugs, link PRs to user stories</li>
+              <li><strong>Miro:</strong> Generate architecture diagrams, create visual roadmaps</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Custom Agent Configuration -->
+      <section id="custom-agents" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">⚙️</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Custom Agent Configuration</h2>
+            <p class="rams-subtitle">Switch between Claude, Codex, Droid, or define custom agent commands</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Agent Selection</h3>
+            <p class="rams-text">Ralph supports multiple AI agents. Configure your preferred agent in <code class="rams-code-inline">.agents/ralph/config.sh</code> or override via CLI flags.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Agent Configuration Examples</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Use Claude (default)\nralph build 1 --agent=claude\n\n# Use Codex\nralph build 1 --agent=codex\n\n# Use Droid\nralph build 1 --agent=droid\n\n# Custom agent command (in config.sh)\nAGENT_CMD=&quot;codex exec --yolo --skip-git-repo-check -&quot;')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Use Claude (default)
+ralph build 1 --agent=claude
+
+# Use Codex
+ralph build 1 --agent=codex
+
+# Use Droid
+ralph build 1 --agent=droid
+
+# Custom agent command (in config.sh)
+AGENT_CMD="codex exec --yolo --skip-git-repo-check -"</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Model Routing</h3>
+            <p class="rams-text">Ralph can automatically select the appropriate Claude model (Haiku, Sonnet, Opus) based on task complexity. Configure thresholds in <code class="rams-code-inline">config.sh</code>.</p>
+            <div style="background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); padding: var(--rams-space-4); margin-top: var(--rams-space-4);">
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 240px;">RALPH_ROUTING_ENABLED</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Enable/disable automatic model routing (default: true)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 240px;">RALPH_HAIKU_MAX_COMPLEXITY</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Max complexity for Haiku (simple fixes, docs) (default: 3)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 240px;">RALPH_SONNET_MAX_COMPLEXITY</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Max complexity for Sonnet (features, refactors) (default: 7)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0;">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 240px;">RALPH_DEFAULT_MODEL</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Fallback model when routing disabled (default: sonnet)</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Agent Fallback Chain</h3>
+            <p class="rams-text">Configure automatic agent switching when failures occur. Ralph can try alternative agents if the current one fails repeatedly.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">.agents/ralph/config.sh</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Define fallback chain (space-separated)\nAGENT_FALLBACK_CHAIN=&quot;claude codex droid&quot;\n\n# Consecutive failures before switching\nAGENT_SWITCH_THRESHOLD=2\n\n# Enable switching on timeouts\nAGENT_SWITCH_ON_TIMEOUT=true\n\n# Enable switching on errors\nAGENT_SWITCH_ON_ERROR=true')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Define fallback chain (space-separated)
+AGENT_FALLBACK_CHAIN="claude codex droid"
+
+# Consecutive failures before switching
+AGENT_SWITCH_THRESHOLD=2
+
+# Enable switching on timeouts
+AGENT_SWITCH_ON_TIMEOUT=true
+
+# Enable switching on errors
+AGENT_SWITCH_ON_ERROR=true</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Budget Controls</h3>
+            <p class="rams-text">Set spending limits to control API costs. Ralph tracks usage and alerts you at configurable thresholds.</p>
+            <div style="background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); padding: var(--rams-space-4); margin-top: var(--rams-space-4);">
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 260px;">RALPH_BUDGET_DAILY</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Daily budget limit in USD (resets at midnight)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 260px;">RALPH_BUDGET_MONTHLY</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Monthly budget limit in USD (resets on 1st)</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 260px;">RALPH_BUDGET_ALERT_THRESHOLDS</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Alert at these percentages (e.g., "80,90,100")</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0;">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 260px;">RALPH_BUDGET_PAUSE_ON_EXCEEDED</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Pause builds when budget exceeded (true/false)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CI/CD Pipeline Integration -->
+      <section id="ci-cd" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">🚀</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">CI/CD Pipeline Integration</h2>
+            <p class="rams-subtitle">Automate Ralph builds in GitHub Actions, GitLab CI, and other platforms</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">GitHub Actions Example</h3>
+            <p class="rams-text">Run Ralph builds automatically when PRDs are added or updated. This example triggers on PRD file changes and creates a PR with the implementation.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">.github/workflows/ralph-build.yml</span>
+                <button class="rams-code-copy" onclick="copyCode(this, 'name: Ralph Auto-Build\n\non:\n  push:\n    paths:\n      - \'.ralph/PRD-*/prd.md\'\n      - \'.ralph/PRD-*/plan.md\'\n  workflow_dispatch:\n    inputs:\n      prd_number:\n        description: \'PRD number to build\'\n        required: true\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v3\n\n      - name: Setup Node.js\n        uses: actions/setup-node@v3\n        with:\n          node-version: \'20\'\n\n      - name: Install Ralph CLI\n        run: npm install -g ralph-cli\n\n      - name: Install dependencies\n        run: npm ci\n\n      - name: Run Ralph Build\n        env:\n          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: |\n          # Extract PRD number from changed files or workflow input\n          PRD_NUM=${{ github.event.inputs.prd_number }}\n          if [ -z &quot;$PRD_NUM&quot; ]; then\n            PRD_NUM=$(git diff --name-only HEAD~1 | grep \'.ralph/PRD-\' | \\\n                      sed \'s/.*PRD-\\([0-9]*\\).*/\\1/\' | head -1)\n          fi\n\n          # Run build with max 10 iterations\n          ralph build 10 --prd=$PRD_NUM\n\n      - name: Create Pull Request\n        if: success()\n        uses: peter-evans/create-pull-request@v5\n        with:\n          token: ${{ secrets.GITHUB_TOKEN }}\n          commit-message: \'feat(PRD-${{ env.PRD_NUM }}): Auto-implemented via Ralph\'\n          title: \'PRD-${{ env.PRD_NUM }}: Auto-implementation\'\n          body: |\n            Automated implementation of PRD-${{ env.PRD_NUM }}.\n\n            Review changes and verify tests pass before merging.\n          branch: ralph/prd-${{ env.PRD_NUM }}-auto')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>name: Ralph Auto-Build
+
+on:
+  push:
+    paths:
+      - '.ralph/PRD-*/prd.md'
+      - '.ralph/PRD-*/plan.md'
+  workflow_dispatch:
+    inputs:
+      prd_number:
+        description: 'PRD number to build'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Ralph CLI
+        run: npm install -g ralph-cli
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Ralph Build
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract PRD number from changed files or workflow input
+          PRD_NUM=${{ github.event.inputs.prd_number }}
+          if [ -z "$PRD_NUM" ]; then
+            PRD_NUM=$(git diff --name-only HEAD~1 | grep '.ralph/PRD-' | \
+                      sed 's/.*PRD-\([0-9]*\).*/\1/' | head -1)
+          fi
+
+          # Run build with max 10 iterations
+          ralph build 10 --prd=$PRD_NUM
+
+      - name: Create Pull Request
+        if: success()
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'feat(PRD-${{ env.PRD_NUM }}): Auto-implemented via Ralph'
+          title: 'PRD-${{ env.PRD_NUM }}: Auto-implementation'
+          body: |
+            Automated implementation of PRD-${{ env.PRD_NUM }}.
+
+            Review changes and verify tests pass before merging.
+          branch: ralph/prd-${{ env.PRD_NUM }}-auto</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">GitLab CI Example</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">.gitlab-ci.yml</span>
+                <button class="rams-code-copy" onclick="copyCode(this, 'ralph-build:\n  image: node:20\n  stage: build\n  only:\n    changes:\n      - .ralph/PRD-*/prd.md\n      - .ralph/PRD-*/plan.md\n  variables:\n    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY\n  script:\n    - npm install -g ralph-cli\n    - npm ci\n    - |\n      PRD_NUM=$(git diff --name-only $CI_COMMIT_BEFORE_SHA | \\\n                grep \'.ralph/PRD-\' | \\\n                sed \'s/.*PRD-\\([0-9]*\\).*/\\1/\' | head -1)\n      ralph build 10 --prd=$PRD_NUM\n  artifacts:\n    paths:\n      - .ralph/PRD-*/progress.md\n      - .ralph/PRD-*/runs/\n    expire_in: 30 days')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>ralph-build:
+  image: node:20
+  stage: build
+  only:
+    changes:
+      - .ralph/PRD-*/prd.md
+      - .ralph/PRD-*/plan.md
+  variables:
+    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
+  script:
+    - npm install -g ralph-cli
+    - npm ci
+    - |
+      PRD_NUM=$(git diff --name-only $CI_COMMIT_BEFORE_SHA | \
+                grep '.ralph/PRD-' | \
+                sed 's/.*PRD-\([0-9]*\).*/\1/' | head -1)
+      ralph build 10 --prd=$PRD_NUM
+  artifacts:
+    paths:
+      - .ralph/PRD-*/progress.md
+      - .ralph/PRD-*/runs/
+    expire_in: 30 days</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Security Best Practices</h3>
+            <ul style="line-height: var(--rams-leading-relaxed); color: var(--rams-gray-700); padding-left: var(--rams-space-5);">
+              <li>Store API keys as encrypted CI secrets, never in code</li>
+              <li>Use read-only tokens where possible</li>
+              <li>Enable branch protection for auto-created PRs</li>
+              <li>Require manual approval before merging Ralph PRs</li>
+              <li>Set up budget limits to prevent runaway API costs</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Git Hooks -->
+      <section id="git-hooks" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">🪝</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Git Hooks Integration</h2>
+            <p class="rams-subtitle">Automate Ralph workflows with pre-commit and post-commit hooks</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Pre-commit Hook: Auto-plan PRDs</h3>
+            <p class="rams-text">Automatically generate implementation plans when PRD files are staged for commit.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">.git/hooks/pre-commit</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '#!/bin/bash\n# Auto-generate plan for staged PRDs\n\n# Check if any PRD files are staged\nif git diff --cached --name-only | grep -q \'.ralph/PRD-.*/prd.md\'; then\n  echo &quot;📋 PRD file staged. Generating plan...&quot;\n\n  # Extract PRD number\n  PRD_NUM=$(git diff --cached --name-only | \\\n            grep \'.ralph/PRD-.*/prd.md\' | \\\n            sed \'s/.*PRD-\\([0-9]*\\).*/\\1/\' | head -1)\n\n  # Generate plan\n  ralph plan --prd=$PRD_NUM\n\n  # Stage the generated plan\n  git add .ralph/PRD-$PRD_NUM/plan.md\n\n  echo &quot;✅ Plan generated and staged&quot;\nfi\n\nexit 0')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>#!/bin/bash
+# Auto-generate plan for staged PRDs
+
+# Check if any PRD files are staged
+if git diff --cached --name-only | grep -q '.ralph/PRD-.*/prd.md'; then
+  echo "📋 PRD file staged. Generating plan..."
+
+  # Extract PRD number
+  PRD_NUM=$(git diff --cached --name-only | \
+            grep '.ralph/PRD-.*/prd.md' | \
+            sed 's/.*PRD-\([0-9]*\).*/\1/' | head -1)
+
+  # Generate plan
+  ralph plan --prd=$PRD_NUM
+
+  # Stage the generated plan
+  git add .ralph/PRD-$PRD_NUM/plan.md
+
+  echo "✅ Plan generated and staged"
+fi
+
+exit 0</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Post-commit Hook: Trigger Build</h3>
+            <p class="rams-text">Start a Ralph build automatically when a plan is committed.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">.git/hooks/post-commit</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '#!/bin/bash\n# Auto-trigger build for committed plans\n\n# Check if plan was committed\nif git diff --name-only HEAD~1 | grep -q \'.ralph/PRD-.*/plan.md\'; then\n  echo &quot;📦 Plan committed. Triggering build...&quot;\n\n  PRD_NUM=$(git diff --name-only HEAD~1 | \\\n            grep \'.ralph/PRD-.*/plan.md\' | \\\n            sed \'s/.*PRD-\\([0-9]*\\).*/\\1/\' | head -1)\n\n  # Run in background\n  (ralph build 5 --prd=$PRD_NUM &amp;)\n\n  echo &quot;🚀 Build started in background&quot;\nfi\n\nexit 0')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>#!/bin/bash
+# Auto-trigger build for committed plans
+
+# Check if plan was committed
+if git diff --name-only HEAD~1 | grep -q '.ralph/PRD-.*/plan.md'; then
+  echo "📦 Plan committed. Triggering build..."
+
+  PRD_NUM=$(git diff --name-only HEAD~1 | \
+            grep '.ralph/PRD-.*/plan.md' | \
+            sed 's/.*PRD-\([0-9]*\).*/\1/' | head -1)
+
+  # Run in background
+  (ralph build 5 --prd=$PRD_NUM &amp;)
+
+  echo "🚀 Build started in background"
+fi
+
+exit 0</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Installation</h3>
+            <ol style="list-style: none; padding: 0; margin: var(--rams-space-4) 0;">
+              <li style="display: flex; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4); border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">1</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Create hook files</strong>
+                  <p class="rams-text-sm">Save scripts to <code class="rams-code-inline">.git/hooks/</code> directory.</p>
+                </div>
+              </li>
+              <li style="display: flex; gap: var(--rams-space-4); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4); border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">2</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Make executable</strong>
+                  <p class="rams-text-sm">Run <code class="rams-code-inline">chmod +x .git/hooks/pre-commit .git/hooks/post-commit</code></p>
+                </div>
+              </li>
+              <li style="display: flex; gap: var(--rams-space-4);">
+                <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">3</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; color: var(--rams-gray-900); margin-bottom: var(--rams-space-2);">Test</strong>
+                  <p class="rams-text-sm">Stage a PRD file and commit to verify hooks trigger correctly.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monorepo Strategies -->
+      <section id="monorepos" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">📦</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Monorepo Strategies</h2>
+            <p class="rams-subtitle">Use Ralph effectively in monorepos with multiple packages</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Workspace Isolation</h3>
+            <p class="rams-text">In monorepos, isolate Ralph instances per workspace to prevent conflicts. Each workspace maintains its own <code class="rams-code-inline">.ralph/</code> directory.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Monorepo Structure</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>monorepo/
+├── packages/
+│   ├── api/
+│   │   ├── .ralph/              # API-specific PRDs
+│   │   └── .agents/ralph/
+│   ├── web/
+│   │   ├── .ralph/              # Web-specific PRDs
+│   │   └── .agents/ralph/
+│   └── shared/
+│       ├── .ralph/              # Shared lib PRDs
+│       └── .agents/ralph/
+└── .ralph/                      # Root-level PRDs (cross-cutting)</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Running Workspace Builds</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Build from specific workspace\ncd packages/api\nralph build 5\n\n# Build multiple workspaces in parallel\ncd packages/api &amp;&amp; ralph stream build 1 5 &amp;\ncd packages/web &amp;&amp; ralph stream build 1 5 &amp;\n\n# Root-level cross-cutting changes\ncd monorepo/\nralph build 3 --prd=1')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Build from specific workspace
+cd packages/api
+ralph build 5
+
+# Build multiple workspaces in parallel
+cd packages/api &amp;&amp; ralph stream build 1 5 &amp;
+cd packages/web &amp;&amp; ralph stream build 1 5 &amp;
+
+# Root-level cross-cutting changes
+cd monorepo/
+ralph build 3 --prd=1</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Best Practices</h3>
+            <ul style="line-height: var(--rams-leading-relaxed); color: var(--rams-gray-700); padding-left: var(--rams-space-5);">
+              <li>Use separate PRDs for each workspace to maintain isolation</li>
+              <li>Create root-level PRDs only for cross-cutting concerns (CI, tooling, etc.)</li>
+              <li>Ensure AGENTS.md in each workspace documents local build/test commands</li>
+              <li>Use workspace protocols in package.json (<code class="rams-code-inline">workspace:*</code>) for local dependencies</li>
+              <li>Run Ralph from workspace root, not monorepo root, to ensure correct context</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Team Collaboration -->
+      <section id="team-collab" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">👥</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Team Collaboration Patterns</h2>
+            <p class="rams-subtitle">Coordinate Ralph usage across multiple developers and teams</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Shared PRD Ownership</h3>
+            <p class="rams-text">Multiple team members can work on different PRDs simultaneously using git branches and stream workflows.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Team Workflow</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Developer A: Create and work on PRD-1\nralph prd          # Creates PRD-1\nralph plan\nralph stream init 1\nralph stream build 1 10\n\n# Developer B: Create and work on PRD-2 (parallel)\nralph prd          # Creates PRD-2\nralph plan\nralph stream init 2\nralph stream build 2 10\n\n# Both merge independently when complete\nralph stream merge 1  # Developer A\nralph stream merge 2  # Developer B')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Developer A: Create and work on PRD-1
+ralph prd          # Creates PRD-1
+ralph plan
+ralph stream init 1
+ralph stream build 1 10
+
+# Developer B: Create and work on PRD-2 (parallel)
+ralph prd          # Creates PRD-2
+ralph plan
+ralph stream init 2
+ralph stream build 2 10
+
+# Both merge independently when complete
+ralph stream merge 1  # Developer A
+ralph stream merge 2  # Developer B</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Code Review Integration</h3>
+            <p class="rams-text">Treat Ralph-generated PRs like any other code contribution. Require human review before merging.</p>
+            <div class="rams-info-box" style="margin-top: var(--rams-space-4);">
+              <div class="rams-info-icon">✓</div>
+              <div class="rams-info-content">
+                <h4 class="rams-info-title">Review Checklist</h4>
+                <ul style="line-height: var(--rams-leading-relaxed); color: var(--rams-gray-700); padding-left: var(--rams-space-5); margin-top: var(--rams-space-2);">
+                  <li>All acceptance criteria from PRD are met</li>
+                  <li>Tests pass and have adequate coverage</li>
+                  <li>Code follows team style guidelines</li>
+                  <li>No security vulnerabilities introduced</li>
+                  <li>Documentation updated where needed</li>
+                  <li>No unintended side effects in other parts of codebase</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Shared Guardrails</h3>
+            <p class="rams-text">Maintain a team-wide <code class="rams-code-inline">.ralph/guardrails.md</code> that all builds reference. Document lessons learned and anti-patterns discovered during builds.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Collaboration Best Practices</h3>
+            <ul style="line-height: var(--rams-leading-relaxed); color: var(--rams-gray-700); padding-left: var(--rams-space-5);">
+              <li>Assign PRD ownership to specific developers to avoid conflicts</li>
+              <li>Use stream status to see who's working on what: <code class="rams-code-inline">ralph stream status</code></li>
+              <li>Document domain-specific context in AGENTS.md for better agent outputs</li>
+              <li>Set up shared budget limits to prevent any one build from exhausting API quota</li>
+              <li>Use branch protection rules to require reviews on Ralph PRs</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Metrics & Reporting -->
+      <section id="metrics" class="rams-step" style="margin-bottom: var(--rams-space-8);">
+        <div class="rams-step-header">
+          <div class="rams-step-number" style="background: var(--rams-accent); color: var(--rams-white); font-size: var(--rams-text-xl);">📊</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Metrics &amp; Reporting</h2>
+            <p class="rams-subtitle">Track Ralph performance, costs, and productivity gains</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Built-in Logging</h3>
+            <p class="rams-text">Ralph automatically tracks detailed metrics in log files. Use these for reporting and analysis.</p>
+            <div style="background: var(--rams-gray-50); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-md); padding: var(--rams-space-4); margin-top: var(--rams-space-4);">
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 140px;">progress.md</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Story-level completion log with commits and timestamps</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 140px;">activity.log</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Detailed action log with file changes and commands</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0; border-bottom: var(--rams-border-width) solid var(--rams-border-color);">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 140px;">runs/*.log</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Per-iteration logs with agent inputs and outputs</div>
+              </div>
+              <div style="display: flex; gap: var(--rams-space-4); padding: var(--rams-space-3) 0;">
+                <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); color: var(--rams-accent-dark); font-weight: 500; flex: 0 0 140px;">errors.log</div>
+                <div style="font-size: var(--rams-text-sm); color: var(--rams-gray-700);">Failure tracking for repeated issues</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Extracting Metrics</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Count completed PRDs\ngrep -c &quot;^\\[x\\]&quot; .ralph/PRD-*/prd.md\n\n# List all PRD commits\ngrep &quot;Commit:&quot; .ralph/PRD-*/progress.md\n\n# Calculate average iterations per PRD\ngrep &quot;iteration&quot; .ralph/PRD-*/progress.md | wc -l\n\n# Get files changed per PRD\nfor dir in .ralph/PRD-*; do\n  prd=$(basename $dir)\n  commits=$(grep &quot;Commit:&quot; $dir/progress.md | awk \'{print $2}\')\n  echo &quot;$prd: $(git diff --name-only $commits | wc -l) files&quot;\ndone')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Count completed PRDs
+grep -c "^\[x\]" .ralph/PRD-*/prd.md
+
+# List all PRD commits
+grep "Commit:" .ralph/PRD-*/progress.md
+
+# Calculate average iterations per PRD
+grep "iteration" .ralph/PRD-*/progress.md | wc -l
+
+# Get files changed per PRD
+for dir in .ralph/PRD-*; do
+  prd=$(basename $dir)
+  commits=$(grep "Commit:" $dir/progress.md | awk '{print $2}')
+  echo "$prd: $(git diff --name-only $commits | wc -l) files"
+done</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Dashboard Integration</h3>
+            <p class="rams-text">The Ralph UI dashboard (<code class="rams-code-inline">ui/</code>) provides real-time visibility into builds. Access metrics via the API endpoints.</p>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-4);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">API Endpoints</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Get all PRDs\ncurl http://localhost:3000/api/prds\n\n# Get specific PRD status\ncurl http://localhost:3000/api/prd/1\n\n# Get build logs\ncurl http://localhost:3000/api/logs/PRD-1\n\n# Stream real-time updates (SSE)\ncurl -N http://localhost:3000/api/stream/status')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Get all PRDs
+curl http://localhost:3000/api/prds
+
+# Get specific PRD status
+curl http://localhost:3000/api/prd/1
+
+# Get build logs
+curl http://localhost:3000/api/logs/PRD-1
+
+# Stream real-time updates (SSE)
+curl -N http://localhost:3000/api/stream/status</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/streams.html" class="rams-page-nav-card rams-page-nav-prev cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Stream Workflows</div>
+      </a>
+      <a href="/docs/troubleshooting.html" class="rams-page-nav-card rams-page-nav-next">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"></path>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Troubleshooting</div>
+      </a>
+    </nav>
+
+  </main>
+
+  <script>
+    function copyCode(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = button.innerHTML;
+        button.classList.add('copied');
+        button.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Copied
+        `;
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = originalHTML;
+        }, 2000);
+      });
+    }
+  </script>
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

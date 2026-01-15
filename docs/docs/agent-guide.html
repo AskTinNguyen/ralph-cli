@@ -1,0 +1,810 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Agent Guide - Ralph CLI</title>
+  <meta name="description" content="Concise reference for AI agents working with Ralph CLI on behalf of users.">
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* Compact agent-focused layout */
+    .rams-main { padding: 12px 24px; }
+    .rams-header { padding: 8px 0; margin-bottom: 12px; }
+    .rams-h1 { font-size: 22px; margin-bottom: 4px; }
+    .rams-lead { font-size: 13px; margin-bottom: 0; }
+    .rams-section { margin-bottom: 16px; }
+    .rams-h2 { font-size: 17px; margin-bottom: 8px; }
+    .rams-h3 { font-size: 14px; margin-bottom: 6px; margin-top: 12px; }
+    .rams-text { font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
+    .rams-text-sm { font-size: 12px; line-height: 1.3; }
+    .rams-code-block { margin-bottom: 8px; }
+    .rams-code-content { padding: 6px 10px; }
+    .rams-code-content pre { font-size: 11px; line-height: 1.4; }
+    .rams-info-box, .rams-warning-box { padding: 8px 10px; margin-bottom: 8px; }
+    ul, ol { margin-top: 3px; margin-bottom: 6px; }
+    li { margin-bottom: 1px; }
+    pre { margin: 0; }
+    table { margin-bottom: 8px; }
+    th, td { padding: 5px 8px; }
+  </style>
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Agent Guide - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Agent Guide - Ralph CLI"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+      <ul class="rams-nav-items">
+        <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+      </ul>
+    </div>
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link active">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Agent Guide</span>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Agent Operation Guide</h1>
+      <p class="rams-lead">Concise reference for AI agents working with Ralph CLI. Follow these patterns when users request Ralph-related tasks.</p>
+    </header>
+
+    <!-- Content -->
+    <article class="rams-content">
+
+      <!-- Critical Agent-Specific Rules -->
+      <section class="rams-section">
+        <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid rgba(239, 68, 68, 0.5); border-radius: 4px; padding: 10px 12px; border-left: 4px solid rgba(239, 68, 68, 1); margin-bottom: 16px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);">
+          <strong style="font-size: 13px; color: rgba(239, 68, 68, 1); display: block; margin-bottom: 8px;">⚠️ CRITICAL: Nested Agent Interaction Warning</strong>
+          <div style="margin-top: 6px; font-size: 11px; line-height: 1.6;">
+            <strong style="display: block; margin-bottom: 4px;">When Claude Code (or another AI agent) executes <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph prd</code>, it invokes a nested agent. Without <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">--headless</code>, both agents try to interact with the same TTY, causing:</strong>
+            <ul style="margin: 6px 0 8px 0; padding-left: 18px;">
+              <li><strong>Deadlocks</strong> - Both agents waiting for input</li>
+              <li><strong>TTY conflicts</strong> - Overlapping I/O streams</li>
+              <li><strong>Process hangs</strong> - Commands never complete</li>
+              <li><strong>Unpredictable output</strong> - Garbled or missing responses</li>
+            </ul>
+            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid rgba(16, 185, 129, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px;">
+              <strong style="color: rgba(16, 185, 129, 1);">✅ ALWAYS USE:</strong>
+              <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px; display: inline-block; margin-top: 4px;">ralph prd "description" --headless</code>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid rgba(239, 68, 68, 1); padding: 6px 8px; margin-top: 6px; border-radius: 2px;">
+              <strong style="color: rgba(239, 68, 68, 1);">❌ NEVER USE:</strong>
+              <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px; display: inline-block; margin-top: 4px;">ralph prd "description"</code>
+              <span style="display: block; margin-top: 4px; font-size: 10px;">(causes nested interaction)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Decision Tree -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Decision Tree</h2>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 10px; font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin: 0;">Are you an AI agent (Claude Code, Codex, etc.)?
+├─ YES → Use --headless flag ALWAYS for ralph prd
+│   └─ <strong>ralph prd "description" --headless</strong>
+│
+└─ NO (human user) → Use default interactive mode
+    ├─ Development/debugging → <strong>ralph prd "description"</strong>
+    └─ Scripting/automation → <strong>ralph prd "description" --headless</strong>
+
+User wants to...
+├─ Install → <strong>ralph install</strong>
+├─ List PRDs → <strong>ralph stream list</strong>
+├─ Check status → <strong>ralph stream status</strong>
+├─ New PRD → <strong>ralph prd "description" --headless</strong>
+├─ Build PRD → <strong>ralph stream build N [iters]</strong>
+├─ Parallel (no worktree) → <strong>ralph stream build 1 5 --no-worktree &amp;</strong>
+├─ Parallel (worktree) → <strong>ralph stream init N &amp;&amp; ralph stream build N 5 &amp;</strong>
+├─ Merge → <strong>ralph stream merge N</strong>
+├─ Check errors → <strong>ralph error RALPH-XXX</strong>
+└─ Dashboard → <strong>ralph ui</strong></pre>
+        </div>
+      </section>
+
+      <!-- Command Patterns -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Common Task Patterns</h2>
+
+        <h3 class="rams-h3">Pattern 1: Quick Single-PRD Build</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build a new feature X"
+# IMPORTANT: Agents must use --headless to avoid nested interaction
+ralph prd "Feature X description" --headless
+# Wait for PRD generation (creates .ralph/PRD-N/prd.md)
+ralph plan
+# Wait for plan generation (creates .ralph/PRD-N/plan.md)
+ralph build 5
+# Monitor output, report completion</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 2: Stream-Based Build (Recommended)</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build feature X using streams"
+# IMPORTANT: Agents must use --headless to avoid nested interaction
+ralph prd "Feature X description" --headless
+# Note the PRD number from output (e.g., "PRD-3")
+ralph stream status
+# Verify PRD created, status shows "ready"
+ralph stream build 3 5
+# Monitor progress, check status periodically</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 3: Parallel Execution (Advanced)</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "Build PRD-1 and PRD-2 in parallel"
+# Option A: Without worktrees (simpler, commits to main)
+ralph stream build 1 5 --no-worktree &amp;
+ralph stream build 2 5 --no-worktree &amp;
+wait  # Wait for both to complete
+
+# Option B: With worktrees (true isolation, requires merge)
+ralph stream init 1
+ralph stream init 2
+ralph stream build 1 5 &amp;
+ralph stream build 2 5 &amp;
+wait
+ralph stream merge 1
+ralph stream merge 2</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Pattern 4: Status Check &amp; Monitoring</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># User: "What's the status of my PRDs?"
+ralph stream status
+# Shows: ready, running, completed, merged, in_progress
+
+# Check specific PRD progress
+cat .ralph/PRD-N/progress.md
+
+# View recent commits
+git log --oneline --grep="PRD-N" -10</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRD Command Modes -->
+      <section class="rams-section">
+        <h2 class="rams-h2">PRD Command Modes</h2>
+
+        <h3 class="rams-h3">Interactive Mode (Default) - For Human Users</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Human running in terminal
+ralph prd "Build a user authentication system with OAuth2"
+
+# Behavior:
+# ✅ Real-time agent thinking and progress
+# ✅ Full terminal interaction preserved
+# ✅ Users see complete output stream</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Headless Mode (Non-Interactive) - For Agents &amp; Automation</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Agent/automation execution (REQUIRED)
+ralph prd "Add dashboard feature" --headless
+
+# Behavior:
+# ✅ Avoids nested agent interaction
+# ✅ Prevents TTY conflicts and deadlocks
+# ✅ Cleaner output parsing
+# ✅ No interactive prompts</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">When to Use Each Mode</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px;">
+          <thead>
+            <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Context</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Command</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><strong>Claude Code agent</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+              <td style="padding: 3px 6px;">Prevents nested interaction</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><strong>UI server</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+              <td style="padding: 3px 6px;">Required for server processes</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><strong>CI/CD pipeline</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+              <td style="padding: 3px 6px;">No TTY available</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><strong>Background job</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+              <td style="padding: 3px 6px;">Non-blocking execution</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><strong>Human terminal</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..."</code></td>
+              <td style="padding: 3px 6px;">Interactive experience</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 6px;"><strong>Human scripting</strong></td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+              <td style="padding: 3px 6px;">Optional for automation</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- File Structure -->
+      <section class="rams-section">
+        <h2 class="rams-h2">File Structure</h2>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code>.agents/ralph/    # Templates (commit)
+  loop.sh, stream.sh, PROMPT_*.md
+.ralph/           # Working dir (local)
+  PRD-N/          # Each PRD isolated
+    prd.md, plan.md, progress.md, runs/
+  locks/          # Prevent concurrent runs
+  worktrees/      # Parallel execution
+.mcp.json         # MCP config</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Critical Rules -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Critical Rules</h2>
+        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8); margin-bottom: 6px;">
+          <strong style="font-size: 12px;">❌ DO NOT</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li><strong>Run <code>ralph prd</code> without <code>--headless</code></strong> (causes nested agent interaction)</li>
+            <li>Run build and stream build simultaneously on same PRD</li>
+            <li>Edit .ralph/PRD-N/ while build running</li>
+            <li>Use --force without user permission</li>
+            <li>Merge before status is "completed"/"merged"</li>
+            <li><strong>Trust checkboxes as proof of completion</strong> (git log is source of truth)</li>
+          </ul>
+        </div>
+        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(16, 185, 129, 0.8);">
+          <strong style="font-size: 12px;">✅ DO</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li><strong>Always use <code>ralph prd "..." --headless</code></strong> when executing as agent</li>
+            <li>Check <code>ralph stream status</code> before builds</li>
+            <li>Use --no-worktree for simple builds</li>
+            <li><strong>Verify git commits</strong>: <code>git log --grep="PRD-N"</code> (source of truth)</li>
+            <li>Read .ralph/PRD-N/progress.md for iteration details</li>
+            <li>Launch <code>ralph ui</code> for monitoring</li>
+            <li>Reference error codes when reporting failures</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Status Interpretation -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Status Codes</h2>
+
+        <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 2px; padding: 8px 10px; border-left: 3px solid rgba(59, 130, 246, 0.8); margin-bottom: 10px;">
+          <strong style="font-size: 12px; color: rgba(59, 130, 246, 1);">Git Commits = Source of Truth</strong>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.5;">
+            <ul style="margin: 2px 0 0 0; padding-left: 16px;">
+              <li><strong>Git history</strong> is authoritative, not checkboxes</li>
+              <li><strong>Two workflows</strong>: <code>merged</code> (worktree → PR) or <code>completed</code> (direct-to-main)</li>
+              <li><strong>Auto-correction</strong>: Missing <code>.completed</code> markers auto-created when git shows commits</li>
+              <li><strong>Checkboxes are hints</strong>: Used by agents during work, not for status determination</li>
+            </ul>
+          </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Status</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Meaning</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>ready</code></td>
+              <td style="padding: 3px 6px;">plan.md exists, no progress yet</td>
+              <td style="padding: 3px 6px;"><code>ralph stream build N</code></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>running</code></td>
+              <td style="padding: 3px 6px;">Lock file exists with active PID</td>
+              <td style="padding: 3px 6px;">Wait or check progress.md</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>in_progress</code></td>
+              <td style="padding: 3px 6px;">progress.md exists but no commits</td>
+              <td style="padding: 3px 6px;">Resume build (work not committed)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>completed</code></td>
+              <td style="padding: 3px 6px;">Commits on main (direct-to-main workflow)</td>
+              <td style="padding: 3px 6px;">Done. Review <code>git log --grep="PRD-N"</code></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>merged</code></td>
+              <td style="padding: 3px 6px;">Branch merged to main (worktree workflow)</td>
+              <td style="padding: 3px 6px;">Done. PR merged</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 6px;"><code>not_found</code></td>
+              <td style="padding: 3px 6px;">PRD directory doesn't exist</td>
+              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="rams-h3">Status Verification Commands</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Check if PRD has commits on main (source of truth)
+git log --oneline --grep="PRD-N"
+
+# Verify specific commits from progress.md
+grep "Commit:" .ralph/PRD-N/progress.md
+
+# Auto-scan and fix all stale status markers
+ralph stream verify-status
+
+# Manually mark as completed (if commits exist on main)
+ralph stream mark-completed N
+
+# Remove completion marker
+ralph stream unmark-completed N</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Common Status Issues</h3>
+        <div style="font-size: 11px; line-height: 1.5;">
+          <ul style="margin: 4px 0; padding-left: 16px;">
+            <li><strong>Checkbox marked but no commits</strong> → Status = "in_progress" (work not committed yet)</li>
+            <li><strong>Commits exist but shows "ready"</strong> → Run <code>ralph stream verify-status</code> to auto-correct</li>
+            <li><strong>Distinguish worktree vs direct builds</strong> → Check for <code>.merged</code> vs <code>.completed</code> marker files</li>
+            <li><strong>Direct-to-main PRD shows wrong status</strong> → <code>get_stream_status()</code> will auto-create <code>.completed</code> marker on first check</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Error Handling -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Error Handling &amp; Issue Creation</h2>
+
+        <div style="background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 2px; padding: 8px 10px; border-left: 3px solid rgba(251, 191, 36, 0.8); margin-bottom: 10px;">
+          <strong style="font-size: 12px; color: rgba(217, 119, 6, 1);">Error Code System</strong>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.5;">
+            Ralph uses standardized error codes (RALPH-XXX) for consistent error handling and automated GitHub issue creation.
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Error Code Categories</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px;">
+          <thead>
+            <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Range</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Category</th>
+              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>001-099</code></td>
+              <td style="padding: 3px 6px;"><strong>CONFIG</strong></td>
+              <td style="padding: 3px 6px;">Configuration errors (missing files, invalid settings)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>100-199</code></td>
+              <td style="padding: 3px 6px;"><strong>PRD</strong></td>
+              <td style="padding: 3px 6px;">PRD/Plan errors (missing stories, malformed documents)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>200-299</code></td>
+              <td style="padding: 3px 6px;"><strong>BUILD</strong></td>
+              <td style="padding: 3px 6px;">Build failures (agent errors, rollback issues)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>300-399</code></td>
+              <td style="padding: 3px 6px;"><strong>GIT</strong></td>
+              <td style="padding: 3px 6px;">Git errors (conflicts, dirty state, diverged branches)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>400-499</code></td>
+              <td style="padding: 3px 6px;"><strong>AGENT</strong></td>
+              <td style="padding: 3px 6px;">Agent errors (fallback exhausted, timeouts)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 3px 6px;"><code>500-599</code></td>
+              <td style="padding: 3px 6px;"><strong>STREAM</strong></td>
+              <td style="padding: 3px 6px;">Stream errors (lock conflicts, worktree issues)</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 6px;"><code>900-999</code></td>
+              <td style="padding: 3px 6px;"><strong>INTERNAL</strong></td>
+              <td style="padding: 3px 6px;">Internal errors (unexpected failures)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="rams-h3">Error Lookup Commands</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Look up specific error
+ralph error RALPH-401
+
+# List all errors
+ralph error --list
+
+# Filter by category
+ralph error --list --category=BUILD
+
+# Show errors that auto-create GitHub issues
+ralph error --list --auto-issue</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Agent Responsibilities During Build Failures</h3>
+        <div style="font-size: 11px; line-height: 1.5;">
+          <ul style="margin: 4px 0; padding-left: 16px;">
+            <li><strong>Reference error codes</strong> when reporting failures</li>
+            <li><strong>Check remediation steps</strong>: <code>ralph error RALPH-XXX</code></li>
+            <li><strong>Include error code</strong> in progress.md updates</li>
+            <li><strong>Follow remediation</strong> before retrying</li>
+          </ul>
+        </div>
+
+        <h3 class="rams-h3">Critical Errors (Auto-Create GitHub Issues)</h3>
+        <div style="font-size: 11px; line-height: 1.5; margin-bottom: 6px;">
+          Agents should create GitHub issues using MCP for these errors:
+        </div>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Create issue via MCP (when RALPH_AUTO_ISSUES=true)
+mcp__github__create_issue({
+  owner: "&lt;repo-owner&gt;",
+  repo: "&lt;repo-name&gt;",
+  title: "[RALPH-XXX] &lt;short description&gt;",
+  body: "&lt;formatted error context&gt;",
+  labels: ["ralph-error", "ralph-&lt;category&gt;"]
+})
+
+# Critical errors that trigger auto-issues:
+# - RALPH-201: Agent command failed
+# - RALPH-202: Rollback failed - manual intervention required
+# - RALPH-401: Agent fallback chain exhausted
+# - RALPH-402: Story selection lock timeout
+# - RALPH-506: PR creation failed</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Issue Creation Requirements</h3>
+        <div style="font-size: 11px; line-height: 1.5;">
+          <strong>Required context in issues:</strong>
+          <ul style="margin: 4px 0; padding-left: 16px;">
+            <li>Error code and message</li>
+            <li>PRD and story being worked on</li>
+            <li>Agent chain tried (if applicable)</li>
+            <li>Last 50 lines of run log</li>
+            <li>Link to error documentation</li>
+          </ul>
+          <strong>Do NOT create issues for:</strong>
+          <ul style="margin: 4px 0; padding-left: 16px;">
+            <li>CONFIG errors (0XX range) - user configuration issues</li>
+            <li>GIT errors (3XX range) - requires manual resolution</li>
+            <li>Transient network errors - should retry</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Troubleshooting -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Quick Troubleshooting</h2>
+
+        <h3 class="rams-h3">Build hangs or fails</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Check if lock exists
+ls -la .ralph/locks/
+
+# Remove stale lock (only if process truly dead)
+rm .ralph/locks/PRD-N.lock
+
+# Check error logs
+cat .ralph/PRD-N/errors.log
+tail -n 50 .ralph/PRD-N/runs/run-*.log</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Status shows wrong state</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Verify status with git history (source of truth)
+git log --all --oneline --grep="PRD-N"
+
+# Auto-fix stale status markers
+ralph stream verify-status
+
+# Manually mark as completed (if commits exist)
+ralph stream mark-completed N</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Merge conflicts</h3>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># If merge fails, check worktree branch
+cd .ralph/worktrees/PRD-N/
+git status
+git diff main
+
+# Return to main repo
+cd ../../..
+
+# User must resolve conflicts manually</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- MCP Integration -->
+      <section class="rams-section">
+        <h2 class="rams-h2">MCP Tools</h2>
+        <div class="rams-code-block">
+          <div class="rams-code-content">
+            <pre><code># Notion
+mcp__notion__API-post-search({ query: "PRD template" })
+
+# Slack
+mcp__slack__slack_post_message({ channel_id: "C123", text: "Build done" })
+
+# GitHub
+mcp__github__create_issue({ owner: "user", repo: "proj", title: "Failed", body: "..." })
+
+# Playwright (disabled by default, enable: .agents/ralph/enable-playwright.sh)
+mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:3000" })</code></pre>
+
+      <!-- UI Testing & Browser Automation -->
+      <section class="rams-section">
+        <h2 class="rams-h2">UI Testing &amp; Browser Automation</h2>
+
+        <h3 class="rams-h3">agent-browser CLI (Recommended)</h3>
+        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(16, 185, 129, 0.8); margin-bottom: 8px;">
+          <strong style="font-size: 12px;">✅ Why agent-browser?</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li>Fast Rust CLI with Node.js fallback</li>
+            <li>AI-optimized: Snapshot + ref workflow (@e1, @e2) for deterministic selection</li>
+            <li>No buggy MCP: Standalone CLI, no server issues</li>
+            <li>Persistent sessions: Isolated browser with cookies/storage</li>
+            <li>JSON output: Machine-readable for agents</li>
+          </ul>
+        </div>
+
+        <div class="rams-code-block">
+          <div class="rams-section-label">Installation</div>
+          <div class="rams-code-content">
+            <pre><code>npm install -g agent-browser
+agent-browser install  # Downloads Chromium</code></pre>
+          </div>
+        </div>
+
+        <div class="rams-code-block">
+          <div class="rams-section-label">Common Commands</div>
+          <div class="rams-code-content">
+            <pre><code># Navigation
+agent-browser open http://localhost:3000
+agent-browser snapshot -i  # Interactive elements only
+agent-browser back
+agent-browser reload
+
+# Interaction
+agent-browser click @e2
+agent-browser fill @e3 "test@example.com"
+agent-browser type @e1 "search query"
+agent-browser press Enter
+
+# Verification
+agent-browser get text @e1
+agent-browser is visible @e2
+agent-browser screenshot --full
+
+# Debug
+agent-browser console
+agent-browser errors
+agent-browser network requests</code></pre>
+          </div>
+        </div>
+
+        <div class="rams-code-block">
+          <div class="rams-section-label">Example: Testing Ralph UI</div>
+          <div class="rams-code-content">
+            <pre><code># 1. Start UI server
+cd ui &amp;&amp; npm run dev
+
+# 2. Navigate and snapshot
+agent-browser open http://localhost:3000
+agent-browser snapshot -i
+
+# 3. Interact with elements
+agent-browser click @e2  # Click PRD-1
+agent-browser get text @e5  # Read story status
+
+# 4. Verify and screenshot
+agent-browser is visible @e3
+agent-browser screenshot --full</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Playwright MCP (Disabled by default)</h3>
+        <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(245, 158, 11, 0.8); margin-bottom: 8px;">
+          <strong style="font-size: 12px;">⚠️ Why Disabled?</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li>Spawns browser windows for each Claude Code session</li>
+            <li>Can cause multiple empty browser windows</li>
+            <li>Enable only when needed for UI testing</li>
+          </ul>
+        </div>
+
+        <div class="rams-code-block">
+          <div class="rams-section-label">Enable/Disable Playwright</div>
+          <div class="rams-code-content">
+            <pre><code># Enable for UI testing session
+.agents/ralph/enable-playwright.sh
+
+# Restart Claude Code to pick up changes
+claude
+
+# Use MCP tools (after enabling)
+mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:3000" })
+mcp__plugin_playwright_playwright__browser_snapshot()
+mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2" })
+
+# Disable when done
+.agents/ralph/disable-playwright.sh</code></pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">UI Testing Checklist</h3>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px; margin-bottom: 8px;">
+          <strong style="font-size: 12px; display: block; margin-bottom: 4px;">7-Step Testing Workflow</strong>
+          <ol style="margin: 2px 0 0 0; padding-left: 18px; font-size: 11px; line-height: 1.6;">
+            <li>Navigate to page: <code>agent-browser open http://localhost:3000</code></li>
+            <li>Take snapshot: <code>agent-browser snapshot -i</code> to see interactive elements</li>
+            <li>Verify visible: <code>agent-browser is visible @e1</code></li>
+            <li>Test interactions: <code>agent-browser click @e2</code>, <code>agent-browser fill @e3 "text"</code></li>
+            <li>Check console: <code>agent-browser console</code> and <code>agent-browser errors</code></li>
+            <li>Validate data: <code>agent-browser get text @e1</code> or <code>agent-browser eval "..."</code></li>
+            <li>Screenshot proof: <code>agent-browser screenshot --full</code></li>
+          </ol>
+        </div>
+
+        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8);">
+          <strong style="font-size: 12px;">❌ CRITICAL: Never Test UI with Just API Calls</strong>
+          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px;">
+            <li>curl or API calls don't verify rendered UI</li>
+            <li>Always use browser automation to test actual page behavior</li>
+            <li>Confirm elements visible, interactive, and functional</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Response Templates -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Response Templates</h2>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 5px 8px; font-size: 11px; margin-bottom: 5px; line-height: 1.5;">
+          <strong>Build complete:</strong><br>
+          ✓ PRD-N: [X] stories, [Y] commits<br>
+          Recent: abc1234 feat(US-001), def5678 feat(US-002)<br>
+          Progress: .ralph/PRD-N/progress.md
+        </div>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 5px 8px; font-size: 11px; line-height: 1.5;">
+          <strong>Status check:</strong><br>
+          • PRD-1: completed (10 commits)<br>
+          • PRD-2: running (on US-003)<br>
+          • PRD-3: ready
+        </div>
+      </section>
+
+      <!-- Quick Reference Card -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Quick Reference</h2>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 10px;">
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Core</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              ralph install<br>ralph prd "..." --headless<br>ralph plan<br>ralph build [N]<br>ralph ui
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Stream</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              ralph stream list<br>ralph stream status<br>ralph stream init N<br>ralph stream build N [i]<br>ralph stream merge N
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Status &amp; Errors</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              ralph error RALPH-XXX<br>ralph stream verify-status<br>ralph stream mark-completed N<br>git log --grep="PRD-N"
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Flags</strong>
+            <div style="font-family: monospace; line-height: 1.5;">
+              --headless (prd)<br>--no-worktree<br>--force<br>--prd=N<br>--agent=claude
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div></div></section></article>
+
+  </main>
+
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

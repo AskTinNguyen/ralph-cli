@@ -10,6 +10,8 @@
     "start": "tsx src/server.ts",
     "start:test": "RALPH_ROOT=./ui/.ralph tsx src/server.ts",
     "build": "tsc",
+    "build:static-docs": "node scripts/build-static-docs.js",
+    "build:docs": "npm run build:static-docs && node scripts/prepare-docs-deployment.js",
     "typecheck": "tsc --noEmit",
     "validate-links": "node validate-links.js"
   },
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "fs-extra": "^11.2.0",
     "jsdom": "^24.1.3",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"

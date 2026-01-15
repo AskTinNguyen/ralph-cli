@@ -1,0 +1,678 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Examples Gallery - Ralph CLI Documentation</title>
+  <meta name="description" content="Real examples of what Ralph CLI has accomplished - completed features, refactors, and improvements from actual production use.">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Examples Gallery - Ralph CLI Documentation"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Examples Gallery - Ralph CLI Documentation"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link active">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Examples Gallery</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Examples Gallery</h1>
+      <p class="rams-lead">Real examples from production use. These PRDs showcase features, refactors, and improvements built autonomously by Ralph CLI in this repository.</p>
+
+      <!-- Filter Pills -->
+      <div class="rams-skill-selector" style="margin-top: var(--rams-space-6);">
+        <span class="rams-label">Filter:</span>
+        <div class="rams-pills">
+          <button class="rams-pill active" data-category="all" onclick="filterExamples('all')">All</button>
+          <button class="rams-pill" data-category="feature" onclick="filterExamples('feature')">Features</button>
+          <button class="rams-pill" data-category="refactor" onclick="filterExamples('refactor')">Refactors</button>
+          <button class="rams-pill" data-category="documentation" onclick="filterExamples('documentation')">Docs</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Examples Grid -->
+    <article class="rams-content" style="max-width: 1200px;">
+      <div class="rams-examples-grid" id="examples-grid">
+
+        <!-- Example 1: Token Dashboard (PRD-9) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-9</div>
+          </div>
+          <h3 class="rams-example-title">Token &amp; Cost Tracking Dashboard</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No visibility into token consumption or costs across autonomous builds. Users couldn't track spending or identify expensive operations.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built comprehensive token tracking dashboard with real-time metrics, cost calculations, budget alerts, model efficiency comparison, and CSV/JSON export capabilities.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">10</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">18</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~4hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/a995b69" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Commits
+            </a>
+            <a href="/tokens.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Live Demo
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 2: Ralph Web UI (PRD-3) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-3</div>
+          </div>
+          <h3 class="rams-example-title">Ralph CLI Web Dashboard</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No visual interface for monitoring builds. Users had to check terminal output and log files manually to track progress across multiple streams.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Created a full web UI with Hono + HTMX: real-time build monitoring, stream status visualization, log viewer, PRD editor, file watcher, and process management.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">15+</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">35+</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~8hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Repository
+            </a>
+            <a href="/" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Dashboard
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 3: Shell Completions (PRD-15) -->
+        <div class="rams-example-card" data-category="feature">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-feature">Feature</div>
+            <div class="rams-example-prd">PRD-15</div>
+          </div>
+          <h3 class="rams-example-title">Shell Completions for Bash/Zsh/Fish</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">Users had to memorize all Ralph commands and flags. Tab completion is a standard developer expectation that improves productivity.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Generated shell completion scripts for Bash, Zsh, and Fish with dynamic PRD number completion, flag completion, and auto-install capability via <code class="rams-code-inline">ralph completions --install</code>.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">6</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/c516b03" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Commits
+            </a>
+            <a href="/docs/commands.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Commands
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 4: Tutorial & Documentation (PRD-36) -->
+        <div class="rams-example-card" data-category="documentation">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-documentation">Documentation</div>
+            <div class="rams-example-prd">PRD-36</div>
+          </div>
+          <h3 class="rams-example-title">Interactive Tutorial &amp; Docs Hub</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">No comprehensive tutorial for new users. Documentation was scattered across README files. Non-technical users found CLI intimidating.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built a warm, welcoming documentation site with step-by-step tutorial, interactive command reference, real examples gallery, and Sofitel-inspired design aesthetic.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">3</span>
+              <span class="rams-metric-label">Iterations</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~3hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Repository
+            </a>
+            <a href="/docs/tutorial.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+              Tutorial
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 5: Risk Assessment (PRD-22) -->
+        <div class="rams-example-card" data-category="refactor">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-refactor">Refactor</div>
+            <div class="rams-example-prd">PRD-22</div>
+          </div>
+          <h3 class="rams-example-title">Risk Assessment Scoring System</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">All stories treated equally regardless of risk. Security-critical changes had no additional safeguards. No way to flag high-risk operations for review.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Implemented risk analysis engine that scores stories based on keywords, file patterns, and scope. Flags high-risk changes for human review before execution.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">8</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/bee3719" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Merge
+            </a>
+            <a href="/docs/commands.html#build" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Learn More
+            </a>
+          </div>
+        </div>
+
+        <!-- Example 6: Smart Context Window (PRD-24) -->
+        <div class="rams-example-card" data-category="refactor">
+          <div class="rams-example-header">
+            <div class="rams-example-category rams-category-refactor">Refactor</div>
+            <div class="rams-example-prd">PRD-24</div>
+          </div>
+          <h3 class="rams-example-title">Smart Context Selection</h3>
+          <div class="rams-example-problem">
+            <div class="rams-example-label">Problem</div>
+            <p class="rams-example-text">Agents had limited context windows. Full PRD/plan consumed most tokens, leaving little room for actual code context. Inefficient use of context budget.</p>
+          </div>
+          <div class="rams-example-solution">
+            <div class="rams-example-label">Solution</div>
+            <p class="rams-example-text">Built intelligent context selector that dynamically chooses the most relevant files per story using relevance scoring, token budgeting, and smart truncation.</p>
+          </div>
+          <div class="rams-example-metrics">
+            <div class="rams-metric">
+              <span class="rams-metric-value">4</span>
+              <span class="rams-metric-label">Stories</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">7</span>
+              <span class="rams-metric-label">Files</span>
+            </div>
+            <div class="rams-metric">
+              <span class="rams-metric-value">~2hrs</span>
+              <span class="rams-metric-label">Saved</span>
+            </div>
+          </div>
+          <div class="rams-example-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/commit/d91b4dd" class="rams-example-link" target="_blank" rel="noopener">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+              </svg>
+              Merge
+            </a>
+            <a href="/docs/tutorial.html" class="rams-example-link rams-example-link-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+              See in Action
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Empty State (hidden by default) -->
+      <div class="rams-empty-state" id="empty-state" style="display: none;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <p class="rams-empty-text">No examples found for this category.</p>
+      </div>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/docs/commands.html" class="rams-page-nav-card rams-page-nav-prev">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Command Reference</div>
+      </a>
+      <a href="/docs/tips.html" class="rams-page-nav-card rams-page-nav-next">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"></path>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Best Practices</div>
+      </a>
+    </nav>
+
+  </main>
+
+  <style>
+    /* ========================================
+       Examples-specific styles
+       ======================================== */
+    .rams-examples-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: var(--rams-space-6);
+      margin-bottom: var(--rams-space-8);
+    }
+
+    .rams-example-card {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-lg);
+      padding: var(--rams-space-6);
+      transition: all var(--rams-transition-normal);
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-4);
+    }
+
+    .rams-example-card:hover {
+      border-color: var(--rams-accent);
+      box-shadow: var(--rams-shadow-lg);
+    }
+
+    .rams-example-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--rams-space-3);
+    }
+
+    .rams-example-category {
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: var(--rams-space-1) var(--rams-space-3);
+      border-radius: 100px;
+    }
+
+    .rams-category-feature {
+      background: rgba(26, 77, 46, 0.08);
+      color: var(--rams-accent);
+    }
+
+    .rams-category-refactor {
+      background: rgba(245, 158, 11, 0.08);
+      color: #D97706;
+    }
+
+    .rams-category-documentation {
+      background: rgba(59, 130, 246, 0.08);
+      color: #2563EB;
+    }
+
+    .rams-example-prd {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      color: var(--rams-gray-500);
+      background: var(--rams-gray-100);
+      padding: var(--rams-space-1) var(--rams-space-3);
+      border-radius: var(--rams-radius-sm);
+    }
+
+    .rams-example-title {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      letter-spacing: var(--rams-tracking-tight);
+      line-height: var(--rams-leading-snug);
+    }
+
+    .rams-example-problem,
+    .rams-example-solution {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-2);
+    }
+
+    .rams-example-label {
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--rams-gray-600);
+    }
+
+    .rams-example-text {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-example-solution {
+      padding: var(--rams-space-3);
+      background: rgba(26, 77, 46, 0.04);
+      border-left: 2px solid var(--rams-accent);
+      border-radius: var(--rams-radius-sm);
+    }
+
+    .rams-example-solution .rams-example-label {
+      color: var(--rams-accent);
+    }
+
+    .rams-example-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--rams-space-4);
+      padding-top: var(--rams-space-4);
+      border-top: var(--rams-border-width) solid var(--rams-border-color);
+    }
+
+    .rams-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--rams-space-1);
+    }
+
+    .rams-metric-value {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-accent);
+      font-family: var(--rams-font-mono);
+      letter-spacing: var(--rams-tracking-tight);
+    }
+
+    .rams-metric-label {
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+      color: var(--rams-gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .rams-example-actions {
+      display: flex;
+      gap: var(--rams-space-3);
+      margin-top: auto;
+    }
+
+    .rams-example-link {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-2) var(--rams-space-4);
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      color: var(--rams-gray-700);
+      text-decoration: none;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-example-link:hover {
+      background: var(--rams-gray-100);
+      border-color: var(--rams-gray-300);
+      color: var(--rams-gray-900);
+    }
+
+    .rams-example-link-primary {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      border-color: var(--rams-accent);
+    }
+
+    .rams-example-link-primary:hover {
+      background: var(--rams-accent-light);
+      border-color: var(--rams-accent-light);
+    }
+
+    .rams-empty-state {
+      text-align: center;
+      padding: var(--rams-space-12) var(--rams-space-6);
+      color: var(--rams-gray-500);
+    }
+
+    .rams-empty-state svg {
+      opacity: 0.3;
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .rams-empty-text {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-600);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1024px) {
+      .rams-examples-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      }
+    }
+
+    @media (max-width: 768px) {
+      .rams-examples-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rams-example-metrics {
+        grid-template-columns: 1fr;
+        gap: var(--rams-space-3);
+      }
+
+      .rams-metric {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+
+      .rams-example-actions {
+        flex-direction: column;
+      }
+    }
+  </style>
+
+  <script>
+    // Filter examples by category
+    function filterExamples(category) {
+      const cards = document.querySelectorAll('.rams-example-card');
+      const emptyState = document.getElementById('empty-state');
+      const pills = document.querySelectorAll('.rams-pill');
+      let visibleCount = 0;
+
+      // Update active pill
+      pills.forEach(pill => {
+        pill.classList.remove('active');
+        if (pill.dataset.category === category) {
+          pill.classList.add('active');
+        }
+      });
+
+      // Filter cards
+      cards.forEach(card => {
+        if (category === 'all' || card.dataset.category === category) {
+          card.style.display = '';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Show/hide empty state
+      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+  </script>
+
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

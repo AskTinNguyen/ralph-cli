@@ -1,0 +1,1918 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Command Reference - Ralph CLI</title>
+  <meta name="description" content="Complete reference for all Ralph CLI commands. Organized by workflow stage with examples and difficulty indicators.">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* Command Reference Specific Styles */
+    .rams-command-grid {
+      display: grid;
+      gap: var(--rams-space-6);
+    }
+
+    .rams-command-card {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-lg);
+      overflow: hidden;
+      transition: all var(--rams-transition-normal);
+    }
+
+    .rams-command-card:hover {
+      border-color: var(--rams-accent);
+      box-shadow: var(--rams-shadow-sm);
+    }
+
+    .rams-command-header {
+      padding: var(--rams-space-6);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      background: var(--rams-gray-50);
+    }
+
+    .rams-command-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--rams-space-2);
+    }
+
+    .rams-command-title {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      letter-spacing: var(--rams-tracking-normal);
+    }
+
+    .rams-difficulty-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-1) var(--rams-space-3);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: var(--rams-radius-sm);
+      border: var(--rams-border-width) solid;
+    }
+
+    .rams-difficulty-badge.beginner {
+      background: rgba(16, 185, 129, 0.1);
+      color: #059669;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .rams-difficulty-badge.intermediate {
+      background: rgba(59, 130, 246, 0.1);
+      color: #2563EB;
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .rams-difficulty-badge.advanced {
+      background: rgba(245, 158, 11, 0.1);
+      color: #D97706;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .rams-command-description {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-command-body {
+      padding: var(--rams-space-6);
+    }
+
+    .rams-command-section {
+      margin-bottom: var(--rams-space-6);
+    }
+
+    .rams-command-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .rams-section-label {
+      display: block;
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--rams-gray-500);
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .rams-flags-list {
+      display: grid;
+      gap: var(--rams-space-3);
+    }
+
+    .rams-flag-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--rams-space-3);
+      align-items: baseline;
+      padding: var(--rams-space-3);
+      background: var(--rams-gray-50);
+      border-radius: var(--rams-radius-sm);
+    }
+
+    .rams-flag-name {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      font-weight: 600;
+      color: var(--rams-accent);
+    }
+
+    .rams-flag-description {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-related-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--rams-space-2);
+    }
+
+    .rams-related-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-1);
+      padding: var(--rams-space-1) var(--rams-space-3);
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+      color: var(--rams-accent);
+      background: rgba(26, 77, 46, 0.04);
+      border: var(--rams-border-width) solid rgba(26, 77, 46, 0.15);
+      border-radius: var(--rams-radius-sm);
+      text-decoration: none;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-related-link:hover {
+      background: rgba(26, 77, 46, 0.1);
+      border-color: var(--rams-accent);
+    }
+
+    .rams-output-description {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+      padding: var(--rams-space-3);
+      background: rgba(26, 77, 46, 0.04);
+      border-left: 3px solid var(--rams-accent);
+      border-radius: var(--rams-radius-sm);
+    }
+
+    .rams-section-divider {
+      margin-bottom: var(--rams-space-8);
+    }
+
+    .rams-section-heading {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-4);
+      margin-bottom: var(--rams-space-6);
+      padding-bottom: var(--rams-space-4);
+      border-bottom: 2px solid var(--rams-border-color);
+    }
+
+    .rams-section-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      border-radius: var(--rams-radius-md);
+    }
+
+    .rams-section-info h2 {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-1);
+      letter-spacing: var(--rams-tracking-tight);
+    }
+
+    .rams-section-info p {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-600);
+    }
+
+    /* Search & Filter Bar */
+    .rams-search-bar {
+      padding: var(--rams-space-6);
+      background: var(--rams-white);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-4);
+    }
+
+    .rams-search-wrapper {
+      position: relative;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .rams-search-icon {
+      position: absolute;
+      left: var(--rams-space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--rams-gray-400);
+      pointer-events: none;
+    }
+
+    .rams-search-input {
+      width: 100%;
+      padding: var(--rams-space-3) var(--rams-space-4) var(--rams-space-3) var(--rams-space-10);
+      font-size: var(--rams-text-base);
+      font-family: var(--rams-font-sans);
+      color: var(--rams-gray-900);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-search-input:focus {
+      outline: none;
+      border-color: var(--rams-accent);
+      box-shadow: 0 0 0 3px rgba(26, 77, 46, 0.1);
+    }
+
+    .rams-filter-pills {
+      display: flex;
+      gap: var(--rams-space-2);
+      flex-wrap: wrap;
+    }
+
+    .rams-filter-pill {
+      padding: var(--rams-space-2) var(--rams-space-4);
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      background: var(--rams-gray-100);
+      color: var(--rams-gray-700);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      cursor: pointer;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-filter-pill:hover {
+      background: var(--rams-gray-200);
+      border-color: var(--rams-gray-300);
+    }
+
+    .rams-filter-pill.active {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      border-color: var(--rams-accent);
+    }
+
+    /* Floating Page Navigation */
+    .rams-page-nav {
+      position: fixed;
+      top: 140px;
+      right: 24px;
+      width: auto;
+      min-width: 160px;
+      max-height: calc(100vh - 180px);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      box-shadow: var(--rams-shadow-sm);
+      z-index: 40;
+      transition: all var(--rams-transition-normal);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .rams-page-nav-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--rams-gray-500);
+      padding: 8px 12px;
+      margin: 0;
+      background: var(--rams-white);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      flex-shrink: 0;
+    }
+
+    .rams-page-nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .rams-page-nav-link {
+      display: block;
+      padding: 6px 8px;
+      font-size: 13px;
+      color: var(--rams-gray-600);
+      text-decoration: none;
+      border-radius: var(--rams-radius-sm);
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-page-nav-link:hover {
+      color: var(--rams-gray-900);
+      background: var(--rams-gray-50);
+    }
+
+    .rams-page-nav-link.active {
+      color: var(--rams-accent);
+      background: rgba(26, 77, 46, 0.06);
+      font-weight: 600;
+    }
+
+    /* Footer */
+    .rams-footer {
+      padding: var(--rams-space-8);
+      text-align: center;
+      border-top: var(--rams-border-width) solid var(--rams-border-color);
+      background: var(--rams-white);
+    }
+
+    .rams-footer-text {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-600);
+    }
+
+    .rams-footer-link {
+      color: var(--rams-accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .rams-footer-link:hover {
+      text-decoration: underline;
+    }
+
+    /* No Results */
+    .rams-no-results {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--rams-space-4);
+      padding: var(--rams-space-12);
+      text-align: center;
+    }
+
+    .rams-no-results-icon {
+      color: var(--rams-gray-400);
+    }
+
+    .rams-no-results h3 {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+    }
+
+    .rams-no-results p {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-600);
+    }
+
+    @media (max-width: 1280px) {
+      .rams-page-nav {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .rams-command-title-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--rams-space-2);
+      }
+
+      .rams-section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+      }
+    }
+  </style>
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Command Reference - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Command Reference - Ralph CLI"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link active">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Commands</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Command Reference</h1>
+      <p class="rams-lead">Complete documentation for all Ralph CLI commands. Search, filter by difficulty, and find examples for every workflow stage.</p>
+    </header>
+
+    <!-- Search & Filter Bar -->
+    <div class="rams-search-bar">
+      <div class="rams-search-wrapper">
+        <svg class="rams-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input type="text" id="command-search" class="rams-search-input" placeholder="Search commands..." autocomplete="off">
+      </div>
+
+      <div class="rams-filter-pills">
+        <button class="rams-filter-pill active" data-filter="all">All Commands</button>
+        <button class="rams-filter-pill" data-filter="beginner">Beginner</button>
+        <button class="rams-filter-pill" data-filter="intermediate">Intermediate</button>
+        <button class="rams-filter-pill" data-filter="advanced">Advanced</button>
+      </div>
+
+    </div>
+
+    <!-- Floating Page Navigation -->
+    <nav class="rams-page-nav" id="page-nav">
+      <div class="rams-page-nav-header">Navigation</div>
+      <ul class="rams-page-nav-list">
+        <li><a href="#setup" class="rams-page-nav-link" data-section="setup">Setup</a></li>
+        <li><a href="#prd" class="rams-page-nav-link" data-section="prd">PRD</a></li>
+        <li><a href="#planning" class="rams-page-nav-link" data-section="planning">Planning</a></li>
+        <li><a href="#building" class="rams-page-nav-link" data-section="building">Building</a></li>
+        <li><a href="#errors" class="rams-page-nav-link" data-section="errors">Error Handling</a></li>
+        <li><a href="#streams" class="rams-page-nav-link cli-only" data-section="streams" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+        <li><a href="#ui-monitoring" class="rams-page-nav-link" data-section="ui-monitoring">UI &amp; Monitoring</a></li>
+      </ul>
+    </nav>
+
+    <!-- Content Area -->
+    <article class="rams-content">
+
+      <!-- No Results Message -->
+      <div class="rams-no-results" id="no-results">
+        <svg class="rams-no-results-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <h3>No commands found</h3>
+        <p>Try adjusting your search or filter criteria</p>
+        <button class="rams-btn rams-btn-secondary" onclick="clearFilters()">Clear Filters</button>
+      </div>
+
+      <!-- Setup Section -->
+      <section class="rams-section-divider" id="setup" data-section="setup">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Setup</h2>
+            <p>Install and configure Ralph CLI</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph install -->
+          <article class="rams-command-card" data-difficulty="beginner" data-keywords="install setup init initialize templates skills project">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph install</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Install Ralph templates and configuration into your project</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph install')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph install [--skills]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--skills</code>
+                    <span class="rams-flag-description">Install optional skills (commit, dev-browser, prd)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'cd my-project &amp;&amp; ralph install\n\n# With optional skills\nralph install --skills')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Basic installation
+cd my-project &amp;&amp; ralph install
+
+# With optional skills
+ralph install --skills</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-prd" class="rams-related-link">ralph prd</a>
+                  <a href="#ralph-plan" class="rams-related-link">ralph plan</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- PRD Section -->
+      <section class="rams-section-divider" id="prd" data-section="prd">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>PRD (Product Requirements)</h2>
+            <p>Create and manage product requirements documents</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph prd -->
+          <article class="rams-command-card" id="ralph-prd" data-difficulty="beginner" data-keywords="prd requirements document generate create write">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph prd</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Generate a Product Requirements Document with support for interactive and headless modes</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd [\" feature="" description\"]="" [--headless]')"="">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph prd ["feature description"] [--headless]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--headless</code>
+                    <span class="rams-flag-description">Run in non-interactive mode for server/UI/background execution (prevents TTY conflicts). Required when called by UI server, CI/CD, or other agents.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Execution Modes</span>
+                <p class="rams-output-description">
+                  <strong>Interactive Mode (default):</strong> Agent runs with full terminal output when a human runs the command in a terminal.<br>
+                  <strong>Headless Mode (--headless):</strong> Agent runs with piped stdin for server/UI/background execution. Use when Claude Code agent executes ralph prd to avoid nested interactions.
+                </p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Human running in terminal (interactive)\nralph prd \" build="" a="" user="" authentication="" system\"\n\n#="" ui="" server="" or="" background="" process="" (headless)\nralph="" prd="" \"add="" dashboard="" feature\"="" --headless\n\n#="" agent="" calling="" ralph="" \"automated="" test="" suite\"="" --headless')"="">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Human running in terminal (interactive)
+ralph prd "Build a user authentication system"
+
+# UI server or background process (headless)
+ralph prd "Add dashboard feature" --headless
+
+# Agent calling ralph (headless)
+ralph prd "Automated test suite" --headless</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Creates a new folder <code class="rams-code-inline">.ralph/PRD-N/prd.md</code> where N auto-increments (PRD-1, PRD-2, etc.)</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-plan" class="rams-related-link">ralph plan</a>
+                  <a href="#ralph-stream-new" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream new</a>
+                  <a href="/docs/agent-guide.html" class="rams-related-link">Agent Guide (AGENTS.md)</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Planning Section -->
+      <section class="rams-section-divider" id="planning" data-section="planning">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Planning</h2>
+            <p>Create implementation plans from your PRD</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph plan -->
+          <article class="rams-command-card" id="ralph-plan" data-difficulty="beginner" data-keywords="plan planning implementation tasks stories breakdown">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph plan</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Generate an implementation plan from your PRD</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph plan')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph plan [--prd &lt;path&gt;] [--plan &lt;path&gt;]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--prd &lt;path&gt;</code>
+                    <span class="rams-flag-description">Path to custom PRD file (default: auto-detected)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--plan &lt;path&gt;</code>
+                    <span class="rams-flag-description">Path to output plan file</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Plan the latest PRD\nralph plan\n\n# Plan a specific PRD\nralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Plan the latest PRD
+ralph plan
+
+# Plan a specific PRD
+ralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Creates <code class="rams-code-inline">.ralph/PRD-N/plan.md</code> with tasks for each user story, including scope, acceptance criteria, and verification commands.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-prd" class="rams-related-link">ralph prd</a>
+                  <a href="#ralph-build" class="rams-related-link">ralph build</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Building Section -->
+      <section class="rams-section-divider" id="building" data-section="building">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Building</h2>
+            <p>Execute your plan and build features</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph build -->
+          <article class="rams-command-card" id="ralph-build" data-difficulty="beginner" data-keywords="build run execute iteration loop agent stories implement">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph build</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Run build iterations to implement your plan</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph build <iterations>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph build &lt;iterations&gt; [options]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">&lt;iterations&gt;</code>
+                    <span class="rams-flag-description">Number of stories to process (required)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--no-commit</code>
+                    <span class="rams-flag-description">Dry run without committing changes</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--prd &lt;N&gt;</code>
+                    <span class="rams-flag-description">Specify which PRD to build (e.g., --prd=1)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--agent &lt;name&gt;</code>
+                    <span class="rams-flag-description">Override agent (claude, codex, droid)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--plan &lt;path&gt;</code>
+                    <span class="rams-flag-description">Path to custom plan file</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--progress &lt;path&gt;</code>
+                    <span class="rams-flag-description">Path to custom progress file</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Run 5 iterations\nralph build 5\n\n# Dry run (no commits)\nralph build 1 --no-commit\n\n# Build specific PRD\nralph build 5 --prd=1\n\n# Use a different agent\nralph build 3 --agent=codex')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Run 5 iterations
+ralph build 5
+
+# Dry run (no commits)
+ralph build 1 --no-commit
+
+# Build specific PRD
+ralph build 5 --prd=1
+
+# Use a different agent
+ralph build 3 --agent=codex</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-plan" class="rams-related-link">ralph plan</a>
+                  <a href="#ralph-stream-build" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream build</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Error Handling Section -->
+      <section class="rams-section-divider" id="errors" data-section="errors">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Error Handling</h2>
+            <p>Look up error codes and remediation steps</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph error -->
+          <article class="rams-command-card" id="ralph-error" data-difficulty="beginner" data-keywords="error code lookup remediation troubleshooting issue debug">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph error</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Look up error codes and view remediation steps</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph error [RALPH-XXX] [options]')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph error [RALPH-XXX] [options]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--list</code>
+                    <span class="rams-flag-description">List all available error codes</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--category &lt;name&gt;</code>
+                    <span class="rams-flag-description">Filter errors by category (CONFIG, PRD, BUILD, GIT, AGENT, STREAM, INTERNAL)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--auto-issue</code>
+                    <span class="rams-flag-description">Show only errors that auto-create GitHub issues</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Look up specific error\nralph error RALPH-401\n\n# List all errors\nralph error --list\n\n# Filter by category\nralph error --list --category=BUILD\n\n# Show auto-issue errors\nralph error --list --auto-issue')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Look up specific error
+ralph error RALPH-401
+
+# List all errors
+ralph error --list
+
+# Filter by category
+ralph error --list --category=BUILD
+
+# Show auto-issue errors
+ralph error --list --auto-issue</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Displays error code, category, description, and remediation steps. Error codes follow pattern RALPH-XXX where range indicates category (001-099: CONFIG, 100-199: PRD, 200-299: BUILD, etc.)</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-build" class="rams-related-link">ralph build</a>
+                  <a href="#ralph-stream-build" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream build</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Streams Section -->
+      <section class="rams-section-divider" id="streams" data-section="streams">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Streams (Parallel Execution)</h2>
+            <p>Work on multiple features simultaneously using git worktrees</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph stream new -->
+          <article class="rams-command-card" id="ralph-stream-new" data-difficulty="intermediate" data-keywords="stream new create prd parallel">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream new</h3>
+                <span class="rams-difficulty-badge intermediate">Intermediate</span>
+              </div>
+              <p class="rams-command-description">Create a new PRD folder for parallel work</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream new')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream new</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Creates a new <code class="rams-code-inline">.ralph/PRD-N/</code> folder where N is the next available number.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-init" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream init</a>
+                  <a href="#ralph-stream-list" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream list</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream list -->
+          <article class="rams-command-card" id="ralph-stream-list" data-difficulty="beginner" data-keywords="stream list show all prds">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream list</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">List all streams with their current status</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream list')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream list</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-status" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream status</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream status -->
+          <article class="rams-command-card" id="ralph-stream-status" data-difficulty="beginner" data-keywords="stream status progress check">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream status</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Show detailed status table for all streams</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream status')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream status</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Displays a table showing each stream's status (ready, running, completed, merged), progress, and worktree state.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-list" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream list</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream init -->
+          <article class="rams-command-card" id="ralph-stream-init" data-difficulty="intermediate" data-keywords="stream init initialize worktree branch isolate">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream init</h3>
+                <span class="rams-difficulty-badge intermediate">Intermediate</span>
+              </div>
+              <p class="rams-command-description">Create an isolated git worktree for a stream</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream init <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream init &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Initialize worktree for PRD-1\nralph stream init 1\n\n# Initialize worktree for PRD-2\nralph stream init 2')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Initialize worktree for PRD-1
+ralph stream init 1
+
+# Initialize worktree for PRD-2
+ralph stream init 2</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Creates a git worktree at <code class="rams-code-inline">.ralph/worktrees/PRD-N/</code> on a new branch <code class="rams-code-inline">ralph/PRD-N</code>.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-build" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream build</a>
+                  <a href="#ralph-stream-cleanup" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream cleanup</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream build -->
+          <article class="rams-command-card" id="ralph-stream-build" data-difficulty="intermediate" data-keywords="stream build run parallel worktree execute">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream build</h3>
+                <span class="rams-difficulty-badge intermediate">Intermediate</span>
+              </div>
+              <p class="rams-command-description">Run build iterations in a stream's worktree</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream build <N> <iterations>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream build &lt;N&gt; &lt;iterations&gt; [options]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">&lt;N&gt;</code>
+                    <span class="rams-flag-description">Stream/PRD number (required)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">&lt;iterations&gt;</code>
+                    <span class="rams-flag-description">Number of stories to process (required)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--no-worktree</code>
+                    <span class="rams-flag-description">Build directly without using worktree</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--force</code>
+                    <span class="rams-flag-description">Force build even if lock exists</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Build PRD-1 with 5 iterations\nralph stream build 1 5\n\n# Build without worktree\nralph stream build 1 5 --no-worktree\n\n# Run two streams in parallel\nralph stream build 1 5 &amp;\nralph stream build 2 5 &amp;\nwait')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Build PRD-1 with 5 iterations
+ralph stream build 1 5
+
+# Build without worktree
+ralph stream build 1 5 --no-worktree
+
+# Run two streams in parallel
+ralph stream build 1 5 &amp;
+ralph stream build 2 5 &amp;
+wait</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-init" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream init</a>
+                  <a href="#ralph-stream-merge" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream merge</a>
+                  <a href="#ralph-build" class="rams-related-link">ralph build</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream merge -->
+          <article class="rams-command-card" id="ralph-stream-merge" data-difficulty="intermediate" data-keywords="stream merge pr pull request integrate main">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream merge</h3>
+                <span class="rams-difficulty-badge intermediate">Intermediate</span>
+              </div>
+              <p class="rams-command-description">Merge a completed stream back to main branch</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream merge <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream merge &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Merge PRD-1 to main\nralph stream merge 1')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Merge PRD-1 to main
+ralph stream merge 1</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-build" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream build</a>
+                  <a href="#ralph-stream-cleanup" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream cleanup</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream cleanup -->
+          <article class="rams-command-card" id="ralph-stream-cleanup" data-difficulty="intermediate" data-keywords="stream cleanup remove delete worktree clean">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream cleanup</h3>
+                <span class="rams-difficulty-badge intermediate">Intermediate</span>
+              </div>
+              <p class="rams-command-description">Remove a stream's worktree after merging</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream cleanup <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream cleanup &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Clean up after merging\nralph stream cleanup 1')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Clean up after merging
+ralph stream cleanup 1</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Removes the worktree at <code class="rams-code-inline">.ralph/worktrees/PRD-N/</code>. The PRD files remain in <code class="rams-code-inline">.ralph/PRD-N/</code>.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-merge" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream merge</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream mark-completed -->
+          <article class="rams-command-card" id="ralph-stream-mark-completed" data-difficulty="advanced" data-keywords="stream mark completed done finish status">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream mark-completed</h3>
+                <span class="rams-difficulty-badge advanced">Advanced</span>
+              </div>
+              <p class="rams-command-description">Manually mark a stream as completed (for direct-to-main builds)</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream mark-completed <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream mark-completed &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-verify-status" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream verify-status</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream unmark-completed -->
+          <article class="rams-command-card" id="ralph-stream-unmark-completed" data-difficulty="advanced" data-keywords="stream unmark remove completion reset status">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream unmark-completed</h3>
+                <span class="rams-difficulty-badge advanced">Advanced</span>
+              </div>
+              <p class="rams-command-description">Remove completion marker from a stream</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream unmark-completed <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream unmark-completed &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Remove completion marker from PRD-1\nralph stream unmark-completed 1')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Remove completion marker from PRD-1
+ralph stream unmark-completed 1</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Removes the <code class="rams-code-inline">.completed</code> marker file, allowing the stream to be resumed or rebuilt.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-mark-completed" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream mark-completed</a>
+                  <a href="#ralph-stream-verify-status" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream verify-status</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- ralph stream verify-status -->
+          <article class="rams-command-card" id="ralph-stream-verify-status" data-difficulty="advanced" data-keywords="stream verify status check fix repair git commits">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream verify-status</h3>
+                <span class="rams-difficulty-badge advanced">Advanced</span>
+              </div>
+              <p class="rams-command-description">Auto-scan git history and fix stale status markers</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream verify-status')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream verify-status</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Checks git history against file markers and auto-creates missing <code class="rams-code-inline">.completed</code> or <code class="rams-code-inline">.merged</code> markers when commits exist. Git commits are the ultimate source of truth for PRD status - checkboxes are only progress markers. Correctly identifies PRDs completed via direct-to-main workflow (no worktree).</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Status Detection</span>
+                <p class="rams-output-description">
+                  <strong>Hierarchy:</strong> running (lock file) → merged (branch merged to main) → completed (commits on main) → in_progress (progress.md exists) → ready (plan.md exists)<br>
+                  <strong>Two workflows:</strong> merged = worktree workflow with PR, completed = direct-to-main workflow
+                </p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-status" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream status</a>
+                  <a href="#ralph-stream-mark-completed" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream mark-completed</a>
+                  <a href="#ralph-stream-unmark-completed" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream unmark-completed</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- UI & Monitoring Section -->
+      <section class="rams-section-divider" id="ui-monitoring" data-section="ui-monitoring">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>UI &amp; Monitoring</h2>
+            <p>Web dashboard and visualization tools</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph ui -->
+          <article class="rams-command-card" id="ralph-ui" data-difficulty="beginner" data-keywords="ui dashboard web server monitor visualize interface">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph ui</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Launch the Ralph web dashboard for monitoring and managing PRDs</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph ui')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph ui</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Starts the web UI server on <strong>http://localhost:3000</strong>. The dashboard provides real-time monitoring of PRD status, progress tracking, activity logs, and interactive controls for managing builds.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Features</span>
+                <p class="rams-output-description">
+                  View all PRDs with live status updates, inspect detailed progress logs, monitor build activity in real-time, create new PRDs via wizard interface, and access comprehensive documentation.
+                </p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-status" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream status</a>
+                  <a href="#ralph-stream-list" class="rams-related-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">ralph stream list</a>
+                  <a href="/docs/" class="rams-related-link">Documentation Home</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </article>
+
+    <!-- Footer -->
+    <footer class="rams-footer">
+      <p class="rams-footer-text">
+        Made with care for developers everywhere.
+        <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-footer-link">Ralph CLI</a> is open source.
+      </p>
+    </footer>
+
+  </main>
+
+  <script>
+    // Copy to clipboard functionality
+    function copyCode(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = button.innerHTML;
+        button.classList.add('copied');
+        button.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Copied
+        `;
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = originalHTML;
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+
+    // Search and filter functionality
+    const searchInput = document.getElementById('command-search');
+    const filterButtons = document.querySelectorAll('.rams-filter-pill');
+    const commandCards = document.querySelectorAll('.rams-command-card');
+    const noResults = document.getElementById('no-results');
+    const sections = document.querySelectorAll('.rams-section-divider');
+
+    let currentFilter = 'all';
+    let searchTerm = '';
+
+    searchInput.addEventListener('input', (e) => {
+      searchTerm = e.target.value.toLowerCase().trim();
+      filterCommands();
+    });
+
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        filterCommands();
+      });
+    });
+
+    function filterCommands() {
+      let visibleCount = 0;
+
+      commandCards.forEach(card => {
+        const keywords = card.dataset.keywords || '';
+        const difficulty = card.dataset.difficulty;
+        const title = card.querySelector('.rams-command-title').textContent.toLowerCase();
+        const description = card.querySelector('.rams-command-description').textContent.toLowerCase();
+
+        // Check search match
+        const searchMatch = !searchTerm ||
+          title.includes(searchTerm) ||
+          description.includes(searchTerm) ||
+          keywords.includes(searchTerm);
+
+        // Check filter match
+        const filterMatch = currentFilter === 'all' || difficulty === currentFilter;
+
+        // Show/hide card
+        const isVisible = searchMatch && filterMatch;
+        card.style.display = isVisible ? '' : 'none';
+
+        if (isVisible) visibleCount++;
+      });
+
+      // Show/hide sections based on visible cards
+      sections.forEach(section => {
+        const visibleCards = Array.from(section.querySelectorAll('.rams-command-card'))
+          .some(card => card.style.display !== 'none');
+        section.style.display = visibleCards ? '' : 'none';
+      });
+
+      // Show no results message
+      noResults.style.display = visibleCount === 0 ? 'flex' : 'none';
+    }
+
+    function clearFilters() {
+      searchInput.value = '';
+      searchTerm = '';
+      currentFilter = 'all';
+      filterButtons.forEach(b => b.classList.remove('active'));
+      filterButtons[0].classList.add('active');
+      filterCommands();
+    }
+
+    // Floating Page Navigation - Active Section Detection
+    const pageNavLinks = document.querySelectorAll('.rams-page-nav-link');
+    const sectionElements = document.querySelectorAll('[data-section]');
+
+    // Smooth scroll for page navigation links
+    pageNavLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href');
+        const target = document.querySelector(targetId);
+        if (target) {
+          // Offset for fixed header
+          const offset = 80;
+          const targetPosition = target.getBoundingClientRect().top + window.scrollY - offset;
+
+          window.scrollTo({
+            top: targetPosition,
+            behavior: 'smooth'
+          });
+        }
+      });
+    });
+
+    // Intersection Observer for active section detection
+    const observerOptions = {
+      root: null,
+      rootMargin: '-100px 0px -66%',
+      threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const sectionId = entry.target.getAttribute('data-section');
+
+          // Remove active class from all links
+          pageNavLinks.forEach(link => link.classList.remove('active'));
+
+          // Add active class to current section link
+          const activeLink = document.querySelector(`.rams-page-nav-link[data-section="${sectionId}"]`);
+          if (activeLink) {
+            activeLink.classList.add('active');
+          }
+        }
+      });
+    }, observerOptions);
+
+    // Observe all sections
+    sectionElements.forEach(section => {
+      observer.observe(section);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Focus search on '/'
+      if (e.key === '/' && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+
+      // Clear search on Escape
+      if (e.key === 'Escape' && document.activeElement === searchInput) {
+        searchInput.blur();
+        if (searchTerm) {
+          clearFilters();
+        }
+      }
+    });
+  </script>
+
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

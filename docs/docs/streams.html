@@ -1,0 +1,774 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Stream Workflows - Ralph CLI Documentation</title>
+  <meta name="description" content="Master parallel execution with Ralph's stream system. Run multiple PRDs simultaneously, safely and efficiently.">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Stream Workflows - Ralph CLI Documentation"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Stream Workflows - Ralph CLI Documentation"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/streams.html" class="rams-nav-link active cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Stream Workflows</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Stream Workflows</h1>
+      <p class="rams-lead">Master parallel execution with Ralph's stream system. Run multiple PRDs simultaneously, safely and efficiently. Each stream operates in complete isolation with built-in safety mechanisms.</p>
+    </header>
+
+    <!-- Content -->
+    <article class="rams-content"><div class="rams-alert rams-alert-warning" style="margin: 32px 0px; padding: 24px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid rgb(245, 158, 11); border-radius: 12px;">
+      <div style="display: flex; gap: 16px; align-items: start;">
+        <div style="font-size: 32px;">⚠️</div>
+        <div>
+          <h3 style="margin: 0 0 12px 0; color: #92400e; font-size: 20px; font-weight: 700;">
+            Stream Features Require CLI Installation
+          </h3>
+          <p style="margin: 0 0 12px 0; color: #78350f; font-size: 16px; line-height: 1.6;">
+            The stream workflow and parallel execution features documented on this page
+            require <strong>Claude Code CLI</strong> and <strong>Ralph CLI</strong> to be installed locally.
+          </p>
+          <p style="margin: 0; color: #78350f; font-size: 14px;">
+            <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener" style="color: #92400e; font-weight: 600; text-decoration: underline;">
+              Install Claude Code CLI →
+            </a>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener" style="color: #92400e; font-weight: 600; text-decoration: underline;">
+              Install Ralph CLI →
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+      <!-- What Are Streams? -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">01</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">What Are Streams?</h2>
+            <p class="rams-subtitle">Understanding parallel execution in Ralph</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <p class="rams-text">Streams allow you to run multiple PRD builds in parallel, each in complete isolation. Think of it like having multiple workbenches in a workshop - each craftsperson can work on their own project simultaneously without interfering with others.</p>
+          </div>
+
+          <div class="rams-info-box">
+            <div class="rams-info-icon">i</div>
+            <div class="rams-info-content">
+              <h4 class="rams-info-title">The Construction Site Analogy</h4>
+              <p class="rams-text">Sequential builds are like having one team finish the foundation, then another team does the framing, then another does the roof. One at a time. Parallel streams are like having separate houses being built at the same time - each crew works independently, uses their own tools, and doesn't interfere with other crews.</p>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Key Benefits</h3>
+            <div class="rams-section">
+              <p class="rams-text"><strong>Speed:</strong> Build multiple PRDs simultaneously instead of waiting for each to complete sequentially. Typical time savings: 40-55%.</p>
+            </div>
+            <div class="rams-section">
+              <p class="rams-text"><strong>Isolation:</strong> Each stream has its own working directory - no file conflicts or state pollution between parallel builds.</p>
+            </div>
+            <div class="rams-section">
+              <p class="rams-text"><strong>Focus:</strong> Organize related work into separate PRDs and build them in parallel for better context and organization.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Architecture -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">02</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Stream Architecture</h2>
+            <p class="rams-subtitle">How streams work internally</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <p class="rams-text">Understanding how streams work internally helps you use them effectively and debug issues when they arise.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Layer 1: Your Repository</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Main Branch</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>main branch - Production code</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Layer 2: Git Branches</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Feature Branches</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>ralph/PRD-1  - Feature branch for PRD 1
+ralph/PRD-2  - Feature branch for PRD 2
+ralph/PRD-3  - Feature branch for PRD 3</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Layer 3: Worktrees (Isolated Working Directories)</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Directory Structure</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>.ralph/worktrees/PRD-1/  - ralph/PRD-1 branch, own files
+.ralph/worktrees/PRD-2/  - ralph/PRD-2 branch, own files
+.ralph/worktrees/PRD-3/  - ralph/PRD-3 branch, own files</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Layer 4: Safety Mechanisms</h3>
+            <p class="rams-text-sm"><strong>Lock Files:</strong> <code class="rams-code-inline">.ralph/locks/PRD-N.lock</code> prevents concurrent builds</p>
+            <p class="rams-text-sm"><strong>Status Validation:</strong> Git merge-base checks and auto-correcting markers</p>
+            <p class="rams-text-sm"><strong>Merge Queue:</strong> Serialized merges to main for conflict prevention</p>
+          </div>
+
+          <div class="rams-info-box">
+            <div class="rams-info-icon">i</div>
+            <div class="rams-info-content">
+              <h4 class="rams-info-title">Key Insight</h4>
+              <p class="rams-text">Each worktree is a complete, independent checkout of your repository on a specific branch. Changes in one worktree don't affect others until merged to main.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Understanding Worktrees -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">03</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Understanding Worktrees</h2>
+            <p class="rams-subtitle">Git's feature for parallel development</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <p class="rams-text">Worktrees are Git's feature for having multiple working directories from the same repository. Ralph uses them to enable parallel builds without conflicts.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Traditional Git Workflow</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Sequential Steps</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>1. git checkout main           # Switch to main branch
+2. git checkout -b feature     # Create feature branch
+3. Work on feature             # Files change in place</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm"><strong>Limitation:</strong> Can only work on one branch at a time. Switching branches changes all your files.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Worktree-Based Workflow</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Parallel Steps</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>1. git worktree add path branch  # Create isolated directory
+2. Multiple directories exist    # Each on different branch
+3. Work in parallel              # No branch switching needed</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm"><strong>Benefit:</strong> Multiple branches checked out simultaneously. Each has its own files.</p>
+          </div>
+
+          <div class="rams-info-box">
+            <div class="rams-info-icon">i</div>
+            <div class="rams-info-content">
+              <h4 class="rams-info-title">The Office Analogy</h4>
+              <p class="rams-text"><strong>Traditional Git:</strong> You have one desk. To work on a different project, you clear your desk and bring out the new project's files. Only one project at a time.</p>
+              <p class="rams-text"><strong>With Worktrees:</strong> You have multiple desks in different rooms. Each desk has a different project set up. You can walk between rooms and work on whichever project you want without disturbing the others.</p>
+            </div>
+          </div>
+
+          <details class="rams-details">
+            <summary class="rams-details-summary">
+              <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              Technical Details: How Git Worktrees Work
+            </summary>
+            <div class="rams-details-content">
+              <p class="rams-text-sm">Git worktrees share the <code class="rams-code-inline">.git</code> repository but have separate working directories:</p>
+              <p class="rams-text-sm"><strong>Shared:</strong> Git object database, commits, branches, history</p>
+              <p class="rams-text-sm"><strong>Isolated:</strong> Working directory files, index (staging area), HEAD pointer</p>
+              <p class="rams-text-sm">This means commits in one worktree are immediately visible in others (shared history), but file changes don't affect others (isolated working directories).</p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- Safety Features -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">04</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Safety Features</h2>
+            <p class="rams-subtitle">Built-in protection mechanisms</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <p class="rams-text">Ralph's stream system includes multiple layers of protection to prevent data loss and conflicts.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Lock Files</h3>
+            <p class="rams-text">Each stream gets a lock file (<code class="rams-code-inline">.ralph/locks/PRD-N.lock</code>) when a build starts. This prevents accidentally running the same PRD twice in parallel.</p>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Lock File Contents</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>12345  # Process ID (PID)</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm"><strong>Created:</strong> When <code class="rams-code-inline">ralph stream build N</code> starts</p>
+            <p class="rams-text-sm"><strong>Validated:</strong> Before each build - checks if PID is still running</p>
+            <p class="rams-text-sm"><strong>Cleaned:</strong> Stale locks (dead PID) are auto-removed</p>
+            <p class="rams-text-sm"><strong>Released:</strong> When build completes or errors</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Status Validation</h3>
+            <p class="rams-text">Ralph cross-checks file markers against Git history to ensure status accuracy. Git is the source of truth, not file markers.</p>
+            <p class="rams-text-sm"><strong>Auto-correction:</strong> Missing <code class="rams-code-inline">.merged</code> markers are created if Git shows merge</p>
+            <p class="rams-text-sm"><strong>Stale detection:</strong> "Ready" status corrected to "merged" when branch is in main</p>
+            <p class="rams-text-sm"><strong>Team sync:</strong> Status accurate across team members using Git history</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Merge Queue</h3>
+            <p class="rams-text">Merges to main are serialized to prevent conflicts. Only one stream can merge at a time.</p>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Merge Queue in Action</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Stream 1 starts merging
+ralph stream merge 1
+# Lock acquired
+
+# Stream 2 tries to merge (waits)
+ralph stream merge 2
+# ⏳ Waiting for merge lock... [5s / 300s]</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm"><strong>Global lock:</strong> <code class="rams-code-inline">.ralph/locks/merge.lock</code> prevents parallel merges</p>
+            <p class="rams-text-sm"><strong>Auto-cleanup:</strong> Stale merge locks removed if process dies</p>
+            <p class="rams-text-sm"><strong>Timeout:</strong> 5-minute max wait, then suggests retry</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Branch Protection</h3>
+            <p class="rams-text">Ralph prevents accidental changes to main/master branches.</p>
+            <p class="rams-text-sm">Direct builds on main/master are blocked. Stream branches follow naming convention: <code class="rams-code-inline">ralph/PRD-N</code>. All work happens on feature branches, merged via PR.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step-by-Step Tutorial -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">05</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Step-by-Step Tutorial</h2>
+            <p class="rams-subtitle">Complete parallel workflow walkthrough</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Scenario: Building Two Features in Parallel</h3>
+            <p class="rams-text">You have two independent features to build:</p>
+            <p class="rams-text-sm"><strong>PRD-1:</strong> Add user authentication</p>
+            <p class="rams-text-sm"><strong>PRD-2:</strong> Add dark mode toggle</p>
+            <p class="rams-text">Since these features don't touch the same files, they can be built in parallel.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 1: Create PRDs for Both Features</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Create first PRD
+ralph prd
+# Edit .ralph/PRD-1/prd.md with auth requirements
+
+# Create second PRD
+ralph prd
+# Edit .ralph/PRD-2/prd.md with dark mode requirements</code></pre>
+              </div>
+            </div>
+            <div class="rams-info-box">
+              <div class="rams-info-icon">i</div>
+              <div class="rams-info-content">
+                <p class="rams-text-sm">Each <code class="rams-code-inline">ralph prd</code> creates a new numbered folder (PRD-1, PRD-2, ...). They're completely independent.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 2: Create Plans for Both PRDs</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Plan PRD-1
+ralph plan --prd=1
+
+# Plan PRD-2
+ralph plan --prd=2</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm">Each plan is saved in its own folder: <code class="rams-code-inline">.ralph/PRD-1/plan.md</code> and <code class="rams-code-inline">.ralph/PRD-2/plan.md</code></p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 3: Initialize Worktrees</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Init worktree for PRD-1
+ralph stream init 1
+# ✓ Created branch ralph/PRD-1
+# ✓ Created worktree at .ralph/worktrees/PRD-1
+
+# Init worktree for PRD-2
+ralph stream init 2
+# ✓ Created branch ralph/PRD-2
+# ✓ Created worktree at .ralph/worktrees/PRD-2</code></pre>
+              </div>
+            </div>
+            <div class="rams-info-box">
+              <div class="rams-info-icon">i</div>
+              <div class="rams-info-content">
+                <h4 class="rams-info-title">What just happened?</h4>
+                <p class="rams-text-sm">Created feature branches: <code class="rams-code-inline">ralph/PRD-1</code> and <code class="rams-code-inline">ralph/PRD-2</code></p>
+                <p class="rams-text-sm">Created separate directories with complete copies of your repo on their own branches</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 4: Build Streams in Parallel</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Terminal 1: Build PRD-1
+ralph stream build 1 5
+
+# Terminal 2: Build PRD-2 (in parallel!)
+ralph stream build 2 5</code></pre>
+              </div>
+            </div>
+            <p class="rams-text">Or run both in background from one terminal:</p>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Start both builds in background
+ralph stream build 1 5 &amp;
+ralph stream build 2 5 &amp;
+
+# Check status while they run
+ralph stream status</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 5: Monitor Progress</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code>ralph stream status
+
+# Example Output:
+# Stream Status:
+#
+# PRD-1 (User Auth)    running  Branch: ralph/PRD-1  Stories: 3/5
+# PRD-2 (Dark Mode)    running  Branch: ralph/PRD-2  Stories: 4/4</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Step 6: Merge Completed Streams</h3>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># PRD-2 finished first - merge it
+ralph stream merge 2
+# ✓ Switched to main branch
+# ✓ Merged ralph/PRD-2 (4 commits)
+# ✓ Pushed to origin/main
+
+# Wait for PRD-1 to finish, then merge
+ralph stream merge 1
+# ✓ Merged ralph/PRD-1 (5 commits)</code></pre>
+              </div>
+            </div>
+            <div class="rams-info-box">
+              <div class="rams-info-icon">i</div>
+              <div class="rams-info-content">
+                <p class="rams-text-sm">You can merge in any order. The merge queue ensures only one merge happens at a time to prevent conflicts.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Merge Strategies -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">06</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Merge Strategies</h2>
+            <p class="rams-subtitle">Handling different merge scenarios</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Fast-Forward Merge (Default)</h3>
+            <p class="rams-text">When your stream branch has no conflicts with main, Git performs a fast-forward merge for the cleanest history.</p>
+            <p class="rams-text-sm">Best for linear progression when main hasn't changed since branch creation.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Three-Way Merge</h3>
+            <p class="rams-text">When main has advanced since your stream started, Git performs a three-way merge, creating a merge commit that preserves both histories.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Handling Merge Conflicts</h3>
+            <p class="rams-text">If two streams modify the same file, you'll get conflicts during merge:</p>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Resolution Steps</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># 1. Merge attempt shows conflict
+ralph stream merge 2
+# ✗ Merge conflict in src/config.ts
+
+# 2. Open conflicted file
+vim src/config.ts
+
+# 3. Resolve conflicts (combine both changes)
+# Remove conflict markers &lt;&lt;&lt;&lt; ==== &gt;&gt;&gt;&gt;
+
+# 4. Complete merge
+git add src/config.ts
+git commit -m "Merge PRD-2: Resolved config conflicts"
+git push origin main</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Conflict Prevention Tips</h3>
+            <p class="rams-text-sm"><strong>Plan ahead:</strong> Group related changes in the same PRD to avoid splitting related file changes</p>
+            <p class="rams-text-sm"><strong>Keep PRDs focused:</strong> Smaller, focused PRDs are less likely to conflict</p>
+            <p class="rams-text-sm"><strong>Merge frequently:</strong> Don't let streams run for days without merging</p>
+            <p class="rams-text-sm"><strong>Merge early:</strong> Merge completed streams immediately to reduce merge base drift</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Performance -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">07</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">Performance Considerations</h2>
+            <p class="rams-subtitle">Optimizing parallel execution</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Sequential vs Parallel: Real Numbers</h3>
+            <p class="rams-text-sm"><strong>2 small PRDs (3 iterations each):</strong> ~20 min sequential → ~12 min parallel (40% faster)</p>
+            <p class="rams-text-sm"><strong>2 medium PRDs (5 iterations each):</strong> ~35 min sequential → ~20 min parallel (43% faster)</p>
+            <p class="rams-text-sm"><strong>3 small PRDs (3 iterations each):</strong> ~30 min sequential → ~15 min parallel (50% faster)</p>
+            <p class="rams-text-sm"><strong>4 small PRDs (3 iterations each):</strong> ~40 min sequential → ~18 min parallel (55% faster)</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Resource Usage</h3>
+            <p class="rams-text-sm"><strong>Disk Space:</strong> ~100-200MB per worktree (depends on repo size)</p>
+            <p class="rams-text-sm"><strong>Memory:</strong> ~500MB RAM per stream (agent processing)</p>
+            <p class="rams-text-sm"><strong>CPU:</strong> Minimal - most time spent waiting for API, not CPU-bound</p>
+            <p class="rams-text-sm"><strong>API Rate Limits:</strong> 4+ parallel streams may hit rate limits - stagger start times</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Optimal Stream Count</h3>
+            <div class="rams-info-box">
+              <div class="rams-info-icon">i</div>
+              <div class="rams-info-content">
+                <h4 class="rams-info-title">Recommended: 2-3 Parallel Streams</h4>
+                <p class="rams-text-sm">Best speed vs complexity trade-off. Manageable on most laptops (4GB+ RAM). Low risk of rate limiting. Easy to monitor and debug.</p>
+              </div>
+            </div>
+            <p class="rams-text-sm"><strong>Advanced (4-5 streams):</strong> Maximum speed but requires 8GB+ RAM and careful monitoring of rate limits.</p>
+            <p class="rams-text-sm"><strong>Not recommended (6+ streams):</strong> Diminishing returns due to rate limits and high memory usage.</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Optimization Tips</h3>
+            <p class="rams-text-sm"><strong>Stagger starts:</strong> Start streams 1-2 minutes apart to avoid API burst</p>
+            <p class="rams-text-sm"><strong>Group by size:</strong> Run small PRDs together, large PRDs separately</p>
+            <p class="rams-text-sm"><strong>Monitor logs:</strong> Check for rate limit errors in <code class="rams-code-inline">.ralph/PRD-N/runs/</code></p>
+            <p class="rams-text-sm"><strong>Clean up:</strong> Run <code class="rams-code-inline">ralph stream cleanup</code> to remove merged worktrees</p>
+            <p class="rams-text-sm"><strong>Time merges:</strong> Merge completed streams immediately to free resources</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- When to Use Streams -->
+      <section class="rams-step">
+        <div class="rams-step-header">
+          <div class="rams-step-number">08</div>
+          <div class="rams-step-info">
+            <h2 class="rams-h2">When to Use Streams</h2>
+            <p class="rams-subtitle">Decision guide for parallel vs sequential</p>
+          </div>
+        </div>
+
+        <div class="rams-step-body">
+          <div class="rams-section">
+            <h3 class="rams-h3">Use Streams When:</h3>
+            <p class="rams-text-sm"><strong>Independent PRDs:</strong> Features touch different files with no overlap</p>
+            <p class="rams-text-sm"><strong>Time-sensitive:</strong> Multiple features needed for same deadline</p>
+            <p class="rams-text-sm"><strong>Exploratory work:</strong> Testing multiple approaches to same problem</p>
+            <p class="rams-text-sm"><strong>Team collaboration:</strong> Different team members working on separate features</p>
+            <p class="rams-text-sm"><strong>Long-running builds:</strong> Each PRD takes 30+ minutes - parallelism saves hours</p>
+            <p class="rams-text-sm"><strong>Clear requirements:</strong> All PRDs well-defined with no dependencies</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Example Scenarios (Good for Streams)</h3>
+            <p class="rams-text-sm">Frontend redesign (PRD-1) + API optimization (PRD-2)</p>
+            <p class="rams-text-sm">New blog feature (PRD-1) + User settings (PRD-2) + Email templates (PRD-3)</p>
+            <p class="rams-text-sm">OAuth integration (PRD-1) + Logging improvements (PRD-2)</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Avoid Streams When:</h3>
+            <p class="rams-text-sm"><strong>Sequential dependencies:</strong> PRD-2 requires PRD-1 to be complete first</p>
+            <p class="rams-text-sm"><strong>Same file edits:</strong> Multiple PRDs modifying the same files (high conflict risk)</p>
+            <p class="rams-text-sm"><strong>Learning Ralph:</strong> New users should master sequential builds first</p>
+            <p class="rams-text-sm"><strong>Quick fixes:</strong> Single small PRD (1-2 iterations) - overhead not worth it</p>
+            <p class="rams-text-sm"><strong>Limited resources:</strong> Low RAM (&lt;4GB) or slow machine</p>
+            <p class="rams-text-sm"><strong>Complex testing:</strong> PRD requires extensive manual testing between iterations</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Example Scenarios (Avoid Streams)</h3>
+            <p class="rams-text-sm">Database schema migration (PRD-1) → ORM updates (PRD-2) → API changes (PRD-3)</p>
+            <p class="rams-text-sm">Configuration refactor touching 20+ files across features</p>
+            <p class="rams-text-sm">Single urgent bug fix</p>
+          </div>
+
+          <div class="rams-section">
+            <h3 class="rams-h3">Hybrid Approach: Batched Streams</h3>
+            <p class="rams-text">For complex projects, combine sequential and parallel execution in batches:</p>
+            <div class="rams-code-block">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Example: 6 PRDs with Dependencies</span>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Batch 1: Foundation (must complete first)
+ralph build 5 --prd=1  # Database schema
+ralph stream merge 1
+
+# Batch 2: Dependent features (parallel after Batch 1)
+ralph stream init 2 &amp;&amp; ralph stream build 2 5 &amp;  # API endpoints
+ralph stream init 3 &amp;&amp; ralph stream build 3 5 &amp;  # Background jobs
+wait
+
+# Merge batch 2
+ralph stream merge 2
+ralph stream merge 3
+
+# Batch 3: UI features (parallel after Batch 2)
+ralph stream init 4 &amp;&amp; ralph stream build 4 5 &amp;  # Admin UI
+ralph stream init 5 &amp;&amp; ralph stream build 5 5 &amp;  # User dashboard
+wait</code></pre>
+              </div>
+            </div>
+            <p class="rams-text-sm">This approach respects dependencies while maximizing parallelism within each batch.</p>
+          </div>
+        </div>
+      </section>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/docs/tips.html" class="rams-page-nav-card rams-page-nav-prev">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Best Practices</div>
+      </a>
+      <a href="/docs/troubleshooting.html" class="rams-page-nav-card rams-page-nav-next">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"></path>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Troubleshooting</div>
+      </a>
+    </nav>
+
+  </main>
+
+  <script>
+    function copyCode(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = button.innerHTML;
+        button.classList.add('copied');
+        button.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Copied
+        `;
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = originalHTML;
+        }, 2000);
+      });
+    }
+  </script>
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

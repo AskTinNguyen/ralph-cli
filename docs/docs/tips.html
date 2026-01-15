@@ -1,0 +1,708 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Tips &amp; Best Practices - Ralph CLI</title>
+  <meta name="description" content="Expert advice, workflow optimization, and best practices for getting the most out of Ralph CLI.">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Tips &amp; Best Practices - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Tips &amp; Best Practices - Ralph CLI"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link active">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Best Practices</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Tips, Tricks &amp; Best Practices</h1>
+      <p class="rams-lead">Curated wisdom from experienced Ralph users to help you work more effectively and avoid common pitfalls.</p>
+    </header>
+
+    <!-- Main Content Area -->
+    <article class="rams-content">
+
+      <!-- Pro Tips Section -->
+      <section id="pro-tips" class="rams-section">
+        <h2 class="rams-h2">Pro Tips</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Actionable advice to level up your Ralph workflow.</p>
+
+        <!-- Tip: Detailed PRD -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">1</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Start with a Detailed PRD</h3>
+            <p class="rams-text">The more specific your PRD, the better Ralph performs. Include concrete acceptance criteria with measurable outcomes rather than vague goals.</p>
+            <div style="margin-top: var(--rams-space-4); padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+              <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Example</div>
+              <p class="rams-text-sm"><strong style="color: var(--rams-success);">Better:</strong> "Add user authentication with email/password, JWT tokens, and session expiry of 24 hours"</p>
+              <p class="rams-text-sm" style="margin-top: var(--rams-space-2);"><strong style="color: var(--rams-error);">Worse:</strong> "Add login feature"</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip: Use Streams -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">2</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Use Streams for Independent Features</h3>
+            <p class="rams-text">When you have multiple PRDs that touch different parts of your codebase, run them in parallel using streams. This can speed up development by 3-4x.</p>
+            <div style="margin-top: var(--rams-space-4); padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+              <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Use Case</div>
+              <p class="rams-text-sm">Run frontend redesign (PRD-1) and backend API refactor (PRD-2) simultaneously since they touch different files.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip: Keep Stories Small -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">3</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Keep Stories Small and Focused</h3>
+            <p class="rams-text">Break large features into user stories that can be completed in 1-3 build iterations. Smaller stories are easier to verify and debug.</p>
+            <div style="margin-top: var(--rams-space-4); padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+              <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Example Breakdown</div>
+              <p class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Instead of "Implement complete user management", split into:</p>
+              <ul style="list-style: none; padding-left: 0;">
+                <li class="rams-text-sm" style="margin-bottom: var(--rams-space-1);">• US-001: User registration endpoint</li>
+                <li class="rams-text-sm" style="margin-bottom: var(--rams-space-1);">• US-002: Login with JWT</li>
+                <li class="rams-text-sm" style="margin-bottom: var(--rams-space-1);">• US-003: Password reset flow</li>
+                <li class="rams-text-sm">• US-004: Profile update endpoint</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip: Review Progress Logs -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">4</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Review Progress Logs After Each Run</h3>
+            <p class="rams-text">The progress.md file documents what was implemented and what was learned. Review it after each run to understand what Ralph accomplished and catch any issues early.</p>
+          </div>
+        </div>
+
+        <!-- Tip: Verification Commands -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">5</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Specify Verification Commands in Acceptance Criteria</h3>
+            <p class="rams-text">Include exact commands Ralph should run to verify the story is complete. This ensures consistent quality and makes debugging easier.</p>
+            <div style="margin-top: var(--rams-space-4); padding: var(--rams-space-4); background: var(--rams-gray-900); border-radius: var(--rams-radius-sm);">
+              <pre style="margin: 0; font-family: var(--rams-font-mono); font-size: var(--rams-text-sm); line-height: 1.6; color: #E5E5E5;">- [ ] Tests pass: npm test -- user.test.ts
+- [ ] Build succeeds: npm run build
+- [ ] No type errors: npx tsc --noEmit</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip: Dry Runs -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">6</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Use Dry Runs to Preview Changes</h3>
+            <p class="rams-text">Test your PRD and plan with <code class="rams-code-inline">ralph build 1 --no-commit</code> to see what Ralph will do without committing changes. Great for validating your story structure.</p>
+          </div>
+        </div>
+
+        <!-- Tip: Descriptive Story IDs -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">7</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Use Descriptive Story IDs</h3>
+            <p class="rams-text">Story IDs like US-001, US-002 make it easy to track work in git commits and progress logs. They also help when multiple team members are working on the same project.</p>
+          </div>
+        </div>
+
+        <!-- Tip: More Iterations -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">8</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Start with More Iterations Than You Think</h3>
+            <p class="rams-text">It's better to run <code class="rams-code-inline">ralph build 10</code> and finish early than run <code class="rams-code-inline">ralph build 3</code> and need to restart. Unused iterations don't cost anything.</p>
+          </div>
+        </div>
+
+        <!-- Tip: MCP Servers -->
+        <div class="rams-info-box" style="margin-bottom: var(--rams-space-6);">
+          <div class="rams-info-icon">9</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Leverage MCP Servers for Context</h3>
+            <p class="rams-text">Connect Ralph to Notion, Slack, or GitHub via MCP servers to pull in requirements, post updates, or search existing code. This reduces manual context switching.</p>
+          </div>
+        </div>
+
+        <!-- Tip: Stream Status -->
+        <div class="rams-info-box">
+          <div class="rams-info-icon">10</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Check Stream Status Before Merging</h3>
+            <p class="rams-text">Always run <code class="rams-code-inline">ralph stream status</code> before merging to verify the build completed successfully and there are no lock conflicts.</p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Common Mistakes Section -->
+      <section id="common-mistakes" class="rams-section" style="margin-top: var(--rams-space-12);">
+        <h2 class="rams-h2">Common Mistakes &amp; How to Fix Them</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Learn from others' experiences and avoid these pitfalls.</p>
+
+        <!-- Mistake: Vague Criteria -->
+        <details class="rams-details" style="margin-bottom: var(--rams-space-4);">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #1: Vague Acceptance Criteria
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">Writing acceptance criteria like "Feature works correctly" or "Code is clean" doesn't give Ralph clear targets.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Use specific, testable criteria with measurable outcomes:</p>
+              <ul style="margin-top: var(--rams-space-2); padding-left: var(--rams-space-5);">
+                <li class="rams-text-sm">API returns 200 status for valid requests</li>
+                <li class="rams-text-sm">Response time is under 500ms</li>
+                <li class="rams-text-sm">All unit tests pass</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- Mistake: Concurrent Streams -->
+        <details class="rams-details" style="margin-bottom: var(--rams-space-4);">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #2: Running Streams Concurrently on Same Files
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">Starting two streams that modify the same files creates merge conflicts.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Use <code class="rams-code-inline">ralph stream status</code> to check which files are being modified, or run sequential builds instead of streams.</p>
+              <div style="margin-top: var(--rams-space-3); padding: var(--rams-space-3); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+                <p class="rams-text-sm" style="color: var(--rams-success);">Safe: PRD-1 (frontend) + PRD-2 (backend) in parallel</p>
+                <p class="rams-text-sm" style="color: var(--rams-error); margin-top: var(--rams-space-1);">Unsafe: PRD-1 (user auth) + PRD-2 (user profile) - both touch user.ts</p>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Mistake: Not Reading Guardrails -->
+        <details class="rams-details" style="margin-bottom: var(--rams-space-4);">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #3: Not Reading Guardrails Before Building
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">Repeating the same errors that were already documented in guardrails.md.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Ralph reads guardrails automatically, but you should review them before writing your PRD to avoid known issues.</p>
+            </div>
+          </div>
+        </details>
+
+        <!-- Mistake: Overwriting Plans -->
+        <details class="rams-details" style="margin-bottom: var(--rams-space-4);">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #4: Overwriting Plans by Running ralph plan Multiple Times
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">In older versions, running <code class="rams-code-inline">ralph plan</code> again would overwrite your existing plan.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Current version auto-increments to PRD-N folders. Each <code class="rams-code-inline">ralph plan</code> creates a new isolated plan.</p>
+            </div>
+          </div>
+        </details>
+
+        <!-- Mistake: Too Many Stories -->
+        <details class="rams-details" style="margin-bottom: var(--rams-space-4);">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #5: Too Many Stories in One PRD
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">Creating a PRD with 20+ stories makes it hard to track progress and increases the chance of merge conflicts.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Split large initiatives into multiple PRDs (3-7 stories each) and run them sequentially or as independent streams.</p>
+            </div>
+          </div>
+        </details>
+
+        <!-- Mistake: Skipping Browser Testing -->
+        <details class="rams-details">
+          <summary class="rams-details-summary">
+            <svg class="rams-details-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4M12 16h.01"></path>
+            </svg>
+            Mistake #6: Skipping Browser Testing for UI Changes
+          </summary>
+          <div class="rams-details-content">
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Problem</strong>
+              <p class="rams-text-sm">Testing UI features with curl or API calls doesn't catch rendering issues.</p>
+            </div>
+            <div class="rams-trouble-item">
+              <strong class="rams-trouble-title">Fix</strong>
+              <p class="rams-text-sm">Use the chromemcp MCP server for browser automation. Include browser verification commands in your acceptance criteria.</p>
+            </div>
+          </div>
+        </details>
+
+      </section>
+
+      <!-- Workflow Optimization Section -->
+      <section id="workflow-optimization" class="rams-section" style="margin-top: var(--rams-space-12);">
+        <h2 class="rams-h2">Workflow Optimization</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Choose the right approach for your situation.</p>
+
+        <!-- When to Use Streams -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">When to Use Streams vs Sequential Builds</h3>
+
+          <!-- Decision Tree -->
+          <div style="padding: var(--rams-space-5); background: var(--rams-gray-50); border-radius: var(--rams-radius-md); margin: var(--rams-space-5) 0;">
+            <div style="padding: var(--rams-space-4); background: var(--rams-white); border-radius: var(--rams-radius-sm); margin-bottom: var(--rams-space-3); border-left: 2px solid var(--rams-accent);">
+              <strong style="font-size: var(--rams-text-sm);">Question:</strong> Do you have multiple PRDs to implement?
+            </div>
+            <div style="text-align: center; color: var(--rams-gray-500); margin: var(--rams-space-2) 0; font-size: var(--rams-text-sm);">↓ Yes</div>
+            <div style="padding: var(--rams-space-4); background: var(--rams-white); border-radius: var(--rams-radius-sm); margin-bottom: var(--rams-space-3); border-left: 2px solid var(--rams-accent);">
+              <strong style="font-size: var(--rams-text-sm);">Question:</strong> Do the PRDs modify different files/components?
+            </div>
+            <div style="text-align: center; color: var(--rams-gray-500); margin: var(--rams-space-2) 0; font-size: var(--rams-text-sm);">↓ Yes</div>
+            <div style="padding: var(--rams-space-4); background: rgba(16, 185, 129, 0.08); border-radius: var(--rams-radius-sm); margin-bottom: var(--rams-space-3); border-left: 2px solid var(--rams-success);">
+              <strong style="color: var(--rams-success); font-size: var(--rams-text-sm);">Use Streams:</strong> <code class="rams-code-inline">ralph stream init N &amp;&amp; ralph stream build N 5</code>
+            </div>
+            <div style="text-align: center; color: var(--rams-gray-500); margin: var(--rams-space-2) 0; font-size: var(--rams-text-sm);">↓ No (same files)</div>
+            <div style="padding: var(--rams-space-4); background: rgba(245, 158, 11, 0.08); border-radius: var(--rams-radius-sm); border-left: 2px solid var(--rams-warning);">
+              <strong style="color: var(--rams-warning); font-size: var(--rams-text-sm);">Use Sequential:</strong> <code class="rams-code-inline">ralph build 5 --prd=1</code> then <code class="rams-code-inline">ralph build 5 --prd=2</code>
+            </div>
+          </div>
+
+          <h4 class="rams-h3" style="font-size: var(--rams-text-base); margin-top: var(--rams-space-6);">Stream Benefits:</h4>
+          <ul style="padding-left: var(--rams-space-5); margin: var(--rams-space-3) 0;">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">3-4x faster for independent PRDs</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Isolated git worktrees prevent conflicts</li>
+            <li class="rams-text-sm">Can merge PRDs in any order</li>
+          </ul>
+
+          <h4 class="rams-h3" style="font-size: var(--rams-text-base); margin-top: var(--rams-space-5);">Stream Drawbacks:</h4>
+          <ul style="padding-left: var(--rams-space-5); margin: var(--rams-space-3) 0;">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Requires more disk space (separate worktrees)</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Merge conflicts if PRDs overlap</li>
+            <li class="rams-text-sm">More complex to debug</li>
+          </ul>
+        </div>
+
+        <!-- Optimal Iteration Sizing -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Optimal Iteration Sizing</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-4);">The number of iterations depends on story complexity:</p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-3);"><strong>Simple stories (1-2 files):</strong> 3-5 iterations</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-3);"><strong>Medium stories (multiple files, some tests):</strong> 5-10 iterations</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-3);"><strong>Complex stories (architecture changes, integrations):</strong> 10-15 iterations</li>
+          </ul>
+          <p class="rams-text-sm" style="margin-top: var(--rams-space-4); color: var(--rams-gray-600);">Ralph will stop early if the story completes before max iterations, so err on the side of more.</p>
+        </div>
+
+        <!-- Team Collaboration -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Team Collaboration Strategies</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);"><strong>For teams:</strong></p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Each developer creates their own PRD-N folder</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Use descriptive commit messages with PRD and story IDs</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Review progress.md before merging to understand changes</li>
+            <li class="rams-text-sm">Use <code class="rams-code-inline">ralph stream status</code> to see who's working on what</li>
+          </ul>
+        </div>
+
+        <!-- CI/CD Integration -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6);">
+          <h3 class="rams-h3">CI/CD Integration</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-4);">Run Ralph in CI/CD pipelines for automated PRD execution:</p>
+
+          <div class="rams-code-block">
+            <div class="rams-code-header">
+              <span class="rams-code-label">GitHub Actions Example</span>
+            </div>
+            <div class="rams-code-content">
+              <pre><code>- name: Run Ralph Build
+  run: |
+    ralph build 5 --prd=${{ github.event.inputs.prd_number }}
+    git push origin main</code></pre>
+            </div>
+          </div>
+
+          <p class="rams-text" style="margin-top: var(--rams-space-4); margin-bottom: var(--rams-space-2);"><strong>Use cases:</strong></p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Nightly builds of pending PRDs</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Automated refactoring tasks</li>
+            <li class="rams-text-sm">Documentation updates</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <!-- PRD Writing Best Practices Section -->
+      <section id="prd-writing" class="rams-section" style="margin-top: var(--rams-space-12);">
+        <h2 class="rams-h2">PRD Writing Best Practices</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Craft PRDs that lead to successful implementations.</p>
+
+        <!-- Structure Your PRD -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Structure Your PRD Effectively</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);">A well-structured PRD should include:</p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Overview:</strong> High-level description of what you're building and why</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>User Stories:</strong> Specific features broken into implementable chunks</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Acceptance Criteria:</strong> Measurable outcomes for each story</li>
+            <li class="rams-text-sm"><strong>Technical Considerations:</strong> Architecture notes, dependencies, constraints</li>
+          </ul>
+        </div>
+
+        <!-- Good vs Bad User Stories -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Good vs Bad User Stories</h3>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--rams-space-5); margin-top: var(--rams-space-5);">
+            <!-- Good Story -->
+            <div style="padding: var(--rams-space-5); background: rgba(16, 185, 129, 0.04); border: var(--rams-border-width) solid rgba(16, 185, 129, 0.2); border-radius: var(--rams-radius-md);">
+              <div style="font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-success); margin-bottom: var(--rams-space-3);">Good Story</div>
+              <h4 style="font-size: var(--rams-text-base); font-weight: 600; margin-bottom: var(--rams-space-3);">US-001: User Registration API</h4>
+              <p class="rams-text-sm" style="margin-bottom: var(--rams-space-3);"><strong>As a</strong> mobile app developer<br>
+              <strong>I want</strong> a POST /api/register endpoint<br>
+              <strong>So that</strong> users can create accounts</p>
+              <p class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Acceptance Criteria:</strong></p>
+              <ul style="padding-left: var(--rams-space-5); font-size: var(--rams-text-xs);">
+                <li style="margin-bottom: var(--rams-space-1);">Accepts email and password in request body</li>
+                <li style="margin-bottom: var(--rams-space-1);">Returns 201 status with user ID and JWT token</li>
+                <li style="margin-bottom: var(--rams-space-1);">Returns 400 for invalid email format</li>
+                <li style="margin-bottom: var(--rams-space-1);">Returns 409 for duplicate email</li>
+                <li>Passwords are hashed with bcrypt</li>
+              </ul>
+            </div>
+
+            <!-- Bad Story -->
+            <div style="padding: var(--rams-space-5); background: rgba(239, 68, 68, 0.04); border: var(--rams-border-width) solid rgba(239, 68, 68, 0.2); border-radius: var(--rams-radius-md);">
+              <div style="font-size: var(--rams-text-sm); font-weight: 600; color: var(--rams-error); margin-bottom: var(--rams-space-3);">Bad Story</div>
+              <h4 style="font-size: var(--rams-text-base); font-weight: 600; margin-bottom: var(--rams-space-3);">US-001: Add User System</h4>
+              <p class="rams-text-sm" style="margin-bottom: var(--rams-space-3);"><strong>As a</strong> user<br>
+              <strong>I want</strong> to use the app<br>
+              <strong>So that</strong> I can do things</p>
+              <p class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Acceptance Criteria:</strong></p>
+              <ul style="padding-left: var(--rams-space-5); font-size: var(--rams-text-xs);">
+                <li style="margin-bottom: var(--rams-space-1);">Users can register</li>
+                <li style="margin-bottom: var(--rams-space-1);">Users can login</li>
+                <li>It works correctly</li>
+              </ul>
+            </div>
+          </div>
+
+          <p class="rams-text" style="margin-top: var(--rams-space-5); margin-bottom: var(--rams-space-2);"><strong>Key differences:</strong></p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Good story has specific persona (mobile app developer)</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Good story defines exact API contract</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Good story has testable, measurable criteria</li>
+            <li class="rams-text-sm">Bad story is too vague and broad</li>
+          </ul>
+        </div>
+
+        <!-- Include Context and Constraints -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Include Context and Constraints</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);">Help Ralph make better decisions by including:</p>
+          <ul style="padding-left: var(--rams-space-5);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Existing architecture:</strong> "Use the existing AuthService pattern"</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Technology choices:</strong> "Use Hono for the API, not Express"</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);"><strong>Performance requirements:</strong> "API response time must be under 200ms"</li>
+            <li class="rams-text-sm"><strong>Security considerations:</strong> "Follow OWASP best practices for input validation"</li>
+          </ul>
+        </div>
+
+        <!-- Order Stories by Dependency -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6);">
+          <h3 class="rams-h3">Order Stories by Dependency</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-4);">Sequence stories so each builds on the previous:</p>
+
+          <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+            <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Good order</div>
+            <ol style="padding-left: var(--rams-space-5);">
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">US-001: Database schema and models</li>
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">US-002: API endpoints</li>
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">US-003: Frontend components</li>
+              <li class="rams-text-sm">US-004: Integration tests</li>
+            </ol>
+          </div>
+
+          <p class="rams-text-sm" style="margin-top: var(--rams-space-4); color: var(--rams-gray-600);">This prevents Ralph from trying to build components before their dependencies exist.</p>
+        </div>
+
+      </section>
+
+      <!-- Integration Patterns Section -->
+      <section id="integration-patterns" class="rams-section" style="margin-top: var(--rams-space-12);">
+        <h2 class="rams-h2">Integration Patterns</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Connect Ralph to your existing tools and workflows.</p>
+
+        <!-- Git Hooks -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Git Hooks for Automated PRD Updates</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-4);">Use git hooks to keep PRD status synchronized with your repository:</p>
+
+          <div class="rams-code-block">
+            <div class="rams-code-header">
+              <span class="rams-code-label">post-commit hook (.git/hooks/post-commit)</span>
+            </div>
+            <div class="rams-code-content">
+              <pre><code>#!/bin/bash
+# Auto-update PRD status after commit
+if git log -1 --pretty=%B | grep -q "PRD-"; then
+  echo "PRD commit detected, updating status..."
+  ralph stream verify-status
+fi</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notion Integration -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Notion Integration for Requirements</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);">Pull requirements directly from Notion databases:</p>
+          <ul style="padding-left: var(--rams-space-5); margin-bottom: var(--rams-space-4);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Store user stories in a Notion database</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Use the Notion MCP server to fetch stories</li>
+            <li class="rams-text-sm">Generate PRD content from Notion properties</li>
+          </ul>
+
+          <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+            <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Setup</div>
+            <ol style="padding-left: var(--rams-space-5);">
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Add <code class="rams-code-inline">NOTION_API_KEY</code> to your environment</li>
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Configure Notion database ID in your PRD</li>
+              <li class="rams-text-sm">Ralph can read stories during planning phase</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Slack Notifications -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">Slack Notifications for Build Updates</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-4);">Get real-time updates when builds complete:</p>
+
+          <div class="rams-code-block">
+            <div class="rams-code-header">
+              <span class="rams-code-label">Custom skill (skills/notify/skill.sh)</span>
+            </div>
+            <div class="rams-code-content">
+              <pre><code># Post to Slack when build completes
+curl -X POST $SLACK_WEBHOOK_URL \
+  -d "{ \"text\": \"PRD-$PRD_NUM build completed!\" }"</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- GitHub Issues Integration -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6); margin-bottom: var(--rams-space-6);">
+          <h3 class="rams-h3">GitHub Issues Integration</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);">Sync Ralph stories with GitHub Issues:</p>
+          <ul style="padding-left: var(--rams-space-5); margin-bottom: var(--rams-space-4);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Create GitHub issues from PRD user stories</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Link commits to issues using issue numbers</li>
+            <li class="rams-text-sm">Auto-close issues when stories complete</li>
+          </ul>
+
+          <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+            <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Commit message format</div>
+            <code class="rams-code-inline" style="display: block; padding: var(--rams-space-3);">feat(PRD-1): US-003 - Add user dashboard (fixes #42)</code>
+          </div>
+        </div>
+
+        <!-- Monorepo Strategy -->
+        <div style="background: var(--rams-white); border: var(--rams-border-width) solid var(--rams-border-color); border-radius: var(--rams-radius-lg); padding: var(--rams-space-6);">
+          <h3 class="rams-h3">Monorepo Strategy</h3>
+          <p class="rams-text" style="margin-bottom: var(--rams-space-3);">Use Ralph in monorepos by scoping PRDs to specific packages:</p>
+          <ul style="padding-left: var(--rams-space-5); margin-bottom: var(--rams-space-4);">
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Create separate .ralph directories per package</li>
+            <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Or use path prefixes in story descriptions</li>
+            <li class="rams-text-sm">Run builds with package-specific test commands</li>
+          </ul>
+
+          <div style="padding: var(--rams-space-4); background: var(--rams-gray-50); border-radius: var(--rams-radius-sm);">
+            <div style="font-size: var(--rams-text-xs); font-weight: 600; color: var(--rams-gray-600); margin-bottom: var(--rams-space-2); text-transform: uppercase; letter-spacing: 0.05em;">Package-scoped PRD</div>
+            <code class="rams-code-inline" style="display: block; margin-bottom: var(--rams-space-1);">packages/api/.ralph/PRD-1/prd.md</code>
+            <code class="rams-code-inline" style="display: block;">packages/web/.ralph/PRD-2/prd.md</code>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Community Tips Section -->
+      <section id="community-tips" class="rams-section" style="margin-top: var(--rams-space-12); margin-bottom: var(--rams-space-12);">
+        <h2 class="rams-h2">Community-Contributed Tips</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6); color: var(--rams-gray-600);">Wisdom shared by the Ralph community.</p>
+
+        <div class="rams-info-box">
+          <div class="rams-info-icon">i</div>
+          <div class="rams-info-content">
+            <h3 class="rams-info-title">Share Your Tips</h3>
+            <p class="rams-text" style="margin-bottom: var(--rams-space-3);">Have a tip that helped you? Share it with the community:</p>
+            <ul style="padding-left: var(--rams-space-5); margin-bottom: var(--rams-space-5);">
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Open a GitHub issue with the "tip" label</li>
+              <li class="rams-text-sm" style="margin-bottom: var(--rams-space-2);">Submit a PR to add your tip to this page</li>
+              <li class="rams-text-sm">Share in discussions and help others learn</li>
+            </ul>
+            <div style="text-align: center;">
+              <a href="https://github.com/AskTinNguyen/ralph-cli/issues/new?labels=tip" class="rams-btn rams-btn-secondary" target="_blank" rel="noopener">Share a Tip</a>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/docs/examples.html" class="rams-page-nav-card rams-page-nav-prev">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Examples Gallery</div>
+      </a>
+      <a href="/streams.html" class="rams-page-nav-card rams-page-nav-next cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"></path>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Stream Workflows</div>
+      </a>
+    </nav>
+
+  </main>
+
+  <style>
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      /* Make good/bad story comparison stack vertically */
+      [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>

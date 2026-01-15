@@ -34,3 +34,6 @@ skills/dev-browser/profiles/
 skills/dev-browser/tmp/
 .playwright-mcp/
 __pycache__/
+
+# UI test screenshots
+ralph-ui-*.png

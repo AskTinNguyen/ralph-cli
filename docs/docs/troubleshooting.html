@@ -1,0 +1,1126 @@
+<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Troubleshooting &amp; FAQ - Ralph CLI</title>
+  <meta name="description" content="Common issues, solutions, and troubleshooting guides for Ralph CLI">
+
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* ========================================
+       Troubleshooting-Specific Styles
+       ======================================== */
+
+    /* Search Box */
+    .rams-search-box {
+      position: sticky;
+      top: var(--rams-topbar-height);
+      z-index: 40;
+      background: var(--rams-white);
+      padding: var(--rams-space-6) var(--rams-space-8);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      margin-bottom: var(--rams-space-8);
+    }
+
+    .rams-search-input {
+      width: 100%;
+      padding: var(--rams-space-4);
+      font-size: var(--rams-text-base);
+      font-family: var(--rams-font-sans);
+      color: var(--rams-gray-900);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-search-input:focus {
+      outline: none;
+      border-color: var(--rams-accent);
+      box-shadow: 0 0 0 3px rgba(26, 77, 46, 0.1);
+    }
+
+    .rams-search-input::placeholder {
+      color: var(--rams-gray-500);
+    }
+
+    /* Quick Jump TOC */
+    .rams-toc {
+      background: var(--rams-gray-50);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-5);
+      margin-bottom: var(--rams-space-8);
+    }
+
+    .rams-toc-title {
+      font-size: var(--rams-text-sm);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--rams-gray-700);
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .rams-toc-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--rams-space-2);
+    }
+
+    .rams-toc-link {
+      padding: var(--rams-space-2) var(--rams-space-3);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-sm);
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      text-decoration: none;
+      transition: all var(--rams-transition-fast);
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .rams-toc-link:hover {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      border-color: var(--rams-accent);
+    }
+
+    /* Issue Cards */
+    .rams-issue-card {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-5);
+      margin-bottom: var(--rams-space-4);
+      transition: all var(--rams-transition-normal);
+    }
+
+    .rams-issue-card:hover {
+      border-color: var(--rams-accent-light);
+      box-shadow: var(--rams-shadow-md);
+    }
+
+    .rams-issue-card.hidden {
+      display: none;
+    }
+
+    .rams-issue-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--rams-space-3);
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .rams-severity {
+      flex-shrink: 0;
+      padding: var(--rams-space-1) var(--rams-space-3);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: var(--rams-radius-sm);
+      font-family: var(--rams-font-mono);
+    }
+
+    .rams-severity-common {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .rams-severity-occasional {
+      background: #DBEAFE;
+      color: #1E40AF;
+    }
+
+    .rams-severity-rare {
+      background: #F3E8FF;
+      color: #6B21A8;
+    }
+
+    .rams-issue-symptom {
+      flex: 1;
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      line-height: var(--rams-leading-snug);
+    }
+
+    .rams-quick-fix {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-1);
+      padding: var(--rams-space-1) var(--rams-space-2);
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--rams-success);
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      border-radius: var(--rams-radius-sm);
+      margin-left: var(--rams-space-2);
+    }
+
+    .rams-issue-cause {
+      padding: var(--rams-space-3) var(--rams-space-4);
+      background: var(--rams-gray-50);
+      border-left: 3px solid var(--rams-accent-light);
+      border-radius: var(--rams-radius-sm);
+      margin-bottom: var(--rams-space-4);
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-issue-solution {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+    }
+
+    .rams-solution-steps {
+      list-style: none;
+      padding: 0;
+      margin: var(--rams-space-3) 0 0 0;
+    }
+
+    .rams-solution-steps li {
+      padding: var(--rams-space-2) 0 var(--rams-space-2) var(--rams-space-6);
+      position: relative;
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-solution-steps li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 11px;
+      width: 16px;
+      height: 16px;
+      background: var(--rams-accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .rams-solution-steps li::after {
+      content: '✓';
+      position: absolute;
+      left: 4px;
+      top: 10px;
+      color: var(--rams-white);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* Diagnostic Flow */
+    .rams-diagnostic {
+      background: var(--rams-gray-50);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-5);
+      margin-bottom: var(--rams-space-6);
+    }
+
+    .rams-diagnostic-step {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-left: 3px solid var(--rams-accent);
+      border-radius: var(--rams-radius-sm);
+      padding: var(--rams-space-4);
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .rams-diagnostic-step:last-child {
+      margin-bottom: 0;
+    }
+
+    .rams-diagnostic-question {
+      font-size: var(--rams-text-base);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-2);
+    }
+
+    .rams-diagnostic-action {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    /* Limitations List */
+    .rams-limitation-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .rams-limitation-item {
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-left: 3px solid var(--rams-warning);
+      border-radius: var(--rams-radius-sm);
+      padding: var(--rams-space-4);
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .rams-limitation-title {
+      font-size: var(--rams-text-base);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-2);
+    }
+
+    .rams-limitation-text {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    /* Help Section */
+    .rams-help-section {
+      background: linear-gradient(135deg, var(--rams-gray-50) 0%, rgba(26, 77, 46, 0.05) 100%);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-10);
+      text-align: center;
+      margin-top: var(--rams-space-10);
+    }
+
+    .rams-help-title {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .rams-help-text {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-600);
+      max-width: 600px;
+      margin: 0 auto var(--rams-space-6);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    .rams-help-actions {
+      display: flex;
+      gap: var(--rams-space-4);
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .rams-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-3) var(--rams-space-6);
+      background: var(--rams-accent);
+      color: var(--rams-white);
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      border: none;
+      border-radius: var(--rams-radius-md);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-btn-primary:hover {
+      background: var(--rams-accent-light);
+    }
+
+    .rams-btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-3) var(--rams-space-6);
+      background: var(--rams-white);
+      color: var(--rams-gray-900);
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .rams-btn-secondary:hover {
+      background: var(--rams-gray-50);
+      border-color: var(--rams-gray-300);
+    }
+
+    .rams-help-tips {
+      padding-top: var(--rams-space-8);
+      border-top: var(--rams-border-width) solid var(--rams-border-color);
+      margin-top: var(--rams-space-8);
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Section Headings */
+    .rams-section-title {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-6);
+      letter-spacing: var(--rams-tracking-tight);
+    }
+
+    .rams-section {
+      margin-bottom: var(--rams-space-10);
+    }
+  </style>
+<link rel="stylesheet" href="/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Troubleshooting &amp; FAQ - Ralph CLI"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Troubleshooting &amp; FAQ - Ralph CLI"></head>
+<body class="rams-page docs-mode" data-docs-mode="true">
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+        <ul class="rams-nav-items">
+          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+        </ul>
+      </div>
+      <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/streams.html" class="rams-nav-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Streams</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link active">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main"><div class="docs-mode-banner">
+    <h4>📖 Documentation Website</h4>
+    <p>
+      You're viewing the static documentation. Stream features and build automation require
+      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+      to be installed locally.
+      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
+    </p>
+  </div>
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Troubleshooting</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-btn-icon" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Troubleshooting &amp; FAQ</h1>
+      <p class="rams-lead">Find solutions to common issues and get help when you need it. Search below or browse by category.</p>
+    </header>
+
+    <!-- Search Box -->
+    <div class="rams-search-box">
+      <input type="text" class="rams-search-input" id="issueSearch" placeholder="Search for an issue... (e.g., 'build not starting')" aria-label="Search issues">
+    </div>
+
+    <!-- Main Content -->
+    <article class="rams-content">
+
+      <!-- Table of Contents -->
+      <div class="rams-toc">
+        <div class="rams-toc-title">Quick Jump</div>
+        <div class="rams-toc-links">
+          <a href="#installation" class="rams-toc-link">Installation</a>
+          <a href="#build-issues" class="rams-toc-link">Build Issues</a>
+          <a href="#stream-issues" class="rams-toc-link cli-only" data-requires="cli" aria-label="Requires Claude Code CLI installation">Stream Issues</a>
+          <a href="#git-issues" class="rams-toc-link">Git Issues</a>
+          <a href="#diagnostic-flows" class="rams-toc-link">Diagnostic Flows</a>
+          <a href="#limitations" class="rams-toc-link">Known Limitations</a>
+          <a href="#get-help" class="rams-toc-link">Get Help</a>
+        </div>
+      </div>
+
+      <!-- Installation Issues -->
+      <section id="installation" class="rams-section">
+        <h2 class="rams-section-title">Installation Issues</h2>
+
+        <div class="rams-issue-card" data-keywords="install node version npm compatibility">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "Node version not supported" error during install
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Ralph CLI requires Node.js 18+ for ES modules and modern JavaScript features.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check your Node version: <code class="rams-code-inline">node --version</code></li>
+              <li>If below v18, upgrade Node.js from <a href="https://nodejs.org" target="_blank" class="rams-link">nodejs.org</a> or use nvm: <code class="rams-code-inline">nvm install 18</code></li>
+              <li>Retry the installation: <code class="rams-code-inline">npm install</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="permission denied eacces npm global install">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "Permission denied" or "EACCES" during npm link
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Global npm packages require elevated permissions on some systems.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution (pick one):</strong>
+            <ol class="rams-solution-steps">
+              <li><strong>Option 1:</strong> Use npm's recommended fix: <code class="rams-code-inline">npm config set prefix ~/.npm-global</code> then add <code class="rams-code-inline">~/.npm-global/bin</code> to your PATH</li>
+              <li><strong>Option 2:</strong> Use sudo (not recommended): <code class="rams-code-inline">sudo npm link</code></li>
+              <li><strong>Option 3:</strong> Use a Node version manager like nvm which handles permissions correctly</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="command not found ralph path">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "ralph: command not found" after installation
+              <span class="rams-quick-fix">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                Quick Fix
+              </span>
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> npm's global bin directory is not in your system PATH.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Quick Fix:</strong>
+            <div class="rams-code-block" style="margin-top: var(--rams-space-3);">
+              <div class="rams-code-header">
+                <span class="rams-code-label">Terminal</span>
+                <button class="rams-code-copy" onclick="copyCode(this, '# Check where npm global packages go\nnpm config get prefix\n\n# Add to PATH (add this to ~/.bashrc or ~/.zshrc)\nexport PATH=&quot;$PATH:$(npm config get prefix)/bin&quot;\n\n# Reload shell\nsource ~/.bashrc  # or source ~/.zshrc')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div class="rams-code-content">
+                <pre><code># Check where npm global packages go
+npm config get prefix
+
+# Add to PATH (add this to ~/.bashrc or ~/.zshrc)
+export PATH="$PATH:$(npm config get prefix)/bin"
+
+# Reload shell
+source ~/.bashrc  # or source ~/.zshrc</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="git repository not found">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              "ralph install" fails - "Not a git repository"
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Ralph requires the project to be a git repository to track changes.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Initialize git in your project: <code class="rams-code-inline">git init</code></li>
+              <li>Make an initial commit: <code class="rams-code-inline">git add . &amp;&amp; git commit -m "Initial commit"</code></li>
+              <li>Run <code class="rams-code-inline">ralph install</code> again</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Build Issues -->
+      <section id="build-issues" class="rams-section">
+        <h2 class="rams-section-title">Build Issues</h2>
+
+        <div class="rams-issue-card" data-keywords="agent not found claude code">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "Agent not found" or "claude_code command not found"
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Ralph can't locate the Claude Code CLI agent in your PATH.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Verify Claude Code is installed: <code class="rams-code-inline">which claude_code</code></li>
+              <li>If not found, install from <a href="https://claude.ai/download" target="_blank" class="rams-link">claude.ai/download</a></li>
+              <li>Ensure it's in PATH: <code class="rams-code-inline">export PATH="$PATH:/path/to/claude_code"</code></li>
+              <li>Alternatively, set the agent path in <code class="rams-code-inline">.agents/ralph/config.sh</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="build stuck hanging not progressing">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              Build appears stuck or not progressing
+              <span class="rams-quick-fix">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                Quick Fix
+              </span>
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> The agent may be waiting for input, rate-limited, or in an error state.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Diagnostic Steps:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check the run log: <code class="rams-code-inline">tail -f .ralph/PRD-N/runs/run-*.log</code></li>
+              <li>Look for error messages or "waiting" indicators in the log</li>
+              <li>Check if the agent is rate-limited (wait and retry)</li>
+              <li>Kill stuck process: Find PID with <code class="rams-code-inline">ps aux | grep ralph</code>, then <code class="rams-code-inline">kill [PID]</code></li>
+              <li>Remove lock file if present: <code class="rams-code-inline">rm .ralph/locks/PRD-N.lock</code></li>
+              <li>Restart the build: <code class="rams-code-inline">ralph build 1</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="no stories found prd empty">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              Build says "No unchecked stories found"
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> All stories in the PRD are marked as complete, or the PRD format is incorrect.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Open <code class="rams-code-inline">.ralph/PRD-N/prd.md</code> and check story checkboxes</li>
+              <li>Verify stories use format: <code class="rams-code-inline">### [ ] US-001: Story Title</code></li>
+              <li>Uncheck stories you want to implement: change <code class="rams-code-inline">[x]</code> to <code class="rams-code-inline">[ ]</code></li>
+              <li>Ensure stories are not inside code blocks (```)</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="commit failed dirty tree uncommitted">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              Commit fails - "working tree is dirty"
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Manual changes were made during the build, or agent didn't stage all files.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check what's uncommitted: <code class="rams-code-inline">git status</code></li>
+              <li>Review changes: <code class="rams-code-inline">git diff</code></li>
+              <li>If changes look good, stage and commit: <code class="rams-code-inline">git add . &amp;&amp; git commit -m "Complete US-XXX"</code></li>
+              <li>If unwanted, discard: <code class="rams-code-inline">git restore .</code></li>
+              <li>Continue build: <code class="rams-code-inline">ralph build 1</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="token limit exceeded context too large">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-rare">Rare</span>
+            <div class="rams-issue-symptom">
+              "Token limit exceeded" or context window errors
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Very large files or codebases exceed the agent's context window.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Break large stories into smaller ones</li>
+              <li>Add more specific file paths to the plan to reduce exploration</li>
+              <li>Use <code class="rams-code-inline">.gitignore</code> to exclude large generated files</li>
+              <li>Consider using Opus model for larger context: edit <code class="rams-code-inline">.agents/ralph/config.sh</code></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stream Issues -->
+      <section id="stream-issues" class="rams-section">
+        <h2 class="rams-section-title">Stream Issues</h2>
+
+        <div class="rams-issue-card" data-keywords="worktree already exists init failed">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "Worktree already exists" when running stream init
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> A worktree for this PRD was previously created and not cleaned up.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check existing worktrees: <code class="rams-code-inline">git worktree list</code></li>
+              <li>If the worktree is no longer needed, remove it: <code class="rams-code-inline">ralph stream cleanup N</code></li>
+              <li>Or manually: <code class="rams-code-inline">git worktree remove .ralph/worktrees/PRD-N</code></li>
+              <li>Re-init if needed: <code class="rams-code-inline">ralph stream init N</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="lock file exists concurrent build blocked">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-common">Common</span>
+            <div class="rams-issue-symptom">
+              "Lock file exists - another build is running"
+              <span class="rams-quick-fix">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                Quick Fix
+              </span>
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Lock file prevents concurrent builds on the same PRD, or stale lock from crashed build.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Quick Fix:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check if build is actually running: <code class="rams-code-inline">ralph stream status</code></li>
+              <li>If no build is running, remove stale lock: <code class="rams-code-inline">rm .ralph/locks/PRD-N.lock</code></li>
+              <li>Or use force flag: <code class="rams-code-inline">ralph stream build N 5 --force</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="merge conflict failed">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              Merge fails with conflicts
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Changes in the stream branch conflict with main branch.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Navigate to worktree: <code class="rams-code-inline">cd .ralph/worktrees/PRD-N</code></li>
+              <li>Update main branch: <code class="rams-code-inline">git fetch origin main</code></li>
+              <li>Try rebasing: <code class="rams-code-inline">git rebase origin/main</code></li>
+              <li>Resolve conflicts in indicated files</li>
+              <li>Continue rebase: <code class="rams-code-inline">git rebase --continue</code></li>
+              <li>Push force if needed: <code class="rams-code-inline">git push -f</code></li>
+              <li>Complete merge: <code class="rams-code-inline">ralph stream merge N</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="status wrong completed merged">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              Stream status shows incorrect state
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Status markers (.completed, .merged) out of sync with git history.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Run status verification: <code class="rams-code-inline">ralph stream verify-status</code></li>
+              <li>This auto-corrects markers based on git history</li>
+              <li>Or manually mark: <code class="rams-code-inline">ralph stream mark-completed N</code></li>
+              <li>Check git history to confirm: <code class="rams-code-inline">git log --oneline --grep="PRD-N"</code></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Git Issues -->
+      <section id="git-issues" class="rams-section">
+        <h2 class="rams-section-title">Git Issues</h2>
+
+        <div class="rams-issue-card" data-keywords="detached head state">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-rare">Rare</span>
+            <div class="rams-issue-symptom">
+              Git in "detached HEAD" state after build
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Build interrupted while switching branches or commits.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Check current state: <code class="rams-code-inline">git status</code></li>
+              <li>Return to main: <code class="rams-code-inline">git checkout main</code></li>
+              <li>If you have uncommitted work, create a branch: <code class="rams-code-inline">git checkout -b recovery-branch</code></li>
+              <li>Commit changes: <code class="rams-code-inline">git commit -am "Recover work"</code></li>
+              <li>Merge into main: <code class="rams-code-inline">git checkout main &amp;&amp; git merge recovery-branch</code></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="push rejected non-fast-forward">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-occasional">Occasional</span>
+            <div class="rams-issue-symptom">
+              Push rejected - "non-fast-forward"
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Remote branch has commits not in your local branch.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>Fetch latest: <code class="rams-code-inline">git fetch origin</code></li>
+              <li>Rebase your changes: <code class="rams-code-inline">git rebase origin/main</code></li>
+              <li>Resolve any conflicts</li>
+              <li>Force push (if in feature branch): <code class="rams-code-inline">git push -f</code></li>
+              <li><strong>Never</strong> force push to main/master</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="rams-issue-card" data-keywords="branch not found missing">
+          <div class="rams-issue-header">
+            <span class="rams-severity rams-severity-rare">Rare</span>
+            <div class="rams-issue-symptom">
+              Branch "ralph/PRD-N" not found
+            </div>
+          </div>
+          <div class="rams-issue-cause">
+            <strong>Cause:</strong> Stream branch was deleted or never created.
+          </div>
+          <div class="rams-issue-solution">
+            <strong>Solution:</strong>
+            <ol class="rams-solution-steps">
+              <li>List branches: <code class="rams-code-inline">git branch -a</code></li>
+              <li>If branch exists remotely, checkout: <code class="rams-code-inline">git checkout -t origin/ralph/PRD-N</code></li>
+              <li>If completely missing, re-init stream: <code class="rams-code-inline">ralph stream init N</code></li>
+              <li>If work was lost, check reflog: <code class="rams-code-inline">git reflog</code> to find lost commits</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Diagnostic Flows -->
+      <section id="diagnostic-flows" class="rams-section">
+        <h2 class="rams-section-title">Diagnostic Flows</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6);">
+          Follow these step-by-step guides to diagnose common problems.
+        </p>
+
+        <h3 class="rams-h3" style="margin-bottom: var(--rams-space-4);">Build Not Starting?</h3>
+        <div class="rams-diagnostic">
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">1. Is Ralph installed?</div>
+            <div class="rams-diagnostic-action">
+              Run <code class="rams-code-inline">ralph --version</code>. If "command not found", see <a href="#installation" class="rams-link">Installation Issues</a>.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">2. Is this a git repository?</div>
+            <div class="rams-diagnostic-action">
+              Run <code class="rams-code-inline">git status</code>. If "not a git repository", run <code class="rams-code-inline">git init &amp;&amp; git add . &amp;&amp; git commit -m "Initial"</code>.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">3. Does a plan exist?</div>
+            <div class="rams-diagnostic-action">
+              Check <code class="rams-code-inline">ls .ralph/PRD-*/plan.md</code>. If empty, run <code class="rams-code-inline">ralph plan</code> first.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">4. Are there unchecked stories?</div>
+            <div class="rams-diagnostic-action">
+              Open <code class="rams-code-inline">.ralph/PRD-N/prd.md</code> and look for <code class="rams-code-inline">[ ]</code> checkboxes. If all checked, uncheck stories or create new PRD.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">5. Is the agent configured?</div>
+            <div class="rams-diagnostic-action">
+              Check <code class="rams-code-inline">.agents/ralph/config.sh</code> exists. Run <code class="rams-code-inline">which claude_code</code> to verify agent is in PATH.
+            </div>
+          </div>
+        </div>
+
+        <h3 class="rams-h3" style="margin-bottom: var(--rams-space-4); margin-top: var(--rams-space-8);">Stream Build Failing?</h3>
+        <div class="rams-diagnostic">
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">1. Is the worktree initialized?</div>
+            <div class="rams-diagnostic-action">
+              Run <code class="rams-code-inline">git worktree list</code>. If PRD-N missing, run <code class="rams-code-inline">ralph stream init N</code>.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">2. Is there a lock file?</div>
+            <div class="rams-diagnostic-action">
+              Check <code class="rams-code-inline">ls .ralph/locks/</code>. If PRD-N.lock exists, verify no build is running with <code class="rams-code-inline">ps aux | grep ralph</code>, then remove lock.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">3. Is the branch clean?</div>
+            <div class="rams-diagnostic-action">
+              In worktree: <code class="rams-code-inline">cd .ralph/worktrees/PRD-N &amp;&amp; git status</code>. Commit or stash changes before building.
+            </div>
+          </div>
+          <div class="rams-diagnostic-step">
+            <div class="rams-diagnostic-question">4. Is the stream already merged?</div>
+            <div class="rams-diagnostic-action">
+              Run <code class="rams-code-inline">ralph stream status</code>. If "merged", you can't build it again. Start a new PRD.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Known Limitations -->
+      <section id="limitations" class="rams-section">
+        <h2 class="rams-section-title">Known Limitations</h2>
+        <p class="rams-text" style="margin-bottom: var(--rams-space-6);">
+          These are current limitations with known workarounds where available.
+        </p>
+
+        <ul class="rams-limitation-list">
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">Large Context Windows</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> Very large files (&gt;10,000 lines) or codebases (&gt;500 files) may exceed context limits.
+              <br><strong>Workaround:</strong> Break stories into smaller chunks, use more specific file paths in plan, or upgrade to Opus model.
+            </div>
+          </li>
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">No Visual/UI Testing</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> Ralph doesn't automatically verify UI changes in browser (though it can use browser automation via MCP).
+              <br><strong>Workaround:</strong> Manually verify UI changes after build completes, or use ChromeMCP tools for browser testing.
+            </div>
+          </li>
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">Binary Files</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> Ralph works best with text-based code files. Binary files (images, PDFs) can't be easily modified.
+              <br><strong>Workaround:</strong> Manually handle binary assets, or use external tools for image generation.
+            </div>
+          </li>
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">Rate Limiting</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> API rate limits may slow down or pause builds during high usage.
+              <br><strong>Workaround:</strong> Be patient, builds will resume. Consider scheduling builds during off-peak hours.
+            </div>
+          </li>
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">Single Agent Limitation</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> Only one build per PRD can run at a time (enforced by lock files).
+              <br><strong>Workaround:</strong> Use streams to run multiple PRDs in parallel. Each stream can build independently.
+            </div>
+          </li>
+          <li class="rams-limitation-item">
+            <div class="rams-limitation-title">Merge Conflicts</div>
+            <div class="rams-limitation-text">
+              <strong>Limitation:</strong> Ralph doesn't automatically resolve merge conflicts.
+              <br><strong>Workaround:</strong> Manually resolve conflicts using git, then complete the merge with <code class="rams-code-inline">ralph stream merge N</code>.
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Get Help Section -->
+      <section id="get-help">
+        <div class="rams-help-section">
+          <h2 class="rams-help-title">Still Need Help?</h2>
+          <p class="rams-help-text">
+            If you couldn't find a solution above, we're here to help
+          </p>
+
+          <div class="rams-help-actions">
+            <a href="https://github.com/AskTinNguyen/ralph-cli/issues" target="_blank" rel="noopener" class="rams-btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
+              </svg>
+              Report an Issue
+            </a>
+            <a href="https://github.com/AskTinNguyen/ralph-cli/discussions" target="_blank" rel="noopener" class="rams-btn-secondary">
+              Ask the Community
+            </a>
+          </div>
+
+          <div class="rams-help-tips">
+            <h3 class="rams-h3" style="margin-bottom: var(--rams-space-4);">When Reporting an Issue</h3>
+            <ol class="rams-solution-steps">
+              <li>Include your Ralph CLI version: <code class="rams-code-inline">ralph --version</code></li>
+              <li>Describe what you were trying to do</li>
+              <li>Share the error message or unexpected behavior</li>
+              <li>Include relevant log files from <code class="rams-code-inline">.ralph/PRD-N/runs/</code></li>
+              <li>Mention your OS and Node.js version</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+    </article>
+
+    <!-- Page Footer Navigation -->
+    <nav class="rams-page-nav">
+      <a href="/docs/tips.html" class="rams-page-nav-card rams-page-nav-prev">
+        <div class="rams-page-nav-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+          Previous
+        </div>
+        <div class="rams-page-nav-title">Tips &amp; Best Practices</div>
+      </a>
+      <a href="/docs/integration.html" class="rams-page-nav-card rams-page-nav-next">
+        <div class="rams-page-nav-label">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 12h14M12 5l7 7-7 7"></path>
+          </svg>
+        </div>
+        <div class="rams-page-nav-title">Integrations</div>
+      </a>
+    </nav>
+
+  </main>
+
+  <script>
+    // Copy code functionality
+    function copyCode(button, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = button.innerHTML;
+        button.classList.add('copied');
+        button.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Copied
+        `;
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.innerHTML = originalHTML;
+        }, 2000);
+      });
+    }
+
+    // Search functionality
+    const searchInput = document.getElementById('issueSearch');
+    const issueCards = document.querySelectorAll('.rams-issue-card');
+
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+
+      issueCards.forEach(card => {
+        const keywords = card.getAttribute('data-keywords') || '';
+        const text = card.textContent.toLowerCase();
+        const matches = keywords.toLowerCase().includes(query) || text.includes(query);
+
+        card.classList.toggle('hidden', !matches && query.length > 0);
+      });
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          const topbarHeight = 56;
+          const searchBoxHeight = 80;
+          const offset = topbarHeight + searchBoxHeight;
+          const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - offset;
+
+          window.scrollTo({
+            top: targetPosition,
+            behavior: 'smooth'
+          });
+        }
+      });
+    });
+
+    // Keyboard shortcut for search (/)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+  </script>
+
+
+<script src="/js/docs-mode.js" defer=""></script></body></html>
