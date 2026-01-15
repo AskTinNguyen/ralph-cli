@@ -352,8 +352,10 @@ const commandOptions = {
 // Command Dispatch
 // ============================================================================
 async function main() {
-  // Alias: gui -> ui
-  const actualCmd = cmd === "gui" ? "ui" : cmd;
+  // Alias: gui -> ui (gui auto-opens browser)
+  const isGuiCommand = cmd === "gui";
+  const actualCmd = isGuiCommand ? "ui" : cmd;
+  if (isGuiCommand) globalFlags.uiOpenBrowser = true;
 
   // Commands with dedicated modules (extracted to lib/commands/)
   const moduleCommands = [
