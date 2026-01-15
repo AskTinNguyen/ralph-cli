@@ -1,6 +1,6 @@
 # Ralph CLI
 
-![Ralph](ralph.webp)
+![Ralph](assets/diagrams/ralph.webp)
 
 Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time.
 
@@ -41,7 +41,7 @@ Ralph treats **files and git** as memory, not the model context:
 - **Loop** executes one story per iteration
 - **State** persists in `.ralph/`
 
-![Ralph architecture](diagram.svg)
+![Ralph architecture](assets/diagrams/diagram.svg)
 
 ## Installation
 
