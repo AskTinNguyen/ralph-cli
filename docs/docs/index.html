@@ -1,9 +1,13 @@
-<!DOCTYPE html><html lang="en" class="docs-mode"><head>
+<!DOCTYPE html>
+<html lang="en" class="docs-mode">
+
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/ralph-cli/favicon.png">
   <title>Ralph CLI - Your Autonomous Coding Companion</title>
-  <meta name="description" content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
+  <meta name="description"
+    content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
 
   <link rel="stylesheet" href="/ralph-cli/docs/rams-design-system.css">
   <style>
@@ -11,14 +15,22 @@
     .rams-workflow-step {
       position: relative;
     }
+
     .rams-quickstart-num {
       position: relative;
     }
 
     /* Floating Ralph decorations */
     @keyframes float-ralph {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
     }
 
     .ralph-float {
@@ -30,24 +42,37 @@
       animation: float-ralph 2.5s ease-in-out infinite;
     }
   </style>
-<link rel="stylesheet" href="/ralph-cli/css/docs-mode.css"><meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Ralph CLI - Your Autonomous Coding Companion"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ralph CLI - Your Autonomous Coding Companion"></head>
+  <link rel="stylesheet" href="/ralph-cli/css/docs-mode.css">
+  <meta name="author" content="Ralph CLI">
+  <meta name="robots" content="index, follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Ralph CLI - Your Autonomous Coding Companion">
+  <meta property="og:description"
+    content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation.">
+  <meta property="og:site_name" content="Ralph CLI">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ralph CLI - Your Autonomous Coding Companion">
+</head>
+
 <body class="rams-page docs-mode" data-docs-mode="true">
 
   <!-- Persistent Sidebar -->
   <aside class="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; object-fit: contain; margin-right: 8px;">
+        <img src="/ralph-cli/ralph-logo.png" alt="Ralph"
+          style="width: 32px; height: 32px; object-fit: contain; margin-right: 8px;">
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
 
-    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
-        <ul class="rams-nav-items">
-          <li><a href="/ralph-cli/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
-        </ul>
-      </div>
-      <nav class="rams-nav">
+    <div class="rams-nav-section"
+      style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+      <ul class="rams-nav-items">
+        <li><a href="/ralph-cli/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+      </ul>
+    </div>
+    <nav class="rams-nav">
       <div class="rams-nav-section">
         <div class="rams-nav-label">Getting Started</div>
         <ul class="rams-nav-items">
@@ -81,15 +106,17 @@
   </aside>
 
   <!-- Main Content -->
-  <main class="rams-main"><div class="docs-mode-banner">
-    <h4>📖 Documentation Website</h4>
-    <p>
-      You're viewing the static documentation. Stream features and build automation require
-      <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
-      to be installed locally.
-      <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation instructions →</a>
-    </p>
-  </div>
+  <main class="rams-main">
+    <div class="docs-mode-banner">
+      <h4>📖 Documentation Website</h4>
+      <p>
+        You're viewing the static documentation. Stream features and build automation require
+        <a href="https://github.com/anthropics/claude-code" target="_blank" rel="noopener">Claude Code CLI</a>
+        to be installed locally.
+        <a href="https://github.com/AskTinNguyen/ralph-cli#installation" target="_blank" rel="noopener">Installation
+          instructions →</a>
+      </p>
+    </div>
 
     <!-- Top Bar -->
     <div class="rams-topbar">
@@ -116,9 +143,10 @@
         </svg>
         Autonomous Coding Made Simple
       </div>
-      <h1 class="rams-h1" style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+      <h1 class="rams-h1"
+        style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
         <img src="/ralph-cli/ralph-logo.png" alt="Ralph Logo" style="width: 48px; height: 48px; object-fit: contain;">
-        Meet Ralph, Your Coding Companion
+        Meet Ralph, Your Tireless Companion
       </h1>
       <p class="rams-lead">
         Imagine having a tireless assistant who takes your ideas and turns them into working code,
@@ -208,7 +236,8 @@
 
         <div class="rams-workflow">
           <div class="rams-workflow-step">
-            <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-cli/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">1</div>
             <div class="rams-workflow-title">PRD</div>
             <div class="rams-workflow-desc">
@@ -219,7 +248,8 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
-            <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-cli/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">2</div>
             <div class="rams-workflow-title">Plan</div>
             <div class="rams-workflow-desc">
@@ -230,7 +260,8 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
-            <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-cli/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">3</div>
             <div class="rams-workflow-title">Build</div>
             <div class="rams-workflow-desc">
@@ -265,7 +296,8 @@
               <div class="rams-code-block">
                 <div class="rams-code-header">
                   <span class="rams-code-label">Terminal</span>
-                  <button class="rams-code-copy" onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git &amp;&amp; cd ralph-cli &amp;&amp; npm i &amp;&amp; npm link')">
+                  <button class="rams-code-copy"
+                    onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git &amp;&amp; cd ralph-cli &amp;&amp; npm i &amp;&amp; npm link')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -405,9 +437,12 @@ ralph build 5  # Run 5 build iterations</code></pre>
           <a href="/ralph-cli/docs/" class="rams-btn rams-btn-primary rams-btn-lg">
             Get Started
           </a>
-          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg" target="_blank" rel="noopener">
+          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg"
+            target="_blank" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
+              <path
+                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z">
+              </path>
             </svg>
             View on GitHub
           </a>
@@ -419,7 +454,8 @@ ralph build 5  # Run 5 build iterations</code></pre>
         <p class="rams-text-sm rams-text-center">
           Made with care for developers everywhere.
           <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-link">Ralph CLI</a> is open source.
-          <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
+          <img src="/ralph-cli/ralph-logo.png" alt="Ralph"
+            style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
         </p>
       </footer>
     </article>
@@ -449,7 +485,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
 
     // Smooth scroll for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function(e) {
+      anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
@@ -463,4 +499,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
   </script>
 
 
-<script src="/ralph-cli/js/docs-mode.js" defer=""></script></body></html>
+  <script src="/ralph-cli/js/docs-mode.js" defer=""></script>
+</body>
+
+</html>

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>Ralph CLI - Your Autonomous Coding Companion</title>
-  <meta name="description" content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
+  <meta name="description"
+    content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
 
   <link rel="stylesheet" href="/docs/rams-design-system.css">
   <style>
@@ -13,14 +15,22 @@
     .rams-workflow-step {
       position: relative;
     }
+
     .rams-quickstart-num {
       position: relative;
     }
 
     /* Floating Ralph decorations */
     @keyframes float-ralph {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
     }
 
     .ralph-float {
@@ -33,23 +43,26 @@
     }
   </style>
 </head>
+
 <body class="rams-page">
 
   <!-- Persistent Sidebar -->
   <aside class="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <img src="/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; object-fit: contain; margin-right: 8px;">
+        <img src="/ralph-logo.png" alt="Ralph"
+          style="width: 32px; height: 32px; object-fit: contain; margin-right: 8px;">
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
 
-    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
-        <ul class="rams-nav-items">
-          <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
-        </ul>
-      </div>
-      <nav class="rams-nav">
+    <div class="rams-nav-section"
+      style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+      <ul class="rams-nav-items">
+        <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+      </ul>
+    </div>
+    <nav class="rams-nav">
       <div class="rams-nav-section">
         <div class="rams-nav-label">Getting Started</div>
         <ul class="rams-nav-items">
@@ -104,15 +117,16 @@
     <header class="rams-header rams-header-hero">
       <div class="rams-hero-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
         </svg>
         Autonomous Coding Made Simple
       </div>
-      <h1 class="rams-h1" style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+      <h1 class="rams-h1"
+        style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
         <img src="/ralph-logo.png" alt="Ralph Logo" style="width: 48px; height: 48px; object-fit: contain;">
-        Meet Ralph, Your Coding Companion
+        Meet Ralph, Your Tireless Companion
       </h1>
       <p class="rams-lead">
         Imagine having a tireless assistant who takes your ideas and turns them into working code,
@@ -122,7 +136,7 @@
         <a href="/ralph-cli/docs/" class="rams-btn rams-btn-primary rams-btn-lg">
           Enter Documentation
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
+            <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </a>
         <a href="/ralph-cli/docs/tutorial.html" class="rams-btn rams-btn-secondary rams-btn-lg">
@@ -147,11 +161,11 @@
           <div class="rams-feature-card">
             <div class="rams-feature-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
               </svg>
             </div>
             <h3 class="rams-h3">Describe Your Vision</h3>
@@ -164,8 +178,8 @@
           <div class="rams-feature-card">
             <div class="rams-feature-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 11l3 3L22 4"/>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
               </svg>
             </div>
             <h3 class="rams-h3">Watch It Work</h3>
@@ -178,8 +192,8 @@
           <div class="rams-feature-card">
             <div class="rams-feature-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
             </div>
             <h3 class="rams-h3">Save Time</h3>
@@ -202,7 +216,8 @@
 
         <div class="rams-workflow">
           <div class="rams-workflow-step">
-            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">1</div>
             <div class="rams-workflow-title">PRD</div>
             <div class="rams-workflow-desc">
@@ -213,7 +228,8 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
-            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">2</div>
             <div class="rams-workflow-title">Plan</div>
             <div class="rams-workflow-desc">
@@ -224,7 +240,8 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
-            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
+            <img src="/ralph-logo.png" alt="Ralph"
+              style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">3</div>
             <div class="rams-workflow-title">Build</div>
             <div class="rams-workflow-desc">
@@ -259,10 +276,11 @@
               <div class="rams-code-block">
                 <div class="rams-code-header">
                   <span class="rams-code-label">Terminal</span>
-                  <button class="rams-code-copy" onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link')">
+                  <button class="rams-code-copy"
+                    onclick="copyCode(this, 'git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                     Copy
                   </button>
@@ -284,8 +302,8 @@
                   <span class="rams-code-label">Terminal</span>
                   <button class="rams-code-copy" onclick="copyCode(this, 'cd your-project && ralph install')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                     Copy
                   </button>
@@ -307,8 +325,8 @@
                   <span class="rams-code-label">Terminal</span>
                   <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd\nralph plan\nralph build 5')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                     Copy
                   </button>
@@ -327,7 +345,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
           <a href="/docs/tutorial.html" class="rams-btn rams-btn-primary">
             Follow the Full Tutorial
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
+              <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </a>
         </div>
@@ -399,9 +417,11 @@ ralph build 5  # Run 5 build iterations</code></pre>
           <a href="/ralph-cli/docs/" class="rams-btn rams-btn-primary rams-btn-lg">
             Get Started
           </a>
-          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg" target="_blank" rel="noopener">
+          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg"
+            target="_blank" rel="noopener">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              <path
+                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
             </svg>
             View on GitHub
           </a>
@@ -413,7 +433,8 @@ ralph build 5  # Run 5 build iterations</code></pre>
         <p class="rams-text-sm rams-text-center">
           Made with care for developers everywhere.
           <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-link">Ralph CLI</a> is open source.
-          <img src="/ralph-logo.png" alt="Ralph" style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
+          <img src="/ralph-logo.png" alt="Ralph"
+            style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
         </p>
       </footer>
     </article>
@@ -443,7 +464,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
 
     // Smooth scroll for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function(e) {
+      anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
@@ -456,4 +477,5 @@ ralph build 5  # Run 5 build iterations</code></pre>
     });
   </script>
 </body>
+
 </html>
