@@ -3,16 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
   <title>Ralph CLI - Editor</title>
   <link rel="stylesheet" href="/css/rams-ui.css">
   <script src="/js/htmx.min.js"></script>
   <script src="/js/marked.min.js"></script>
+  <!-- Prism.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+  <!-- Mermaid.js for diagram rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <style>
     /* Editor-specific styles following Rams design system principles */
     .editor-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--rams-space-6);
+      display: flex;
+      flex-direction: column;
       height: calc(100vh - 240px);
     }
     .editor-pane, .preview-pane {
@@ -22,6 +28,10 @@
       border-radius: var(--rams-radius-md);
       overflow: hidden;
       background: var(--rams-white);
+      height: 100%;
+    }
+    .pane-hidden {
+      display: none;
     }
     .pane-header {
       padding: var(--rams-space-3) var(--rams-space-4);
@@ -30,6 +40,36 @@
       font-weight: 500;
       font-size: var(--rams-text-sm);
       color: var(--rams-gray-700);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .view-toggle {
+      display: flex;
+      gap: var(--rams-space-2);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-sm);
+      padding: 2px;
+    }
+    .view-toggle-btn {
+      padding: var(--rams-space-2) var(--rams-space-3);
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      border-radius: var(--rams-radius-sm);
+      color: var(--rams-gray-600);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .view-toggle-btn:hover {
+      color: var(--rams-gray-900);
+      background: var(--rams-gray-100);
+    }
+    .view-toggle-btn.active {
+      background: var(--rams-accent);
+      color: white;
     }
     .editor-textarea {
       flex: 1;
@@ -50,6 +90,24 @@
       background: var(--rams-gray-50);
       color: var(--rams-gray-500);
       cursor: not-allowed;
+    }
+    .syntax-view {
+      flex: 1;
+      overflow-y: auto;
+      background: #2d2d2d;
+      padding: 0;
+    }
+    .syntax-view pre {
+      margin: 0;
+      padding: var(--rams-space-4);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+    .syntax-view code {
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      line-height: 1.6;
     }
     .preview-content {
       flex: 1;
@@ -153,6 +211,20 @@
       color: var(--rams-gray-500);
       font-size: var(--rams-text-sm);
     }
+    .mermaid-wrapper {
+      margin: var(--rams-space-4) 0;
+      padding: var(--rams-space-4);
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+    .mermaid-wrapper svg {
+      max-width: 100%;
+      height: auto;
+    }
   </style>
 </head>
 <body class="rams-page">
@@ -170,7 +242,8 @@
       <div class="rams-nav-section">
         <div class="rams-nav-label">Main</div>
         <ul class="rams-nav-items">
-          <li><a href="/" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/" class="rams-nav-link">Home</a></li>
+          <li><a href="/dashboard.html" class="rams-nav-link">Dashboard</a></li>
           <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
           <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
         </ul>
@@ -232,24 +305,28 @@
 
       <section class="rams-section">
         <div class="editor-container">
-          <!-- Viewer Pane -->
-          <div class="editor-pane">
+          <!-- Document Viewer Pane -->
+          <div id="viewer-pane" class="editor-pane">
             <div class="pane-header">
               <span class="pane-title">Document Viewer</span>
+              <div class="view-toggle">
+                <button class="view-toggle-btn active" onclick="switchView('viewer')">Document Viewer</button>
+                <button class="view-toggle-btn" onclick="switchView('preview')">Preview</button>
+              </div>
             </div>
-            <textarea
-              id="editor-textarea"
-              class="editor-textarea"
-              placeholder="Select a stream and file to view..."
-              disabled
-              readonly
-            ></textarea>
+            <div id="syntax-view" class="syntax-view">
+              <pre><code id="syntax-code" class="language-markdown">Select a stream and file to view...</code></pre>
+            </div>
           </div>
 
           <!-- Preview Pane -->
-          <div class="preview-pane">
+          <div id="preview-pane" class="preview-pane pane-hidden">
             <div class="pane-header">
               <span class="pane-title">Preview</span>
+              <div class="view-toggle">
+                <button class="view-toggle-btn" onclick="switchView('viewer')">Document Viewer</button>
+                <button class="view-toggle-btn active" onclick="switchView('preview')">Preview</button>
+              </div>
             </div>
             <div id="preview-content" class="preview-content">
               <div class="empty-state">
@@ -268,6 +345,7 @@
     let currentStreamId = "";
     let currentFile = "";
     let currentFilePath = "";
+    let currentView = "viewer"; // viewer or preview
 
     if (typeof marked !== "undefined") {
       marked.setOptions({
@@ -276,10 +354,34 @@
       });
     }
 
+    // Initialize Mermaid
+    if (typeof mermaid !== "undefined") {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'loose'
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       loadStreams();
       setInterval(() => loadStreams(true), 10000);
     });
+
+    // Switch between viewer and preview
+    function switchView(view) {
+      currentView = view;
+      const viewerPane = document.getElementById("viewer-pane");
+      const previewPane = document.getElementById("preview-pane");
+
+      if (view === "viewer") {
+        viewerPane.classList.remove("pane-hidden");
+        previewPane.classList.add("pane-hidden");
+      } else {
+        viewerPane.classList.add("pane-hidden");
+        previewPane.classList.remove("pane-hidden");
+      }
+    }
 
     async function loadStreams(preserveSelection = false) {
       try {
@@ -318,15 +420,15 @@
       currentFile = "";
       currentFilePath = "";
       const fileSelector = document.getElementById("file-selector");
-      const textarea = document.getElementById("editor-textarea");
+      const syntaxCode = document.getElementById("syntax-code");
       const preview = document.getElementById("preview-content");
       const openBtn = document.getElementById("open-in-editor-btn");
 
       if (!currentStreamId) {
         fileSelector.innerHTML = '<option value="">Select a file...</option>';
         fileSelector.disabled = true;
-        textarea.value = "";
-        textarea.disabled = true;
+        syntaxCode.textContent = "Select a stream and file to view...";
+        syntaxCode.className = "language-markdown";
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
         openBtn.disabled = true;
         return;
@@ -367,13 +469,13 @@
 
     document.getElementById("file-selector").addEventListener("change", async (e) => {
       currentFile = e.target.value;
-      const textarea = document.getElementById("editor-textarea");
+      const syntaxCode = document.getElementById("syntax-code");
       const preview = document.getElementById("preview-content");
       const openBtn = document.getElementById("open-in-editor-btn");
 
       if (!currentFile || !currentStreamId) {
-        textarea.value = "";
-        textarea.disabled = true;
+        syntaxCode.textContent = "Select a stream and file to view...";
+        syntaxCode.className = "language-markdown";
         preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
         openBtn.disabled = true;
         currentFilePath = "";
@@ -390,16 +492,22 @@
         }
 
         const content = await response.text();
-        textarea.value = content;
-        textarea.disabled = false;
 
+        // Update syntax viewer
+        syntaxCode.textContent = content;
+        syntaxCode.className = "language-markdown";
+        if (typeof Prism !== "undefined") {
+          Prism.highlightElement(syntaxCode);
+        }
+
+        // Update preview
         updatePreview(content);
 
         openBtn.disabled = false;
       } catch (error) {
         console.error("Failed to load file:", error);
-        textarea.value = "";
-        textarea.disabled = true;
+        syntaxCode.textContent = "Error loading file";
+        syntaxCode.className = "language-markdown";
         preview.innerHTML = '<div class="empty-state"><p>Error loading file</p></div>';
         openBtn.disabled = true;
         currentFilePath = "";
@@ -437,7 +545,7 @@
 
     document.getElementById("open-in-editor-btn").addEventListener("click", openInExternalEditor);
 
-    function updatePreview(content) {
+    async function updatePreview(content) {
       const preview = document.getElementById("preview-content");
 
       if (!content || content.trim() === "") {
@@ -446,10 +554,32 @@
       }
 
       try {
+        let html = "";
         if (typeof marked !== "undefined" && typeof marked.parse === "function") {
-          preview.innerHTML = marked.parse(content);
+          html = marked.parse(content);
         } else {
-          preview.innerHTML = "<pre>" + escapeHtml(content) + "</pre>";
+          html = "<pre>" + escapeHtml(content) + "</pre>";
+        }
+
+        preview.innerHTML = html;
+
+        // Render Mermaid diagrams
+        if (typeof mermaid !== "undefined") {
+          const mermaidBlocks = preview.querySelectorAll('code.language-mermaid');
+          for (let i = 0; i < mermaidBlocks.length; i++) {
+            const block = mermaidBlocks[i];
+            const code = block.textContent;
+            try {
+              const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, code);
+              const wrapper = document.createElement('div');
+              wrapper.className = 'mermaid-wrapper';
+              wrapper.innerHTML = svg;
+              block.parentElement.replaceWith(wrapper);
+            } catch (err) {
+              console.error("Mermaid rendering error:", err);
+              block.parentElement.innerHTML = `<pre style="color: red;">Mermaid Error: ${err.message}</pre>`;
+            }
+          }
         }
       } catch (error) {
         console.error("Markdown parsing error:", error);
