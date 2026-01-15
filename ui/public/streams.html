@@ -1591,6 +1591,54 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
     });
 
     // ============================================
+    // PRESERVE PRD EXPANSION STATE ACROSS REFRESHES
+    // ============================================
+
+    // Storage for expanded PRD IDs
+    var expandedPRDs = new Set();
+
+    // Before HTMX swaps content, save which PRDs are expanded
+    document.body.addEventListener("htmx:beforeSwap", function (event) {
+      var target = event.detail.target;
+
+      // Only handle streams-container refreshes
+      if (target && target.id === "streams-container") {
+        expandedPRDs.clear();
+
+        // Find all open <details> elements with PRD data
+        var openDetails = target.querySelectorAll('details.stream-item-expandable[open]');
+        openDetails.forEach(function(details) {
+          // Extract PRD ID from the label inside
+          var label = details.querySelector('.rams-label');
+          if (label) {
+            var prdId = label.textContent.trim(); // e.g., "PRD-23"
+            expandedPRDs.add(prdId);
+          }
+        });
+      }
+    });
+
+    // After HTMX swaps content, restore expanded state
+    document.body.addEventListener("htmx:afterSwap", function (event) {
+      var target = event.detail.target;
+
+      // Only handle streams-container refreshes
+      if (target && target.id === "streams-container" && expandedPRDs.size > 0) {
+        // Find all <details> elements and re-open the ones that were expanded
+        var allDetails = target.querySelectorAll('details.stream-item-expandable');
+        allDetails.forEach(function(details) {
+          var label = details.querySelector('.rams-label');
+          if (label) {
+            var prdId = label.textContent.trim();
+            if (expandedPRDs.has(prdId)) {
+              details.setAttribute('open', '');
+            }
+          }
+        });
+      }
+    });
+
+    // ============================================
     // WIZARD CONTROLLER
     // ============================================
 

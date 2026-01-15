@@ -20,23 +20,24 @@
     /* Chat Header */
     .chat-header {
       text-align: center;
-      padding: var(--rams-space-6);
+      padding: var(--rams-space-3) var(--rams-space-4);
       border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      background: var(--rams-gray-50);
     }
     .chat-header p {
-      color: var(--rams-gray-500);
-      font-size: var(--rams-text-sm);
-      margin-top: var(--rams-space-2);
+      color: var(--rams-gray-600);
+      font-size: var(--rams-text-xs);
+      margin: 0;
     }
 
     /* Chat Messages Area */
     .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: var(--rams-space-6);
+      padding: var(--rams-space-4);
       display: flex;
       flex-direction: column;
-      gap: var(--rams-space-4);
+      gap: var(--rams-space-3);
     }
 
     /* Individual Message */
@@ -98,7 +99,7 @@
 
     /* Input Container */
     .chat-input-container {
-      padding: var(--rams-space-6);
+      padding: var(--rams-space-4);
       border-top: var(--rams-border-width) solid var(--rams-border-color);
       background: var(--rams-gray-50);
     }
@@ -117,36 +118,30 @@
       display: flex;
       flex-wrap: wrap;
       gap: var(--rams-space-2);
-      margin-top: var(--rams-space-4);
+      margin-top: var(--rams-space-3);
       justify-content: center;
     }
     .quick-actions .rams-btn {
       border-radius: 999px;
       font-size: var(--rams-text-xs);
-      padding: var(--rams-space-2) var(--rams-space-4);
+      padding: var(--rams-space-2) var(--rams-space-3);
+      white-space: nowrap;
     }
 
     /* Welcome Message */
     .welcome-message {
       text-align: center;
-      padding: var(--rams-space-6);
-      color: var(--rams-gray-500);
+      padding: var(--rams-space-8) var(--rams-space-4) var(--rams-space-6);
+      color: var(--rams-gray-600);
+    }
+    .welcome-message h3 {
+      font-size: var(--rams-text-xl);
+      margin-bottom: var(--rams-space-2);
+      color: var(--rams-gray-900);
     }
     .welcome-message p {
-      margin-top: var(--rams-space-2);
-    }
-
-    /* Capabilities Grid */
-    .capabilities-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--rams-space-4);
-      margin-top: var(--rams-space-6);
-      padding: 0 var(--rams-space-4);
-    }
-    .capability-card {
-      text-align: left;
-      padding: var(--rams-space-4);
+      font-size: var(--rams-text-sm);
+      margin: 0;
     }
     .capability-card .rams-label {
       margin-bottom: var(--rams-space-1);
@@ -231,37 +226,13 @@
 
       <div class="chat-container">
         <div class="chat-header">
-          <h2 class="rams-h2">Chat with Ralph</h2>
-          <p>Ask questions about your project, get help with PRDs, or discuss implementation strategies.</p>
+          <p>Ask questions about Ralph CLI - PRDs, builds, streams, troubleshooting, and more</p>
         </div>
 
         <div class="chat-messages" id="chat-messages">
           <div class="welcome-message">
-            <h3 class="rams-h3">Welcome to Ralph Chat</h3>
-            <p>I can help you with PRD creation, planning, troubleshooting, and more.</p>
-
-            <div class="capabilities-grid">
-              <div class="rams-card capability-card">
-                <div class="capability-icon">&#128221;</div>
-                <span class="rams-label">PRD Assistance</span>
-                <p>Help writing and refining your Product Requirements Documents</p>
-              </div>
-              <div class="rams-card capability-card">
-                <div class="capability-icon">&#128203;</div>
-                <span class="rams-label">Planning Help</span>
-                <p>Break down features into actionable user stories</p>
-              </div>
-              <div class="rams-card capability-card">
-                <div class="capability-icon">&#128295;</div>
-                <span class="rams-label">Troubleshooting</span>
-                <p>Diagnose and fix issues with builds, streams, or git</p>
-              </div>
-              <div class="rams-card capability-card">
-                <div class="capability-icon">&#128161;</div>
-                <span class="rams-label">Best Practices</span>
-                <p>Get tips on using Ralph more effectively</p>
-              </div>
-            </div>
+            <h3>Welcome to Ralph Chat</h3>
+            <p>I can help with installation, PRD creation, running builds, parallel streams, best practices, and troubleshooting.</p>
           </div>
 
           <div class="chat-message user">
@@ -357,27 +328,187 @@
     function generateResponse(message) {
       var lowerMessage = message.toLowerCase();
 
-      if (lowerMessage.includes("prd") && (lowerMessage.includes("create") || lowerMessage.includes("new"))) {
-        return 'To create a new PRD, use:<br><br><code>ralph prd "Your feature description"</code><br><br>This creates a structured PRD in <code>.ralph/PRD-N/prd.md</code>. You can then edit it to add acceptance criteria and user stories.';
+      // === INSTALLATION & SETUP ===
+      if (lowerMessage.includes("install") && (lowerMessage.includes("how") || lowerMessage.includes("setup"))) {
+        return '<strong>Install Ralph CLI:</strong><br><br><code>git clone https://github.com/AskTinNguyen/ralph-cli.git<br>cd ralph-cli<br>npm install && npm link</code><br><br>Then in your project:<br><code>ralph install</code><br><br>Requires Node.js 18+ and Git. See <a href="/docs/tutorial.html">Tutorial</a> for step-by-step guide.';
       }
 
-      if (lowerMessage.includes("build") && (lowerMessage.includes("run") || lowerMessage.includes("start"))) {
-        return 'To run a build, use:<br><br><code>ralph build N</code><br><br>Where N is the number of iterations. For example, <code>ralph build 5</code> runs 5 iterations.<br><br>Options:<br>- <code>--prd=N</code> - Target a specific PRD<br>- <code>--no-commit</code> - Dry run without commits<br>- <code>--agent=claude</code> - Choose the agent';
+      if (lowerMessage.includes("node") && lowerMessage.includes("version")) {
+        return 'Ralph CLI requires <strong>Node.js 18+</strong> for ES modules support.<br><br>Check your version:<br><code>node --version</code><br><br>If below v18, upgrade from <a href="https://nodejs.org" target="_blank">nodejs.org</a> or use nvm:<br><code>nvm install 18</code>';
       }
 
-      if (lowerMessage.includes("stream")) {
-        return 'Streams allow parallel development on multiple PRDs:<br><br>1. <strong>List PRDs:</strong> <code>ralph stream list</code><br>2. <strong>Init worktree:</strong> <code>ralph stream init N</code><br>3. <strong>Build in stream:</strong> <code>ralph stream build N 5</code><br>4. <strong>Merge when done:</strong> <code>ralph stream merge N</code><br><br>Run multiple streams in parallel with: <code>ralph stream build 1 & ralph stream build 2 &</code>';
+      if (lowerMessage.includes("permission") && lowerMessage.includes("denied")) {
+        return '<strong>Fix npm permission errors:</strong><br><br>Option 1 (recommended):<br><code>npm config set prefix ~/.npm-global<br>export PATH="$PATH:~/.npm-global/bin"</code><br><br>Option 2:<br><code>sudo npm link</code><br><br>Option 3: Use nvm which handles permissions correctly.';
       }
 
+      if (lowerMessage.includes("command not found") || (lowerMessage.includes("ralph") && lowerMessage.includes("not found"))) {
+        return '<strong>Ralph command not found?</strong><br><br>Check if npm bin is in PATH:<br><code>npm config get prefix<br>export PATH="$PATH:$(npm config get prefix)/bin"</code><br><br>Add to ~/.bashrc or ~/.zshrc, then reload:<br><code>source ~/.bashrc</code>';
+      }
+
+      // === PRD CREATION ===
+      if (lowerMessage.includes("prd") && (lowerMessage.includes("create") || lowerMessage.includes("new") || lowerMessage.includes("generate"))) {
+        return 'To create a new PRD, use:<br><br><code>ralph prd "Your feature description"</code><br><br>This creates a structured PRD in <code>.ralph/PRD-N/prd.md</code>.<br><br>For UI/server execution (non-interactive):<br><code>ralph prd "Feature" --headless</code><br><br>Each <code>ralph prd</code> auto-increments to next PRD number (PRD-1, PRD-2, etc).';
+      }
+
+      if (lowerMessage.includes("prd") && (lowerMessage.includes("format") || lowerMessage.includes("structure"))) {
+        return '<strong>PRD Format:</strong><br><br>Use this structure in your PRD:<br><br><code>## User Stories<br><br>### [ ] US-001: Story title<br>**As a** user<br>**I want** feature<br>**So that** benefit<br><br>#### Acceptance Criteria<br>- [ ] Criterion 1<br>- [ ] Criterion 2</code><br><br>Mark stories [x] when complete.';
+      }
+
+      if (lowerMessage.includes("prd") && (lowerMessage.includes("edit") || lowerMessage.includes("modify"))) {
+        return 'To edit a PRD:<br><br>1. Find your PRD: <code>ls .ralph/</code><br>2. Open in editor: <code>vim .ralph/PRD-N/prd.md</code><br>3. Or use the UI: <a href="/editor.html">Editor</a><br><br>Edit user stories, acceptance criteria, or requirements. Ralph reads from the file each iteration.';
+      }
+
+      // === PLANNING ===
+      if (lowerMessage.includes("plan") && !lowerMessage.includes("parallel")) {
+        return '<strong>Create implementation plan:</strong><br><br><code>ralph plan</code> - Plan most recent PRD<br><code>ralph plan --prd=N</code> - Plan specific PRD<br><br>This creates <code>.ralph/PRD-N/plan.md</code> with ordered user stories.<br><br>Plans are isolated per PRD - each PRD has its own folder.';
+      }
+
+      // === BUILDING ===
+      if (lowerMessage.includes("build") && (lowerMessage.includes("run") || lowerMessage.includes("start") || lowerMessage.includes("execute"))) {
+        return 'To run a build:<br><br><code>ralph build N</code> - Run N iterations<br><code>ralph build 5 --prd=1</code> - Build specific PRD<br><code>ralph build 1 --no-commit</code> - Dry run (no commits)<br><br>Ralph picks unchecked stories from your PRD and executes them.<br><br>Tip: Start with more iterations than needed (e.g. <code>ralph build 10</code>).';
+      }
+
+      if (lowerMessage.includes("build") && lowerMessage.includes("stuck")) {
+        return '<strong>Build stuck or hanging?</strong><br><br>1. Check logs: <code>tail -f .ralph/PRD-N/runs/run-*.log</code><br>2. Find PID: <code>ps aux | grep ralph</code><br>3. Kill process: <code>kill [PID]</code><br>4. Remove lock: <code>rm .ralph/locks/PRD-N.lock</code><br>5. Restart: <code>ralph build 5</code><br><br>See <a href="/docs/troubleshooting.html">Troubleshooting</a> for more.';
+      }
+
+      if (lowerMessage.includes("build") && (lowerMessage.includes("fail") || lowerMessage.includes("error"))) {
+        return '<strong>Build failures?</strong><br><br>Check these:<br>1. Agent installed: <code>which claude_code</code><br>2. Stories exist: <code>cat .ralph/PRD-N/prd.md</code><br>3. Plan exists: <code>ls .ralph/PRD-N/plan.md</code><br>4. Git clean: <code>git status</code><br><br>Review logs in <code>.ralph/PRD-N/runs/</code> for details.<br><br>Common fixes in <a href="/docs/troubleshooting.html#build-issues">Build Troubleshooting</a>.';
+      }
+
+      if (lowerMessage.includes("dry run") || lowerMessage.includes("no commit")) {
+        return '<strong>Test without committing:</strong><br><br><code>ralph build 1 --no-commit</code><br><br>This runs the build loop but doesn\'t commit changes to git. Great for:<br>- Testing your PRD format<br>- Validating story structure<br>- Previewing what Ralph will do';
+      }
+
+      // === STREAMS & PARALLEL ===
+      if (lowerMessage.includes("stream") && !lowerMessage.includes("status")) {
+        return 'Streams enable <strong>parallel development</strong> on multiple PRDs:<br><br><code>ralph stream list</code> - List all PRDs<br><code>ralph stream init N</code> - Create worktree<br><code>ralph stream build N 5</code> - Build in stream<br><code>ralph stream merge N</code> - Merge to main<br><br>Run in parallel:<br><code>ralph stream build 1 & ralph stream build 2 &</code><br><br>See <a href="/docs/streams.html">Stream Workflows</a>.';
+      }
+
+      if (lowerMessage.includes("stream") && lowerMessage.includes("status")) {
+        return '<strong>Check stream status:</strong><br><br><code>ralph stream status</code><br><br>Shows:<br>- PRD number and description<br>- Current status (ready/in_progress/running/merged/completed)<br>- Branch name<br>- Stories completed<br><br>Status is based on git history, not just checkboxes.';
+      }
+
+      if (lowerMessage.includes("parallel") || (lowerMessage.includes("multiple") && lowerMessage.includes("prd"))) {
+        return '<strong>Run multiple PRDs in parallel:</strong><br><br>1. Create PRDs: <code>ralph prd</code> (repeat)<br>2. Init worktrees: <code>ralph stream init 1; ralph stream init 2</code><br>3. Build parallel: <code>ralph stream build 1 5 & ralph stream build 2 5 &</code><br>4. Merge when done: <code>ralph stream merge N</code><br><br>Speed boost: 40-55% faster than sequential.<br><br>Optimal: 2-3 parallel streams.';
+      }
+
+      if (lowerMessage.includes("worktree")) {
+        return '<strong>Worktrees explained:</strong><br><br>Git worktrees let you have multiple working directories from the same repo. Each stream gets its own worktree:<br><br><code>.ralph/worktrees/PRD-1/</code> - Isolated copy on branch <code>ralph/PRD-1</code><br><code>.ralph/worktrees/PRD-2/</code> - Isolated copy on branch <code>ralph/PRD-2</code><br><br>Changes in one worktree don\'t affect others until merged.<br><br>Learn more: <a href="/docs/streams.html#worktrees">Understanding Worktrees</a>.';
+      }
+
+      if (lowerMessage.includes("merge") && (lowerMessage.includes("stream") || lowerMessage.includes("prd"))) {
+        return '<strong>Merge a completed stream:</strong><br><br><code>ralph stream merge N</code><br><br>This:<br>1. Switches to main branch<br>2. Merges <code>ralph/PRD-N</code> branch<br>3. Pushes to origin/main<br>4. Marks stream as merged<br><br>Merge conflicts? See <a href="/docs/streams.html#merge-strategies">Merge Strategies</a>.';
+      }
+
+      if (lowerMessage.includes("lock") && lowerMessage.includes("file")) {
+        return '<strong>Lock files prevent concurrent builds:</strong><br><br>Located at <code>.ralph/locks/PRD-N.lock</code>, contains process PID.<br><br>If stuck:<br><code>ralph stream status</code> - Check if actually running<br><code>rm .ralph/locks/PRD-N.lock</code> - Remove stale lock<br><br>Or use force:<br><code>ralph stream build N 5 --force</code>';
+      }
+
+      // === TROUBLESHOOTING ===
+      if (lowerMessage.includes("troubleshoot") || lowerMessage.includes("problem") || lowerMessage.includes("issue")) {
+        return '<strong>Common issues & solutions:</strong><br><br><strong>Installation:</strong> Node version, permissions, PATH<br><strong>Builds:</strong> Agent not found, stuck builds, no stories<br><strong>Streams:</strong> Lock files, worktree conflicts, merge issues<br><strong>Git:</strong> Detached HEAD, push rejected, dirty tree<br><br>Full guide: <a href="/docs/troubleshooting.html">Troubleshooting & FAQ</a><br><br>Search by keyword or browse by category.';
+      }
+
+      if (lowerMessage.includes("agent not found") || (lowerMessage.includes("claude") && lowerMessage.includes("not found"))) {
+        return '<strong>Agent not found error?</strong><br><br>Verify Claude Code is installed:<br><code>which claude_code</code><br><br>If not found, install from <a href="https://claude.ai/download" target="_blank">claude.ai/download</a><br><br>Add to PATH:<br><code>export PATH="$PATH:/path/to/claude_code"</code><br><br>Or set in <code>.agents/ralph/config.sh</code>';
+      }
+
+      if (lowerMessage.includes("no stories") || lowerMessage.includes("unchecked")) {
+        return '<strong>No unchecked stories found?</strong><br><br>Check your PRD format:<br><code>cat .ralph/PRD-N/prd.md</code><br><br>Stories should use:<br><code>### [ ] US-001: Story Title</code><br><br>Change <code>[x]</code> back to <code>[ ]</code> to mark incomplete.<br><br>Ensure stories aren\'t inside code blocks (```)';
+      }
+
+      if (lowerMessage.includes("git") && (lowerMessage.includes("dirty") || lowerMessage.includes("uncommitted"))) {
+        return '<strong>Working tree is dirty?</strong><br><br>Check what\'s uncommitted:<br><code>git status<br>git diff</code><br><br>If changes look good:<br><code>git add . && git commit -m "Complete US-XXX"</code><br><br>If unwanted:<br><code>git restore .</code><br><br>Then continue: <code>ralph build 1</code>';
+      }
+
+      if (lowerMessage.includes("conflict") && lowerMessage.includes("merge")) {
+        return '<strong>Resolve merge conflicts:</strong><br><br>1. Navigate: <code>cd .ralph/worktrees/PRD-N</code><br>2. Update main: <code>git fetch origin main</code><br>3. Rebase: <code>git rebase origin/main</code><br>4. Resolve conflicts in indicated files<br>5. Continue: <code>git rebase --continue</code><br>6. Push: <code>git push -f</code><br>7. Merge: <code>ralph stream merge N</code>';
+      }
+
+      // === COMMANDS REFERENCE ===
       if (lowerMessage.includes("command")) {
-        return 'Core Ralph commands:<br><br><strong>Setup:</strong><br>- <code>ralph install</code> - Install Ralph to project<br><br><strong>PRD Workflow:</strong><br>- <code>ralph prd "desc"</code> - Create PRD<br>- <code>ralph plan</code> - Create plan from PRD<br>- <code>ralph build N</code> - Run N iterations<br><br><strong>Streams:</strong><br>- <code>ralph stream list</code> - List PRDs<br>- <code>ralph stream status</code> - Show status<br>- <code>ralph stream build N M</code> - Build PRD N with M iterations';
+        return 'Here are the main Ralph commands:<br><br><strong>PRD & Planning:</strong><br>- <code>ralph prd</code> - Generate PRD<br>- <code>ralph plan</code> - Create plan<br><br><strong>Building:</strong><br>- <code>ralph build N</code> - Run N iterations<br>- <code>ralph build N --prd=2</code> - Build specific PRD<br><br><strong>Streams (Parallel):</strong><br>- <code>ralph stream list</code> - List all PRDs<br>- <code>ralph stream init N</code> - Initialize worktree<br>- <code>ralph stream build N 5</code> - Build in stream<br>- <code>ralph stream merge N</code> - Merge to main<br><br>Full reference: <a href="/docs/commands.html">Commands</a>';
       }
 
-      if (lowerMessage.includes("help") || lowerMessage.includes("stuck")) {
-        return 'Here are some things I can help with:<br><br>- Creating and editing PRDs<br>- Understanding Ralph commands<br>- Troubleshooting build issues<br>- Using streams for parallel work<br>- Best practices and tips<br><br>What would you like to know more about?';
+      // === BEST PRACTICES ===
+      if (lowerMessage.includes("best practice") || lowerMessage.includes("tip")) {
+        return '<strong>Pro Tips for Ralph:</strong><br><br>1. <strong>Detailed PRDs</strong> - Be specific with acceptance criteria<br>2. <strong>Small stories</strong> - 1-3 iterations per story<br>3. <strong>Use streams</strong> - 40-55% faster for independent PRDs<br>4. <strong>Verify commands</strong> - Include test commands in criteria<br>5. <strong>Review logs</strong> - Check progress.md after each run<br>6. <strong>Start big</strong> - More iterations than needed<br><br>More: <a href="/docs/tips.html">Best Practices</a>';
       }
 
-      return 'I can help with PRD creation, builds, streams, and troubleshooting. Try asking:<br><br>- "How do I create a new PRD?"<br>- "How do I run a build?"<br>- "How do I use streams?"<br>- "What commands are available?"';
+      if (lowerMessage.includes("story") && (lowerMessage.includes("size") || lowerMessage.includes("break") || lowerMessage.includes("split"))) {
+        return '<strong>Keep stories small and focused:</strong><br><br>Good size: 1-3 build iterations<br><br>Example breakdown:<br>Instead of "Implement user management", split into:<br>- US-001: User registration endpoint<br>- US-002: Login with JWT<br>- US-003: Password reset flow<br>- US-004: Profile update endpoint<br><br>Smaller = easier to verify and debug.';
+      }
+
+      if (lowerMessage.includes("performance") || lowerMessage.includes("optimize") || lowerMessage.includes("speed")) {
+        return '<strong>Performance optimization:</strong><br><br><strong>Sequential:</strong> 2 PRDs (5 iter each) = ~35 min<br><strong>Parallel:</strong> 2 PRDs (5 iter each) = ~20 min (43% faster)<br><br>Tips:<br>- Run 2-3 streams in parallel (optimal)<br>- Stagger starts by 1-2 minutes<br>- Group small PRDs together<br>- Clean up merged worktrees<br><br>More: <a href="/docs/streams.html#performance">Performance Guide</a>';
+      }
+
+      // === MCP & INTEGRATIONS ===
+      if (lowerMessage.includes("mcp") || lowerMessage.includes("integration") || lowerMessage.includes("notion") || lowerMessage.includes("slack")) {
+        return '<strong>MCP Server Integrations:</strong><br><br>Ralph connects to external tools via MCP:<br><br>- <strong>Notion</strong> - Docs, tasks (auto-start)<br>- <strong>Slack</strong> - Notifications, context (auto-start)<br>- <strong>GitHub</strong> - Issues, PRs, search (auto-start)<br>- <strong>Playwright</strong> - Browser testing (on-demand)<br><br>Set env vars in <code>.env</code> (NOTION_API_KEY, SLACK_BOT_TOKEN, etc).<br><br>Full guide: <a href="/docs/integration.html">Integrations</a>';
+      }
+
+      if (lowerMessage.includes("playwright") || lowerMessage.includes("browser") || lowerMessage.includes("ui test")) {
+        return '<strong>Browser/UI Testing:</strong><br><br>Use <strong>agent-browser</strong> CLI (recommended):<br><code>agent-browser open http://localhost:3000<br>agent-browser snapshot -i<br>agent-browser click @e2</code><br><br>Or enable Playwright MCP:<br><code>.agents/ralph/enable-playwright.sh</code><br><br>Helper script:<br><code>.agents/ralph/test-ui.sh snapshot</code><br><br>See: <a href="/CLAUDE.md#ui-testing">UI Testing Guide</a>';
+      }
+
+      // === GIT & WORKFLOW ===
+      if (lowerMessage.includes("commit") && !lowerMessage.includes("no commit")) {
+        return '<strong>Git commits:</strong><br><br>Ralph auto-commits after each story with format:<br><code>Complete US-XXX: Story title<br><br>Co-Authored-By: Claude Sonnet 4.5 &lt;noreply@anthropic.com&gt;</code><br><br>Use <code>--no-commit</code> for dry runs.<br><br>Review commits:<br><code>git log --oneline --grep="PRD-N"</code>';
+      }
+
+      if (lowerMessage.includes("branch") && (lowerMessage.includes("feature") || lowerMessage.includes("stream"))) {
+        return '<strong>Stream branches:</strong><br><br>Each stream creates a feature branch:<br><code>ralph/PRD-1</code><br><code>ralph/PRD-2</code><br><code>ralph/PRD-3</code><br><br>Check branches:<br><code>git branch -a</code><br><br>Streams never work directly on main/master - always on feature branches that merge via PR or direct merge.';
+      }
+
+      if (lowerMessage.includes("status") && (lowerMessage.includes("check") || lowerMessage.includes("verify"))) {
+        return '<strong>Check PRD status:</strong><br><br><code>ralph stream status</code> - Shows all PRDs<br><code>ralph stream list</code> - List with details<br><br>Status types:<br>- <strong>ready</strong> - Plan exists, not started<br>- <strong>in_progress</strong> - Progress file exists<br>- <strong>running</strong> - Active build (lock file)<br>- <strong>completed</strong> - All commits on main<br>- <strong>merged</strong> - Branch merged to main<br><br>Based on git history, not checkboxes.';
+      }
+
+      // === FILE STRUCTURE ===
+      if (lowerMessage.includes("folder") || lowerMessage.includes("directory") || lowerMessage.includes("file structure")) {
+        return '<strong>Ralph file structure:</strong><br><br><code>.agents/ralph/</code> - Loop templates (commit to git)<br><code>.ralph/PRD-N/</code> - Each PRD in isolated folder<br>&nbsp;&nbsp;- <code>prd.md</code> - Requirements<br>&nbsp;&nbsp;- <code>plan.md</code> - Implementation plan<br>&nbsp;&nbsp;- <code>progress.md</code> - Execution log<br>&nbsp;&nbsp;- <code>runs/</code> - Run logs<br><code>.ralph/locks/</code> - Stream locks<br><code>.ralph/worktrees/</code> - Parallel worktrees<br><br>Add <code>.ralph/</code> to .gitignore (keep local).';
+      }
+
+      if (lowerMessage.includes("log") && (lowerMessage.includes("check") || lowerMessage.includes("view") || lowerMessage.includes("read"))) {
+        return '<strong>View build logs:</strong><br><br>Progress summary:<br><code>cat .ralph/PRD-N/progress.md</code><br><br>Latest run log:<br><code>tail -f .ralph/PRD-N/runs/run-*.log</code><br><br>Or use the UI:<br><a href="/logs.html">Logs Dashboard</a> - Real-time streaming<br><br>Logs show agent output, commits, errors, and guardrails.';
+      }
+
+      // === TUTORIAL & GETTING STARTED ===
+      if (lowerMessage.includes("tutorial") || lowerMessage.includes("getting started") || lowerMessage.includes("beginner")) {
+        return '<strong>Getting Started Tutorial:</strong><br><br>1. <strong>Install</strong> - Clone repo, npm link<br>2. <strong>Setup</strong> - ralph install in project<br>3. <strong>PRD</strong> - ralph prd "feature description"<br>4. <strong>Plan</strong> - ralph plan<br>5. <strong>Build</strong> - ralph build 5<br>6. <strong>Review</strong> - Check progress.md<br><br>Step-by-step guide with examples:<br><a href="/docs/tutorial.html">Interactive Tutorial</a>';
+      }
+
+      if (lowerMessage.includes("example") || lowerMessage.includes("demo") || lowerMessage.includes("sample")) {
+        return '<strong>Real-world examples:</strong><br><br>See production PRDs built by Ralph:<br>- Token tracking dashboard (PRD-9)<br>- Web UI with real-time monitoring (PRD-3)<br>- Shell completions (PRD-15)<br>- Documentation system (PRD-7)<br><br>View in <a href="/docs/examples.html">Examples Gallery</a> with metrics, commits, and live demos.';
+      }
+
+      // === WORKFLOW SCENARIOS ===
+      if (lowerMessage.includes("when to use") || (lowerMessage.includes("should i") && lowerMessage.includes("stream"))) {
+        return '<strong>When to use streams?</strong><br><br><strong>Use streams when:</strong><br>- Independent PRDs (different files)<br>- Time-sensitive (same deadline)<br>- Long-running builds (30+ min each)<br>- Team collaboration<br><br><strong>Avoid streams when:</strong><br>- Sequential dependencies<br>- Same files edited<br>- Quick single PRD (1-2 iterations)<br>- Learning Ralph (start simple)<br><br>Guide: <a href="/docs/streams.html#when-to-use">Decision Guide</a>';
+      }
+
+      if (lowerMessage.includes("how many") && (lowerMessage.includes("stream") || lowerMessage.includes("parallel"))) {
+        return '<strong>Optimal stream count:</strong><br><br><strong>Recommended: 2-3 streams</strong><br>- Best speed vs complexity<br>- Manageable on most laptops (4GB+ RAM)<br>- Low rate limit risk<br><br><strong>Advanced: 4-5 streams</strong><br>- Maximum speed<br>- Requires 8GB+ RAM<br>- Monitor rate limits<br><br><strong>Not recommended: 6+ streams</strong><br>- Diminishing returns<br>- High memory usage';
+      }
+
+      // === ERROR HANDLING ===
+      if (lowerMessage.includes("error") && (lowerMessage.includes("code") || lowerMessage.includes("ralph-"))) {
+        return '<strong>Error codes:</strong><br><br>Ralph uses standardized error codes:<br>- <code>RALPH-0XX</code> - Configuration errors<br>- <code>RALPH-1XX</code> - PRD/Plan errors<br>- <code>RALPH-2XX</code> - Build failures<br>- <code>RALPH-3XX</code> - Git errors<br>- <code>RALPH-4XX</code> - Agent errors<br>- <code>RALPH-5XX</code> - Stream errors<br><br>Look up: <code>ralph error RALPH-XXX</code><br><br>Auto GitHub issues for critical errors (if enabled).';
+      }
+
+      // === HELP & SUPPORT ===
+      if (lowerMessage.includes("help") || lowerMessage.includes("stuck") || lowerMessage.includes("support")) {
+        return 'Here are some things I can help with:<br><br>- <strong>Installation & Setup</strong><br>- <strong>Creating and editing PRDs</strong><br>- <strong>Understanding Ralph commands</strong><br>- <strong>Troubleshooting build issues</strong><br>- <strong>Using streams for parallel work</strong><br>- <strong>Best practices and tips</strong><br>- <strong>MCP integrations</strong><br>- <strong>Git workflow & branches</strong><br><br>What would you like to know more about?';
+      }
+
+      if (lowerMessage.includes("documentation") || lowerMessage.includes("docs") || lowerMessage.includes("manual")) {
+        return '<strong>Ralph documentation:</strong><br><br><strong>Getting Started:</strong><br>- <a href="/docs/">Home</a><br>- <a href="/docs/tutorial.html">Tutorial</a><br>- <a href="/docs/commands.html">Commands</a><br><br><strong>Resources:</strong><br>- <a href="/docs/examples.html">Examples</a><br>- <a href="/docs/tips.html">Best Practices</a><br>- <a href="/docs/streams.html">Streams</a><br>- <a href="/docs/troubleshooting.html">Troubleshooting</a><br><br><strong>Advanced:</strong><br>- <a href="/docs/integration.html">Integrations</a><br>- <a href="/docs/agent-guide.html">Agent Guide</a>';
+      }
+
+      // DEFAULT RESPONSE
+      return 'I can help with PRD creation, builds, streams, troubleshooting, and best practices.<br><br><strong>Try asking:</strong><br>- "How do I install Ralph?"<br>- "How do I create a new PRD?"<br>- "How do I run a build?"<br>- "How do I use streams for parallel work?"<br>- "What are best practices?"<br>- "How do I troubleshoot build issues?"<br>- "Show me the commands"<br><br>Or browse <a href="/docs/">Documentation</a>';
     }
   </script>
 </body>

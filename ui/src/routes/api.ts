@@ -2112,6 +2112,10 @@ api.get("/partials/streams-progress", (c) => {
 
   // Helper function to render stream item
   const renderStreamItem = (stream: Stream, isActive: boolean) => {
+    // Fetch full stream details to get stories
+    const streamDetails = getStreamDetails(stream.id);
+    const stories = streamDetails?.stories || [];
+
     const percentage = stream.totalStories > 0
       ? Math.round((stream.completedStories / stream.totalStories) * 100)
       : 0;
@@ -2125,34 +2129,80 @@ api.get("/partials/streams-progress", (c) => {
     const itemClass = isActive ? 'stream-item-active' : 'stream-item-completed';
     const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
+    // Render stories section
+    const storiesHtml = stories.length > 0 ? stories.map(story => {
+      const criteriaTotal = story.acceptanceCriteria.length;
+      const criteriaCompleted = story.acceptanceCriteria.filter(c => c.completed).length;
+      const storyPercentage = criteriaTotal > 0
+        ? Math.round((criteriaCompleted / criteriaTotal) * 100)
+        : 0;
+
+      const storyStatusLabel = story.status === 'completed' ? 'Completed' :
+                               story.status === 'in-progress' ? 'In Progress' :
+                               'Pending';
+      const storyStatusIcon = story.status === 'completed' ? '✓' :
+                              story.status === 'in-progress' ? '⏳' :
+                              '○';
+
+      return `
+        <div class="story-item story-${story.status}">
+          <div class="story-header">
+            <span class="story-id">${escapeHtml(story.id)}</span>
+            <h4 class="story-title">${escapeHtml(story.title)}</h4>
+          </div>
+          <div class="story-progress-row">
+            <div class="rams-progress rams-progress-thick" style="flex: 1;">
+              <div class="rams-progress-bar" style="width: ${storyPercentage}%"></div>
+            </div>
+            <span class="story-percentage">${storyPercentage}%</span>
+          </div>
+          <div class="story-meta">
+            <span class="rams-badge rams-badge-${story.status}">
+              ${storyStatusIcon} ${storyStatusLabel}
+            </span>
+            <span class="rams-text-xs rams-text-muted">
+              ${criteriaCompleted}/${criteriaTotal} criteria
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('') : '<div class="rams-text-muted" style="padding: var(--rams-space-3); text-align: center;">No stories defined</div>';
+
+    // Wrap in <details> for expandable behavior
     return `
-      <div class="stream-item ${itemClass}"
-           onclick="showStreamDetail('${stream.id}', '${escapedName}')"
-           style="cursor: pointer;">
-        <div style="min-width: 80px;">
-          <span class="rams-label">PRD-${stream.id}</span>
-        </div>
-        <div style="flex: 1; min-width: 200px;">
-          <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">${escapeHtml(stream.name)}</h3>
-          <div class="rams-progress rams-progress-thick">
-            <div class="rams-progress-bar" style="width: ${percentage}%"></div>
+      <details class="stream-item-expandable ${itemClass}">
+        <summary class="stream-item-header" onclick="event.stopPropagation();">
+          <span class="expand-chevron">▶</span>
+          <div style="min-width: 80px;">
+            <span class="rams-label">PRD-${stream.id}</span>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">${escapeHtml(stream.name)}</h3>
+            <div class="rams-progress rams-progress-thick">
+              <div class="rams-progress-bar" style="width: ${percentage}%"></div>
+            </div>
+          </div>
+          <div style="min-width: 120px; text-align: right;">
+            <div class="rams-metric-value-sm">${percentage}%</div>
+            <div class="rams-text-xs rams-text-muted">
+              ${stream.completedStories} / ${stream.totalStories}
+            </div>
+          </div>
+          <div>
+            <span class="rams-badge ${badgeClass}">
+              <span class="rams-badge-dot"></span>${statusLabel}
+            </span>
+            ${stream.merged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
+          </div>
+        </summary>
+
+        <div class="stream-item-content">
+          <div class="stories-list">
+            ${storiesHtml}
           </div>
         </div>
-        <div style="min-width: 120px; text-align: right;">
-          <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-lg); font-weight: 600; margin-bottom: var(--rams-space-1);">
-            ${percentage}%
-          </div>
-          <div style="font-size: var(--rams-text-xs); color: var(--rams-gray-600);">
-            ${stream.completedStories} / ${stream.totalStories}
-          </div>
-        </div>
-        <div>
-          <span class="rams-badge ${badgeClass}">
-            <span class="rams-badge-dot"></span>${statusLabel}
-          </span>
-          ${stream.merged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
-        </div>
-      </div>`;
+      </details>
+    `;
   };
 
   // Build active section
