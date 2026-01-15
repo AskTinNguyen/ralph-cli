@@ -1954,41 +1954,75 @@ api.get("/partials/streams", (c) => {
       const isCompleted = stream.status === "completed";
       const isRunning = stream.status === "running";
       const isMerged = stream.merged;
+      const isInProgress = stream.status === "in_progress";
+      const isIdle = stream.status === "idle" || stream.status === "ready";
+      const isFullyComplete = stream.totalStories > 0 && stream.completedStories === stream.totalStories;
+
+      // Determine if this stream should be visually muted (finished states)
+      const isFinishedState = isMerged || (isCompleted && !worktreeInitialized);
 
       // Build action buttons based on stream state
       let actionButtonsHtml = "";
 
-      // Init button - show if worktree not initialized and not merged
-      if (!worktreeInitialized && !isMerged) {
+      // Init button logic:
+      // - Show if worktree not initialized
+      // - Disabled if merged or completed (direct-to-main)
+      if (!worktreeInitialized) {
+        const initDisabled = isMerged || isCompleted;
+        const initTitle = isMerged ? "Already merged to main" :
+                         isCompleted ? "Already completed" :
+                         "Initialize git worktree for parallel building";
         actionButtonsHtml += `
-          <button class="rams-btn rams-btn-secondary" onclick="initStream('${stream.id}', event)" title="Initialize git worktree">
+          <button class="rams-btn rams-btn-secondary" onclick="initStream('${stream.id}', event)" title="${initTitle}" ${initDisabled ? "disabled" : ""}>
             Init
           </button>`;
       }
 
-      // Build button - always show (opens inline form) but disabled if merged or running
+      // Build button logic:
+      // - Disabled if: merged, running, completed (no worktree), or no worktree initialized (must init first)
+      // - Also disabled if 100% complete (all stories done)
+      const buildDisabled = isMerged || isRunning || (isCompleted && !worktreeInitialized) ||
+                           (!worktreeInitialized && !isRunning) || isFullyComplete;
+      const buildTitle = isMerged ? "Already merged to main" :
+                        isRunning ? "Build in progress" :
+                        (isCompleted && !worktreeInitialized) ? "Already completed" :
+                        isFullyComplete ? "All stories completed" :
+                        !worktreeInitialized ? "Initialize worktree first (click Init)" :
+                        "Start build iterations";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${isMerged ? 'Already merged to main' : 'Start build iterations'}" ${isRunning || isMerged ? "disabled" : ""}>
+        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
           ${isRunning ? "Running..." : "Build"}
         </button>`;
 
-      // Estimate button - show if plan exists, but disabled if merged
+      // Estimate button - show if plan exists
+      // Disabled if merged or completed (direct-to-main)
       if (stream.hasPlan) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const estimateDisabled = isMerged || (isCompleted && !worktreeInitialized);
+        const estimateTitle = isMerged ? "Already merged to main" :
+                             (isCompleted && !worktreeInitialized) ? "Already completed" :
+                             "View estimates for this PRD";
         actionButtonsHtml += `
         <button class="rams-btn rams-btn-secondary"
                 onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
-                title="${isMerged ? 'Already merged to main' : 'View estimates for this PRD'}"
-                ${isMerged ? "disabled" : ""}>
+                title="${estimateTitle}"
+                ${estimateDisabled ? "disabled" : ""}>
           Estimate
         </button>`;
       }
 
-      // Merge button - only show when worktree exists, disabled if already merged
+      // Merge button logic:
+      // - Only show when worktree exists
+      // - Disabled if: already merged, running, or not 100% complete
       if (worktreeInitialized) {
         const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const mergeDisabled = isMerged || isRunning || !isFullyComplete;
+        const mergeTitle = isMerged ? "Already merged to main" :
+                          isRunning ? "Wait for build to complete" :
+                          !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
+                          "Merge to main branch";
         actionButtonsHtml += `
-          <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${isMerged ? 'Already merged to main' : 'Merge to main branch'}" ${isMerged ? "disabled" : ""}>
+          <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
             Merge
           </button>`;
       }
@@ -2007,8 +2041,13 @@ api.get("/partials/streams", (c) => {
                          stream.status === 'completed' ? 'rams-badge-success' :
                          stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
 
+      // Card styling - muted for finished states
+      const cardStyle = isFinishedState
+        ? "cursor: pointer; margin-bottom: var(--rams-space-4); opacity: 0.6; filter: grayscale(30%);"
+        : "cursor: pointer; margin-bottom: var(--rams-space-4);";
+
       return `
-<div class="rams-card" style="cursor: pointer; margin-bottom: var(--rams-space-4);" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+<div class="rams-card" style="${cardStyle}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
     <span class="rams-label">PRD-${stream.id}</span>
     <div style="display: flex; gap: var(--rams-space-2);">
