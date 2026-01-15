@@ -11,7 +11,8 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 | **Install (manual)**     | `git clone https://github.com/AskTinNguyen/ralph-cli.git && cd ralph-cli && npm i && npm link` |
 | **Install to project**   | `ralph install`                                                                                |
 | **Generate PRD**         | `ralph prd`                                                                                    |
-| **Create plan from PRD** | `ralph plan` (creates PRD-N folder)                                                            |
+| **Create plan from PRD** | `ralph plan` (uses latest PRD)                                                                 |
+| **Plan specific PRD**    | `ralph plan --prd=1`                                                                           |
 | **Run build iterations** | `ralph build 5`                                                                                |
 | **Build specific PRD**   | `ralph build 5 --prd=1`                                                                        |
 | **Dry run (no commit)**  | `ralph build 1 --no-commit`                                                                    |
@@ -34,7 +35,7 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 Each `ralph plan` creates a new isolated folder (PRD-1, PRD-2, ...) to prevent plans from being overwritten:
 
 1. **PRD** → Define requirements: `ralph prd` (creates `.ralph/PRD-N/prd.md`)
-2. **Plan** → Break into stories: `ralph plan` (creates `.ralph/PRD-N/plan.md`)
+2. **Plan** → Break into stories: `ralph plan` (uses latest PRD) or `ralph plan --prd=1` (specific PRD)
 3. **Build** → Execute stories: `ralph build N` or `ralph build N --prd=1`
 
 ## Parallel Workflow

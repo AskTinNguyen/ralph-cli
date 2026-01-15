@@ -142,6 +142,24 @@ ralph build 1 --no-commit   # Dry run (no commits)
 
 Each iteration picks the next unchecked story, executes it, commits, and marks it done.
 
+### Working with Multiple PRDs
+
+```bash
+# Create multiple PRDs
+ralph prd "Feature A"  # Creates PRD-1
+ralph prd "Feature B"  # Creates PRD-2
+
+# Plan specific PRD
+ralph plan --prd=1     # Create plan for PRD-1
+ralph plan --prd=2     # Create plan for PRD-2
+
+# Build specific PRD
+ralph build 5 --prd=1  # Work on PRD-1
+ralph build 5 --prd=2  # Work on PRD-2
+```
+
+By default, `ralph plan` and `ralph build` use the latest/highest numbered PRD. Use `--prd=N` to target a specific PRD.
+
 ## Documentation & Web Interface
 
 Ralph includes a **complete web-based interface** for managing and exploring your projects.
