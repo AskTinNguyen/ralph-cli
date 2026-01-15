@@ -9,6 +9,15 @@
  * Commands are loaded on demand to minimize startup time.
  */
 const { spawnSync } = require("child_process");
+
+// Helper to spawn bash scripts cross-platform (Windows needs explicit bash)
+const spawnBashScript = (scriptPath, args, options) => {
+  if (process.platform === "win32") {
+    return spawnSync("bash", [scriptPath, ...args], options);
+  }
+  return spawnSync(scriptPath, args, options);
+};
+
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -392,7 +401,7 @@ async function main() {
       process.exit(1);
     }
     const streamArgs = args.slice(1);
-    const result = spawnSync(streamPath, streamArgs, { stdio: "inherit", env });
+    const result = spawnBashScript(streamPath, streamArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);
   }
 
@@ -455,7 +464,7 @@ async function main() {
     if (isHeadless) env.PRD_HEADLESS = "1";
 
     const loopPrdArgs = ["prd", "--prompt", requestFile];
-    const result = spawnSync(loopPath, loopPrdArgs, { stdio: "inherit", env });
+    const result = spawnBashScript(loopPath, loopPrdArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);
   }
 
@@ -511,7 +520,7 @@ async function main() {
     }
 
     const loopArgs = args.length ? args : ["build"];
-    const result = spawnSync(loopPath, loopArgs, { stdio: "inherit", env });
+    const result = spawnBashScript(loopPath, loopArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);
   }
 
