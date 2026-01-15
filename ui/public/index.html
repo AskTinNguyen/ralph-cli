@@ -128,6 +128,30 @@
       color: #1a1a1a;
     }
 
+    /* Traversing color Ralph */
+    .traverser {
+      position: fixed;
+      z-index: 50;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .traverser img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.3));
+    }
+
+    .traverser.bounce {
+      animation: bounce 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
     /* Responsive grid columns */
     @media (min-width: 1400px) {
       :root { --cols: 12; }
@@ -145,6 +169,7 @@
 </head>
 <body>
   <div class="logo-grid" id="grid"></div>
+  <div id="traversers"></div>
 
   <div class="content-overlay">
     <div class="tagline"><strong>Ralph</strong> &mdash; From One to Many</div>
@@ -243,6 +268,95 @@
         animateWave();
       }, 200);
     });
+
+    // Traversing Color Ralph
+    const traversersContainer = document.getElementById('traversers');
+    const colorLogoSrc = '/ralph-logo.png';
+    const activeTraversers = [];
+    const maxTraversers = 3;
+
+    function createTraverser() {
+      if (activeTraversers.length >= maxTraversers) return;
+
+      const { cols } = getGridSize();
+      const tileSize = window.innerWidth / cols;
+      const size = tileSize * (0.8 + Math.random() * 0.4); // Random size variation
+
+      const traverser = document.createElement('div');
+      traverser.className = 'traverser bounce';
+      traverser.style.width = size + 'px';
+      traverser.style.height = size + 'px';
+
+      // Random vertical position (avoid center where tagline is)
+      const centerY = window.innerHeight / 2;
+      const avoidZone = 150;
+      let yPos;
+      if (Math.random() > 0.5) {
+        yPos = Math.random() * (centerY - avoidZone - size);
+      } else {
+        yPos = centerY + avoidZone + Math.random() * (window.innerHeight - centerY - avoidZone - size);
+      }
+      traverser.style.top = yPos + 'px';
+
+      // Start from left or right
+      const fromLeft = Math.random() > 0.5;
+      const startX = fromLeft ? -size : window.innerWidth;
+      const endX = fromLeft ? window.innerWidth : -size;
+      traverser.style.left = startX + 'px';
+
+      const img = document.createElement('img');
+      img.src = colorLogoSrc;
+      img.alt = 'Color Ralph';
+      img.draggable = false;
+      traverser.appendChild(img);
+
+      traversersContainer.appendChild(traverser);
+      activeTraversers.push(traverser);
+
+      // Animate across screen
+      const duration = 8000 + Math.random() * 6000; // 8-14 seconds
+      const startTime = performance.now();
+
+      function moveTraverser(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = elapsed / duration;
+
+        if (progress >= 1) {
+          traverser.remove();
+          const idx = activeTraversers.indexOf(traverser);
+          if (idx > -1) activeTraversers.splice(idx, 1);
+          return;
+        }
+
+        // Easing for smooth movement
+        const x = startX + (endX - startX) * progress;
+
+        // Add subtle wave motion synced with grid
+        const waveOffset = Math.sin(progress * Math.PI * 4 + time) * 20;
+
+        traverser.style.left = x + 'px';
+        traverser.style.top = (yPos + waveOffset) + 'px';
+
+        requestAnimationFrame(moveTraverser);
+      }
+
+      requestAnimationFrame(moveTraverser);
+    }
+
+    // Spawn traversers at random intervals
+    function scheduleNextTraverser() {
+      const delay = 3000 + Math.random() * 5000; // 3-8 seconds
+      setTimeout(() => {
+        createTraverser();
+        scheduleNextTraverser();
+      }, delay);
+    }
+
+    // Start spawning after a short delay
+    setTimeout(() => {
+      createTraverser();
+      scheduleNextTraverser();
+    }, 2000);
   </script>
 </body>
 </html>
