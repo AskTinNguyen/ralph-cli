@@ -2,7 +2,9 @@
 
 ![Ralph](assets/diagrams/ralph.webp)
 
-Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time.
+> **Ship while you sleep.** Define what you want built, then walk away. Return to completed, committed, working code.
+
+Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time. Ralph works tirelessly on features and stories while you focus on what matters most.
 
 ## Quick Start (5 minutes)
 
@@ -366,8 +368,9 @@ Set environment variables and Ralph agents automatically gain access to these to
 
 ## Documentation
 
+- **[Vision](VISION.md)** - Philosophy and long-term vision for autonomous development
+- **[Roadmap](ROADMAP.md)** - Current progress and planned features
 - **[Testing Guide](TESTING.md)** - Comprehensive testing documentation
-- **[Roadmap](ROADMAP.md)** - Future plans and features
 - **[Agent Guide (CLAUDE.md)](CLAUDE.md)** - For AI agents working with Ralph
 - **[Additional Documentation](documentation/)** - Deployment guides, design system, and more
 - **[Web Documentation](https://asktinnguyen.github.io/ralph-cli/)** - Interactive guides and tutorials
