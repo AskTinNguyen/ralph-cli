@@ -582,16 +582,42 @@ if [ "$MODE" = "prd" ]; then
   fi
 
   PRD_PROMPT_FILE="$TMP_DIR/prd-prompt-$(date +%Y%m%d-%H%M%S)-$$.md"
-  {
-    echo "You are an autonomous coding agent."
-    echo "Use the \$prd skill to create a Product Requirements Document."
-    echo "Save the PRD to: $PRD_PATH"
-    echo "Do NOT implement anything."
-    echo "After creating the PRD, tell the user to close the session and run \`ralph plan\`."
-    echo ""
-    echo "User request:"
-    cat "$PRD_REQUEST_PATH"
-  } > "$PRD_PROMPT_FILE"
+  if [ "${PRD_HEADLESS:-}" = "1" ]; then
+    # Headless mode: Generate PRD directly without asking clarifying questions
+    {
+      echo "You are an autonomous coding agent."
+      echo "Create a Product Requirements Document (PRD) based on the user's description."
+      echo "IMPORTANT: Do NOT ask clarifying questions. Make reasonable assumptions."
+      echo ""
+      echo "Generate a complete PRD with this structure:"
+      echo "1. # Product Requirements Document"
+      echo "2. ## Overview - What we're building and why"
+      echo "3. ## Goals - Primary objectives"
+      echo "4. ## User Stories - Use format: ### [ ] US-001: Title"
+      echo "   Each story must have: **As a** user, **I want** feature, **So that** benefit"
+      echo "   Include #### Acceptance Criteria with checkboxes"
+      echo "5. ## Technical Considerations"
+      echo "6. ## Success Metrics"
+      echo ""
+      echo "Save the PRD to: $PRD_PATH"
+      echo "Do NOT implement anything - only create the PRD document."
+      echo ""
+      echo "User request:"
+      cat "$PRD_REQUEST_PATH"
+    } > "$PRD_PROMPT_FILE"
+  else
+    # Interactive mode: Use the $prd skill which asks clarifying questions
+    {
+      echo "You are an autonomous coding agent."
+      echo "Use the \$prd skill to create a Product Requirements Document."
+      echo "Save the PRD to: $PRD_PATH"
+      echo "Do NOT implement anything."
+      echo "After creating the PRD, tell the user to close the session and run \`ralph plan\`."
+      echo ""
+      echo "User request:"
+      cat "$PRD_REQUEST_PATH"
+    } > "$PRD_PROMPT_FILE"
+  fi
 
   if [ "$PRD_USE_INLINE" -eq 1 ]; then
     run_agent_inline "$PRD_PROMPT_FILE"

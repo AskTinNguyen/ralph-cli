@@ -100,6 +100,405 @@
       font-weight: 600;
       color: var(--rams-gray-900);
     }
+
+    /* Wizard Modal Styles */
+    .wizard-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: wizardFadeIn 0.2s ease-out;
+    }
+
+    /* Ensure wizard is fully hidden when rams-hidden class is applied */
+    .wizard-overlay.rams-hidden {
+      display: none !important;
+      pointer-events: none;
+    }
+
+    @keyframes wizardFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .wizard-container {
+      background: var(--rams-white);
+      border-radius: var(--rams-radius-xl);
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      animation: wizardSlideUp 0.3s ease-out;
+    }
+
+    @keyframes wizardSlideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .wizard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--rams-space-5) var(--rams-space-6);
+      border-bottom: 1px solid var(--rams-gray-200);
+    }
+
+    .wizard-header h2 {
+      margin: 0;
+      font-size: var(--rams-text-xl);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--rams-gray-500);
+      cursor: pointer;
+      padding: var(--rams-space-2);
+      line-height: 1;
+      border-radius: var(--rams-radius-md);
+      transition: all var(--rams-transition-fast);
+    }
+
+    .wizard-close:hover {
+      background: var(--rams-gray-100);
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-progress {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: var(--rams-space-5) var(--rams-space-6);
+      gap: var(--rams-space-2);
+      background: var(--rams-gray-50);
+      border-bottom: 1px solid var(--rams-gray-200);
+    }
+
+    .wizard-step {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+    }
+
+    .wizard-step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      background: var(--rams-gray-200);
+      color: var(--rams-gray-600);
+      transition: all var(--rams-transition-fast);
+    }
+
+    .wizard-step.active .wizard-step-circle {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+    }
+
+    .wizard-step.completed .wizard-step-circle {
+      background: var(--rams-accent);
+      color: var(--rams-white);
+    }
+
+    .wizard-step.completed .wizard-step-circle::after {
+      content: "✓";
+    }
+
+    .wizard-step.completed .wizard-step-number {
+      display: none;
+    }
+
+    .wizard-step-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--rams-gray-500);
+      display: none;
+    }
+
+    .wizard-step.active .wizard-step-label {
+      color: var(--rams-gray-900);
+      display: block;
+    }
+
+    .wizard-step-connector {
+      width: 40px;
+      height: 2px;
+      background: var(--rams-gray-200);
+    }
+
+    .wizard-step.completed + .wizard-step-connector {
+      background: var(--rams-accent);
+    }
+
+    .wizard-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--rams-space-6);
+      min-height: 300px;
+    }
+
+    .wizard-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--rams-space-4) var(--rams-space-6);
+      border-top: 1px solid var(--rams-gray-200);
+      background: var(--rams-gray-50);
+      border-radius: 0 0 var(--rams-radius-xl) var(--rams-radius-xl);
+    }
+
+    .wizard-footer-left,
+    .wizard-footer-right {
+      display: flex;
+      gap: var(--rams-space-3);
+    }
+
+    /* Wizard Step Content Styles */
+    .wizard-step-content h3 {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      margin-bottom: var(--rams-space-2);
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-step-content p {
+      color: var(--rams-gray-600);
+      margin-bottom: var(--rams-space-5);
+    }
+
+    .wizard-textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: var(--rams-space-4);
+      border: 2px solid var(--rams-gray-200);
+      border-radius: var(--rams-radius-lg);
+      font-size: var(--rams-text-base);
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color var(--rams-transition-fast);
+    }
+
+    .wizard-textarea:focus {
+      outline: none;
+      border-color: var(--rams-accent);
+    }
+
+    .wizard-textarea::placeholder {
+      color: var(--rams-gray-400);
+    }
+
+    .wizard-char-count {
+      text-align: right;
+      font-size: 12px;
+      color: var(--rams-gray-500);
+      margin-top: var(--rams-space-2);
+    }
+
+    /* Generation Progress Styles */
+    .wizard-generating {
+      text-align: center;
+      padding: var(--rams-space-8) var(--rams-space-4);
+    }
+
+    .wizard-generating h3 {
+      margin-bottom: var(--rams-space-6);
+    }
+
+    .wizard-progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--rams-gray-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: var(--rams-space-6);
+    }
+
+    .wizard-progress-fill {
+      height: 100%;
+      background: var(--rams-accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .wizard-phases {
+      text-align: left;
+      max-width: 300px;
+      margin: 0 auto var(--rams-space-6);
+    }
+
+    .wizard-phase {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-3);
+      padding: var(--rams-space-2) 0;
+      color: var(--rams-gray-500);
+    }
+
+    .wizard-phase.completed {
+      color: var(--rams-accent);
+    }
+
+    .wizard-phase.active {
+      color: var(--rams-gray-900);
+      font-weight: 500;
+    }
+
+    .wizard-phase-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .wizard-output-window {
+      background: var(--rams-gray-900);
+      color: var(--rams-gray-300);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-3);
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      max-height: 120px;
+      overflow-y: auto;
+      text-align: left;
+      margin-top: var(--rams-space-4);
+    }
+
+    .wizard-output-line {
+      padding: var(--rams-space-1) 0;
+      opacity: 0.8;
+    }
+
+    .wizard-output-line:last-child {
+      opacity: 1;
+    }
+
+    .wizard-time-estimate {
+      font-size: 13px;
+      color: var(--rams-gray-500);
+      margin-top: var(--rams-space-4);
+    }
+
+    /* PRD Editor Styles */
+    .wizard-editor-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--rams-space-4);
+      height: 400px;
+    }
+
+    .wizard-editor-pane {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--rams-gray-200);
+      border-radius: var(--rams-radius-lg);
+      overflow: hidden;
+    }
+
+    .wizard-editor-header {
+      padding: var(--rams-space-3) var(--rams-space-4);
+      background: var(--rams-gray-50);
+      border-bottom: 1px solid var(--rams-gray-200);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--rams-gray-700);
+    }
+
+    .wizard-editor-code {
+      flex: 1;
+      padding: var(--rams-space-3);
+      font-family: 'SF Mono', monospace;
+      font-size: 13px;
+      overflow: auto;
+      resize: none;
+      border: none;
+      background: var(--rams-white);
+    }
+
+    .wizard-editor-preview {
+      flex: 1;
+      padding: var(--rams-space-4);
+      overflow: auto;
+      background: var(--rams-white);
+    }
+
+    /* Build Config Styles */
+    .wizard-form-group {
+      margin-bottom: var(--rams-space-5);
+    }
+
+    .wizard-form-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: var(--rams-space-2);
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-form-help {
+      font-size: 13px;
+      color: var(--rams-gray-500);
+      margin-top: var(--rams-space-1);
+    }
+
+    .wizard-radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-3);
+    }
+
+    .wizard-radio-option {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--rams-space-3);
+      padding: var(--rams-space-4);
+      border: 2px solid var(--rams-gray-200);
+      border-radius: var(--rams-radius-lg);
+      cursor: pointer;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .wizard-radio-option:hover {
+      border-color: var(--rams-gray-300);
+      background: var(--rams-gray-50);
+    }
+
+    .wizard-radio-option.selected {
+      border-color: var(--rams-accent);
+      background: rgba(26, 77, 46, 0.04);
+    }
+
+    .wizard-radio-option input[type="radio"] {
+      margin-top: 2px;
+    }
+
+    .wizard-radio-content {
+      flex: 1;
+    }
+
+    .wizard-radio-title {
+      font-weight: 600;
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-radio-desc {
+      font-size: 13px;
+      color: var(--rams-gray-600);
+      margin-top: var(--rams-space-1);
+    }
   </style>
 </head>
 <body class="rams-page">
@@ -165,10 +564,7 @@
       <div class="rams-topbar-actions">
         <button
           class="rams-btn rams-btn-primary"
-          hx-post="/api/stream/new"
-          hx-target="#streams-container"
-          hx-swap="innerHTML"
-          hx-on::after-request="handleNewStreamResponse(event)"
+          onclick="openWizard()"
         >
           + New Stream
         </button>
@@ -450,6 +846,63 @@ ralph stream verify-status       # Auto-fix stale status</div>
     </article>
 
   </main>
+
+  <!-- New Stream Wizard Modal -->
+  <div id="new-stream-wizard" class="wizard-overlay rams-hidden">
+    <div class="wizard-container">
+      <div class="wizard-header">
+        <h2>Create New Stream</h2>
+        <button onclick="closeWizard()" class="wizard-close">&times;</button>
+      </div>
+
+      <div class="wizard-progress">
+        <div class="wizard-step active" data-step="1">
+          <div class="wizard-step-circle"><span class="wizard-step-number">1</span></div>
+          <span class="wizard-step-label">Describe</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step" data-step="2">
+          <div class="wizard-step-circle"><span class="wizard-step-number">2</span></div>
+          <span class="wizard-step-label">Review PRD</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step" data-step="3">
+          <div class="wizard-step-circle"><span class="wizard-step-number">3</span></div>
+          <span class="wizard-step-label">Plan</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step" data-step="4">
+          <div class="wizard-step-circle"><span class="wizard-step-number">4</span></div>
+          <span class="wizard-step-label">Configure</span>
+        </div>
+        <div class="wizard-step-connector"></div>
+        <div class="wizard-step" data-step="5">
+          <div class="wizard-step-circle"><span class="wizard-step-number">5</span></div>
+          <span class="wizard-step-label">Launch</span>
+        </div>
+      </div>
+
+      <div id="wizard-content" class="wizard-body">
+        <!-- Step content loaded dynamically -->
+      </div>
+
+      <div class="wizard-footer">
+        <div class="wizard-footer-left">
+          <button id="wizard-back-btn" class="rams-btn rams-btn-secondary rams-hidden" onclick="wizardBack()">
+            ← Back
+          </button>
+        </div>
+        <div class="wizard-footer-right">
+          <button id="wizard-cancel-btn" class="rams-btn rams-btn-secondary" onclick="closeWizard()">
+            Cancel
+          </button>
+          <button id="wizard-next-btn" class="rams-btn rams-btn-primary" onclick="wizardNext()">
+            Next →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Error Toast -->
   <div id="error-toast" class="rams-alert rams-alert-error rams-hidden" style="position: fixed; bottom: var(--rams-space-6); right: var(--rams-space-6); max-width: 400px; z-index: 1000; box-shadow: var(--rams-shadow-lg);">
@@ -746,6 +1199,1087 @@ ralph stream verify-status       # Auto-fix stale status</div>
       lastFailedRequest = { element: event.target };
       showErrorToast("Request timed out. The server may be busy.", path);
     });
+
+    // ============================================
+    // WIZARD CONTROLLER
+    // ============================================
+
+    // Wizard State
+    var wizardState = {
+      currentStep: 1,
+      streamId: null,
+      data: {
+        description: '',
+        prdContent: '',
+        planContent: '',
+        iterations: 5,
+        executionMode: 'isolated', // 'isolated' or 'direct'
+        agent: 'claude'
+      },
+      isGenerating: false,
+      eventSource: null
+    };
+
+    // Step labels for the progress indicator
+    var stepLabels = ['Describe', 'Review PRD', 'Plan', 'Configure', 'Launch'];
+
+    // Open wizard modal
+    function openWizard() {
+      // Reset state
+      wizardState = {
+        currentStep: 1,
+        streamId: null,
+        data: {
+          description: '',
+          prdContent: '',
+          planContent: '',
+          iterations: 5,
+          executionMode: 'isolated',
+          agent: 'claude'
+        },
+        isGenerating: false,
+        eventSource: null
+      };
+
+      // Show modal
+      document.getElementById('new-stream-wizard').classList.remove('rams-hidden');
+
+      // Reset progress indicator
+      updateProgressIndicator(1);
+
+      // Render first step
+      renderStep1();
+
+      // Update footer buttons
+      updateFooterButtons();
+    }
+
+    // Close wizard modal
+    function closeWizard() {
+      // Confirm if generation is in progress
+      if (wizardState.isGenerating) {
+        var confirmed = confirm('Generation is in progress. Are you sure you want to cancel?');
+        if (!confirmed) return;
+      }
+
+      // Cleanup SSE connection
+      if (wizardState.eventSource) {
+        wizardState.eventSource.close();
+        wizardState.eventSource = null;
+      }
+
+      // Hide modal
+      document.getElementById('new-stream-wizard').classList.add('rams-hidden');
+
+      // Reset state
+      wizardState.isGenerating = false;
+    }
+
+    // Navigate to previous step
+    function wizardBack() {
+      if (wizardState.currentStep > 1 && !wizardState.isGenerating) {
+        wizardState.currentStep--;
+        updateProgressIndicator(wizardState.currentStep);
+        renderCurrentStep();
+        updateFooterButtons();
+      }
+    }
+
+    // Navigate to next step or trigger generation
+    function wizardNext() {
+      if (wizardState.isGenerating) return;
+
+      // Validate current step
+      if (!validateCurrentStep()) return;
+
+      // Handle step-specific actions
+      switch (wizardState.currentStep) {
+        case 1:
+          // Save description and generate PRD
+          saveStep1Data();
+          generatePRD();
+          break;
+        case 2:
+          // Save PRD edits and generate plan
+          saveStep2Data();
+          generatePlan();
+          break;
+        case 3:
+          // Move to configure step
+          wizardState.currentStep = 4;
+          updateProgressIndicator(4);
+          renderStep4();
+          updateFooterButtons();
+          break;
+        case 4:
+          // Save config and move to launch
+          saveStep4Data();
+          wizardState.currentStep = 5;
+          updateProgressIndicator(5);
+          renderStep5();
+          updateFooterButtons();
+          break;
+        case 5:
+          // Launch the build and redirect
+          launchBuild();
+          break;
+      }
+    }
+
+    // Update progress indicator
+    function updateProgressIndicator(step) {
+      var steps = document.querySelectorAll('.wizard-step');
+      steps.forEach(function(stepEl, index) {
+        var stepNum = index + 1;
+        stepEl.classList.remove('active', 'completed');
+
+        if (stepNum < step) {
+          stepEl.classList.add('completed');
+        } else if (stepNum === step) {
+          stepEl.classList.add('active');
+        }
+      });
+    }
+
+    // Update footer buttons based on current step
+    function updateFooterButtons() {
+      var backBtn = document.getElementById('wizard-back-btn');
+      var nextBtn = document.getElementById('wizard-next-btn');
+      var cancelBtn = document.getElementById('wizard-cancel-btn');
+
+      // Back button visibility
+      if (wizardState.currentStep === 1 || wizardState.isGenerating) {
+        backBtn.classList.add('rams-hidden');
+      } else {
+        backBtn.classList.remove('rams-hidden');
+      }
+
+      // Disable back on step 5
+      if (wizardState.currentStep === 5) {
+        backBtn.disabled = true;
+      } else {
+        backBtn.disabled = false;
+      }
+
+      // Next button text
+      var nextTexts = {
+        1: 'Generate PRD',
+        2: 'Generate Plan',
+        3: 'Configure Build',
+        4: 'Review & Launch',
+        5: 'Start Building'
+      };
+      nextBtn.textContent = nextTexts[wizardState.currentStep] || 'Next';
+
+      // Disable buttons during generation
+      if (wizardState.isGenerating) {
+        nextBtn.disabled = true;
+        backBtn.disabled = true;
+        cancelBtn.textContent = 'Cancel Generation';
+      } else {
+        nextBtn.disabled = false;
+        cancelBtn.textContent = 'Cancel';
+      }
+    }
+
+    // Render current step content
+    function renderCurrentStep() {
+      switch (wizardState.currentStep) {
+        case 1: renderStep1(); break;
+        case 2: renderStep2(); break;
+        case 3: renderStep3(); break;
+        case 4: renderStep4(); break;
+        case 5: renderStep5(); break;
+      }
+    }
+
+    // Validate current step
+    function validateCurrentStep() {
+      switch (wizardState.currentStep) {
+        case 1:
+          var desc = document.getElementById('wizard-description');
+          if (!desc || desc.value.trim().length < 20) {
+            showAlert('error', 'Please enter a description of at least 20 characters');
+            return false;
+          }
+          return true;
+
+        case 2:
+          var prdEditor = document.getElementById('wizard-prd-editor');
+          if (!prdEditor || prdEditor.value.trim().length === 0) {
+            showAlert('error', 'PRD content cannot be empty');
+            return false;
+          }
+          return true;
+
+        case 3:
+          // Plan must exist (already generated)
+          if (!wizardState.data.planContent) {
+            showAlert('error', 'Plan has not been generated yet');
+            return false;
+          }
+          return true;
+
+        case 4:
+          var iterations = parseInt(document.getElementById('wizard-iterations').value, 10);
+          if (isNaN(iterations) || iterations < 1 || iterations > 100) {
+            showAlert('error', 'Iterations must be between 1 and 100');
+            return false;
+          }
+          return true;
+
+        case 5:
+          return true;
+      }
+      return true;
+    }
+
+    // Save data from step 1
+    function saveStep1Data() {
+      var desc = document.getElementById('wizard-description');
+      if (desc) {
+        wizardState.data.description = desc.value.trim();
+      }
+    }
+
+    // Save data from step 2
+    function saveStep2Data() {
+      var prdEditor = document.getElementById('wizard-prd-editor');
+      if (prdEditor) {
+        wizardState.data.prdContent = prdEditor.value;
+      }
+    }
+
+    // Save data from step 4
+    function saveStep4Data() {
+      var iterations = document.getElementById('wizard-iterations');
+      if (iterations) {
+        wizardState.data.iterations = parseInt(iterations.value, 10);
+      }
+
+      var selectedMode = document.querySelector('input[name="execution-mode"]:checked');
+      if (selectedMode) {
+        wizardState.data.executionMode = selectedMode.value;
+      }
+
+      var agentSelect = document.getElementById('wizard-agent');
+      if (agentSelect) {
+        wizardState.data.agent = agentSelect.value;
+      }
+    }
+
+    // ============================================
+    // STEP RENDERING FUNCTIONS
+    // ============================================
+
+    // Step 1: Feature description
+    function renderStep1() {
+      var content = document.getElementById('wizard-content');
+      content.innerHTML = '\
+        <div class="wizard-step-content">\
+          <h3>What would you like to build?</h3>\
+          <p>Describe the feature or functionality you want to implement. Be specific about what it should do and any technical requirements.</p>\
+          <textarea \
+            id="wizard-description" \
+            class="wizard-textarea" \
+            placeholder="Example: Add a dark mode toggle to the settings page that persists user preference in localStorage and applies a dark theme across all components..."\
+          >' + escapeHtml(wizardState.data.description) + '</textarea>\
+          <div class="wizard-char-count">\
+            <span id="wizard-char-count">' + wizardState.data.description.length + '</span> characters (minimum 20)\
+          </div>\
+        </div>\
+      ';
+
+      // Add character count listener
+      var textarea = document.getElementById('wizard-description');
+      if (textarea) {
+        textarea.addEventListener('input', function() {
+          document.getElementById('wizard-char-count').textContent = this.value.length;
+        });
+        textarea.focus();
+      }
+    }
+
+    // Step 2: PRD editor with preview
+    function renderStep2() {
+      var content = document.getElementById('wizard-content');
+      content.innerHTML = '\
+        <div class="wizard-step-content">\
+          <h3>Review & Edit PRD</h3>\
+          <p>Review the generated PRD below. You can edit it to refine requirements before generating the plan.</p>\
+          <div class="wizard-editor-container">\
+            <div class="wizard-editor-pane">\
+              <div class="wizard-editor-header">Markdown Editor</div>\
+              <textarea id="wizard-prd-editor" class="wizard-editor-code">' + escapeHtml(wizardState.data.prdContent) + '</textarea>\
+            </div>\
+            <div class="wizard-editor-pane">\
+              <div class="wizard-editor-header">Preview</div>\
+              <div id="wizard-prd-preview" class="wizard-editor-preview"></div>\
+            </div>\
+          </div>\
+        </div>\
+      ';
+
+      // Render initial preview
+      updatePrdPreview();
+
+      // Add preview update listener
+      var editor = document.getElementById('wizard-prd-editor');
+      if (editor) {
+        editor.addEventListener('input', function() {
+          updatePrdPreview();
+        });
+      }
+    }
+
+    // Update PRD preview (simple markdown rendering)
+    function updatePrdPreview() {
+      var editor = document.getElementById('wizard-prd-editor');
+      var preview = document.getElementById('wizard-prd-preview');
+      if (editor && preview) {
+        preview.innerHTML = simpleMarkdownToHtml(editor.value);
+      }
+    }
+
+    // Simple markdown to HTML converter
+    function simpleMarkdownToHtml(md) {
+      if (!md) return '';
+
+      var html = escapeHtml(md);
+
+      // Headers
+      html = html.replace(/^### (.+)$/gm, '<h4 style="margin: 16px 0 8px; font-weight: 600;">$1</h4>');
+      html = html.replace(/^## (.+)$/gm, '<h3 style="margin: 20px 0 10px; font-weight: 600;">$1</h3>');
+      html = html.replace(/^# (.+)$/gm, '<h2 style="margin: 24px 0 12px; font-weight: 600;">$1</h2>');
+
+      // Bold and italic
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+      // Checkboxes
+      html = html.replace(/\[ \]/g, '<input type="checkbox" disabled>');
+      html = html.replace(/\[x\]/gi, '<input type="checkbox" checked disabled>');
+
+      // Lists
+      html = html.replace(/^- (.+)$/gm, '<li style="margin-left: 20px;">$1</li>');
+
+      // Line breaks
+      html = html.replace(/\n\n/g, '</p><p style="margin: 12px 0;">');
+      html = html.replace(/\n/g, '<br>');
+
+      return '<div style="line-height: 1.6;"><p style="margin: 12px 0;">' + html + '</p></div>';
+    }
+
+    // Step 3: Plan view
+    function renderStep3() {
+      var content = document.getElementById('wizard-content');
+
+      // Parse plan to show stories
+      var stories = parsePlanStories(wizardState.data.planContent);
+      var storiesHtml = '';
+
+      if (stories.length > 0) {
+        stories.forEach(function(story, index) {
+          storiesHtml += '\
+            <div style="padding: 12px; border: 1px solid var(--rams-gray-200); border-radius: 8px; margin-bottom: 8px;">\
+              <div style="display: flex; align-items: center; gap: 8px;">\
+                <span style="background: var(--rams-accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">US-' + String(index + 1).padStart(3, '0') + '</span>\
+                <span style="font-weight: 500;">' + escapeHtml(story.title) + '</span>\
+              </div>\
+              ' + (story.tasks.length > 0 ? '\
+              <div style="margin-top: 8px; padding-left: 16px; font-size: 13px; color: var(--rams-gray-600);">\
+                ' + story.tasks.map(function(t) { return '<div>- ' + escapeHtml(t) + '</div>'; }).join('') + '\
+              </div>' : '') + '\
+            </div>\
+          ';
+        });
+      } else {
+        storiesHtml = '<p style="color: var(--rams-gray-500);">Plan content will appear here...</p>';
+      }
+
+      content.innerHTML = '\
+        <div class="wizard-step-content">\
+          <h3>Implementation Plan</h3>\
+          <p>Review the generated plan. Each story will be implemented as a separate iteration during the build process.</p>\
+          <div style="max-height: 400px; overflow-y: auto;">\
+            ' + storiesHtml + '\
+          </div>\
+          <div style="margin-top: 16px; padding: 12px; background: var(--rams-gray-50); border-radius: 8px;">\
+            <strong>Summary:</strong> ' + stories.length + ' stories to implement\
+          </div>\
+        </div>\
+      ';
+    }
+
+    // Parse plan content to extract stories
+    function parsePlanStories(planContent) {
+      if (!planContent) return [];
+
+      var stories = [];
+      var lines = planContent.split('\n');
+      var currentStory = null;
+
+      lines.forEach(function(line) {
+        // Match story headers like "### [ ] US-001: Story title"
+        var storyMatch = line.match(/^###\s*\[[\sx]\]\s*US-\d+:\s*(.+)/i);
+        if (storyMatch) {
+          if (currentStory) stories.push(currentStory);
+          currentStory = { title: storyMatch[1].trim(), tasks: [] };
+          return;
+        }
+
+        // Match task items
+        if (currentStory && line.match(/^-\s*\[[\sx]\]\s*.+/)) {
+          var taskMatch = line.match(/^-\s*\[[\sx]\]\s*(.+)/);
+          if (taskMatch) {
+            currentStory.tasks.push(taskMatch[1].trim());
+          }
+        }
+      });
+
+      if (currentStory) stories.push(currentStory);
+      return stories;
+    }
+
+    // Step 4: Build configuration
+    function renderStep4() {
+      var content = document.getElementById('wizard-content');
+      content.innerHTML = '\
+        <div class="wizard-step-content">\
+          <h3>Configure Build</h3>\
+          <p>Set up how you want the build to run.</p>\
+          \
+          <div class="wizard-form-group">\
+            <label class="wizard-form-label">Number of Iterations</label>\
+            <input \
+              type="number" \
+              id="wizard-iterations" \
+              class="rams-input" \
+              style="width: 120px;" \
+              min="1" \
+              max="100" \
+              value="' + wizardState.data.iterations + '"\
+            >\
+            <p class="wizard-form-help">Each iteration works on one story. Set to the number of stories or higher.</p>\
+          </div>\
+          \
+          <div class="wizard-form-group">\
+            <label class="wizard-form-label">Execution Mode</label>\
+            <div class="wizard-radio-group">\
+              <label class="wizard-radio-option ' + (wizardState.data.executionMode === 'isolated' ? 'selected' : '') + '" onclick="selectRadioOption(this, \'isolated\')">\
+                <input type="radio" name="execution-mode" value="isolated" ' + (wizardState.data.executionMode === 'isolated' ? 'checked' : '') + '>\
+                <div class="wizard-radio-content">\
+                  <div class="wizard-radio-title">Isolated (Recommended)</div>\
+                  <div class="wizard-radio-desc">Creates a git worktree and branch. Safe for parallel execution. Changes merged via PR.</div>\
+                </div>\
+              </label>\
+              <label class="wizard-radio-option ' + (wizardState.data.executionMode === 'direct' ? 'selected' : '') + '" onclick="selectRadioOption(this, \'direct\')">\
+                <input type="radio" name="execution-mode" value="direct" ' + (wizardState.data.executionMode === 'direct' ? 'checked' : '') + '>\
+                <div class="wizard-radio-content">\
+                  <div class="wizard-radio-title">Direct to Main</div>\
+                  <div class="wizard-radio-desc">Builds directly on main branch. Faster but cannot run multiple streams simultaneously.</div>\
+                </div>\
+              </label>\
+            </div>\
+          </div>\
+          \
+          <div class="wizard-form-group">\
+            <label class="wizard-form-label">Agent</label>\
+            <select id="wizard-agent" class="rams-input" style="width: 200px;">\
+              <option value="claude" ' + (wizardState.data.agent === 'claude' ? 'selected' : '') + '>Claude (Default)</option>\
+              <option value="codex" ' + (wizardState.data.agent === 'codex' ? 'selected' : '') + '>Codex</option>\
+              <option value="droid" ' + (wizardState.data.agent === 'droid' ? 'selected' : '') + '>Droid</option>\
+            </select>\
+            <p class="wizard-form-help">The AI agent that will execute the build iterations.</p>\
+          </div>\
+        </div>\
+      ';
+    }
+
+    // Handle radio option selection
+    function selectRadioOption(label, value) {
+      // Update visual selection
+      document.querySelectorAll('.wizard-radio-option').forEach(function(opt) {
+        opt.classList.remove('selected');
+      });
+      label.classList.add('selected');
+
+      // Update radio button
+      var radio = label.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+
+      // Update state
+      wizardState.data.executionMode = value;
+    }
+
+    // Step 5: Launch confirmation
+    function renderStep5() {
+      var content = document.getElementById('wizard-content');
+      var stories = parsePlanStories(wizardState.data.planContent);
+
+      content.innerHTML = '\
+        <div class="wizard-step-content">\
+          <h3>Ready to Launch</h3>\
+          <p>Review your configuration before starting the build.</p>\
+          \
+          <div style="background: var(--rams-gray-50); border-radius: 12px; padding: 20px; margin-bottom: 20px;">\
+            <h4 style="margin: 0 0 16px; font-size: 16px;">Build Summary</h4>\
+            \
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Stream</div>\
+                <div style="font-weight: 600;">PRD-' + wizardState.streamId + '</div>\
+              </div>\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Stories</div>\
+                <div style="font-weight: 600;">' + stories.length + ' stories</div>\
+              </div>\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Iterations</div>\
+                <div style="font-weight: 600;">' + wizardState.data.iterations + '</div>\
+              </div>\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Mode</div>\
+                <div style="font-weight: 600;">' + (wizardState.data.executionMode === 'isolated' ? 'Isolated (Worktree)' : 'Direct to Main') + '</div>\
+              </div>\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Agent</div>\
+                <div style="font-weight: 600;">' + wizardState.data.agent.charAt(0).toUpperCase() + wizardState.data.agent.slice(1) + '</div>\
+              </div>\
+              <div>\
+                <div style="font-size: 12px; color: var(--rams-gray-500); text-transform: uppercase; margin-bottom: 4px;">Est. Time</div>\
+                <div style="font-weight: 600;">~' + (stories.length * 3) + '-' + (stories.length * 5) + ' minutes</div>\
+              </div>\
+            </div>\
+          </div>\
+          \
+          <div style="background: rgba(26, 77, 46, 0.04); border-left: 3px solid var(--rams-accent); padding: 16px; border-radius: 8px;">\
+            <strong>What happens next:</strong>\
+            <ul style="margin: 8px 0 0 20px; color: var(--rams-gray-700);">\
+              ' + (wizardState.data.executionMode === 'isolated' ? '\
+              <li>A git worktree will be created at <code>.ralph/worktrees/PRD-' + wizardState.streamId + '/</code></li>\
+              <li>A feature branch <code>ralph/PRD-' + wizardState.streamId + '</code> will be created</li>\
+              ' : '\
+              <li>Build will run directly on your current branch</li>\
+              ') + '\
+              <li>The agent will work through each story sequentially</li>\
+              <li>Progress will be logged to <code>.ralph/PRD-' + wizardState.streamId + '/runs/</code></li>\
+            </ul>\
+          </div>\
+        </div>\
+      ';
+    }
+
+    // ============================================
+    // GENERATION FUNCTIONS
+    // ============================================
+
+    // Generate PRD from description
+    function generatePRD() {
+      wizardState.isGenerating = true;
+      updateFooterButtons();
+
+      renderGeneratingState('Generating PRD...', [
+        { id: 'create', label: 'Creating stream folder', status: 'pending' },
+        { id: 'analyze', label: 'Analyzing requirements', status: 'pending' },
+        { id: 'generate', label: 'Generating PRD document', status: 'pending' },
+        { id: 'validate', label: 'Validating structure', status: 'pending' }
+      ]);
+
+      // Make API call to start wizard
+      fetch('/api/stream/wizard/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: wizardState.data.description })
+      })
+      .then(function(response) {
+        if (!response.ok) {
+          return response.json().then(function(data) {
+            throw new Error(data.message || 'Failed to start wizard');
+          });
+        }
+        return response.json();
+      })
+      .then(function(data) {
+        if (data.success && data.streamId) {
+          wizardState.streamId = data.streamId;
+          wizardState.data.prdContent = data.prdContent || '';
+
+          // Connect to SSE for progress updates if available
+          if (data.sseEndpoint) {
+            connectToSSE(data.sseEndpoint, 'prd');
+          } else {
+            // No SSE, simulate progress and move to next step
+            simulateProgress('prd', function() {
+              wizardState.isGenerating = false;
+              wizardState.currentStep = 2;
+              updateProgressIndicator(2);
+              renderStep2();
+              updateFooterButtons();
+            });
+          }
+        } else {
+          throw new Error(data.message || 'Failed to create stream');
+        }
+      })
+      .catch(function(err) {
+        console.error('PRD generation error:', err);
+        wizardState.isGenerating = false;
+        updateFooterButtons();
+
+        // Check if it's a network/API error
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          showAlert('error', 'Cannot connect to server. Please ensure the server is running.');
+          renderStep1();
+        } else if (err.message.includes('not found') || err.message.includes('404')) {
+          // API endpoint doesn't exist yet - create mock PRD for demo
+          showAlert('warning', 'API endpoint not available. Using demo mode.');
+          createDemoPRD();
+        } else {
+          showAlert('error', err.message);
+          renderStep1();
+        }
+      });
+    }
+
+    // Create demo PRD when API is not available
+    function createDemoPRD() {
+      wizardState.streamId = Math.floor(Math.random() * 100) + 1;
+      wizardState.data.prdContent = generateDemoPRD(wizardState.data.description);
+
+      simulateProgress('prd', function() {
+        wizardState.isGenerating = false;
+        wizardState.currentStep = 2;
+        updateProgressIndicator(2);
+        renderStep2();
+        updateFooterButtons();
+      });
+    }
+
+    // Generate demo PRD content
+    function generateDemoPRD(description) {
+      return '# Product Requirements Document\n\n' +
+        '## Overview\n\n' +
+        description + '\n\n' +
+        '## User Stories\n\n' +
+        '### [ ] US-001: Initial Setup\n\n' +
+        '**As a** developer\n' +
+        '**I want** to set up the basic structure\n' +
+        '**So that** I can build upon it\n\n' +
+        '#### Acceptance Criteria\n\n' +
+        '- [ ] Basic structure created\n' +
+        '- [ ] Dependencies installed\n\n' +
+        '### [ ] US-002: Core Implementation\n\n' +
+        '**As a** user\n' +
+        '**I want** the main functionality\n' +
+        '**So that** I can use the feature\n\n' +
+        '#### Acceptance Criteria\n\n' +
+        '- [ ] Core feature implemented\n' +
+        '- [ ] Basic tests added\n\n' +
+        '### [ ] US-003: Polish & Testing\n\n' +
+        '**As a** user\n' +
+        '**I want** a polished experience\n' +
+        '**So that** the feature works reliably\n\n' +
+        '#### Acceptance Criteria\n\n' +
+        '- [ ] Edge cases handled\n' +
+        '- [ ] Documentation updated\n';
+    }
+
+    // Generate Plan from PRD
+    function generatePlan() {
+      wizardState.isGenerating = true;
+      updateFooterButtons();
+
+      renderGeneratingState('Generating Plan...', [
+        { id: 'parse', label: 'Parsing PRD document', status: 'pending' },
+        { id: 'breakdown', label: 'Breaking down stories', status: 'pending' },
+        { id: 'order', label: 'Ordering tasks', status: 'pending' },
+        { id: 'save', label: 'Saving plan', status: 'pending' }
+      ]);
+
+      // Update PRD content first if it was edited
+      var prdUpdatePromise = Promise.resolve();
+      if (wizardState.streamId) {
+        prdUpdatePromise = fetch('/api/stream/' + wizardState.streamId + '/prd', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: wizardState.data.prdContent })
+        }).catch(function() {
+          // Ignore errors - PRD update is optional
+          return Promise.resolve();
+        });
+      }
+
+      prdUpdatePromise.then(function() {
+        return fetch('/api/stream/' + wizardState.streamId + '/generate-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+      })
+      .then(function(response) {
+        if (!response.ok) {
+          return response.json().then(function(data) {
+            throw new Error(data.message || 'Failed to generate plan');
+          });
+        }
+        return response.json();
+      })
+      .then(function(data) {
+        if (data.success) {
+          wizardState.data.planContent = data.planContent || '';
+
+          if (data.sseEndpoint) {
+            connectToSSE(data.sseEndpoint, 'plan');
+          } else {
+            simulateProgress('plan', function() {
+              wizardState.isGenerating = false;
+              wizardState.currentStep = 3;
+              updateProgressIndicator(3);
+              renderStep3();
+              updateFooterButtons();
+            });
+          }
+        } else {
+          throw new Error(data.message || 'Failed to generate plan');
+        }
+      })
+      .catch(function(err) {
+        console.error('Plan generation error:', err);
+        wizardState.isGenerating = false;
+        updateFooterButtons();
+
+        if (err.message.includes('not found') || err.message.includes('404') || err.message.includes('Failed to fetch')) {
+          showAlert('warning', 'API endpoint not available. Using demo mode.');
+          createDemoPlan();
+        } else {
+          showAlert('error', err.message);
+          renderStep2();
+        }
+      });
+    }
+
+    // Create demo plan when API is not available
+    function createDemoPlan() {
+      wizardState.data.planContent = generateDemoPlan(wizardState.data.prdContent);
+
+      simulateProgress('plan', function() {
+        wizardState.isGenerating = false;
+        wizardState.currentStep = 3;
+        updateProgressIndicator(3);
+        renderStep3();
+        updateFooterButtons();
+      });
+    }
+
+    // Generate demo plan content from PRD
+    function generateDemoPlan(prdContent) {
+      // Extract stories from PRD
+      var stories = [];
+      var storyMatches = prdContent.match(/###\s*\[\s*\]\s*US-\d+:\s*.+/g) || [];
+      storyMatches.forEach(function(match) {
+        var titleMatch = match.match(/US-\d+:\s*(.+)/);
+        if (titleMatch) {
+          stories.push(titleMatch[1].trim());
+        }
+      });
+
+      if (stories.length === 0) {
+        stories = ['Setup', 'Implementation', 'Testing'];
+      }
+
+      var plan = '# Implementation Plan\n\n';
+      plan += '## Stories\n\n';
+
+      stories.forEach(function(story, index) {
+        var num = String(index + 1).padStart(3, '0');
+        plan += '### [ ] US-' + num + ': ' + story + '\n\n';
+        plan += '- [ ] Implement core functionality\n';
+        plan += '- [ ] Add error handling\n';
+        plan += '- [ ] Write tests\n\n';
+      });
+
+      return plan;
+    }
+
+    // Launch the build
+    function launchBuild() {
+      wizardState.isGenerating = true;
+      updateFooterButtons();
+
+      renderGeneratingState('Starting Build...', [
+        { id: 'init', label: wizardState.data.executionMode === 'isolated' ? 'Creating worktree' : 'Preparing build', status: 'pending' },
+        { id: 'start', label: 'Starting agent', status: 'pending' }
+      ]);
+
+      // Initialize worktree if isolated mode
+      var initPromise = Promise.resolve();
+      if (wizardState.data.executionMode === 'isolated') {
+        initPromise = fetch('/api/stream/' + wizardState.streamId + '/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).then(function(response) {
+          return response.json();
+        }).then(function(data) {
+          if (!data.success && !data.message.includes('already')) {
+            throw new Error(data.message || 'Failed to initialize worktree');
+          }
+          updatePhaseStatus('init', 'completed');
+        });
+      } else {
+        setTimeout(function() {
+          updatePhaseStatus('init', 'completed');
+        }, 500);
+      }
+
+      initPromise.then(function() {
+        // Start the build
+        return fetch('/api/stream/' + wizardState.streamId + '/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            iterations: wizardState.data.iterations,
+            agent: wizardState.data.agent,
+            noWorktree: wizardState.data.executionMode !== 'isolated'
+          })
+        });
+      })
+      .then(function(response) {
+        return response.json();
+      })
+      .then(function(data) {
+        updatePhaseStatus('start', 'completed');
+
+        if (data.success) {
+          setTimeout(function() {
+            wizardState.isGenerating = false;
+            closeWizard();
+            showAlert('success', 'Build started for PRD-' + wizardState.streamId + '!');
+            htmx.trigger(document.body, 'newStreamCreated');
+          }, 1000);
+        } else {
+          throw new Error(data.message || 'Failed to start build');
+        }
+      })
+      .catch(function(err) {
+        console.error('Build launch error:', err);
+        wizardState.isGenerating = false;
+        updateFooterButtons();
+
+        if (err.message.includes('not found') || err.message.includes('404') || err.message.includes('Failed to fetch')) {
+          showAlert('warning', 'Build API not available. Stream PRD-' + wizardState.streamId + ' created but build not started.');
+          setTimeout(function() {
+            closeWizard();
+            htmx.trigger(document.body, 'newStreamCreated');
+          }, 2000);
+        } else {
+          showAlert('error', err.message);
+          renderStep5();
+        }
+      });
+    }
+
+    // ============================================
+    // SSE AND PROGRESS FUNCTIONS
+    // ============================================
+
+    // Connect to SSE endpoint for progress updates
+    function connectToSSE(endpoint, type) {
+      if (wizardState.eventSource) {
+        wizardState.eventSource.close();
+      }
+
+      wizardState.eventSource = new EventSource(endpoint);
+
+      wizardState.eventSource.addEventListener('phase', function(event) {
+        var data = JSON.parse(event.data);
+        updatePhaseStatus(data.phase, data.status);
+        if (data.progress) {
+          updateProgressBar(data.progress);
+        }
+      });
+
+      wizardState.eventSource.addEventListener('output', function(event) {
+        var data = JSON.parse(event.data);
+        appendOutput(data.line);
+      });
+
+      wizardState.eventSource.addEventListener('complete', function(event) {
+        var data = JSON.parse(event.data);
+        wizardState.eventSource.close();
+        wizardState.eventSource = null;
+
+        if (type === 'prd') {
+          wizardState.data.prdContent = data.content || wizardState.data.prdContent;
+          wizardState.isGenerating = false;
+          wizardState.currentStep = 2;
+          updateProgressIndicator(2);
+          renderStep2();
+        } else if (type === 'plan') {
+          wizardState.data.planContent = data.content || wizardState.data.planContent;
+          wizardState.isGenerating = false;
+          wizardState.currentStep = 3;
+          updateProgressIndicator(3);
+          renderStep3();
+        }
+        updateFooterButtons();
+      });
+
+      wizardState.eventSource.addEventListener('error', function(event) {
+        var errorMsg = 'Generation failed';
+        try {
+          var data = JSON.parse(event.data);
+          errorMsg = data.message || errorMsg;
+        } catch (e) {}
+
+        wizardState.eventSource.close();
+        wizardState.eventSource = null;
+        wizardState.isGenerating = false;
+        updateFooterButtons();
+        showAlert('error', errorMsg);
+        renderCurrentStep();
+      });
+
+      wizardState.eventSource.onerror = function() {
+        // SSE connection error - fall back to polling or simulation
+        if (wizardState.eventSource) {
+          wizardState.eventSource.close();
+          wizardState.eventSource = null;
+        }
+        console.warn('SSE connection failed, using simulation');
+        simulateProgress(type, function() {
+          wizardState.isGenerating = false;
+          if (type === 'prd') {
+            wizardState.currentStep = 2;
+            updateProgressIndicator(2);
+            renderStep2();
+          } else if (type === 'plan') {
+            wizardState.currentStep = 3;
+            updateProgressIndicator(3);
+            renderStep3();
+          }
+          updateFooterButtons();
+        });
+      };
+    }
+
+    // Render generating state UI
+    function renderGeneratingState(title, phases) {
+      var phasesHtml = phases.map(function(phase) {
+        return '\
+          <div class="wizard-phase" id="phase-' + phase.id + '" data-status="' + phase.status + '">\
+            <span class="wizard-phase-icon">' + getPhaseIcon(phase.status) + '</span>\
+            <span>' + phase.label + '</span>\
+          </div>\
+        ';
+      }).join('');
+
+      var content = document.getElementById('wizard-content');
+      content.innerHTML = '\
+        <div class="wizard-generating">\
+          <h3>' + title + '</h3>\
+          <div class="wizard-progress-bar">\
+            <div id="wizard-progress-fill" class="wizard-progress-fill" style="width: 0%"></div>\
+          </div>\
+          <div class="wizard-phases">\
+            ' + phasesHtml + '\
+          </div>\
+          <div id="wizard-output" class="wizard-output-window">\
+            <div class="wizard-output-line">Initializing...</div>\
+          </div>\
+          <div class="wizard-time-estimate">This may take 1-2 minutes</div>\
+        </div>\
+      ';
+    }
+
+    // Get icon for phase status
+    function getPhaseIcon(status) {
+      switch (status) {
+        case 'completed': return '&#10003;';
+        case 'active': return '<span class="rams-spinner" style="width: 14px; height: 14px;"></span>';
+        case 'error': return '&#10007;';
+        default: return '&#9679;';
+      }
+    }
+
+    // Update phase status
+    function updatePhaseStatus(phaseId, status) {
+      var phaseEl = document.getElementById('phase-' + phaseId);
+      if (phaseEl) {
+        phaseEl.dataset.status = status;
+        phaseEl.className = 'wizard-phase ' + status;
+        var iconEl = phaseEl.querySelector('.wizard-phase-icon');
+        if (iconEl) {
+          iconEl.innerHTML = getPhaseIcon(status);
+        }
+      }
+    }
+
+    // Update progress bar
+    function updateProgressBar(percent) {
+      var fill = document.getElementById('wizard-progress-fill');
+      if (fill) {
+        fill.style.width = percent + '%';
+      }
+    }
+
+    // Append output line
+    function appendOutput(line) {
+      var output = document.getElementById('wizard-output');
+      if (output) {
+        var lineEl = document.createElement('div');
+        lineEl.className = 'wizard-output-line';
+        lineEl.textContent = line;
+        output.appendChild(lineEl);
+        output.scrollTop = output.scrollHeight;
+      }
+    }
+
+    // Simulate progress when SSE is not available
+    function simulateProgress(type, callback) {
+      var phases = type === 'prd' ?
+        ['create', 'analyze', 'generate', 'validate'] :
+        ['parse', 'breakdown', 'order', 'save'];
+
+      var outputs = type === 'prd' ?
+        ['Creating stream folder...', 'Analyzing feature requirements...', 'Generating PRD document...', 'Validating structure...', 'PRD generation complete!'] :
+        ['Parsing PRD document...', 'Breaking down into stories...', 'Ordering implementation tasks...', 'Saving plan...', 'Plan generation complete!'];
+
+      var currentPhase = 0;
+      var progress = 0;
+
+      function tick() {
+        if (currentPhase < phases.length) {
+          updatePhaseStatus(phases[currentPhase], 'active');
+          appendOutput(outputs[currentPhase]);
+          progress = ((currentPhase + 1) / phases.length) * 100;
+          updateProgressBar(progress);
+
+          setTimeout(function() {
+            updatePhaseStatus(phases[currentPhase], 'completed');
+            currentPhase++;
+            setTimeout(tick, 300);
+          }, 800);
+        } else {
+          appendOutput(outputs[outputs.length - 1]);
+          updateProgressBar(100);
+          setTimeout(callback, 500);
+        }
+      }
+
+      setTimeout(tick, 500);
+    }
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+
+    // Escape HTML entities
+    function escapeHtml(text) {
+      if (!text) return '';
+      var div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
   </script>
 </body>
 </html>

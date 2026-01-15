@@ -6,6 +6,7 @@
  */
 
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type { RalphStatus, ProgressStats, Stream, Story, LogEntry, LogLevel, BuildOptions, FixStats, FixRecord, FixTypeStats } from '../types.js';
 import { getRalphRoot, getMode, getStreams, getStreamDetails } from '../services/state-reader.js';
 import { parseStories, countStoriesByStatus, getCompletionPercentage } from '../services/markdown-parser.js';
@@ -13,6 +14,7 @@ import { parseActivityLog, parseRunLog, listRunLogs, getRunSummary } from '../se
 import { getTokenSummary, getStreamTokens, getStoryTokens, getRunTokens, getTokenTrends, getBudgetStatus, calculateModelEfficiency, compareModels, getModelRecommendations, getAllRunsForEfficiency } from '../services/token-reader.js';
 import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
+import { wizardProcessManager, type WizardOutputEvent } from '../services/wizard-process-manager.js';
 import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart, getExportData, exportToCsv } from '../services/trends.js';
 import type { ExportOptions } from '../services/trends.js';
 import { createRequire } from 'node:module';
@@ -6713,6 +6715,519 @@ api.get("/partials/export-controls", (c) => {
   `;
 
   return c.html(html);
+});
+
+/**
+ * =============================================================================
+ * Wizard API Endpoints
+ *
+ * Endpoints for the New Stream Wizard flow.
+ * Supports PRD generation, plan generation, and real-time status streaming.
+ * =============================================================================
+ */
+
+/**
+ * POST /api/stream/wizard/start
+ *
+ * Start the wizard flow by initiating PRD generation.
+ * Request body: { description: string }
+ *
+ * ralph prd will auto-create a new PRD-N folder.
+ * Waits briefly for the PRD folder to be created, then returns the stream ID.
+ *
+ * Returns:
+ *   - 200 with { success: true, streamId: string, message: string }
+ *   - 400 if description is missing or too short
+ *   - 404 if .ralph directory not found
+ *   - 500 on error
+ */
+api.post("/stream/wizard/start", async (c) => {
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: "not_found",
+        message: '.ralph directory not found. Run "ralph install" first.',
+      },
+      404
+    );
+  }
+
+  // Parse request body
+  let body: { description?: string } = {};
+  try {
+    const contentType = c.req.header("content-type") || "";
+    if (contentType.includes("application/json")) {
+      body = await c.req.json();
+    }
+  } catch {
+    // Proceed with empty description
+  }
+
+  // Validate description
+  if (!body.description || body.description.trim().length < 20) {
+    return c.json(
+      {
+        error: "validation_error",
+        message: "Description must be at least 20 characters",
+      },
+      400
+    );
+  }
+
+  try {
+    // Start PRD generation - ralph prd will create the PRD-N folder
+    const result = wizardProcessManager.startPrdGeneration(body.description);
+
+    if (!result.success) {
+      return c.json(
+        {
+          error: "generation_failed",
+          message: result.status.error || "Failed to start PRD generation",
+        },
+        500
+      );
+    }
+
+    // Wait for the PRD folder to be created (ralph prd outputs this early)
+    // Timeout after 10 seconds if no folder is created
+    const streamId = await new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Timeout waiting for PRD folder creation"));
+      }, 10000);
+
+      if (result.eventEmitter) {
+        result.eventEmitter.once("prd-created", (data: { streamId: string }) => {
+          clearTimeout(timeout);
+          console.log(`[API] PRD-${data.streamId} created`);
+          resolve(data.streamId);
+        });
+
+        // Also listen for errors
+        result.eventEmitter.once("error", (event: { data: { message?: string } }) => {
+          clearTimeout(timeout);
+          reject(new Error(event.data.message || "PRD generation failed"));
+        });
+      } else {
+        clearTimeout(timeout);
+        reject(new Error("No event emitter available"));
+      }
+    });
+
+    const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+
+    return c.json({
+      success: true,
+      streamId,
+      path: streamPath,
+      message: "PRD generation started",
+    });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    return c.json(
+      {
+        error: "internal_error",
+        message: `Failed to start wizard: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/stream/:id/generation-status
+ *
+ * Get the current generation status for a stream.
+ * Checks if ralph process is running, and file existence for completion.
+ *
+ * Returns:
+ *   - 200 with { status, phase?, progress?, error? }
+ *   - 404 if stream doesn't exist
+ */
+api.get("/stream/:id/generation-status", (c) => {
+  const id = c.req.param("id");
+
+  // Validate stream exists
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: "not_found",
+        message: ".ralph directory not found",
+      },
+      404
+    );
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${id}`);
+  if (!fs.existsSync(streamPath)) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  // Get status from wizard process manager
+  const status = wizardProcessManager.getStatus(id);
+
+  // If idle, check file existence to determine actual status
+  if (status.status === "idle") {
+    const prdPath = path.join(streamPath, "prd.md");
+    const planPath = path.join(streamPath, "plan.md");
+
+    const hasPrd = fs.existsSync(prdPath);
+    const hasPlan = fs.existsSync(planPath);
+
+    // Check if PRD has content (not just template)
+    let prdHasContent = false;
+    if (hasPrd) {
+      try {
+        const content = fs.readFileSync(prdPath, "utf-8");
+        // Check if it has user stories with actual content
+        prdHasContent = content.includes("US-001") && content.length > 500;
+      } catch {
+        // Ignore read errors
+      }
+    }
+
+    return c.json({
+      status: "idle",
+      prdExists: hasPrd,
+      prdHasContent,
+      planExists: hasPlan,
+      phase: hasPlan ? "complete" : hasPrd && prdHasContent ? "prd_complete" : "not_started",
+    });
+  }
+
+  return c.json({
+    status: status.status,
+    type: status.type,
+    phase: status.phase,
+    progress: status.progress,
+    error: status.error,
+    startedAt: status.startedAt?.toISOString(),
+  });
+});
+
+/**
+ * POST /api/stream/:id/generate-plan
+ *
+ * Trigger plan generation for a stream.
+ * Executes `ralph plan --prd=:id` asynchronously.
+ *
+ * Returns:
+ *   - 200 with { success: true, message }
+ *   - 404 if stream doesn't exist
+ *   - 409 if generation already in progress
+ *   - 500 on error
+ */
+api.post("/stream/:id/generate-plan", (c) => {
+  const id = c.req.param("id");
+
+  // Validate stream exists
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: "not_found",
+        message: ".ralph directory not found",
+      },
+      404
+    );
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${id}`);
+  if (!fs.existsSync(streamPath)) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  // Check if PRD exists
+  const prdPath = path.join(streamPath, "prd.md");
+  if (!fs.existsSync(prdPath)) {
+    return c.json(
+      {
+        error: "precondition_failed",
+        message: "PRD must be generated before creating a plan",
+      },
+      412
+    );
+  }
+
+  // Check if already generating
+  if (wizardProcessManager.isGenerating(id)) {
+    return c.json(
+      {
+        error: "conflict",
+        message: "Generation already in progress for this stream",
+      },
+      409
+    );
+  }
+
+  // Start plan generation
+  const result = wizardProcessManager.startPlanGeneration(id);
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: "generation_failed",
+        message: result.status.error || "Failed to start plan generation",
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: "Plan generation started",
+  });
+});
+
+/**
+ * GET /api/stream/:id/generation-stream
+ *
+ * Server-Sent Events endpoint for real-time generation progress.
+ * Query param: type=prd|plan to indicate what's being generated.
+ *
+ * Stream events:
+ *   - { type: 'phase', data: { phase, progress } }
+ *   - { type: 'output', data: { text } }
+ *   - { type: 'complete', data: { success: true } }
+ *   - { type: 'error', data: { message } }
+ */
+api.get("/stream/:id/generation-stream", (c) => {
+  const id = c.req.param("id");
+  const generationType = c.req.query("type") as "prd" | "plan" | undefined;
+
+  // Validate stream exists
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: "not_found",
+        message: ".ralph directory not found",
+      },
+      404
+    );
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${id}`);
+  if (!fs.existsSync(streamPath)) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  return streamSSE(c, async (stream) => {
+    // Get the event emitter for this stream
+    let eventEmitter = wizardProcessManager.getEventEmitter(id);
+    let isConnected = true;
+
+    // Send initial connection event
+    try {
+      const status = wizardProcessManager.getStatus(id);
+      await stream.writeSSE({
+        event: "connected",
+        data: JSON.stringify({
+          streamId: id,
+          type: generationType,
+          status: status.status,
+          phase: status.phase,
+          progress: status.progress,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (error) {
+      console.log(`[SSE] Error sending connected event: ${error}`);
+      isConnected = false;
+    }
+
+    // If no active generation, check status and close
+    if (!eventEmitter) {
+      const status = wizardProcessManager.getStatus(id);
+      try {
+        await stream.writeSSE({
+          event: status.status === "complete" ? "complete" : "idle",
+          data: JSON.stringify({
+            streamId: id,
+            status: status.status,
+            phase: status.phase,
+            message: status.status === "complete"
+              ? "Generation already complete"
+              : "No active generation",
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      } catch {
+        // Ignore
+      }
+      return;
+    }
+
+    // Set up event handlers
+    const handlers: { event: string; handler: (event: WizardOutputEvent) => Promise<void> }[] = [];
+
+    const createHandler = (eventType: string) => {
+      return async (event: WizardOutputEvent) => {
+        if (!isConnected) return;
+        try {
+          await stream.writeSSE({
+            event: eventType,
+            data: JSON.stringify({
+              type: event.type,
+              streamId: event.streamId,
+              data: event.data,
+              timestamp: event.timestamp.toISOString(),
+            }),
+          });
+        } catch (error) {
+          console.log(`[SSE] Error writing ${eventType} event: ${error}`);
+          isConnected = false;
+        }
+      };
+    };
+
+    // Register handlers for all event types
+    for (const eventType of ["phase", "output", "complete", "error"]) {
+      const handler = createHandler(eventType);
+      handlers.push({ event: eventType, handler });
+      eventEmitter.on(eventType, handler);
+    }
+
+    // Set up heartbeat
+    const heartbeatInterval = setInterval(async () => {
+      if (!isConnected) {
+        clearInterval(heartbeatInterval);
+        return;
+      }
+      try {
+        await stream.writeSSE({
+          event: "heartbeat",
+          data: JSON.stringify({ timestamp: new Date().toISOString() }),
+        });
+      } catch {
+        isConnected = false;
+        clearInterval(heartbeatInterval);
+      }
+    }, 15000);
+
+    // Keep stream alive until disconnected or generation completes
+    try {
+      while (isConnected && wizardProcessManager.isGenerating(id)) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      // Send final status if still connected
+      if (isConnected) {
+        const finalStatus = wizardProcessManager.getStatus(id);
+        await stream.writeSSE({
+          event: finalStatus.status === "complete" ? "complete" : "status",
+          data: JSON.stringify({
+            streamId: id,
+            status: finalStatus.status,
+            phase: finalStatus.phase,
+            progress: finalStatus.progress,
+            error: finalStatus.error,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      }
+    } catch (error) {
+      console.log(`[SSE] Stream loop ended: ${error}`);
+    }
+
+    // Cleanup
+    isConnected = false;
+    clearInterval(heartbeatInterval);
+
+    // Remove event listeners
+    for (const { event, handler } of handlers) {
+      eventEmitter?.off(event, handler);
+    }
+
+    console.log(`[SSE] Generation stream for PRD-${id} disconnected`);
+  });
+});
+
+/**
+ * POST /api/stream/:id/generation-cancel
+ *
+ * Cancel an in-progress generation.
+ * Kills the ralph process if running.
+ *
+ * Returns:
+ *   - 200 with { success: true }
+ *   - 404 if stream doesn't exist
+ *   - 409 if no generation in progress
+ */
+api.post("/stream/:id/generation-cancel", (c) => {
+  const id = c.req.param("id");
+
+  // Validate stream exists
+  const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: "not_found",
+        message: ".ralph directory not found",
+      },
+      404
+    );
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${id}`);
+  if (!fs.existsSync(streamPath)) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  // Check if generating
+  if (!wizardProcessManager.isGenerating(id)) {
+    return c.json(
+      {
+        error: "conflict",
+        message: "No generation in progress for this stream",
+      },
+      409
+    );
+  }
+
+  // Cancel the generation
+  const result = wizardProcessManager.cancel(id);
+
+  if (!result.success) {
+    return c.json(
+      {
+        error: "cancel_failed",
+        message: result.message,
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: result.message,
+  });
 });
 
 export { api };

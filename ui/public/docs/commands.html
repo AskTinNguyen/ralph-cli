@@ -287,47 +287,56 @@
     .rams-page-nav {
       position: fixed;
       top: 140px;
-      right: var(--rams-space-8);
-      width: 180px;
+      right: 24px;
+      width: auto;
+      min-width: 160px;
+      max-height: calc(100vh - 180px);
       background: var(--rams-white);
       border: var(--rams-border-width) solid var(--rams-border-color);
-      border-radius: var(--rams-radius-lg);
-      padding: var(--rams-space-4);
+      border-radius: var(--rams-radius-md);
       box-shadow: var(--rams-shadow-sm);
       z-index: 40;
       transition: all var(--rams-transition-normal);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .rams-page-nav-header {
-      font-size: var(--rams-text-xs);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--rams-gray-500);
-      padding: var(--rams-space-2) var(--rams-space-3);
-      margin-bottom: var(--rams-space-2);
+      padding: 8px 12px;
+      margin: 0;
+      background: var(--rams-white);
       border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      flex-shrink: 0;
     }
 
     .rams-page-nav-list {
       list-style: none;
       margin: 0;
-      padding: 0;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: var(--rams-space-1);
+      gap: 2px;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .rams-page-nav-link {
       display: block;
-      padding: var(--rams-space-2) var(--rams-space-3);
-      font-size: var(--rams-text-sm);
-      color: var(--rams-gray-700);
+      padding: 6px 8px;
+      font-size: 13px;
+      color: var(--rams-gray-600);
       text-decoration: none;
       border-radius: var(--rams-radius-sm);
-      border-left: 2px solid transparent;
       transition: all var(--rams-transition-fast);
-      position: relative;
     }
 
     .rams-page-nav-link:hover {
@@ -337,21 +346,8 @@
 
     .rams-page-nav-link.active {
       color: var(--rams-accent);
-      background: rgba(26, 77, 46, 0.04);
-      border-left-color: var(--rams-accent);
-      font-weight: 500;
-    }
-
-    .rams-page-nav-link.active::before {
-      content: '';
-      position: absolute;
-      left: var(--rams-space-1);
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 4px;
-      background: var(--rams-accent);
-      border-radius: 50%;
+      background: rgba(26, 77, 46, 0.06);
+      font-weight: 600;
     }
 
     /* Footer */

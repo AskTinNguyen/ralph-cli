@@ -403,7 +403,13 @@ async function main() {
       process.exit(1);
     }
 
-    let request = args.slice(1).join(" ").trim();
+    // Check for --headless flag (for non-interactive/server use)
+    const prdArgs = args.slice(1);
+    const headlessIndex = prdArgs.indexOf("--headless");
+    const isHeadless = headlessIndex !== -1;
+    if (isHeadless) prdArgs.splice(headlessIndex, 1);
+
+    let request = prdArgs.join(" ").trim();
     if (!request) {
       if (!process.stdin.isTTY) {
         error("No request provided and stdin is not a TTY.");
@@ -441,11 +447,15 @@ async function main() {
     fs.writeFileSync(requestFile, `${request}\n`);
 
     const agentName = globalFlags.agentOverride || defaultAgent;
-    const prdAgent = agentInteractiveMap[agentName] || agentMap[agentName];
+    // Use headless (piped) mode when --headless flag is set, otherwise interactive
+    const prdAgent = isHeadless
+      ? (agentMap[agentName] || agentInteractiveMap[agentName])
+      : (agentInteractiveMap[agentName] || agentMap[agentName]);
     if (prdAgent) env.PRD_AGENT_CMD = prdAgent;
+    if (isHeadless) env.PRD_HEADLESS = "1";
 
-    const prdArgs = ["prd", "--prompt", requestFile];
-    const result = spawnSync(loopPath, prdArgs, { stdio: "inherit", env });
+    const loopPrdArgs = ["prd", "--prompt", requestFile];
+    const result = spawnSync(loopPath, loopPrdArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);
   }
 
