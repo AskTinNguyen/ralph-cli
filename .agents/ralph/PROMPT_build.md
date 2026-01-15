@@ -1,6 +1,6 @@
 # Build
 
-<!-- Version: 1.0.0 -->
+<!-- Version: 1.1.0 -->
 
 You are an autonomous coding agent. Your task is to complete the work for exactly one story and record the outcome.
 
@@ -52,20 +52,22 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 3. Read {{PRD_PATH}}.
 4. Read {{PLAN_PATH}} and locate the section for {{STORY_ID}}.
    - If no section exists, create `### {{STORY_ID}}: {{STORY_TITLE}}` and add the tasks needed.
-5. Fully audit and read all necessary files to understand the task end-to-end before implementing. Do not assume missing functionality.
-6. If {{AGENTS_PATH}} exists, follow its build/test instructions.
-7. Implement only the tasks that belong to {{STORY_ID}}.
-8. Run the verification commands listed in the story’s tasks (or in AGENTS.md if required).
-9. Update {{PLAN_PATH}}:
-   - Mark story tasks `[x]` when done.
-   - Add notes or new tasks only within the {{STORY_ID}} section.
-10. Update the PRD:
-
-- Check off **all acceptance criteria** for {{STORY_ID}} (`- [x]`) once verified.
-- Only after all acceptance criteria are checked, mark the story heading as complete
-  (change `### [ ] {{STORY_ID}}:` to `### [x] {{STORY_ID}}:`).
-
-11. If No-commit is false, commit changes using the `$commit` skill.
+5. **Check Skill Routing**: Look for a "Skill Routing" section in {{PLAN_PATH}}.
+   - If the plan specifies `/frontend-design` skill for this story (or all frontend stories), **invoke the skill immediately** before implementation.
+   - The `/frontend-design` skill creates distinctive, production-grade frontend interfaces with high design quality.
+   - See "Skill Routing" section below for details.
+6. Fully audit and read all necessary files to understand the task end-to-end before implementing. Do not assume missing functionality.
+7. If {{AGENTS_PATH}} exists, follow its build/test instructions.
+8. Implement only the tasks that belong to {{STORY_ID}}.
+9. Run the verification commands listed in the story's tasks (or in AGENTS.md if required).
+10. Update {{PLAN_PATH}}:
+    - Mark story tasks `[x]` when done.
+    - Add notes or new tasks only within the {{STORY_ID}} section.
+11. Update the PRD:
+    - Check off **all acceptance criteria** for {{STORY_ID}} (`- [x]`) once verified.
+    - Only after all acceptance criteria are checked, mark the story heading as complete
+      (change `### [ ] {{STORY_ID}}:` to `### [x] {{STORY_ID}}:`).
+12. If No-commit is false, commit changes using the `$commit` skill.
     - Stage everything: `git add -A`
     - If any AUTO_FIX entries exist in {{ACTIVITY_LOG_PATH}}, include them in the commit message body.
       Check with: `grep "AUTO_FIX" {{ACTIVITY_LOG_PATH}} | tail -5`
@@ -73,7 +75,7 @@ If the story details are empty or missing, STOP and report that the PRD story fo
     - Confirm a clean working tree after commit: `git status --porcelain` should be empty.
     - After committing, capture the commit hash and subject using:
       `git show -s --format="%h %s" HEAD`.
-12. Append a progress entry to {{PROGRESS_PATH}} with run/commit/test details (format below).
+13. Append a progress entry to {{PROGRESS_PATH}} with run/commit/test details (format below).
     If No-commit is true, skip committing and note it in the progress entry.
 
 ## Progress Entry Format (Append Only)
@@ -132,6 +134,40 @@ Log at least:
 - After major code changes
 - After tests/verification
 - After updating plan and PRD
+
+## Skill Routing (Required Check)
+
+Before implementing any story, check if {{PLAN_PATH}} contains a "Skill Routing" section.
+
+### When to Invoke `/frontend-design` Skill
+
+The `/frontend-design` skill MUST be invoked when:
+1. The plan's "Skill Routing" section lists `/frontend-design` for this story
+2. The plan marks the PRD as "Frontend" or "Full-stack" type
+3. The story involves UI components, pages, layouts, or visual elements
+
+### How to Invoke
+
+```
+/frontend-design
+```
+
+This skill creates distinctive, production-grade frontend interfaces with high design quality, avoiding generic AI aesthetics.
+
+### Skill Routing Detection
+
+Look for this pattern in {{PLAN_PATH}}:
+
+```markdown
+## Skill Routing
+
+**PRD Type**: Frontend | Full-stack
+
+**Required Skills**:
+- `/frontend-design` - Use for stories: US-XXX, US-YYY (or "ALL stories")
+```
+
+If your story ({{STORY_ID}}) is listed, or if "ALL stories" is specified, invoke the skill before step 8 (implementation).
 
 ## Browser Testing (Required for Frontend Stories)
 

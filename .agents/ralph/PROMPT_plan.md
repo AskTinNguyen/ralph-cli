@@ -1,6 +1,6 @@
 # Planning
 
-<!-- Version: 1.0.0 -->
+<!-- Version: 1.1.0 -->
 
 You are an autonomous coding agent. Your task is to create or update an implementation plan based on the PRD and existing code.
 
@@ -33,10 +33,15 @@ You are an autonomous coding agent. Your task is to create or update an implemen
 3. If {{AGENTS_PATH}} exists, read it for project-specific commands/patterns.
 4. Inspect relevant code to compare reality vs requirements. Do not assume missing functionality.
 5. Look for TODOs, placeholders, skipped/flaky tests, and inconsistent patterns.
-6. Ensure each story heading in the PRD uses the exact marker format: `### [ ] US-XXX: Story Title` (checked stories: `### [x] ...`).
+6. **Detect PRD Type**: Classify the PRD as frontend-focused, backend-focused, or full-stack:
+   - **Frontend PRD indicators**: UI components, pages, layouts, styling, CSS, React/Vue/Svelte components, forms, buttons, modals, design system, responsive design, animations, user interface, visual design, HTML templates, web pages, landing pages, dashboards
+   - **Backend PRD indicators**: APIs, databases, authentication, server logic, CLI tools, infrastructure
+   - **Full-stack**: Both frontend and backend work required
+7. Ensure each story heading in the PRD uses the exact marker format: `### [ ] US-XXX: Story Title` (checked stories: `### [x] ...`).
    - If the markers are incorrect, update {{PRD_PATH}} to fix only the heading markers (do not change meaning).
    - Ensure a short **Routing Policy** section exists in the PRD; add it if missing (see template below).
-7. Create or update {{PLAN_PATH}} with a prioritized task list, grouped by story.
+8. Create or update {{PLAN_PATH}} with a prioritized task list, grouped by story.
+9. **For frontend PRDs**: Add a "Skill Routing" section to the plan specifying that the `frontend-design` skill must be invoked (see Skill Routing section below).
 
 ## Implementation Plan Format (Required)
 
@@ -73,6 +78,12 @@ Also include a short summary at the top:
 
 - Discoveries, risks, or clarifications
 
+## Skill Routing (if applicable)
+
+- **Frontend PRD**: Use `/frontend-design` skill for all UI implementation tasks
+- **Backend PRD**: Standard implementation
+- **Full-stack PRD**: Use `/frontend-design` skill for frontend stories only
+
 ## Output
 
 - Update {{PLAN_PATH}}.
@@ -84,6 +95,73 @@ Also include a short summary at the top:
 - Keep tasks ordered by priority of missing work.
 - If you discover a missing requirement, note it under **Notes** and add a task.
 
+## Skill Routing (Required for Frontend PRDs)
+
+When the PRD involves frontend/UI work, you MUST add a "Skill Routing" section to the plan:
+
+```markdown
+## Skill Routing
+
+**PRD Type**: Frontend | Backend | Full-stack
+
+**Required Skills**:
+- `/frontend-design` - REQUIRED for all UI/frontend implementation tasks
+
+**Instructions for Build Agent**:
+Before implementing any frontend story, invoke the `/frontend-design` skill by calling:
+```
+/frontend-design
+```
+This skill creates distinctive, production-grade frontend interfaces with high design quality.
+```
+
+### Frontend PRD Detection Criteria
+
+A PRD is considered **frontend-focused** if it contains ANY of these indicators:
+- UI components (buttons, forms, modals, cards, tables, navigation)
+- Page layouts or templates
+- Styling/CSS/design tokens
+- React/Vue/Svelte/Angular components
+- Responsive design requirements
+- Visual design specifications
+- User interface interactions
+- Dashboard or admin panel UI
+- Landing pages or web pages
+- Design system components
+- Animations or transitions
+
+### Skill Routing Examples
+
+**Example 1: Pure Frontend PRD**
+```markdown
+## Skill Routing
+
+**PRD Type**: Frontend
+
+**Required Skills**:
+- `/frontend-design` - Use for ALL stories in this PRD
+
+**Instructions for Build Agent**:
+This PRD is entirely frontend-focused. Before starting any story implementation:
+1. Invoke `/frontend-design` skill
+2. Follow the skill's design guidelines
+3. Ensure high visual quality and polish
+```
+
+**Example 2: Full-stack PRD**
+```markdown
+## Skill Routing
+
+**PRD Type**: Full-stack
+
+**Required Skills**:
+- `/frontend-design` - Use for stories: US-002, US-004, US-005 (UI stories)
+
+**Instructions for Build Agent**:
+- US-001, US-003: Standard backend implementation
+- US-002, US-004, US-005: Invoke `/frontend-design` skill before implementing
+```
+
 ## Routing Policy Template (PRD)
 
 Add this section to the PRD if missing (keep it short and explicit):
@@ -92,3 +170,4 @@ Add this section to the PRD if missing (keep it short and explicit):
 
 - Commit URLs are invalid.
 - Unknown GitHub subpaths canonicalize to repo root.
+- **Frontend stories**: Must use `/frontend-design` skill for implementation.
