@@ -605,6 +605,10 @@ if [ "$MODE" = "prd" ]; then
       echo "Save the PRD to: $PRD_PATH"
       echo "Do NOT implement anything - only create the PRD document."
       echo ""
+      echo "After saving the PRD, tell the user:"
+      echo "- They can view it in the UI with: ralph gui view prd $NEW_PRD_NUM"
+      echo "- Next step: run \`ralph plan\` to create the implementation plan"
+      echo ""
       echo "User request:"
       cat "$PRD_REQUEST_PATH"
     } > "$PRD_PROMPT_FILE"
@@ -615,7 +619,9 @@ if [ "$MODE" = "prd" ]; then
       echo "Use the \$prd skill to create a Product Requirements Document."
       echo "Save the PRD to: $PRD_PATH"
       echo "Do NOT implement anything."
-      echo "After creating the PRD, tell the user to close the session and run \`ralph plan\`."
+      echo "After creating the PRD, tell the user:"
+      echo "- They can view it in the UI with: ralph gui view prd $NEW_PRD_NUM"
+      echo "- Next step: close this session and run \`ralph plan\` to create the implementation plan"
       echo ""
       echo "User request:"
       cat "$PRD_REQUEST_PATH"
@@ -3566,8 +3572,9 @@ if [ "$MODE" = "plan" ]; then
   echo ""
   msg_info "Next steps (if you want to proceed):"
   msg_dim "1) Review the plan in \"$PLAN_PATH\"."
-  msg_dim "2) Start implementation with: ralph build"
-  msg_dim "3) Test a single run without committing: ralph build 1 --no-commit"
+  msg_dim "2) View the PRD and plan in the UI: ralph gui view prd $ACTIVE_PRD_NUMBER"
+  msg_dim "3) Start implementation with: ralph build"
+  msg_dim "4) Test a single run without committing: ralph build 1 --no-commit"
 fi
 
 # Print error summary at end of run if any iterations failed
