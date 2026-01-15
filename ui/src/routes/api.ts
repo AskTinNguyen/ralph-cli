@@ -1956,28 +1956,57 @@ api.get("/partials/streams", (c) => {
     return fs.existsSync(worktreePath);
   };
 
-  const streamCards = streams
-    .map((stream) => {
-      const completionPercentage =
-        stream.totalStories > 0
-          ? Math.round((stream.completedStories / stream.totalStories) * 100)
-          : 0;
+  // Categorize streams into 4 groups:
+  // 1. In Progress = actively running
+  // 2. Completed = merged or completed status
+  // 3. Idle = has some progress but paused (not running, not completed)
+  // 4. Not Started = no progress yet (0 stories completed, not completed/merged)
+  const inProgressStreams = streams.filter(s => s.status === 'running');
+  const completedStreams = streams.filter(s => s.status === 'completed' || s.merged);
+  const idleStreams = streams.filter(s =>
+    s.status !== 'running' &&
+    s.status !== 'completed' &&
+    !s.merged &&
+    s.completedStories > 0
+  );
+  const notStartedStreams = streams.filter(s =>
+    s.status !== 'running' &&
+    s.status !== 'completed' &&
+    !s.merged &&
+    s.completedStories === 0
+  );
 
-      const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
-      const worktreeInitialized = hasWorktree(stream.id);
-      const isCompleted = stream.status === "completed";
-      const isRunning = stream.status === "running";
-      const isMerged = stream.merged;
-      const isInProgress = stream.status === "in_progress";
-      const isIdle = stream.status === "idle" || stream.status === "ready";
-      const isFullyComplete = stream.totalStories > 0 && stream.completedStories === stream.totalStories;
+  // Helper to render a stream card
+  const renderStreamCard = (stream: Stream) => {
+    const completionPercentage =
+      stream.totalStories > 0
+        ? Math.round((stream.completedStories / stream.totalStories) * 100)
+        : 0;
 
-      // Determine if this stream should be visually muted (finished states)
-      const isFinishedState = isMerged || (isCompleted && !worktreeInitialized);
+    const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+    const worktreeInitialized = hasWorktree(stream.id);
+    const isCompleted = stream.status === "completed";
+    const isRunning = stream.status === "running";
+    const isMerged = stream.merged;
+    const isFullyComplete = stream.totalStories > 0 && stream.completedStories === stream.totalStories;
 
-      // Build action buttons based on stream state
-      let actionButtonsHtml = "";
+    // Determine if this stream should be visually muted (finished states)
+    const isFinishedState = isMerged || (isCompleted && !worktreeInitialized);
 
+    // Build action buttons based on stream state
+    let actionButtonsHtml = "";
+
+    if (isRunning) {
+      // Show Pause/Cancel buttons for running streams
+      actionButtonsHtml = `
+        <button class="rams-btn rams-btn-warning" onclick="pauseStream('${stream.id}', event)" title="Gracefully stop after current iteration">
+          Pause
+        </button>
+        <button class="rams-btn rams-btn-secondary" onclick="cancelStream('${stream.id}', event)" title="Immediately terminate build">
+          Cancel
+        </button>`;
+    } else {
+      // Show Init/Build buttons for non-running streams
       // Init button logic:
       // - Show if worktree not initialized
       // - Disabled if merged or completed (direct-to-main)
@@ -1993,74 +2022,77 @@ api.get("/partials/streams", (c) => {
       }
 
       // Build button logic:
-      // - Disabled if: merged, running, completed (no worktree), or no worktree initialized (must init first)
+      // - Disabled if: merged, completed (no worktree), or no worktree initialized (must init first)
       // - Also disabled if 100% complete (all stories done)
-      const buildDisabled = isMerged || isRunning || (isCompleted && !worktreeInitialized) ||
-                           (!worktreeInitialized && !isRunning) || isFullyComplete;
+      const buildDisabled = isMerged || (isCompleted && !worktreeInitialized) ||
+                           (!worktreeInitialized) || isFullyComplete;
       const buildTitle = isMerged ? "Already merged to main" :
-                        isRunning ? "Build in progress" :
                         (isCompleted && !worktreeInitialized) ? "Already completed" :
                         isFullyComplete ? "All stories completed" :
                         !worktreeInitialized ? "Initialize worktree first (click Init)" :
                         "Start build iterations";
       actionButtonsHtml += `
         <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
-          ${isRunning ? "Running..." : "Build"}
+          Build
         </button>`;
+    }
 
-      // Estimate button - show if plan exists
-      // Disabled if merged or completed (direct-to-main)
-      if (stream.hasPlan) {
-        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        const estimateDisabled = isMerged || (isCompleted && !worktreeInitialized);
-        const estimateTitle = isMerged ? "Already merged to main" :
-                             (isCompleted && !worktreeInitialized) ? "Already completed" :
-                             "View estimates for this PRD";
-        actionButtonsHtml += `
-        <button class="rams-btn rams-btn-secondary"
-                onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
-                title="${estimateTitle}"
-                ${estimateDisabled ? "disabled" : ""}>
-          Estimate
+    // Estimate button - show if plan exists
+    // Disabled if merged or completed (direct-to-main)
+    if (stream.hasPlan) {
+      const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      const estimateDisabled = isMerged || (isCompleted && !worktreeInitialized);
+      const estimateTitle = isMerged ? "Already merged to main" :
+                           (isCompleted && !worktreeInitialized) ? "Already completed" :
+                           "View estimates for this PRD";
+      actionButtonsHtml += `
+      <button class="rams-btn rams-btn-secondary"
+              onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
+              title="${estimateTitle}"
+              ${estimateDisabled ? "disabled" : ""}>
+        Estimate
+      </button>`;
+    }
+
+    // Merge button logic:
+    // - Only show when worktree exists and not running
+    // - Disabled if: already merged or not 100% complete
+    if (worktreeInitialized && !isRunning) {
+      const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      const mergeDisabled = isMerged || !isFullyComplete;
+      const mergeTitle = isMerged ? "Already merged to main" :
+                        !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
+                        "Merge to main branch";
+      actionButtonsHtml += `
+        <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+          Merge
         </button>`;
-      }
+    }
 
-      // Merge button logic:
-      // - Only show when worktree exists
-      // - Disabled if: already merged, running, or not 100% complete
-      if (worktreeInitialized) {
-        const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        const mergeDisabled = isMerged || isRunning || !isFullyComplete;
-        const mergeTitle = isMerged ? "Already merged to main" :
-                          isRunning ? "Wait for build to complete" :
-                          !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
-                          "Merge to main branch";
-        actionButtonsHtml += `
-          <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
-            Merge
-          </button>`;
-      }
+    // Build form (hidden by default)
+    const buildFormHtml = `
+      <div id="build-form-${stream.id}" class="rams-card" style="display: none; padding: var(--rams-space-4); margin-top: var(--rams-space-3);" onclick="event.stopPropagation()">
+        <label class="rams-form-label" for="iterations-${stream.id}">Iterations:</label>
+        <input type="number" class="rams-input" id="iterations-${stream.id}" name="iterations" value="1" min="1" max="100" style="width: 80px; margin: 0 var(--rams-space-2);" />
+        <button class="rams-btn rams-btn-primary" onclick="startStreamBuild('${stream.id}', event)">Start</button>
+        <button class="rams-btn rams-btn-secondary" onclick="toggleBuildForm('${stream.id}', event)">Cancel</button>
+      </div>`;
 
-      // Build form (hidden by default)
-      const buildFormHtml = `
-        <div id="build-form-${stream.id}" class="rams-card" style="display: none; padding: var(--rams-space-4); margin-top: var(--rams-space-3);" onclick="event.stopPropagation()">
-          <label class="rams-form-label" for="iterations-${stream.id}">Iterations:</label>
-          <input type="number" class="rams-input" id="iterations-${stream.id}" name="iterations" value="1" min="1" max="100" style="width: 80px; margin: 0 var(--rams-space-2);" />
-          <button class="rams-btn rams-btn-primary" onclick="startStreamBuild('${stream.id}', event)">Start</button>
-          <button class="rams-btn rams-btn-secondary" onclick="toggleBuildForm('${stream.id}', event)">Cancel</button>
-        </div>`;
+    // Map status to Rams badge class
+    const badgeClass = stream.status === 'running' ? 'rams-badge-running' :
+                       stream.status === 'completed' ? 'rams-badge-success' :
+                       stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
 
-      // Map status to Rams badge class
-      const badgeClass = stream.status === 'running' ? 'rams-badge-running' :
-                         stream.status === 'completed' ? 'rams-badge-success' :
-                         stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
+    // Card styling - muted for finished states
+    const cardStyle = isFinishedState
+      ? "cursor: pointer; margin-bottom: var(--rams-space-4); opacity: 0.6; filter: grayscale(30%);"
+      : "cursor: pointer; margin-bottom: var(--rams-space-4);";
 
-      // Card styling - muted for finished states
-      const cardStyle = isFinishedState
-        ? "cursor: pointer; margin-bottom: var(--rams-space-4); opacity: 0.6; filter: grayscale(30%);"
-        : "cursor: pointer; margin-bottom: var(--rams-space-4);";
+    // PRD/Plan readiness badges
+    const prdBadgeLabel = stream.hasPrd ? "Ready PRD" : "Missing PRD";
+    const planBadgeLabel = stream.hasPlan ? "Ready Plan" : "Not Ready Plan";
 
-      return `
+    return `
 <div class="rams-card" style="${cardStyle}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
     <span class="rams-label">PRD-${stream.id}</span>
@@ -2077,9 +2109,8 @@ api.get("/partials/streams", (c) => {
     <span class="rams-text-sm rams-text-muted">${stream.completedStories} of ${stream.totalStories} stories completed (${completionPercentage}%)</span>
   </div>
   <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap; margin-bottom: var(--rams-space-3);">
-    <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>PRD</span>
-    <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>Plan</span>
-    <span class="rams-badge ${stream.hasProgress ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>Progress</span>
+    <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>
+    <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>
     ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ""}
   </div>
   <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
@@ -2088,20 +2119,69 @@ api.get("/partials/streams", (c) => {
   ${buildFormHtml}
 </div>
 `;
-    })
-    .join("");
+  };
 
-  return c.html(`<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${streamCards}</div>`);
+  // Build sections HTML
+  const inProgressSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">In Progress</h3>
+    <span class="rams-badge rams-badge-running">${inProgressStreams.length}</span>
+  </div>
+  ${inProgressStreams.length > 0
+    ? `<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${inProgressStreams.map(renderStreamCard).join("")}</div>`
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No PRDs are currently running. Start a build to see activity here.</div>'
+  }
+</div>`;
+
+  const idleSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Idle</h3>
+    <span class="rams-badge rams-badge-pending">${idleStreams.length}</span>
+  </div>
+  ${idleStreams.length > 0
+    ? `<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${idleStreams.map(renderStreamCard).join("")}</div>`
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No idle PRDs.</div>'
+  }
+</div>`;
+
+  const notStartedSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Not Started</h3>
+    <span class="rams-badge rams-badge-idle">${notStartedStreams.length}</span>
+  </div>
+  ${notStartedStreams.length > 0
+    ? `<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${notStartedStreams.map(renderStreamCard).join("")}</div>`
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No PRDs waiting to start. Create a new stream to get started.</div>'
+  }
+</div>`;
+
+  const completedSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Completed</h3>
+    <span class="rams-badge rams-badge-success">${completedStreams.length}</span>
+  </div>
+  ${completedStreams.length > 0
+    ? `<div class="rams-card-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">${completedStreams.map(renderStreamCard).join("")}</div>`
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No completed PRDs yet.</div>'
+  }
+</div>`;
+
+  return c.html(`${inProgressSection}${idleSection}${notStartedSection}${completedSection}`);
 });
 
 /**
  * GET /api/partials/streams-progress
  *
  * Returns HTML fragment for the progress-focused view.
- * Lists active streams prominently with completed streams collapsed.
+ * Separates streams into In Progress (running) and Idle (not running) categories.
  */
 api.get("/partials/streams-progress", (c) => {
   const streams = getStreams();
+  const ralphRoot = getRalphRoot();
 
   if (streams.length === 0) {
     return c.html(`
@@ -2113,16 +2193,36 @@ api.get("/partials/streams-progress", (c) => {
 `);
   }
 
-  // Separate streams by status
-  const activeStreams = streams.filter(s =>
-    s.status === 'running' || s.status === 'in_progress' || s.status === 'ready'
+  // Check which streams have worktrees initialized
+  const worktreesPath = ralphRoot ? path.join(ralphRoot, "worktrees") : null;
+  const hasWorktree = (streamId: string): boolean => {
+    if (!worktreesPath) return false;
+    const worktreePath = path.join(worktreesPath, `PRD-${streamId}`);
+    return fs.existsSync(worktreePath);
+  };
+
+  // Categorize streams into 4 groups:
+  // 1. In Progress = actively running
+  // 2. Completed = merged or completed status
+  // 3. Idle = has some progress but paused (not running, not completed)
+  // 4. Not Started = no progress yet (0 stories completed, not completed/merged)
+  const inProgressStreams = streams.filter(s => s.status === 'running');
+  const completedStreams = streams.filter(s => s.status === 'completed' || s.merged);
+  const idleStreams = streams.filter(s =>
+    s.status !== 'running' &&
+    s.status !== 'completed' &&
+    !s.merged &&
+    s.completedStories > 0
   );
-  const completedStreams = streams.filter(s =>
-    s.status === 'completed' || s.merged
-  ).reverse(); // Most recent first
+  const notStartedStreams = streams.filter(s =>
+    s.status !== 'running' &&
+    s.status !== 'completed' &&
+    !s.merged &&
+    s.completedStories === 0
+  );
 
   // Helper function to render stream item
-  const renderStreamItem = (stream: Stream, isActive: boolean) => {
+  const renderStreamItem = (stream: Stream, isInProgress: boolean) => {
     // Fetch full stream details to get stories
     const streamDetails = getStreamDetails(stream.id);
     const stories = streamDetails?.stories || [];
@@ -2137,8 +2237,77 @@ api.get("/partials/streams-progress", (c) => {
                        stream.status === 'in_progress' ? 'rams-badge-in-progress' :
                        stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
 
-    const itemClass = isActive ? 'stream-item-active' : 'stream-item-completed';
+    const itemClass = isInProgress ? 'stream-item-active' : 'stream-item-idle';
     const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+    const worktreeInitialized = hasWorktree(stream.id);
+    const isCompleted = stream.status === "completed";
+    const isRunning = stream.status === "running";
+    const isMerged = stream.merged;
+    const isFullyComplete = stream.totalStories > 0 && stream.completedStories === stream.totalStories;
+
+    // Build action buttons based on stream state
+    let actionButtonsHtml = "";
+
+    if (isRunning) {
+      // Show Pause/Cancel buttons for running streams
+      actionButtonsHtml = `
+        <button class="rams-btn rams-btn-warning" onclick="pauseStream('${stream.id}', event)" title="Gracefully stop after current iteration">
+          Pause
+        </button>
+        <button class="rams-btn rams-btn-secondary" onclick="cancelStream('${stream.id}', event)" title="Immediately terminate build">
+          Cancel
+        </button>`;
+    } else {
+      // Show Init/Build buttons for non-running streams
+      if (!worktreeInitialized) {
+        const initDisabled = isMerged || isCompleted;
+        const initTitle = isMerged ? "Already merged to main" :
+                         isCompleted ? "Already completed" :
+                         "Initialize git worktree for parallel building";
+        actionButtonsHtml += `
+          <button class="rams-btn rams-btn-secondary" onclick="initStream('${stream.id}', event)" title="${initTitle}" ${initDisabled ? "disabled" : ""}>
+            Init
+          </button>`;
+      }
+
+      const buildDisabled = isMerged || (isCompleted && !worktreeInitialized) ||
+                           (!worktreeInitialized) || isFullyComplete;
+      const buildTitle = isMerged ? "Already merged to main" :
+                        (isCompleted && !worktreeInitialized) ? "Already completed" :
+                        isFullyComplete ? "All stories completed" :
+                        !worktreeInitialized ? "Initialize worktree first (click Init)" :
+                        "Start build iterations";
+      actionButtonsHtml += `
+        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
+          Build
+        </button>`;
+    }
+
+    // Merge button for non-running streams with worktree
+    if (worktreeInitialized && !isRunning) {
+      const mergeDisabled = isMerged || !isFullyComplete;
+      const mergeTitle = isMerged ? "Already merged to main" :
+                        !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
+                        "Merge to main branch";
+      actionButtonsHtml += `
+        <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+          Merge
+        </button>`;
+    }
+
+    // Build form (hidden by default)
+    const buildFormHtml = `
+      <div id="build-form-progress-${stream.id}" class="rams-card" style="display: none; padding: var(--rams-space-3); margin: var(--rams-space-3) 0;" onclick="event.stopPropagation()">
+        <label class="rams-form-label" for="iterations-progress-${stream.id}">Iterations:</label>
+        <input type="number" class="rams-input" id="iterations-progress-${stream.id}" value="1" min="1" max="100" style="width: 80px; margin: 0 var(--rams-space-2);" />
+        <button class="rams-btn rams-btn-primary" onclick="startStreamBuildProgress('${stream.id}', event)">Start</button>
+        <button class="rams-btn rams-btn-secondary" onclick="toggleBuildFormProgress('${stream.id}', event)">Cancel</button>
+      </div>`;
+
+    // PRD/Plan readiness badges
+    const prdBadgeLabel = stream.hasPrd ? "Ready PRD" : "Missing PRD";
+    const planBadgeLabel = stream.hasPlan ? "Ready Plan" : "Not Ready Plan";
 
     // Render stories section
     const storiesHtml = stories.length > 0 ? stories.map(story => {
@@ -2181,7 +2350,7 @@ api.get("/partials/streams-progress", (c) => {
 
     // Wrap in <details> for expandable behavior
     return `
-      <details class="stream-item-expandable ${itemClass}">
+      <details class="stream-item-expandable ${itemClass}" ${isInProgress ? 'open' : ''}>
         <summary class="stream-item-header" onclick="event.stopPropagation();">
           <span class="expand-chevron">▶</span>
           <div style="min-width: 80px;">
@@ -2203,11 +2372,20 @@ api.get("/partials/streams-progress", (c) => {
             <span class="rams-badge ${badgeClass}">
               <span class="rams-badge-dot"></span>${statusLabel}
             </span>
-            ${stream.merged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
+            ${isMerged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
           </div>
         </summary>
 
         <div class="stream-item-content">
+          <div class="stream-item-actions" style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap; padding: var(--rams-space-3) 0; border-bottom: 1px solid var(--rams-gray-100); margin-bottom: var(--rams-space-3);">
+            ${actionButtonsHtml}
+          </div>
+          ${buildFormHtml}
+          <div class="stream-item-readiness" style="display: flex; gap: var(--rams-space-2); margin-bottom: var(--rams-space-3);">
+            <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>
+            <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>
+            ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ''}
+          </div>
           <div class="stories-list">
             ${storiesHtml}
           </div>
@@ -2216,31 +2394,63 @@ api.get("/partials/streams-progress", (c) => {
     `;
   };
 
-  // Build active section
-  const activeSection = activeStreams.length > 0 ? `
-    <div class="streams-section">
-      <div class="streams-section-header">
-        <h2 class="rams-h2">Active Streams</h2>
-      </div>
-      ${activeStreams.map(s => renderStreamItem(s, true)).join('')}
-    </div>` : '';
+  // Build In Progress section
+  const inProgressSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">In Progress</h3>
+    <span class="rams-badge rams-badge-running">${inProgressStreams.length}</span>
+  </div>
+  ${inProgressStreams.length > 0
+    ? inProgressStreams.map(s => renderStreamItem(s, true)).join('')
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No PRDs are currently running. Start a build to see activity here.</div>'
+  }
+</div>`;
 
-  // Build completed section
-  const completedSection = completedStreams.length > 0 ? `
-    <details class="streams-collapsible" open>
-      <summary class="streams-collapsible-header">
-        <span class="chevron">▼</span>
-        <h3 class="rams-h3" style="margin: 0;">Completed Streams</h3>
-        <span class="rams-badge rams-badge-muted">${completedStreams.length}</span>
-      </summary>
-      <div class="streams-collapsible-content">
-        ${completedStreams.map(s => renderStreamItem(s, false)).join('')}
-      </div>
-    </details>` : '';
+  // Build Idle section
+  const idleSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Idle</h3>
+    <span class="rams-badge rams-badge-pending">${idleStreams.length}</span>
+  </div>
+  ${idleStreams.length > 0
+    ? idleStreams.map(s => renderStreamItem(s, false)).join('')
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No idle PRDs.</div>'
+  }
+</div>`;
+
+  // Build Not Started section
+  const notStartedSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Not Started</h3>
+    <span class="rams-badge rams-badge-idle">${notStartedStreams.length}</span>
+  </div>
+  ${notStartedStreams.length > 0
+    ? notStartedStreams.map(s => renderStreamItem(s, false)).join('')
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No PRDs waiting to start. Create a new stream to get started.</div>'
+  }
+</div>`;
+
+  // Build Completed section
+  const completedSection = `
+<div style="margin-bottom: var(--rams-space-6);">
+  <div style="display: flex; align-items: center; gap: var(--rams-space-3); margin-bottom: var(--rams-space-4);">
+    <h3 class="rams-h3" style="margin: 0;">Completed</h3>
+    <span class="rams-badge rams-badge-success">${completedStreams.length}</span>
+  </div>
+  ${completedStreams.length > 0
+    ? completedStreams.map(s => renderStreamItem(s, false)).join('')
+    : '<div class="rams-text-muted" style="padding: var(--rams-space-4); text-align: center;">No completed PRDs yet.</div>'
+  }
+</div>`;
 
   return c.html(`
     <div class="streams-progress-view">
-      ${activeSection}
+      ${inProgressSection}
+      ${idleSection}
+      ${notStartedSection}
       ${completedSection}
     </div>
   `);
@@ -3452,6 +3662,92 @@ api.post("/stream/:id/build", async (c) => {
       startedAt: status.startedAt?.toISOString(),
       command: status.command,
       options: status.options,
+    },
+  });
+});
+
+/**
+ * POST /api/stream/:id/stop
+ *
+ * Stop a running build for a specific stream.
+ * Request body: { force?: boolean }
+ *   - force: false (default) = graceful stop (SIGTERM, waits for current iteration)
+ *   - force: true = immediate termination (SIGKILL)
+ *
+ * Returns:
+ *   - 200 with stop status
+ *   - 404 if stream doesn't exist
+ *   - 409 if stream not running
+ */
+api.post("/stream/:id/stop", async (c) => {
+  const id = c.req.param("id");
+
+  // Validate stream exists
+  const stream = getStreamDetails(id);
+  if (!stream) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `Stream PRD-${id} not found`,
+      },
+      404
+    );
+  }
+
+  // Check if stream is running
+  if (stream.status !== "running") {
+    return c.json(
+      {
+        error: "not_running",
+        message: `Stream PRD-${id} is not currently running`,
+      },
+      409
+    );
+  }
+
+  // Parse request body
+  let body: { force?: boolean } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    // No body or invalid JSON is okay, defaults to graceful stop
+  }
+
+  const force = body.force === true;
+
+  // Stop the build
+  const status = force ? processManager.killBuild() : processManager.stopBuild();
+
+  if (status.state === "idle" && status.error) {
+    return c.json(
+      {
+        error: "not_running",
+        message: status.error,
+      },
+      409
+    );
+  }
+
+  if (status.state === "error") {
+    return c.json(
+      {
+        error: "stop_failed",
+        message: status.error || "Failed to stop build",
+      },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: force
+      ? `Build for PRD-${id} terminated immediately`
+      : `Stop signal sent to PRD-${id} build (will complete current iteration)`,
+    status: {
+      state: status.state,
+      pid: status.pid,
+      startedAt: status.startedAt?.toISOString(),
+      command: status.command,
     },
   });
 });

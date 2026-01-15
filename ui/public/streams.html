@@ -605,6 +605,7 @@
       color: var(--rams-gray-600);
       margin-top: var(--rams-space-1);
     }
+
   </style>
 </head>
 <body class="rams-page">
@@ -1524,6 +1525,115 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
         })
         .catch(function (err) {
           showAlert("error", "Failed to merge stream: " + err.message);
+        });
+    }
+
+    // Pause a running stream build (graceful stop)
+    function pauseStream(streamId, event) {
+      if (event) event.stopPropagation();
+
+      var confirmed = confirm(
+        "Pause build for PRD-" + streamId + "?\n\nThis will gracefully stop after the current iteration completes."
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      fetch("/api/stream/" + streamId + "/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: false })
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            showAlert("success", "Pause signal sent to PRD-" + streamId);
+            htmx.trigger(document.body, "newStreamCreated");
+          } else {
+            showAlert("error", data.message || "Failed to pause build");
+          }
+        })
+        .catch(function (err) {
+          showAlert("error", "Failed to pause build: " + err.message);
+        });
+    }
+
+    // Cancel a running stream build (force stop)
+    function cancelStream(streamId, event) {
+      if (event) event.stopPropagation();
+
+      var confirmed = confirm(
+        "Cancel build for PRD-" + streamId + "?\n\nThis will immediately terminate the build process. Any in-progress work may be lost."
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      fetch("/api/stream/" + streamId + "/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true })
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            showAlert("warning", "Build cancelled for PRD-" + streamId);
+            htmx.trigger(document.body, "newStreamCreated");
+          } else {
+            showAlert("error", data.message || "Failed to cancel build");
+          }
+        })
+        .catch(function (err) {
+          showAlert("error", "Failed to cancel build: " + err.message);
+        });
+    }
+
+    // Toggle build form in Progress View
+    function toggleBuildFormProgress(streamId, event) {
+      if (event) event.stopPropagation();
+      var form = document.getElementById("build-form-progress-" + streamId);
+      if (form) {
+        form.style.display = form.style.display === "none" ? "block" : "none";
+      }
+    }
+
+    // Start build from Progress View form
+    function startStreamBuildProgress(streamId, event) {
+      if (event) event.stopPropagation();
+
+      var iterationsInput = document.getElementById("iterations-progress-" + streamId);
+      var iterations = iterationsInput ? parseInt(iterationsInput.value, 10) : 1;
+
+      if (iterations < 1 || iterations > 100) {
+        showAlert("error", "Iterations must be between 1 and 100");
+        return;
+      }
+
+      fetch("/api/stream/" + streamId + "/build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iterations: iterations })
+      })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (data) {
+          if (data.success) {
+            showAlert("success", "Build started for PRD-" + streamId + " with " + iterations + " iteration(s)");
+            toggleBuildFormProgress(streamId);
+            htmx.trigger(document.body, "newStreamCreated");
+          } else {
+            showAlert("error", data.message || "Failed to start build");
+          }
+        })
+        .catch(function (err) {
+          showAlert("error", "Failed to start build: " + err.message);
         });
     }
 
