@@ -3650,8 +3650,18 @@ if [ "$MODE" = "plan" ]; then
   echo ""
   msg_info "Next steps (if you want to proceed):"
   msg_dim "1) Review the plan in \"$PLAN_PATH\"."
-  msg_dim "2) Start implementation with: ralph build"
-  msg_dim "3) Test a single run without committing: ralph build 1 --no-commit"
+
+  # Extract PRD number from path for command examples
+  if [[ "$PLAN_PATH" =~ PRD-([0-9]+) ]]; then
+    PRD_NUM="${BASH_REMATCH[1]}"
+    msg_dim "2) Direct execution: ralph build 5 --prd=$PRD_NUM"
+    msg_dim "3) Stream execution (isolated): ralph stream build $PRD_NUM 5"
+    msg_dim "4) Test single run: ralph build 1 --no-commit --prd=$PRD_NUM"
+  else
+    msg_dim "2) Direct execution: ralph build"
+    msg_dim "3) Stream execution: ralph stream build <prd-num> <iterations>"
+    msg_dim "4) Test single run: ralph build 1 --no-commit"
+  fi
 fi
 
 # Print error summary at end of run if any iterations failed
