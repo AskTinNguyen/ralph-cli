@@ -1691,11 +1691,12 @@ api.get("/partials/activity-logs", (c) => {
 
       const levelBadge = entry.level === 'error' ? 'rams-badge-error' :
                          entry.level === 'warning' ? 'rams-badge-warning' : 'rams-badge-info';
+      const levelText = entry.level.toUpperCase();
 
       return `
 <div class="rams-card" style="padding: var(--rams-space-3); margin-bottom: var(--rams-space-2); display: flex; gap: var(--rams-space-3); align-items: flex-start;">
   <span class="rams-text-sm rams-text-muted" style="white-space: nowrap;">${timestamp}</span>
-  <span class="rams-badge ${levelBadge}" style="font-size: 10px; padding: 2px 6px;">${entry.level}</span>
+  <span class="rams-badge ${levelBadge}" style="font-size: 10px; padding: 2px 6px;">${levelText}</span>
   <span class="rams-text-sm" style="flex: 1;">${escapeHtml(entry.message)}</span>
 </div>
 `;
