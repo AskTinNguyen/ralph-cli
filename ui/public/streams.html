@@ -1530,6 +1530,23 @@ ralph stream verify-status       # Auto-fix stale status</div>
           updatePrdPreview();
         });
       }
+
+      // Fetch PRD content if not already loaded
+      if (!wizardState.data.prdContent && wizardState.streamId) {
+        fetch('/api/stream/' + wizardState.streamId + '/prd')
+          .then(function(r) { return r.ok ? r.json() : Promise.reject('Failed to fetch'); })
+          .then(function(data) {
+            if (data.content) {
+              wizardState.data.prdContent = data.content;
+              var editorEl = document.getElementById('wizard-prd-editor');
+              if (editorEl) {
+                editorEl.value = data.content;
+              }
+              updatePrdPreview();
+            }
+          })
+          .catch(function(e) { console.error('Failed to load PRD:', e); });
+      }
     }
 
     // Update PRD preview (simple markdown rendering)

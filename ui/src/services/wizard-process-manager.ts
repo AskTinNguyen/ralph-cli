@@ -131,7 +131,7 @@ class WizardProcessManager {
       const childProcess = spawn("ralph", args, {
         cwd: projectRoot,
         env: { ...process.env },
-        shell: true,
+        shell: false,
         stdio: ["ignore", "pipe", "pipe"],
       });
 
@@ -244,7 +244,7 @@ class WizardProcessManager {
       const childProcess = spawn("ralph", args, {
         cwd: projectRoot,
         env: { ...process.env },
-        shell: true,
+        shell: false,
         stdio: ["ignore", "pipe", "pipe"],
       });
 

@@ -6798,10 +6798,25 @@ api.post("/stream/wizard/start", async (c) => {
       }, 10000);
 
       if (result.eventEmitter) {
-        result.eventEmitter.once("prd-created", (data: { streamId: string }) => {
+        result.eventEmitter.once("prd-created", async (data: { streamId: string }) => {
           clearTimeout(timeout);
-          console.log(`[API] PRD-${data.streamId} created`);
-          resolve(data.streamId);
+          console.log(`[API] PRD-${data.streamId} creation announced`);
+
+          // VALIDATION: Wait for folder to actually exist on disk
+          const expectedPath = path.join(ralphRoot, `PRD-${data.streamId}`);
+          const maxRetries = 10;
+          const retryDelay = 200;
+
+          for (let i = 0; i < maxRetries; i++) {
+            if (fs.existsSync(expectedPath)) {
+              console.log(`[API] PRD-${data.streamId} folder verified`);
+              resolve(data.streamId);
+              return;
+            }
+            await new Promise(r => setTimeout(r, retryDelay));
+          }
+
+          reject(new Error(`PRD-${data.streamId} folder not found on disk`));
         });
 
         // Also listen for errors
@@ -6911,6 +6926,60 @@ api.get("/stream/:id/generation-status", (c) => {
     error: status.error,
     startedAt: status.startedAt?.toISOString(),
   });
+});
+
+/**
+ * GET /api/stream/:id/prd
+ *
+ * Get the PRD content for a stream.
+ * Returns the raw markdown content of the prd.md file.
+ */
+api.get("/stream/:id/prd", (c) => {
+  const id = c.req.param("id");
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: "not_found", message: ".ralph not found" }, 404);
+  }
+
+  const prdPath = path.join(ralphRoot, `PRD-${id}`, "prd.md");
+
+  if (!fs.existsSync(prdPath)) {
+    return c.json({ error: "not_found", message: "PRD not found" }, 404);
+  }
+
+  const content = fs.readFileSync(prdPath, "utf-8");
+  return c.json({ success: true, content });
+});
+
+/**
+ * PUT /api/stream/:id/prd
+ *
+ * Update the PRD content for a stream.
+ * Overwrites the prd.md file with the provided content.
+ */
+api.put("/stream/:id/prd", async (c) => {
+  const id = c.req.param("id");
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: "not_found", message: ".ralph not found" }, 404);
+  }
+
+  const prdPath = path.join(ralphRoot, `PRD-${id}`, "prd.md");
+
+  if (!fs.existsSync(path.dirname(prdPath))) {
+    return c.json({ error: "not_found", message: "Stream not found" }, 404);
+  }
+
+  const body = await c.req.json();
+
+  if (body.content === undefined) {
+    return c.json({ error: "bad_request", message: "Content required" }, 400);
+  }
+
+  fs.writeFileSync(prdPath, body.content, "utf-8");
+  return c.json({ success: true, message: "PRD updated" });
 });
 
 /**
