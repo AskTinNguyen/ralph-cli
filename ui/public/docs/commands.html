@@ -528,7 +528,9 @@
         <li><a href="#prd" class="rams-page-nav-link" data-section="prd">PRD</a></li>
         <li><a href="#planning" class="rams-page-nav-link" data-section="planning">Planning</a></li>
         <li><a href="#building" class="rams-page-nav-link" data-section="building">Building</a></li>
+        <li><a href="#errors" class="rams-page-nav-link" data-section="errors">Error Handling</a></li>
         <li><a href="#streams" class="rams-page-nav-link" data-section="streams">Streams</a></li>
+        <li><a href="#ui-monitoring" class="rams-page-nav-link" data-section="ui-monitoring">UI & Monitoring</a></li>
       </ul>
     </nav>
 
@@ -664,7 +666,7 @@ ralph install --skills</code></pre>
                 <h3 class="rams-command-title">ralph prd</h3>
                 <span class="rams-difficulty-badge beginner">Beginner</span>
               </div>
-              <p class="rams-command-description">Generate a Product Requirements Document interactively</p>
+              <p class="rams-command-description">Generate a Product Requirements Document with support for interactive and headless modes</p>
             </div>
 
             <div class="rams-command-body">
@@ -673,7 +675,7 @@ ralph install --skills</code></pre>
                 <div class="rams-code-block">
                   <div class="rams-code-header">
                     <span class="rams-code-label">Terminal</span>
-                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd')">
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph prd [\"feature description\"] [--headless]')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -682,7 +684,51 @@ ralph install --skills</code></pre>
                     </button>
                   </div>
                   <div class="rams-code-content">
-                    <pre><code>ralph prd</code></pre>
+                    <pre><code>ralph prd ["feature description"] [--headless]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--headless</code>
+                    <span class="rams-flag-description">Run in non-interactive mode for server/UI/background execution (prevents TTY conflicts). Required when called by UI server, CI/CD, or other agents.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Execution Modes</span>
+                <p class="rams-output-description">
+                  <strong>Interactive Mode (default):</strong> Agent runs with full terminal output when a human runs the command in a terminal.<br>
+                  <strong>Headless Mode (--headless):</strong> Agent runs with piped stdin for server/UI/background execution. Use when Claude Code agent executes ralph prd to avoid nested interactions.
+                </p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Human running in terminal (interactive)\nralph prd \"Build a user authentication system\"\n\n# UI server or background process (headless)\nralph prd \"Add dashboard feature\" --headless\n\n# Agent calling ralph (headless)\nralph prd \"Automated test suite\" --headless')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Human running in terminal (interactive)
+ralph prd "Build a user authentication system"
+
+# UI server or background process (headless)
+ralph prd "Add dashboard feature" --headless
+
+# Agent calling ralph (headless)
+ralph prd "Automated test suite" --headless</code></pre>
                   </div>
                 </div>
               </div>
@@ -697,6 +743,7 @@ ralph install --skills</code></pre>
                 <div class="rams-related-links">
                   <a href="#ralph-plan" class="rams-related-link">ralph plan</a>
                   <a href="#ralph-stream-new" class="rams-related-link">ralph stream new</a>
+                  <a href="/docs/agent-guide.html" class="rams-related-link">Agent Guide (AGENTS.md)</a>
                 </div>
               </div>
             </div>
@@ -914,6 +961,117 @@ ralph build 3 --agent=codex</code></pre>
                 <span class="rams-section-label">See also</span>
                 <div class="rams-related-links">
                   <a href="#ralph-plan" class="rams-related-link">ralph plan</a>
+                  <a href="#ralph-stream-build" class="rams-related-link">ralph stream build</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Error Handling Section -->
+      <section class="rams-section-divider" id="errors" data-section="errors">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>Error Handling</h2>
+            <p>Look up error codes and remediation steps</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph error -->
+          <article class="rams-command-card" id="ralph-error" data-difficulty="beginner" data-keywords="error code lookup remediation troubleshooting issue debug">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph error</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Look up error codes and view remediation steps</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph error [RALPH-XXX] [options]')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph error [RALPH-XXX] [options]</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Flags</span>
+                <div class="rams-flags-list">
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--list</code>
+                    <span class="rams-flag-description">List all available error codes</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--category &lt;name&gt;</code>
+                    <span class="rams-flag-description">Filter errors by category (CONFIG, PRD, BUILD, GIT, AGENT, STREAM, INTERNAL)</span>
+                  </div>
+                  <div class="rams-flag-item">
+                    <code class="rams-flag-name">--auto-issue</code>
+                    <span class="rams-flag-description">Show only errors that auto-create GitHub issues</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Look up specific error\nralph error RALPH-401\n\n# List all errors\nralph error --list\n\n# Filter by category\nralph error --list --category=BUILD\n\n# Show auto-issue errors\nralph error --list --auto-issue')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Look up specific error
+ralph error RALPH-401
+
+# List all errors
+ralph error --list
+
+# Filter by category
+ralph error --list --category=BUILD
+
+# Show auto-issue errors
+ralph error --list --auto-issue</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Displays error code, category, description, and remediation steps. Error codes follow pattern RALPH-XXX where range indicates category (001-099: CONFIG, 100-199: PRD, 200-299: BUILD, etc.)</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-build" class="rams-related-link">ralph build</a>
                   <a href="#ralph-stream-build" class="rams-related-link">ralph stream build</a>
                 </div>
               </div>
@@ -1390,14 +1548,79 @@ ralph stream cleanup 1</code></pre>
             </div>
           </article>
 
+          <!-- ralph stream unmark-completed -->
+          <article class="rams-command-card" id="ralph-stream-unmark-completed" data-difficulty="advanced" data-keywords="stream unmark remove completion reset status">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph stream unmark-completed</h3>
+                <span class="rams-difficulty-badge advanced">Advanced</span>
+              </div>
+              <p class="rams-command-description">Remove completion marker from a stream</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph stream unmark-completed <N>')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph stream unmark-completed &lt;N&gt;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Examples</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Remove completion marker from PRD-1\nralph stream unmark-completed 1')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code># Remove completion marker from PRD-1
+ralph stream unmark-completed 1</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Removes the <code class="rams-code-inline">.completed</code> marker file, allowing the stream to be resumed or rebuilt.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-mark-completed" class="rams-related-link">ralph stream mark-completed</a>
+                  <a href="#ralph-stream-verify-status" class="rams-related-link">ralph stream verify-status</a>
+                </div>
+              </div>
+            </div>
+          </article>
+
           <!-- ralph stream verify-status -->
-          <article class="rams-command-card" id="ralph-stream-verify-status" data-difficulty="advanced" data-keywords="stream verify status check fix repair">
+          <article class="rams-command-card" id="ralph-stream-verify-status" data-difficulty="advanced" data-keywords="stream verify status check fix repair git commits">
             <div class="rams-command-header">
               <div class="rams-command-title-row">
                 <h3 class="rams-command-title">ralph stream verify-status</h3>
                 <span class="rams-difficulty-badge advanced">Advanced</span>
               </div>
-              <p class="rams-command-description">Auto-scan and fix stale status markers</p>
+              <p class="rams-command-description">Auto-scan git history and fix stale status markers</p>
             </div>
 
             <div class="rams-command-body">
@@ -1422,7 +1645,15 @@ ralph stream cleanup 1</code></pre>
 
               <div class="rams-command-section">
                 <span class="rams-section-label">Output</span>
-                <p class="rams-output-description">Checks git history against file markers and auto-creates missing <code class="rams-code-inline">.completed</code> or <code class="rams-code-inline">.merged</code> markers when commits exist.</p>
+                <p class="rams-output-description">Checks git history against file markers and auto-creates missing <code class="rams-code-inline">.completed</code> or <code class="rams-code-inline">.merged</code> markers when commits exist. Git commits are the ultimate source of truth for PRD status - checkboxes are only progress markers. Correctly identifies PRDs completed via direct-to-main workflow (no worktree).</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Status Detection</span>
+                <p class="rams-output-description">
+                  <strong>Hierarchy:</strong> running (lock file) → merged (branch merged to main) → completed (commits on main) → in_progress (progress.md exists) → ready (plan.md exists)<br>
+                  <strong>Two workflows:</strong> merged = worktree workflow with PR, completed = direct-to-main workflow
+                </p>
               </div>
 
               <div class="rams-command-section">
@@ -1430,6 +1661,79 @@ ralph stream cleanup 1</code></pre>
                 <div class="rams-related-links">
                   <a href="#ralph-stream-status" class="rams-related-link">ralph stream status</a>
                   <a href="#ralph-stream-mark-completed" class="rams-related-link">ralph stream mark-completed</a>
+                  <a href="#ralph-stream-unmark-completed" class="rams-related-link">ralph stream unmark-completed</a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- UI & Monitoring Section -->
+      <section class="rams-section-divider" id="ui-monitoring" data-section="ui-monitoring">
+        <div class="rams-section-heading">
+          <div class="rams-section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <div class="rams-section-info">
+            <h2>UI & Monitoring</h2>
+            <p>Web dashboard and visualization tools</p>
+          </div>
+        </div>
+
+        <div class="rams-command-grid">
+          <!-- ralph ui -->
+          <article class="rams-command-card" id="ralph-ui" data-difficulty="beginner" data-keywords="ui dashboard web server monitor visualize interface">
+            <div class="rams-command-header">
+              <div class="rams-command-title-row">
+                <h3 class="rams-command-title">ralph ui</h3>
+                <span class="rams-difficulty-badge beginner">Beginner</span>
+              </div>
+              <p class="rams-command-description">Launch the Ralph web dashboard for monitoring and managing PRDs</p>
+            </div>
+
+            <div class="rams-command-body">
+              <div class="rams-command-section">
+                <span class="rams-section-label">Syntax</span>
+                <div class="rams-code-block">
+                  <div class="rams-code-header">
+                    <span class="rams-code-label">Terminal</span>
+                    <button class="rams-code-copy" onclick="copyCode(this, 'ralph ui')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                      Copy
+                    </button>
+                  </div>
+                  <div class="rams-code-content">
+                    <pre><code>ralph ui</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Output</span>
+                <p class="rams-output-description">Starts the web UI server on <strong>http://localhost:3000</strong>. The dashboard provides real-time monitoring of PRD status, progress tracking, activity logs, and interactive controls for managing builds.</p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">Features</span>
+                <p class="rams-output-description">
+                  View all PRDs with live status updates, inspect detailed progress logs, monitor build activity in real-time, create new PRDs via wizard interface, and access comprehensive documentation.
+                </p>
+              </div>
+
+              <div class="rams-command-section">
+                <span class="rams-section-label">See also</span>
+                <div class="rams-related-links">
+                  <a href="#ralph-stream-status" class="rams-related-link">ralph stream status</a>
+                  <a href="#ralph-stream-list" class="rams-related-link">ralph stream list</a>
+                  <a href="/docs/" class="rams-related-link">Documentation Home</a>
                 </div>
               </div>
             </div>
