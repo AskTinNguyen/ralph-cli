@@ -1,6 +1,7 @@
 ---
 name: prd
 description: "Generate a Product Requirements Document (PRD) for a new feature. Use when planning a feature, starting a new project, or when asked to create a PRD. Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out."
+version: 1.1.0
 ---
 
 # PRD Generator
@@ -14,9 +15,11 @@ Create detailed Product Requirements Documents that are clear, actionable, and s
 1. Receive a feature description from the user
 2. Ask 3-5 essential clarifying questions (with lettered options)
 3. Generate a structured PRD based on answers
-4. Save to `.agents/tasks/prd-[feature-name].md`
+4. Save to the path provided (typically `.ralph/PRD-N/prd.md`)
 
 **Important:** Do NOT start implementing. Just create the PRD.
+
+**Note:** When invoked via `ralph prd`, the save path is provided automatically. The system creates isolated PRD folders (PRD-1, PRD-2, etc.) to prevent overwrites.
 
 ---
 
@@ -75,7 +78,17 @@ Each story needs:
 - **Description:** "As a [user], I want [feature] so that [benefit]"
 - **Acceptance Criteria:** Verifiable checklist of what "done" means
 
-Each story should be small enough to implement in one focused session.
+### Story Sizing Guidelines
+
+Each story should be small enough to implement in one focused session. Use these heuristics:
+
+- **3-5 acceptance criteria max** per story (split if more)
+- **Single concern** - one file or tightly coupled set of files
+- **~100-200 lines of code** typical upper bound
+- **No more than 2 integration points** (e.g., API + database, not API + database + cache + queue)
+- **Independently testable** - can verify without completing other stories
+
+**Too big?** Split by layer (backend/frontend), by CRUD operation, or by user action.
 
 **Format:**
 
@@ -102,14 +115,26 @@ Each story should be small enough to implement in one focused session.
 - If the story produces URLs/IDs/links, specify the exact canonical form.
 - **For any story with UI changes:** Always include "Verify in browser using dev-browser skill" as acceptance criteria. This ensures visual verification of frontend work.
 
-### 4. Functional Requirements
+### 4. Functional Requirements (Optional)
 
-Numbered list of specific functionalities:
+**When to include:** Use FRs for system-level constraints, cross-cutting concerns, or API contracts that span multiple stories. Skip this section if user stories already capture all requirements.
+
+**FRs complement stories, they don't duplicate them:**
+
+| User Stories | Functional Requirements |
+|--------------|------------------------|
+| Implementation-focused | Contract/constraint-focused |
+| "As a user, I want..." | "The system must..." |
+| Discrete, shippable units | Cross-cutting rules |
+| Example: Add priority dropdown | Example: All API responses < 200ms |
+
+**Format:**
 
 - "FR-1: The system must allow users to..."
-- "FR-2: When a user clicks X, the system must..."
+- "FR-2: All API endpoints must return errors in JSON format"
+- "FR-3: Authentication tokens must expire after 24 hours"
 
-Be explicit and unambiguous.
+**Skip FRs when:** All requirements are captured in user stories and there are no system-wide constraints to document.
 
 ### 5. Non-Goals (Out of Scope)
 
@@ -138,6 +163,27 @@ How will success be measured?
 
 Remaining questions or areas needing clarification.
 
+### 10. Context (Auto-generated)
+
+**Important:** After completing the Q&A phase, append a Context section to preserve the decision trail:
+
+```markdown
+## Context
+
+### Clarifying Questions & Answers
+
+1. **What is the primary goal?** → B. Increase user retention
+2. **Who is the target user?** → C. All users
+3. **What is the scope?** → A. Minimal viable version
+
+### Assumptions Made
+
+- Assumed existing auth system will be reused
+- Assumed PostgreSQL database (based on existing schema)
+```
+
+This section helps future readers understand why decisions were made.
+
 ---
 
 ## Writing for Junior Developers
@@ -152,11 +198,42 @@ The PRD reader may be a junior developer or AI agent. Therefore:
 
 ---
 
+## Handling Edge Cases
+
+When user input is ambiguous or incomplete, follow these guidelines:
+
+### Vague or Incomplete Answers
+
+| Situation | Action |
+|-----------|--------|
+| User gives one-word answers | Ask one targeted follow-up, then proceed with reasonable defaults |
+| User says "just do whatever" | State your assumptions explicitly in the PRD Overview, proceed |
+| User skips questions | Use the most common/safe option, note it in Open Questions |
+| Contradictory answers | Point out the conflict, ask which takes priority |
+
+### Feature Conflicts
+
+If the requested feature conflicts with existing code:
+
+1. Note the conflict in **Technical Considerations**
+2. Add a story for resolving the conflict (e.g., "US-001: Migrate legacy X to new pattern")
+3. Document the migration path, don't just ignore it
+
+### Scope Creep Prevention
+
+If user keeps adding requirements during Q&A:
+
+1. Capture everything mentioned
+2. Prioritize into "v1" (this PRD) and "v2" (future PRD) in the Overview
+3. Add v2 items to **Non-Goals** with note: "Planned for future iteration"
+
+---
+
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `.agents/tasks/`
-- **Filename:** `prd-[feature-name].md` (kebab-case)
+- **Location:** Path provided by system (typically `.ralph/PRD-N/prd.md`)
+- **Fallback:** `.agents/tasks/prd-[feature-name].md` if no path provided
 
 ---
 
@@ -265,11 +342,12 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 
 Before saving the PRD:
 
-- [ ] Asked clarifying questions with lettered options
-- [ ] Incorporated user's answers
-- [ ] User stories are small and specific
-- [ ] Examples/negative cases included where helpful
+- [ ] Asked clarifying questions with lettered options (interactive mode)
+- [ ] Incorporated user's answers into requirements
+- [ ] User stories follow sizing guidelines (3-5 criteria, single concern)
+- [ ] Each story has examples and/or negative cases
 - [ ] Canonical URL/ID form specified when applicable
-- [ ] Functional requirements are numbered and unambiguous
+- [ ] UI stories include browser verification criterion
 - [ ] Non-goals section defines clear boundaries
-- [ ] Saved to `.agents/tasks/prd-[feature-name].md`
+- [ ] Context section documents Q&A decisions and assumptions
+- [ ] Saved to provided path (or `.ralph/PRD-N/prd.md`)

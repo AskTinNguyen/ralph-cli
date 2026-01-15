@@ -126,6 +126,7 @@ fi
 DEFAULT_AGENTS_PATH="AGENTS.md"
 DEFAULT_PROMPT_PLAN=".agents/ralph/PROMPT_plan.md"
 DEFAULT_PROMPT_BUILD=".agents/ralph/PROMPT_build.md"
+DEFAULT_PROMPT_PRD=".agents/ralph/PROMPT_prd.md"
 DEFAULT_PROMPT_RETRY=".agents/ralph/PROMPT_retry.md"
 DEFAULT_GUARDRAILS_PATH=".ralph/guardrails.md"
 DEFAULT_ERRORS_LOG_PATH=".ralph/errors.log"
@@ -199,6 +200,7 @@ fi
 AGENTS_PATH="${AGENTS_PATH:-$DEFAULT_AGENTS_PATH}"
 PROMPT_PLAN="${PROMPT_PLAN:-$DEFAULT_PROMPT_PLAN}"
 PROMPT_BUILD="${PROMPT_BUILD:-$DEFAULT_PROMPT_BUILD}"
+PROMPT_PRD="${PROMPT_PRD:-$DEFAULT_PROMPT_PRD}"
 PROMPT_RETRY="${PROMPT_RETRY:-$DEFAULT_PROMPT_RETRY}"
 GUARDRAILS_PATH="${GUARDRAILS_PATH:-$DEFAULT_GUARDRAILS_PATH}"
 
@@ -253,6 +255,7 @@ PROGRESS_PATH="$(abs_path "$PROGRESS_PATH")"
 AGENTS_PATH="$(abs_path "$AGENTS_PATH")"
 PROMPT_PLAN="$(abs_path "$PROMPT_PLAN")"
 PROMPT_BUILD="$(abs_path "$PROMPT_BUILD")"
+PROMPT_PRD="$(abs_path "$PROMPT_PRD")"
 PROMPT_RETRY="$(abs_path "$PROMPT_RETRY")"
 GUARDRAILS_PATH="$(abs_path "$GUARDRAILS_PATH")"
 ERRORS_LOG_PATH="$(abs_path "$ERRORS_LOG_PATH")"
@@ -582,41 +585,93 @@ if [ "$MODE" = "prd" ]; then
   fi
 
   PRD_PROMPT_FILE="$TMP_DIR/prd-prompt-$(date +%Y%m%d-%H%M%S)-$$.md"
-  if [ "${PRD_HEADLESS:-}" = "1" ]; then
-    # Headless mode: Generate PRD directly without asking clarifying questions
-    {
-      echo "You are an autonomous coding agent."
-      echo "Create a Product Requirements Document (PRD) based on the user's description."
-      echo "IMPORTANT: Do NOT ask clarifying questions. Make reasonable assumptions."
-      echo ""
-      echo "Generate a complete PRD with this structure:"
-      echo "1. # Product Requirements Document"
-      echo "2. ## Overview - What we're building and why"
-      echo "3. ## Goals - Primary objectives"
-      echo "4. ## User Stories - Use format: ### [ ] US-001: Title"
-      echo "   Each story must have: **As a** user, **I want** feature, **So that** benefit"
-      echo "   Include #### Acceptance Criteria with checkboxes"
-      echo "5. ## Technical Considerations"
-      echo "6. ## Success Metrics"
-      echo ""
-      echo "Save the PRD to: $PRD_PATH"
-      echo "Do NOT implement anything - only create the PRD document."
-      echo ""
-      echo "User request:"
-      cat "$PRD_REQUEST_PATH"
-    } > "$PRD_PROMPT_FILE"
+  USER_REQUEST="$(cat "$PRD_REQUEST_PATH")"
+
+  # Use shared PROMPT_prd.md template if available, otherwise use inline prompt
+  if [ -f "$PROMPT_PRD" ]; then
+    # Render template with variable substitution
+    sed -e "s|{{PRD_PATH}}|$PRD_PATH|g" \
+        -e "s|{{GUARDRAILS_PATH}}|$GUARDRAILS_PATH|g" \
+        -e "s|{{USER_REQUEST}}|$USER_REQUEST|g" \
+        "$PROMPT_PRD" > "$PRD_PROMPT_FILE"
+
+    if [ "${PRD_HEADLESS:-}" = "1" ]; then
+      # Headless mode: Add instruction to skip clarifying questions
+      {
+        cat "$PRD_PROMPT_FILE"
+        echo ""
+        echo "## Mode: Headless"
+        echo ""
+        echo "IMPORTANT: Do NOT ask clarifying questions. Make reasonable assumptions and document them in the Context section."
+      } > "${PRD_PROMPT_FILE}.tmp" && mv "${PRD_PROMPT_FILE}.tmp" "$PRD_PROMPT_FILE"
+    else
+      # Interactive mode: Add instruction to ask clarifying questions
+      {
+        cat "$PRD_PROMPT_FILE"
+        echo ""
+        echo "## Mode: Interactive"
+        echo ""
+        echo "Before generating the PRD, ask 3-5 essential clarifying questions with lettered options (A, B, C, D)."
+        echo "Focus on: Problem/Goal, Core Functionality, Scope/Boundaries, Success Criteria."
+        echo "Format questions so user can respond with '1A, 2C, 3B' for quick iteration."
+        echo ""
+        echo "After creating the PRD, tell the user to run \`ralph plan\` to generate the implementation plan."
+      } > "${PRD_PROMPT_FILE}.tmp" && mv "${PRD_PROMPT_FILE}.tmp" "$PRD_PROMPT_FILE"
+    fi
   else
-    # Interactive mode: Use the $prd skill which asks clarifying questions
-    {
-      echo "You are an autonomous coding agent."
-      echo "Use the \$prd skill to create a Product Requirements Document."
-      echo "Save the PRD to: $PRD_PATH"
-      echo "Do NOT implement anything."
-      echo "After creating the PRD, tell the user to close the session and run \`ralph plan\`."
-      echo ""
-      echo "User request:"
-      cat "$PRD_REQUEST_PATH"
-    } > "$PRD_PROMPT_FILE"
+    # Fallback: Inline prompt (template not found)
+    msg_warn "PRD template not found at $PROMPT_PRD, using inline prompt"
+    if [ "${PRD_HEADLESS:-}" = "1" ]; then
+      {
+        echo "You are an autonomous coding agent."
+        echo "Create a Product Requirements Document (PRD) based on the user's description."
+        echo "IMPORTANT: Do NOT ask clarifying questions. Make reasonable assumptions."
+        echo ""
+        echo "Generate a complete PRD with this structure:"
+        echo "1. # Product Requirements Document"
+        echo "2. ## Overview - What we're building and why"
+        echo "3. ## Goals - Primary objectives"
+        echo "4. ## User Stories - Use format: ### [ ] US-001: Title"
+        echo "   Each story must have: **As a** user, **I want** feature, **So that** benefit"
+        echo "   Include #### Acceptance Criteria with checkboxes (3-5 max per story)"
+        echo "   Include examples and negative cases"
+        echo "   For UI stories, include: Verify in browser using dev-browser skill"
+        echo "5. ## Non-Goals - What this will NOT include"
+        echo "6. ## Technical Considerations"
+        echo "7. ## Success Metrics"
+        echo "8. ## Context - Document assumptions made"
+        echo ""
+        echo "Save the PRD to: $PRD_PATH"
+        echo "Do NOT implement anything - only create the PRD document."
+        echo ""
+        echo "User request:"
+        echo "$USER_REQUEST"
+      } > "$PRD_PROMPT_FILE"
+    else
+      {
+        echo "You are an autonomous coding agent creating a Product Requirements Document."
+        echo ""
+        echo "First, ask 3-5 essential clarifying questions with lettered options (A, B, C, D)."
+        echo "Focus on: Problem/Goal, Core Functionality, Scope/Boundaries, Success Criteria."
+        echo "Format questions so user can respond with '1A, 2C, 3B' for quick iteration."
+        echo ""
+        echo "Then generate a complete PRD with:"
+        echo "- ## Overview"
+        echo "- ## Goals"
+        echo "- ## User Stories (format: ### [ ] US-001: Title, with 3-5 acceptance criteria each)"
+        echo "- ## Non-Goals"
+        echo "- ## Technical Considerations"
+        echo "- ## Success Metrics"
+        echo "- ## Context (document Q&A answers and assumptions)"
+        echo ""
+        echo "Save the PRD to: $PRD_PATH"
+        echo "Do NOT implement anything."
+        echo "After creating the PRD, tell the user to run \`ralph plan\`."
+        echo ""
+        echo "User request:"
+        echo "$USER_REQUEST"
+      } > "$PRD_PROMPT_FILE"
+    fi
   fi
 
   if [ "$PRD_USE_INLINE" -eq 1 ]; then
@@ -624,6 +679,33 @@ if [ "$MODE" = "prd" ]; then
   else
     run_agent "$PRD_PROMPT_FILE"
   fi
+
+  # Validate generated PRD has required sections
+  if [ -f "$PRD_PATH" ] && [ -s "$PRD_PATH" ]; then
+    PRD_VALID=true
+    PRD_WARNINGS=""
+
+    # Check for required sections
+    if ! grep -q "## Overview\|## Introduction" "$PRD_PATH" 2>/dev/null; then
+      PRD_WARNINGS="${PRD_WARNINGS}\n  - Missing Overview/Introduction section"
+      PRD_VALID=false
+    fi
+    if ! grep -q "### \[ \] US-[0-9]" "$PRD_PATH" 2>/dev/null; then
+      PRD_WARNINGS="${PRD_WARNINGS}\n  - Missing or malformed User Stories (expected: ### [ ] US-001: Title)"
+      PRD_VALID=false
+    fi
+    if ! grep -q "## Non-Goals\|## Non Goals" "$PRD_PATH" 2>/dev/null; then
+      PRD_WARNINGS="${PRD_WARNINGS}\n  - Missing Non-Goals section"
+    fi
+
+    if [ "$PRD_VALID" = "false" ]; then
+      msg_warn "PRD validation warnings:$PRD_WARNINGS"
+      msg_dim "Consider re-running 'ralph prd' or manually editing $PRD_PATH"
+    else
+      msg_success "PRD created: $PRD_PATH"
+    fi
+  fi
+
   exit 0
 fi
 
