@@ -92,7 +92,7 @@
 
   /* Layout */
   --rams-sidebar-width: 260px;
-  --rams-topbar-height: 56px;
+  --rams-topbar-height: 81px;
 }
 
 /* ========================================
@@ -117,7 +117,7 @@
 }
 
 /* ========================================
-   Sidebar - Persistent, Always Visible
+   Sidebar - Persistent, Collapsible
    ======================================== */
 .rams-sidebar {
   position: fixed;
@@ -131,11 +131,41 @@
   flex-direction: column;
   z-index: 100;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: width var(--rams-transition-normal);
+}
+
+/* Collapsed Sidebar State - shrink to icon width */
+.rams-sidebar.collapsed {
+  width: 56px;
+}
+
+.rams-sidebar.collapsed .rams-logo-text {
+  display: none;
+}
+
+.rams-sidebar.collapsed .rams-nav,
+.rams-sidebar.collapsed .rams-sidebar-footer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--rams-transition-fast), visibility var(--rams-transition-fast);
+}
+
+.rams-sidebar:not(.collapsed) .rams-logo-text,
+.rams-sidebar:not(.collapsed) .rams-nav,
+.rams-sidebar:not(.collapsed) .rams-sidebar-footer {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--rams-transition-normal) 0.1s, visibility var(--rams-transition-normal) 0.1s;
 }
 
 .rams-sidebar-header {
-  padding: var(--rams-space-6);
+  height: var(--rams-topbar-height);
+  padding: 0 var(--rams-space-3);
   border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+  display: flex;
+  align-items: center;
 }
 
 .rams-logo {
@@ -152,6 +182,18 @@
   background-repeat: no-repeat;
   background-position: center;
   border-radius: var(--rams-radius-sm);
+  cursor: pointer;
+  transition: transform var(--rams-transition-normal);
+  flex-shrink: 0;
+}
+
+.rams-logo-mark:hover {
+  opacity: 0.8;
+}
+
+/* Logo flips upside down when sidebar is collapsed */
+.rams-sidebar.collapsed .rams-logo-mark {
+  transform: rotate(180deg);
 }
 
 /* Dark mode uses B&W logo */
@@ -232,6 +274,17 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left var(--rams-transition-normal);
+}
+
+/* Main content expands when sidebar is collapsed */
+body.sidebar-collapsed .rams-main {
+  margin-left: 56px;
+}
+
+/* Banner adjusts when sidebar is collapsed */
+body.sidebar-collapsed .rams-banner {
+  left: 56px;
 }
 
 /* ========================================
@@ -254,7 +307,7 @@
   display: flex;
   align-items: center;
   gap: var(--rams-space-2);
-  font-size: var(--rams-text-sm);
+  font-size: var(--rams-text-base);
   color: var(--rams-gray-600);
 }
 
@@ -264,7 +317,8 @@
 
 .rams-breadcrumb-current {
   color: var(--rams-gray-900);
-  font-weight: 500;
+  font-size: var(--rams-text-xl);
+  font-weight: 600;
 }
 
 .rams-topbar-actions {

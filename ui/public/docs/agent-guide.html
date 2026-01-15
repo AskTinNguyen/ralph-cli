@@ -31,11 +31,13 @@
 </head>
 <body class="rams-page">
 
+  <script src="/js/sidebar.js"></script>
+
   <!-- Persistent Sidebar (Desktop) -->
-  <aside class="rams-sidebar">
+  <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>

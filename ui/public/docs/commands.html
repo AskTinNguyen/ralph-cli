@@ -423,11 +423,13 @@
 </head>
 <body class="rams-page">
 
+  <script src="/js/sidebar.js"></script>
+
   <!-- Persistent Sidebar (Desktop) -->
-  <aside class="rams-sidebar">
+  <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -793,7 +795,7 @@ ralph prd "Automated test suite" --headless</code></pre>
                     </button>
                   </div>
                   <div class="rams-code-content">
-                    <pre><code>ralph plan [--prd &lt;path&gt;] [--plan &lt;path&gt;]</code></pre>
+                    <pre><code>ralph plan [n] [--prd=N|&lt;path&gt;] [--plan &lt;path&gt;]</code></pre>
                   </div>
                 </div>
               </div>
@@ -817,19 +819,22 @@ ralph prd "Automated test suite" --headless</code></pre>
                 <div class="rams-code-block">
                   <div class="rams-code-header">
                     <span class="rams-code-label">Terminal</span>
-                    <button class="rams-code-copy" onclick="copyCode(this, '# Plan the latest PRD\nralph plan\n\n# Plan a specific PRD\nralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md')">
+                    <button class="rams-code-copy" onclick="copyCode(this, '# Plan the latest PRD (default)\nralph plan\n\n# Plan a specific PRD by number\nralph plan --prd=1\n\n# Plan with custom paths\nralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2h9a2 2 0 0 1 2 2v1"/>
                       </svg>
                       Copy
                     </button>
                   </div>
                   <div class="rams-code-content">
-                    <pre><code># Plan the latest PRD
+                    <pre><code># Plan the latest PRD (default)
 ralph plan
 
-# Plan a specific PRD
+# Plan a specific PRD by number
+ralph plan --prd=1
+
+# Plan with custom paths
 ralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md</code></pre>
                   </div>
                 </div>

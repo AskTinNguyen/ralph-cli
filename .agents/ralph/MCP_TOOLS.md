@@ -74,6 +74,38 @@ curl -s -X POST "https://slack.com/api/canvases.create" \
   }'
 ```
 
+**Read Canvas Content:**
+
+**Important**: Slack has NO public API to read canvas content directly. Use this workaround:
+
+```bash
+# 1. Test bot authentication
+curl -X POST "https://slack.com/api/auth.test" \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN"
+
+# 2. Get canvas file info (includes download URL)
+curl -X GET "https://slack.com/api/files.info?file=F0A74QAKG01" \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN"
+
+# 3. Download canvas content as HTML
+DOWNLOAD_URL=$(curl -s -X GET "https://slack.com/api/files.info?file=F0A74QAKG01" \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" | jq -r '.file.url_private_download')
+
+curl -L "$DOWNLOAD_URL" \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN"
+```
+
+**Prerequisites for reading canvas:**
+- Bot token with `files:read` and `canvases:read` scopes
+- Canvas must be shared to a channel where bot has access (e.g., C05V8KNACTU for leadership-team)
+- Canvas ID starts with `F` (same format as files)
+
+**Key limitations:**
+- `canvases.sections.lookup` only returns section IDs, NOT content
+- Must use `files.info` → `url_private_download` to get actual canvas HTML
+- Canvas must be shared to bot-accessible channel/space
+- Downloaded content is HTML format with `data-section-id` attributes
+
 **Canvas URL Formats:**
 
 ```
@@ -92,12 +124,19 @@ https://app.slack.com/client/{team_id}/unified-files/doc/{canvas_id}
 **Canvas Methods:**
 
 - `canvases.create` - Create standalone canvas
-- `canvases.edit` - Update canvas content
+- `canvases.edit` - Update canvas content (requires section IDs from downloaded HTML)
 - `canvases.delete` - Delete canvas
 - `canvases.access.set` - Set permissions
-- `canvases.sections.lookup` - Find sections
+- `canvases.sections.lookup` - Find section IDs only (NOT content)
+- `files.info` - **Get canvas metadata and download URL** (workaround for reading)
 
-See `skills/slack-canvas/SKILL.md` for full reference.
+**Common Errors:**
+
+- `not_authed` - Invalid/missing bot token
+- `file_not_found` - Canvas not shared to bot-accessible channel
+- `missing_scope` - Bot needs `files:read` scope (not just `canvases:read`)
+
+See `skills/slack-canvas/SKILL.md` for full reference and troubleshooting.
 
 ### GitHub
 
