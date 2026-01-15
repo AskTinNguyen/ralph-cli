@@ -106,9 +106,9 @@ ralph build 1 --no-commit   # Dry run (no commits)
 
 Each iteration picks the next unchecked story, executes it, commits, and marks it done.
 
-## Documentation & UI
+## Documentation & Web Interface
 
-Ralph includes a **web-based interface** for browsing PRDs, plans, and progress logs.
+Ralph includes a **complete web-based interface** for managing and exploring your projects.
 
 ### Start the UI Server
 
@@ -118,9 +118,24 @@ npm install
 npm run dev          # Starts on http://localhost:3000
 ```
 
+Once running, you can access:
+
+- **Documentation** (`/docs/`) - Interactive guides with persistent sidebar navigation
+  - [Tutorial](http://localhost:3000/docs/tutorial.html) - Step-by-step getting started
+  - [Commands](http://localhost:3000/docs/commands.html) - Complete command reference
+  - [Examples](http://localhost:3000/docs/examples.html) - Real-world usage patterns
+  - [Best Practices](http://localhost:3000/docs/tips.html) - Tips and optimization strategies
+  - [Troubleshooting](http://localhost:3000/docs/troubleshooting.html) - Solutions to common issues
+  - [Streams](http://localhost:3000/docs/streams.html) - Parallel execution guide
+  - [Integrations](http://localhost:3000/docs/integration.html) - MCP server setup
+
+- **Dashboard** - View PRDs, plans, and execution progress
+- **Editor** - Edit requirements and plans directly
+- **Logs & Trends** - Monitor build history and metrics
+
 ### Design System
 
-The UI follows Dieter Rams' principle of "less but better" with a minimalist, functional aesthetic. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.
+The entire UI follows Dieter Rams' principle of "less but better" with a minimalist, functional aesthetic. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.
 
 ### Override Paths
 
