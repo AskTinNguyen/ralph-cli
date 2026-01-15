@@ -393,29 +393,152 @@
       margin-top: var(--rams-space-4);
     }
 
-    /* PRD Editor Styles */
-    .wizard-editor-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--rams-space-4);
-      height: 400px;
+    /* Activity Pulse Indicator */
+    .wizard-activity-pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--rams-accent);
+      border-radius: 50%;
+      animation: wizard-pulse 1.5s ease-in-out infinite;
     }
 
-    .wizard-editor-pane {
+    @keyframes wizard-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .wizard-activity-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--rams-gray-600);
+      margin-top: var(--rams-space-3);
+    }
+
+    /* Time Info Display */
+    .wizard-time-info {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      font-size: 13px;
+      margin-top: var(--rams-space-3);
+    }
+
+    #wizard-elapsed-time {
+      font-weight: 600;
+      color: var(--rams-gray-700);
+    }
+
+    .wizard-time-typical {
+      color: var(--rams-gray-500);
+    }
+
+    /* Stuck Warning Dialog */
+    .wizard-stuck-dialog {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--rams-white);
+      border-radius: var(--rams-radius-lg);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: var(--rams-space-6);
+      max-width: 400px;
+      z-index: 1001;
+    }
+
+    .wizard-stuck-content {
+      text-align: center;
+    }
+
+    .wizard-stuck-icon {
+      font-size: 48px;
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .wizard-stuck-content h4 {
+      margin: 0 0 var(--rams-space-3);
+      color: var(--rams-gray-900);
+    }
+
+    .wizard-stuck-content p {
+      color: var(--rams-gray-600);
+      margin: 0 0 var(--rams-space-2);
+    }
+
+    .wizard-stuck-hint {
+      font-size: 13px;
+      color: var(--rams-gray-500);
+    }
+
+    .wizard-stuck-actions {
+      display: flex;
+      gap: var(--rams-space-3);
+      justify-content: center;
+      margin-top: var(--rams-space-5);
+    }
+
+    /* Generation Actions */
+    .wizard-generation-actions {
+      display: flex;
+      justify-content: center;
+      margin-top: var(--rams-space-4);
+      padding-top: var(--rams-space-3);
+      border-top: 1px solid var(--rams-gray-200);
+    }
+
+    /* PRD Editor Styles */
+    .wizard-editor-container {
       display: flex;
       flex-direction: column;
+      height: 450px;
       border: 1px solid var(--rams-gray-200);
       border-radius: var(--rams-radius-lg);
       overflow: hidden;
     }
 
-    .wizard-editor-header {
-      padding: var(--rams-space-3) var(--rams-space-4);
+    .wizard-editor-tabs {
+      display: flex;
+      gap: 0;
       background: var(--rams-gray-50);
       border-bottom: 1px solid var(--rams-gray-200);
+    }
+
+    .wizard-editor-tab {
+      flex: 1;
+      padding: var(--rams-space-3) var(--rams-space-4);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
       font-weight: 600;
       font-size: 13px;
-      color: var(--rams-gray-700);
+      color: var(--rams-gray-600);
+      cursor: pointer;
+      transition: all var(--rams-transition-fast);
+    }
+
+    .wizard-editor-tab:hover {
+      color: var(--rams-gray-900);
+      background: var(--rams-gray-100);
+    }
+
+    .wizard-editor-tab.active {
+      color: var(--rams-accent);
+      border-bottom-color: var(--rams-accent);
+      background: var(--rams-white);
+    }
+
+    .wizard-editor-pane {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .wizard-editor-pane.active {
+      display: flex;
     }
 
     .wizard-editor-code {
@@ -434,6 +557,17 @@
       padding: var(--rams-space-4);
       overflow: auto;
       background: var(--rams-white);
+    }
+
+    .wizard-editor-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--rams-space-2) var(--rams-space-3);
+      background: var(--rams-gray-50);
+      border-top: 1px solid var(--rams-gray-200);
+      font-size: 12px;
+      color: var(--rams-gray-500);
     }
 
     /* Build Config Styles */
@@ -1204,6 +1338,10 @@ ralph stream verify-status       # Auto-fix stale status</div>
     // WIZARD CONTROLLER
     // ============================================
 
+    // Stuck detection threshold (3 minutes)
+    var STUCK_THRESHOLD_SECONDS = 180;
+    var stuckWarningShown = false;
+
     // Wizard State
     var wizardState = {
       currentStep: 1,
@@ -1217,7 +1355,10 @@ ralph stream verify-status       # Auto-fix stale status</div>
         agent: 'claude'
       },
       isGenerating: false,
-      eventSource: null
+      eventSource: null,
+      generationStartTime: null,
+      lastOutputTime: null,
+      timerInterval: null
     };
 
     // Step labels for the progress indicator
@@ -1238,8 +1379,12 @@ ralph stream verify-status       # Auto-fix stale status</div>
           agent: 'claude'
         },
         isGenerating: false,
-        eventSource: null
+        eventSource: null,
+        generationStartTime: null,
+        lastOutputTime: null,
+        timerInterval: null
       };
+      stuckWarningShown = false;
 
       // Show modal
       document.getElementById('new-stream-wizard').classList.remove('rams-hidden');
@@ -1267,6 +1412,9 @@ ralph stream verify-status       # Auto-fix stale status</div>
         wizardState.eventSource.close();
         wizardState.eventSource = null;
       }
+
+      // Cleanup generation state (timer, stuck dialog, etc.)
+      cleanupGenerationState();
 
       // Hide modal
       document.getElementById('new-stream-wizard').classList.add('rams-hidden');
@@ -1500,7 +1648,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
       }
     }
 
-    // Step 2: PRD editor with preview
+    // Step 2: PRD editor with toggle view
     function renderStep2() {
       var content = document.getElementById('wizard-content');
       content.innerHTML = '\
@@ -1508,12 +1656,18 @@ ralph stream verify-status       # Auto-fix stale status</div>
           <h3>Review & Edit PRD</h3>\
           <p>Review the generated PRD below. You can edit it to refine requirements before generating the plan.</p>\
           <div class="wizard-editor-container">\
-            <div class="wizard-editor-pane">\
-              <div class="wizard-editor-header">Markdown Editor</div>\
-              <textarea id="wizard-prd-editor" class="wizard-editor-code">' + escapeHtml(wizardState.data.prdContent) + '</textarea>\
+            <div class="wizard-editor-tabs">\
+              <button class="wizard-editor-tab active" onclick="switchEditorTab(\'editor\')">Markdown Editor</button>\
+              <button class="wizard-editor-tab" onclick="switchEditorTab(\'preview\')">Preview</button>\
             </div>\
-            <div class="wizard-editor-pane">\
-              <div class="wizard-editor-header">Preview</div>\
+            <div id="wizard-editor-pane" class="wizard-editor-pane active">\
+              <textarea id="wizard-prd-editor" class="wizard-editor-code">' + escapeHtml(wizardState.data.prdContent) + '</textarea>\
+              <div class="wizard-editor-toolbar">\
+                <span id="wizard-editor-status">Ready</span>\
+                <button id="wizard-save-btn" class="rams-btn rams-btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="savePrdContent()">Save Changes</button>\
+              </div>\
+            </div>\
+            <div id="wizard-preview-pane" class="wizard-editor-pane">\
               <div id="wizard-prd-preview" class="wizard-editor-preview"></div>\
             </div>\
           </div>\
@@ -1528,24 +1682,46 @@ ralph stream verify-status       # Auto-fix stale status</div>
       if (editor) {
         editor.addEventListener('input', function() {
           updatePrdPreview();
+          markEditorDirty();
         });
       }
 
-      // Fetch PRD content if not already loaded
+      // Fetch PRD content if not already loaded (with retry for timing issues)
       if (!wizardState.data.prdContent && wizardState.streamId) {
-        fetch('/api/stream/' + wizardState.streamId + '/prd')
-          .then(function(r) { return r.ok ? r.json() : Promise.reject('Failed to fetch'); })
-          .then(function(data) {
-            if (data.content) {
-              wizardState.data.prdContent = data.content;
-              var editorEl = document.getElementById('wizard-prd-editor');
-              if (editorEl) {
-                editorEl.value = data.content;
+        var retryCount = 0;
+        var maxRetries = 5;
+        var retryDelay = 500;
+
+        function fetchPrdWithRetry() {
+          fetch('/api/stream/' + wizardState.streamId + '/prd')
+            .then(function(r) {
+              if (!r.ok) {
+                if (retryCount < maxRetries) {
+                  retryCount++;
+                  setTimeout(fetchPrdWithRetry, retryDelay);
+                  return Promise.reject('Retrying...');
+                }
+                return Promise.reject('Failed to fetch after retries');
               }
-              updatePrdPreview();
-            }
-          })
-          .catch(function(e) { console.error('Failed to load PRD:', e); });
+              return r.json();
+            })
+            .then(function(data) {
+              if (data && data.content) {
+                wizardState.data.prdContent = data.content;
+                var editorEl = document.getElementById('wizard-prd-editor');
+                if (editorEl) {
+                  editorEl.value = data.content;
+                }
+                updatePrdPreview();
+              }
+            })
+            .catch(function(e) {
+              if (e !== 'Retrying...') {
+                console.error('Failed to load PRD:', e);
+              }
+            });
+        }
+        fetchPrdWithRetry();
       }
     }
 
@@ -1828,6 +2004,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
           } else {
             // No SSE, simulate progress and move to next step
             simulateProgress('prd', function() {
+              cleanupGenerationState();
               wizardState.isGenerating = false;
               wizardState.currentStep = 2;
               updateProgressIndicator(2);
@@ -1841,6 +2018,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
       })
       .catch(function(err) {
         console.error('PRD generation error:', err);
+        cleanupGenerationState();
         wizardState.isGenerating = false;
         updateFooterButtons();
 
@@ -1865,6 +2043,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
       wizardState.data.prdContent = generateDemoPRD(wizardState.data.description);
 
       simulateProgress('prd', function() {
+        cleanupGenerationState();
         wizardState.isGenerating = false;
         wizardState.currentStep = 2;
         updateProgressIndicator(2);
@@ -2124,6 +2303,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
         var data = JSON.parse(event.data);
         wizardState.eventSource.close();
         wizardState.eventSource = null;
+        cleanupGenerationState();
 
         if (type === 'prd') {
           wizardState.data.prdContent = data.content || wizardState.data.prdContent;
@@ -2150,6 +2330,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
 
         wizardState.eventSource.close();
         wizardState.eventSource = null;
+        cleanupGenerationState();
         wizardState.isGenerating = false;
         updateFooterButtons();
         showAlert('error', errorMsg);
@@ -2164,6 +2345,7 @@ ralph stream verify-status       # Auto-fix stale status</div>
         }
         console.warn('SSE connection failed, using simulation');
         simulateProgress(type, function() {
+          cleanupGenerationState();
           wizardState.isGenerating = false;
           if (type === 'prd') {
             wizardState.currentStep = 2;
@@ -2203,9 +2385,27 @@ ralph stream verify-status       # Auto-fix stale status</div>
           <div id="wizard-output" class="wizard-output-window">\
             <div class="wizard-output-line">Initializing...</div>\
           </div>\
-          <div class="wizard-time-estimate">This may take 1-2 minutes</div>\
+          <div class="wizard-activity-indicator">\
+            <span class="wizard-activity-pulse"></span>\
+            <span id="wizard-activity-text">Claude is working...</span>\
+          </div>\
+          <div class="wizard-time-info">\
+            <span id="wizard-elapsed-time">Running for 0s</span>\
+            <span class="wizard-time-typical">(typically 1-2 minutes)</span>\
+          </div>\
+          <div class="wizard-generation-actions">\
+            <button class="rams-btn rams-btn-secondary rams-btn-sm" onclick="cancelGeneration()">\
+              Cancel Generation\
+            </button>\
+          </div>\
         </div>\
       ';
+
+      // Start elapsed time timer
+      wizardState.generationStartTime = Date.now();
+      wizardState.lastOutputTime = Date.now();
+      if (wizardState.timerInterval) clearInterval(wizardState.timerInterval);
+      wizardState.timerInterval = setInterval(updateElapsedTime, 1000);
     }
 
     // Get icon for phase status
@@ -2249,6 +2449,116 @@ ralph stream verify-status       # Auto-fix stale status</div>
         output.appendChild(lineEl);
         output.scrollTop = output.scrollHeight;
       }
+      // Track last output time for activity indicator
+      wizardState.lastOutputTime = Date.now();
+    }
+
+    // Update elapsed time display
+    function updateElapsedTime() {
+      if (!wizardState.generationStartTime) return;
+
+      var elapsed = Math.floor((Date.now() - wizardState.generationStartTime) / 1000);
+      var mins = Math.floor(elapsed / 60);
+      var secs = elapsed % 60;
+      var display = mins > 0 ? mins + 'm ' + secs + 's' : secs + 's';
+
+      var el = document.getElementById('wizard-elapsed-time');
+      if (el) el.textContent = 'Running for ' + display;
+
+      // Stuck detection
+      if (elapsed > STUCK_THRESHOLD_SECONDS && !stuckWarningShown) {
+        stuckWarningShown = true;
+        showStuckWarningDialog(elapsed);
+      }
+
+      // Update activity text based on last output
+      updateActivityText();
+    }
+
+    // Update activity text based on output activity
+    function updateActivityText() {
+      var text = document.getElementById('wizard-activity-text');
+      if (!text) return;
+
+      var lastOutputAge = wizardState.lastOutputTime
+        ? Math.floor((Date.now() - wizardState.lastOutputTime) / 1000)
+        : 0;
+
+      if (lastOutputAge > 30) {
+        text.textContent = 'Waiting for response... (' + lastOutputAge + 's)';
+        text.style.color = 'var(--rams-warning)';
+      } else {
+        text.textContent = 'Claude is working...';
+        text.style.color = 'var(--rams-gray-600)';
+      }
+    }
+
+    // Show stuck warning dialog
+    function showStuckWarningDialog(elapsed) {
+      var mins = Math.floor(elapsed / 60);
+      var overlay = document.getElementById('wizard-overlay');
+      if (!overlay) return;
+
+      var dialog = document.createElement('div');
+      dialog.className = 'wizard-stuck-dialog';
+      dialog.id = 'wizard-stuck-dialog';
+      dialog.innerHTML = '\
+        <div class="wizard-stuck-content">\
+          <div class="wizard-stuck-icon">⚠️</div>\
+          <h4>Generation Taking Longer Than Expected</h4>\
+          <p>The generation has been running for ' + mins + ' minutes. This is longer than usual.</p>\
+          <p class="wizard-stuck-hint">This could be due to a complex request or a temporary issue with the AI service.</p>\
+          <div class="wizard-stuck-actions">\
+            <button class="rams-btn rams-btn-secondary" onclick="dismissStuckDialog()">Keep Waiting</button>\
+            <button class="rams-btn rams-btn-primary" onclick="cancelGeneration()">Cancel & Retry</button>\
+          </div>\
+        </div>\
+      ';
+      overlay.appendChild(dialog);
+    }
+
+    // Dismiss stuck warning dialog
+    function dismissStuckDialog() {
+      var dialog = document.getElementById('wizard-stuck-dialog');
+      if (dialog) dialog.remove();
+      // Don't show again for this generation
+      stuckWarningShown = true;
+    }
+
+    // Cancel ongoing generation
+    function cancelGeneration() {
+      if (!wizardState.streamId) return;
+
+      // Stop timer
+      cleanupGenerationState();
+
+      // Call cancel API
+      fetch('/api/stream/' + wizardState.streamId + '/cancel', {
+        method: 'POST'
+      }).then(function(r) {
+        return r.json();
+      }).then(function(data) {
+        showAlert('info', 'Generation cancelled');
+        closeWizard();
+      }).catch(function(e) {
+        console.error('Cancel failed:', e);
+        showAlert('error', 'Failed to cancel generation');
+      });
+    }
+
+    // Cleanup generation state (timer, dialog, etc.)
+    function cleanupGenerationState() {
+      if (wizardState.timerInterval) {
+        clearInterval(wizardState.timerInterval);
+        wizardState.timerInterval = null;
+      }
+      wizardState.generationStartTime = null;
+      wizardState.lastOutputTime = null;
+      stuckWarningShown = false;
+
+      // Remove stuck dialog if present
+      var dialog = document.getElementById('wizard-stuck-dialog');
+      if (dialog) dialog.remove();
     }
 
     // Simulate progress when SSE is not available
@@ -2284,6 +2594,109 @@ ralph stream verify-status       # Auto-fix stale status</div>
       }
 
       setTimeout(tick, 500);
+    }
+
+    // ============================================
+    // EDITOR FUNCTIONS
+    // ============================================
+
+    // Switch between editor and preview tabs
+    function switchEditorTab(tab) {
+      var tabs = document.querySelectorAll('.wizard-editor-tab');
+      tabs.forEach(function(t) {
+        t.classList.remove('active');
+      });
+
+      if (tab === 'editor') {
+        document.querySelector('.wizard-editor-tab:first-child').classList.add('active');
+        document.getElementById('wizard-editor-pane').classList.add('active');
+        document.getElementById('wizard-preview-pane').classList.remove('active');
+      } else {
+        document.querySelector('.wizard-editor-tab:last-child').classList.add('active');
+        document.getElementById('wizard-preview-pane').classList.add('active');
+        document.getElementById('wizard-editor-pane').classList.remove('active');
+        // Update preview when switching to it
+        updatePrdPreview();
+      }
+    }
+
+    // Mark editor as having unsaved changes
+    var editorDirty = false;
+    function markEditorDirty() {
+      editorDirty = true;
+      var status = document.getElementById('wizard-editor-status');
+      if (status) {
+        status.textContent = 'Unsaved changes';
+        status.style.color = 'var(--rams-warning)';
+      }
+    }
+
+    // Save PRD content to backend
+    function savePrdContent() {
+      if (!wizardState.streamId) {
+        showAlert('error', 'No stream ID available');
+        return;
+      }
+
+      var editor = document.getElementById('wizard-prd-editor');
+      if (!editor) {
+        showAlert('error', 'Editor not found');
+        return;
+      }
+
+      var content = editor.value;
+      var status = document.getElementById('wizard-editor-status');
+      var saveBtn = document.getElementById('wizard-save-btn');
+
+      // Update UI
+      if (status) {
+        status.textContent = 'Saving...';
+        status.style.color = 'var(--rams-gray-500)';
+      }
+      if (saveBtn) {
+        saveBtn.disabled = true;
+      }
+
+      // Save to backend
+      fetch('/api/stream/' + wizardState.streamId + '/prd', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content })
+      })
+      .then(function(response) {
+        return response.json();
+      })
+      .then(function(data) {
+        if (data.success) {
+          wizardState.data.prdContent = content;
+          editorDirty = false;
+          if (status) {
+            status.textContent = 'Saved';
+            status.style.color = 'var(--rams-accent)';
+          }
+          showAlert('success', 'PRD saved successfully');
+          setTimeout(function() {
+            if (status && !editorDirty) {
+              status.textContent = 'Ready';
+              status.style.color = 'var(--rams-gray-500)';
+            }
+          }, 2000);
+        } else {
+          throw new Error(data.message || 'Failed to save');
+        }
+      })
+      .catch(function(err) {
+        if (status) {
+          status.textContent = 'Save failed';
+          status.style.color = 'var(--rams-error)';
+        }
+        showAlert('error', 'Failed to save PRD: ' + err.message);
+      })
+      .finally(function() {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+        }
+      });
     }
 
     // ============================================

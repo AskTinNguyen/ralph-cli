@@ -6929,6 +6929,28 @@ api.get("/stream/:id/generation-status", (c) => {
 });
 
 /**
+ * POST /api/stream/:id/cancel
+ *
+ * Cancel an ongoing generation process for a stream.
+ * Stops the running PRD or plan generation process.
+ */
+api.post("/stream/:id/cancel", (c) => {
+  const id = c.req.param("id");
+
+  // Try to cancel using wizard process manager
+  const result = wizardProcessManager.cancel(id);
+
+  if (result.success) {
+    return c.json({ success: true, message: result.message });
+  }
+
+  return c.json(
+    { error: "cancel_failed", message: result.message },
+    400
+  );
+});
+
+/**
  * GET /api/stream/:id/prd
  *
  * Get the PRD content for a stream.

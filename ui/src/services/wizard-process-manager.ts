@@ -123,7 +123,8 @@ class WizardProcessManager {
     // Build command arguments for ralph prd - pass description as argument
     // ralph prd expects: ralph prd "Your feature description"
     // Use --headless flag for non-interactive (piped) mode - required for server/UI use
-    const args = ["prd", "--headless", description];
+    // Use --model=opus to use Claude Opus for PRD generation
+    const args = ["prd", "--headless", "--model=opus", description];
 
     try {
       // Spawn the ralph prd process
