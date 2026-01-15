@@ -15,19 +15,7 @@
       height: calc(100vh - 220px);
       max-width: 900px;
       margin: 0 auto;
-    }
-
-    /* Chat Header */
-    .chat-header {
-      text-align: center;
-      padding: var(--rams-space-3) var(--rams-space-4);
-      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
-      background: var(--rams-gray-50);
-    }
-    .chat-header p {
-      color: var(--rams-gray-600);
-      font-size: var(--rams-text-xs);
-      margin: 0;
+      position: relative;
     }
 
     /* Chat Messages Area */
@@ -35,6 +23,7 @@
       flex: 1;
       overflow-y: auto;
       padding: var(--rams-space-4);
+      padding-bottom: 180px; /* Space for fixed input section */
       display: flex;
       flex-direction: column;
       gap: var(--rams-space-3);
@@ -97,28 +86,36 @@
       background: rgba(255, 255, 255, 0.2);
     }
 
-    /* Input Container */
+    /* Input Container - Fixed at bottom */
     .chat-input-container {
+      position: fixed;
+      bottom: 0;
+      left: 280px; /* Sidebar width */
+      right: 0;
       padding: var(--rams-space-4);
       border-top: var(--rams-border-width) solid var(--rams-border-color);
-      background: var(--rams-gray-50);
+      background: white;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+      z-index: 10;
+    }
+    .chat-input-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
     }
     .chat-input-form {
       display: flex;
       gap: var(--rams-space-3);
-      max-width: 800px;
-      margin: 0 auto;
     }
     .chat-input-form .rams-input {
       flex: 1;
     }
 
-    /* Quick Actions */
+    /* Quick Actions - Above input */
     .quick-actions {
       display: flex;
       flex-wrap: wrap;
       gap: var(--rams-space-2);
-      margin-top: var(--rams-space-3);
+      margin-bottom: var(--rams-space-3);
       justify-content: center;
     }
     .quick-actions .rams-btn {
@@ -126,6 +123,13 @@
       font-size: var(--rams-text-xs);
       padding: var(--rams-space-2) var(--rams-space-3);
       white-space: nowrap;
+    }
+
+    /* Responsive - Stack on mobile */
+    @media (max-width: 768px) {
+      .chat-input-container {
+        left: 0;
+      }
     }
 
     /* Welcome Message */
@@ -142,20 +146,6 @@
     .welcome-message p {
       font-size: var(--rams-text-sm);
       margin: 0;
-    }
-    .capability-card .rams-label {
-      margin-bottom: var(--rams-space-1);
-      display: block;
-    }
-    .capability-card p {
-      color: var(--rams-gray-500);
-      font-size: var(--rams-text-xs);
-      line-height: 1.4;
-      margin: 0;
-    }
-    .capability-icon {
-      font-size: 1.5rem;
-      margin-bottom: var(--rams-space-2);
     }
   </style>
 </head>
@@ -225,10 +215,6 @@
     <article class="rams-content">
 
       <div class="chat-container">
-        <div class="chat-header">
-          <p>Ask questions about Ralph CLI - PRDs, builds, streams, troubleshooting, and more</p>
-        </div>
-
         <div class="chat-messages" id="chat-messages">
           <div class="welcome-message">
             <h3>Welcome to Ralph Chat</h3>
@@ -250,8 +236,27 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="chat-input-container">
+      <!-- Fixed Input Section - Anchored to bottom -->
+      <div class="chat-input-container">
+        <div class="chat-input-wrapper">
+          <!-- Quick Actions Pills - Above input for better UX -->
+          <div class="quick-actions">
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I install Ralph?')">Install</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I create a new PRD?')">Create PRD</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I run a build?')">Run Build</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I use streams for parallel development?')">Streams</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('What are best practices?')">Best Practices</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('Build stuck or hanging')">Build Stuck</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('Merge conflicts')">Merge Conflicts</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('What commands are available?')">Commands</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I check logs?')">View Logs</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How many streams should I run?')">How Many Streams</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('MCP integrations')">Integrations</button>
+            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('Show me examples')">Examples</button>
+          </div>
+          <!-- Chat Input - Anchored at very bottom -->
           <form class="chat-input-form" id="chat-form" onsubmit="handleChatSubmit(event)">
             <input
               type="text"
@@ -264,12 +269,6 @@
               Send
             </button>
           </form>
-          <div class="quick-actions">
-            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I create a new PRD?')">Create PRD</button>
-            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I run a build?')">Run Build</button>
-            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('How do I use streams for parallel development?')">Use Streams</button>
-            <button class="rams-btn rams-btn-secondary" onclick="insertQuickAction('What commands are available?')">Show Commands</button>
-          </div>
         </div>
       </div>
 
