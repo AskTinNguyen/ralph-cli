@@ -70,12 +70,21 @@ async function processHTMLFile(filePath) {
   const dom = new JSDOM(html);
   const { document } = dom.window;
 
+  // Check if this is the root landing page
+  const isLandingPage = relativePath === 'index.html';
+
   // Apply modifications
-  addDocsModeClass(document);
+  if (!isLandingPage) {
+    // Only add docs-mode for actual documentation pages
+    addDocsModeClass(document);
+  }
   fixGitHubPagesPaths(document);
-  injectDocsModeAssets(document);
-  injectWarningBanner(document);
-  markStreamFeatures(document);
+  if (!isLandingPage) {
+    // Only inject docs-mode assets for documentation pages
+    injectDocsModeAssets(document);
+    injectWarningBanner(document);
+    markStreamFeatures(document);
+  }
   addMetaTags(document);
 
   // Write modified HTML

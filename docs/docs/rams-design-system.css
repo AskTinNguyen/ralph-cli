@@ -309,6 +309,7 @@
   padding: var(--rams-space-5);
   background: var(--rams-white);
   border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+  text-align: center;
 }
 
 .rams-h1 {
@@ -325,6 +326,8 @@
   color: var(--rams-gray-600);
   line-height: var(--rams-leading-relaxed);
   max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
   margin-bottom: var(--rams-space-6);
 }
 
@@ -454,6 +457,7 @@
 .rams-content {
   padding: var(--rams-space-5);
   max-width: 920px;
+  margin: 0 auto;
 }
 
 /* ========================================
@@ -599,6 +603,7 @@
 .rams-code-content {
   padding: var(--rams-space-4);
   overflow-x: auto;
+  text-align: left;
 }
 
 .rams-code-content pre {
@@ -965,6 +970,7 @@
 /* Section Components */
 .rams-section {
   padding: var(--rams-space-5) 0;
+  text-align: center;
 }
 
 .rams-section-gray {
