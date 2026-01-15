@@ -392,6 +392,17 @@
   border-color: #DC2626;
 }
 
+.rams-btn-success {
+  background: var(--rams-success);
+  color: var(--rams-white);
+  border-color: var(--rams-success);
+}
+
+.rams-btn-success:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
 .rams-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
