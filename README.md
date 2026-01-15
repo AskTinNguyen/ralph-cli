@@ -12,6 +12,19 @@ Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration 
 - Git
 - An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
 
+#### Windows Users
+
+Ralph requires a bash shell. Choose one:
+
+| Option | Best For | Install |
+|--------|----------|---------|
+| **WSL 2** (Recommended) | Full compatibility | `wsl --install` in PowerShell (Admin) |
+| **Git Bash** | Lightweight | [git-scm.com/download/win](https://git-scm.com/download/win) |
+
+Run Ralph commands from Git Bash or WSL terminal, not CMD.exe or PowerShell.
+
+See **[Windows Setup Guide](documentation/WINDOWS_SETUP.md)** for detailed instructions.
+
 ### Install Ralph
 
 ```bash
