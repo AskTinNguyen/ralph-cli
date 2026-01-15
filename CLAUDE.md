@@ -334,6 +334,36 @@ Playwright and ChromeMCP can sometimes leave orphan browser processes or get stu
 - **Browser stuck/unresponsive**: `cleanup-playwright.sh` and restart Claude Code
 - **Need UI testing**: `enable-playwright.sh`, restart Claude Code, test, then `disable-playwright.sh`
 
+### Orphaned Ralph Process Cleanup
+
+If a Ralph build/plan process is interrupted or killed unexpectedly, the elapsed time indicator may continue running in the background. This has been fixed in the latest version (progress indicators now auto-terminate when the parent process dies), but you may still encounter orphaned processes from older runs.
+
+**Symptoms:**
+- Elapsed time messages (`⏱ Elapsed: Xm Ys`) continue appearing after a Ralph process completes
+- Terminal shows: "Progress PID XXXXX reused by another process, skipping kill"
+- Background `loop.sh` processes visible in `ps aux | grep ralph`
+
+**Quick fix:**
+```bash
+# Clean up all orphaned Ralph processes
+.agents/ralph/cleanup-orphans.sh
+```
+
+**Manual cleanup:**
+```bash
+# Find orphaned processes
+ps aux | grep "ralph-cli/.agents/ralph/loop.sh" | grep -v grep
+
+# Kill specific PIDs
+kill -TERM <pid1> <pid2> ...
+
+# Force kill if needed (use with caution)
+kill -9 <pid>
+```
+
+**Prevention:**
+The fix (as of v1.x) ensures background progress indicators automatically exit when their parent process dies, preventing orphans from forming in future runs.
+
 ### Usage Examples
 
 ```

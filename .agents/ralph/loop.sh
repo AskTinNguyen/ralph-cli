@@ -2960,8 +2960,13 @@ start_progress_indicator() {
   fi
   local start_time="$1"
   local story_info="${2:-}"
+  local parent_pid=$$  # Capture parent PID to detect orphaning
   (
     while true; do
+      # Exit if parent process is no longer running (prevents orphaned processes)
+      if ! kill -0 "$parent_pid" 2>/dev/null; then
+        exit 0
+      fi
       sleep 5
       local now=$(date +%s)
       local elapsed=$((now - start_time))
