@@ -364,6 +364,7 @@
     let currentFilePath = "";
     let currentView = "edit"; // edit or preview
     let originalContent = "";
+    let isReadOnly = false; // Whether the editor is in read-only mode
 
     if (typeof marked !== "undefined") {
       marked.setOptions({
@@ -392,6 +393,13 @@
       const urlParams = new URLSearchParams(window.location.search);
       const prdParam = urlParams.get('prd');
       const fileParam = urlParams.get('file') || 'prd';
+      const readonlyParam = urlParams.get('readonly');
+
+      // Set read-only mode based on URL parameter
+      if (readonlyParam === 'true') {
+        isReadOnly = true;
+        applyReadOnlyMode();
+      }
 
       if (prdParam) {
         // Wait for streams to load, then auto-select
@@ -400,6 +408,45 @@
         }, 500);
       }
     });
+
+    // Apply read-only mode to the editor
+    function applyReadOnlyMode() {
+      const textarea = document.getElementById("editor-textarea");
+      const saveBtn = document.getElementById("save-btn");
+      const paneTitle = document.querySelector("#edit-pane .pane-title");
+
+      // Disable textarea
+      if (textarea) {
+        textarea.disabled = true;
+        textarea.style.cursor = "not-allowed";
+      }
+
+      // Hide save button
+      if (saveBtn) {
+        saveBtn.style.display = "none";
+      }
+
+      // Update pane title to indicate view-only mode
+      if (paneTitle) {
+        paneTitle.textContent = "View (Read Only)";
+      }
+
+      // Add a read-only indicator banner
+      const editPane = document.getElementById("edit-pane");
+      if (editPane) {
+        const existingBanner = editPane.querySelector(".readonly-banner");
+        if (!existingBanner) {
+          const banner = document.createElement("div");
+          banner.className = "readonly-banner";
+          banner.style.cssText = "background: var(--rams-gray-100); color: var(--rams-gray-600); padding: var(--rams-space-2) var(--rams-space-4); font-size: var(--rams-text-sm); border-bottom: 1px solid var(--rams-border-color); display: flex; justify-content: space-between; align-items: center;";
+          banner.innerHTML = '<span>This file is in read-only mode because the PRD is in progress or completed.</span><a href="/streams.html" style="color: var(--rams-accent); text-decoration: none;">Back to Streams</a>';
+          const paneHeader = editPane.querySelector(".pane-header");
+          if (paneHeader) {
+            paneHeader.after(banner);
+          }
+        }
+      }
+    }
 
     async function loadPrdFromUrl(prdId, fileType) {
       try {
@@ -424,13 +471,17 @@
           fileSelector.dispatchEvent(fileEvent);
         }, 300);
 
-        // Update breadcrumb to show we're editing a specific PRD
+        // Update breadcrumb to show we're editing/viewing a specific PRD
         const breadcrumb = document.querySelector('.rams-breadcrumb');
         if (breadcrumb) {
+          const modeLabel = isReadOnly ? '(View Only)' : '';
+          const fileLabel = fileType === 'plan' || fileType === 'plan.md' ? 'Plan' : 'PRD';
           breadcrumb.innerHTML = `
-            <a href="/editor.html" style="color: var(--rams-gray-600); text-decoration: none;">Editor</a>
+            <a href="/streams.html" style="color: var(--rams-gray-600); text-decoration: none;">Streams</a>
             <span style="color: var(--rams-gray-400); margin: 0 var(--rams-space-2);">/</span>
-            <span class="rams-breadcrumb-current">PRD-${prdId}</span>
+            <span style="color: var(--rams-gray-600);">PRD-${prdId}</span>
+            <span style="color: var(--rams-gray-400); margin: 0 var(--rams-space-2);">/</span>
+            <span class="rams-breadcrumb-current">${fileLabel} ${modeLabel}</span>
           `;
         }
       } catch (error) {
@@ -519,7 +570,8 @@
       const textarea = document.getElementById("editor-textarea");
       const saveBtn = document.getElementById("save-btn");
       const hasChanges = textarea.value !== originalContent;
-      saveBtn.disabled = !hasChanges || !currentFilePath;
+      // Disable save if read-only, no changes, or no file path
+      saveBtn.disabled = isReadOnly || !hasChanges || !currentFilePath;
     }
 
     async function loadStreams(preserveSelection = false) {

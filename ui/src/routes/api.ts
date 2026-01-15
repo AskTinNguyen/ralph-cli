@@ -2092,6 +2092,14 @@ api.get("/partials/streams", (c) => {
     const prdBadgeLabel = stream.hasPrd ? "Ready PRD" : "Missing PRD";
     const planBadgeLabel = stream.hasPlan ? "Ready Plan" : "Not Ready Plan";
 
+    // Determine if editing should be allowed (Not Started = no completed stories and not running/completed/merged)
+    const isNotStarted = !isRunning && !isCompleted && !isMerged && stream.completedStories === 0;
+    const editableParam = isNotStarted ? '' : '&readonly=true';
+
+    // Clickable badge styles
+    const clickableBadgeStyle = 'cursor: pointer; transition: opacity 0.2s;';
+    const clickableBadgeHover = 'onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"';
+
     return `
 <div class="rams-card" style="${cardStyle}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
@@ -2109,8 +2117,14 @@ api.get("/partials/streams", (c) => {
     <span class="rams-text-sm rams-text-muted">${stream.completedStories} of ${stream.totalStories} stories completed (${completionPercentage}%)</span>
   </div>
   <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap; margin-bottom: var(--rams-space-3);">
-    <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>
-    <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>
+    ${stream.hasPrd
+      ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=prd${editableParam}';" title="View PRD${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>`
+      : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>`
+    }
+    ${stream.hasPlan
+      ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=plan${editableParam}';" title="View Plan${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+      : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+    }
     ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ""}
   </div>
   <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
@@ -2309,6 +2323,14 @@ api.get("/partials/streams-progress", (c) => {
     const prdBadgeLabel = stream.hasPrd ? "Ready PRD" : "Missing PRD";
     const planBadgeLabel = stream.hasPlan ? "Ready Plan" : "Not Ready Plan";
 
+    // Determine if editing should be allowed (Not Started = no completed stories and not running/completed/merged)
+    const isNotStarted = !isRunning && !isCompleted && !isMerged && stream.completedStories === 0;
+    const editableParam = isNotStarted ? '' : '&readonly=true';
+
+    // Clickable badge styles
+    const clickableBadgeStyle = 'cursor: pointer; transition: opacity 0.2s;';
+    const clickableBadgeHover = 'onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"';
+
     // Render stories section
     const storiesHtml = stories.length > 0 ? stories.map(story => {
       const criteriaTotal = story.acceptanceCriteria.length;
@@ -2382,8 +2404,14 @@ api.get("/partials/streams-progress", (c) => {
           </div>
           ${buildFormHtml}
           <div class="stream-item-readiness" style="display: flex; gap: var(--rams-space-2); margin-bottom: var(--rams-space-3);">
-            <span class="rams-badge ${stream.hasPrd ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>
-            <span class="rams-badge ${stream.hasPlan ? "rams-badge-success" : "rams-badge-muted"}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>
+            ${stream.hasPrd
+              ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=prd${editableParam}';" title="View PRD${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>`
+              : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${prdBadgeLabel}</span>`
+            }
+            ${stream.hasPlan
+              ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=plan${editableParam}';" title="View Plan${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+              : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+            }
             ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ''}
           </div>
           <div class="stories-list">
