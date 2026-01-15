@@ -6837,6 +6837,7 @@ api.post("/stream/wizard/start", async (c) => {
       streamId,
       path: streamPath,
       message: "PRD generation started",
+      sseEndpoint: `/api/stream/${streamId}/generation-stream?type=prd`,
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
