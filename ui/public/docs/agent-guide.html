@@ -100,6 +100,22 @@
     <!-- Content -->
     <article class="rams-content">
 
+      <!-- Critical Agent-Specific Rules -->
+      <section class="rams-section">
+        <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 2px; padding: 8px 10px; border-left: 3px solid rgba(59, 130, 246, 0.8); margin-bottom: 12px;">
+          <strong style="font-size: 12px; color: rgba(59, 130, 246, 1);">🤖 CRITICAL: Agent-Specific Requirements</strong>
+          <div style="margin-top: 6px; font-size: 11px; line-height: 1.5;">
+            <strong>Always use <code>--headless</code> flag with <code>ralph prd</code></strong>
+            <ul style="margin: 4px 0 0 0; padding-left: 16px;">
+              <li>Prevents nested agent interaction (agent-inside-agent)</li>
+              <li>Avoids TTY conflicts and hanging processes</li>
+              <li>Required for all non-human contexts (UI, CI/CD, background jobs)</li>
+              <li>Example: <code style="background: rgba(0,0,0,0.05); padding: 1px 3px; border-radius: 2px;">ralph prd "description" --headless</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <!-- Quick Decision Tree -->
       <section class="rams-section">
         <h2 class="rams-h2">Decision Tree</h2>
@@ -108,7 +124,7 @@
 ├─ Install → <strong>ralph install</strong>
 ├─ List PRDs → <strong>ralph stream list</strong>
 ├─ Check status → <strong>ralph stream status</strong>
-├─ New PRD → <strong>ralph prd "description"</strong>
+├─ New PRD → <strong>ralph prd "description" --headless</strong>
 ├─ Build PRD → <strong>ralph stream build N [iters]</strong>
 ├─ Parallel (no worktree) → <strong>ralph stream build 1 5 --no-worktree &</strong>
 ├─ Parallel (worktree) → <strong>ralph stream init N && ralph stream build N 5 &</strong>
@@ -125,7 +141,8 @@
         <div class="rams-code-block">
           <div class="rams-code-content">
             <pre><code># User: "Build a new feature X"
-ralph prd "Feature X description"
+# IMPORTANT: Agents must use --headless to avoid nested interaction
+ralph prd "Feature X description" --headless
 # Wait for PRD generation (creates .ralph/PRD-N/prd.md)
 ralph plan
 # Wait for plan generation (creates .ralph/PRD-N/plan.md)
@@ -138,7 +155,8 @@ ralph build 5
         <div class="rams-code-block">
           <div class="rams-code-content">
             <pre><code># User: "Build feature X using streams"
-ralph prd "Feature X description"
+# IMPORTANT: Agents must use --headless to avoid nested interaction
+ralph prd "Feature X description" --headless
 # Note the PRD number from output (e.g., "PRD-3")
 ralph stream status
 # Verify PRD created, status shows "ready"
@@ -364,7 +382,7 @@ mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:300
           <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
             <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Core</strong>
             <div style="font-family: monospace; line-height: 1.5;">
-              ralph install<br>ralph prd "desc"<br>ralph plan<br>ralph build [N]<br>ralph ui
+              ralph install<br>ralph prd "desc" --headless<br>ralph plan<br>ralph build [N]<br>ralph ui
             </div>
           </div>
           <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
@@ -376,7 +394,7 @@ mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:300
           <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
             <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Flags</strong>
             <div style="font-family: monospace; line-height: 1.5;">
-              --no-worktree<br>--force<br>--prd=N<br>--agent=claude<br>--no-commit
+              --headless (prd)<br>--no-worktree<br>--force<br>--prd=N<br>--agent=claude
             </div>
           </div>
         </div>

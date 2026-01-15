@@ -114,6 +114,58 @@ ralph build 1 --agent=codex
 ralph build 1 --agent=droid
 ```
 
+## PRD Command Modes
+
+The `ralph prd` command supports two execution modes:
+
+### Interactive Mode (Default)
+
+**Usage:** `ralph prd "Feature description"`
+
+- Used when a human runs the command in a terminal
+- Agent runs interactively with full terminal output
+- Real-time progress and thinking visible to user
+- Suitable for development and manual workflows
+
+**Example:**
+```bash
+# Human running in terminal
+ralph prd "Build a user authentication system"
+```
+
+### Headless Mode (Non-Interactive)
+
+**Usage:** `ralph prd "Feature description" --headless`
+
+- Required for server/UI/background execution
+- Agent runs with piped stdin (no interactive prompts)
+- Output captured programmatically for streaming
+- Prevents TTY conflicts and hanging processes
+
+**When to use `--headless`:**
+- ✅ UI server triggering PRD generation
+- ✅ CI/CD pipelines and automation scripts
+- ✅ Background jobs and daemons
+- ✅ When Claude Code agent executes `ralph prd` (avoids nested interaction)
+- ✅ Any context where stdin is not an interactive terminal
+
+**Examples:**
+```bash
+# UI server (always use --headless)
+ralph prd "Feature description" --headless
+
+# Claude Code agent calling ralph
+ralph prd "Add dashboard feature" --headless
+
+# CI/CD pipeline
+ralph prd "Automated test suite" --headless
+
+# Background process
+nohup ralph prd "Long-running task" --headless > prd.log 2>&1 &
+```
+
+**Important:** The Ralph UI server (`ui/`) automatically uses `--headless` mode (see `ui/src/services/wizard-process-manager.ts:126`) to prevent process hangs.
+
 ## Package Structure
 
 ```
