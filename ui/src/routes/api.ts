@@ -1620,11 +1620,22 @@ api.get("/partials/terminal-commands", (c) => {
     .join("");
 
   return c.html(`
-<div class="rams-card" style="padding: var(--rams-space-4);">
-  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">Terminal Commands</h3>
-  <p class="rams-text-muted" style="margin-bottom: var(--rams-space-4);">Run these commands in your terminal to view logs directly:</p>
-  ${commandsHtml}
-</div>
+<details class="rams-card" style="padding: var(--rams-space-4); cursor: pointer;">
+  <summary style="list-style: none; display: flex; align-items: center; gap: var(--rams-space-2); user-select: none;">
+    <span style="transform: rotate(0deg); transition: transform 0.2s; display: inline-block;">▶</span>
+    <h3 class="rams-h3" style="margin: 0;">Terminal Commands</h3>
+    <span class="rams-badge" style="margin-left: auto; background: var(--rams-gray-800); color: var(--rams-gray-400);">Hint</span>
+  </summary>
+  <div style="margin-top: var(--rams-space-4);">
+    <p class="rams-text-muted" style="margin-bottom: var(--rams-space-4);">Run these commands in your terminal to view logs directly:</p>
+    ${commandsHtml}
+  </div>
+  <style>
+    details[open] > summary > span:first-of-type {
+      transform: rotate(90deg);
+    }
+  </style>
+</details>
 `);
 });
 

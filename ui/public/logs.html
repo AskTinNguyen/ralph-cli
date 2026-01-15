@@ -128,10 +128,24 @@
             var terminalParams = new URLSearchParams();
             if (streamFilter.value) terminalParams.append('streamId', streamFilter.value);
 
+            // Save terminal commands expansion state before refresh
+            var terminalDetailsWasOpen = false;
+            var existingDetails = terminalCommands.querySelector('details');
+            if (existingDetails) {
+              terminalDetailsWasOpen = existingDetails.hasAttribute('open');
+            }
+
             fetch('/api/partials/terminal-commands?' + terminalParams.toString())
               .then(response => response.text())
               .then(html => {
                 terminalCommands.innerHTML = html;
+                // Restore expansion state
+                if (terminalDetailsWasOpen) {
+                  var newDetails = terminalCommands.querySelector('details');
+                  if (newDetails) {
+                    newDetails.setAttribute('open', '');
+                  }
+                }
               });
 
             // Also trigger recent runs refresh
