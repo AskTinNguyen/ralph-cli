@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_meta": {
+    "version": "1.0.0",
+    "description": "Ralph CLI Error Registry",
+    "ranges": {
+      "001-099": "CONFIG - Configuration errors",
+      "100-199": "PRD - PRD/Plan errors",
+      "200-299": "BUILD - Build failures",
+      "300-399": "GIT - Git errors",
+      "400-499": "AGENT - Agent failures",
+      "500-599": "STREAM - Stream errors",
+      "900-999": "INTERNAL - Internal errors"
+    }
+  },
+
+  "RALPH-001": {
+    "category": "CONFIG",
+    "severity": "error",
+    "message": "PRD path doesn't use PRD-N folder structure",
+    "details": "Ralph requires PRDs in numbered folders (PRD-1, PRD-2, etc.) for parallel stream support and isolation.",
+    "remediation": [
+      "Use --prd=N flag: ralph build 1 --prd=1",
+      "Create new PRD: ralph prd",
+      "Move existing: mkdir -p .ralph/PRD-1 && mv .ralph/prd.md .ralph/PRD-1/"
+    ],
+    "see_also": ["RALPH-002", "RALPH-101"],
+    "auto_issue": false,
+    "labels": ["ralph-config"]
+  },
+
+  "RALPH-002": {
+    "category": "CONFIG",
+    "severity": "error",
+    "message": "No PRD folder found",
+    "details": "The .ralph directory exists but contains no PRD-N folders. Run 'ralph prd' to create your first PRD.",
+    "remediation": [
+      "Create a new PRD: ralph prd",
+      "Check .ralph directory exists: ls -la .ralph/",
+      "Initialize ralph: ralph install"
+    ],
+    "see_also": ["RALPH-001"],
+    "auto_issue": false,
+    "labels": ["ralph-config"]
+  },
+
+  "RALPH-003": {
+    "category": "CONFIG",
+    "severity": "error",
+    "message": "Configuration file not found",
+    "details": "The .agents/ralph/config.sh file is missing. This file contains agent settings and build configuration.",
+    "remediation": [
+      "Run ralph install: ralph install",
+      "Copy from template: cp .agents/ralph/config.sh.example .agents/ralph/config.sh"
+    ],
+    "see_also": [],
+    "auto_issue": false,
+    "labels": ["ralph-config"]
+  },
+
+  "RALPH-004": {
+    "category": "CONFIG",
+    "severity": "error",
+    "message": "Invalid agent specified",
+    "details": "The specified agent is not recognized. Valid agents are: claude, codex, droid.",
+    "remediation": [
+      "Use a valid agent: ralph build 1 --agent=claude",
+      "Check available agents: ralph doctor",
+      "Set default in config: edit .agents/ralph/config.sh"
+    ],
+    "see_also": ["RALPH-401"],
+    "auto_issue": false,
+    "labels": ["ralph-config"]
+  },
+
+  "RALPH-101": {
+    "category": "PRD",
+    "severity": "error",
+    "message": "PRD file not found",
+    "details": "The prd.md file does not exist in the specified PRD folder. Each PRD folder must contain a prd.md file.",
+    "remediation": [
+      "Create PRD: ralph prd",
+      "Check file exists: ls .ralph/PRD-N/prd.md",
+      "Copy template: cp .agents/ralph/PROMPT_prd.md .ralph/PRD-N/prd.md"
+    ],
+    "see_also": ["RALPH-102"],
+    "auto_issue": false,
+    "labels": ["ralph-prd"]
+  },
+
+  "RALPH-102": {
+    "category": "PRD",
+    "severity": "error",
+    "message": "PRD file is empty",
+    "details": "The prd.md file exists but contains no content. A valid PRD must define user stories.",
+    "remediation": [
+      "Edit the PRD: edit .ralph/PRD-N/prd.md",
+      "Regenerate PRD: ralph prd",
+      "Check PRD format in CLAUDE.md"
+    ],
+    "see_also": ["RALPH-101"],
+    "auto_issue": false,
+    "labels": ["ralph-prd"]
+  },
+
+  "RALPH-103": {
+    "category": "PRD",
+    "severity": "error",
+    "message": "Plan not found",
+    "details": "The plan.md file does not exist. Run 'ralph plan' to generate a plan from the PRD.",
+    "remediation": [
+      "Generate plan: ralph plan",
+      "Check file: ls .ralph/PRD-N/plan.md",
+      "Ensure PRD exists first: ralph prd"
+    ],
+    "see_also": ["RALPH-104", "RALPH-101"],
+    "auto_issue": false,
+    "labels": ["ralph-prd"]
+  },
+
+  "RALPH-104": {
+    "category": "PRD",
+    "severity": "error",
+    "message": "Plan file is empty",
+    "details": "The plan.md file exists but contains no stories. A valid plan must have at least one user story.",
+    "remediation": [
+      "Regenerate plan: ralph plan",
+      "Edit plan manually: edit .ralph/PRD-N/plan.md",
+      "Check PRD has user stories defined"
+    ],
+    "see_also": ["RALPH-103"],
+    "auto_issue": false,
+    "labels": ["ralph-prd"]
+  },
+
+  "RALPH-105": {
+    "category": "PRD",
+    "severity": "warning",
+    "message": "Could not parse stories from plan",
+    "details": "The plan.md file could not be parsed for user stories. Check the format matches the expected pattern.",
+    "remediation": [
+      "Verify story format: ### [ ] US-XXX: Title",
+      "Regenerate plan: ralph plan",
+      "Check for malformed markdown"
+    ],
+    "see_also": ["RALPH-104"],
+    "auto_issue": false,
+    "labels": ["ralph-prd"]
+  },
+
+  "RALPH-201": {
+    "category": "BUILD",
+    "severity": "error",
+    "message": "Agent command failed",
+    "details": "The agent (claude/codex/droid) command exited with a non-zero status. Check the run log for details.",
+    "remediation": [
+      "Check run log: cat .ralph/PRD-N/runs/latest.log",
+      "Verify agent auth: ralph doctor",
+      "Try different agent: ralph build 1 --agent=codex",
+      "Check story complexity and consider breaking it down"
+    ],
+    "see_also": ["RALPH-401", "RALPH-202"],
+    "auto_issue": true,
+    "labels": ["ralph-build", "bug"]
+  },
+
+  "RALPH-202": {
+    "category": "BUILD",
+    "severity": "critical",
+    "message": "Rollback failed - manual intervention required",
+    "details": "Automatic rollback after build failure did not succeed. The working directory may be in an inconsistent state.",
+    "remediation": [
+      "Check git status: git status",
+      "Manual reset: git reset --hard HEAD",
+      "Stash changes: git stash",
+      "Check for uncommitted files in .ralph/"
+    ],
+    "see_also": ["RALPH-201", "RALPH-301"],
+    "auto_issue": true,
+    "labels": ["ralph-build", "bug", "critical"]
+  },
+
+  "RALPH-203": {
+    "category": "BUILD",
+    "severity": "warning",
+    "message": "Build iteration left uncommitted changes",
+    "details": "The build completed but left uncommitted changes in the working directory. This may affect subsequent iterations.",
+    "remediation": [
+      "Review changes: git diff",
+      "Commit manually: git add . && git commit -m 'WIP'",
+      "Discard changes: git checkout -- .",
+      "Check agent completed the story properly"
+    ],
+    "see_also": ["RALPH-301"],
+    "auto_issue": false,
+    "labels": ["ralph-build"]
+  },
+
+  "RALPH-301": {
+    "category": "GIT",
+    "severity": "error",
+    "message": "Git state diverged",
+    "details": "The local branch has diverged from the expected state. This can happen after manual commits or rebases.",
+    "remediation": [
+      "Check branch status: git status",
+      "Pull latest: git pull --rebase",
+      "Reset to remote: git reset --hard origin/main",
+      "Check for conflicts: git diff HEAD origin/main"
+    ],
+    "see_also": ["RALPH-302"],
+    "auto_issue": false,
+    "labels": ["ralph-git"]
+  },
+
+  "RALPH-302": {
+    "category": "GIT",
+    "severity": "error",
+    "message": "Resume cancelled due to git state mismatch",
+    "details": "Cannot resume build because the git state has changed since the checkpoint was created.",
+    "remediation": [
+      "Start fresh: ralph build N (without --resume)",
+      "Reset to checkpoint: git reset --hard <checkpoint-sha>",
+      "Check checkpoint: cat .ralph/PRD-N/checkpoint.json"
+    ],
+    "see_also": ["RALPH-301", "RALPH-303"],
+    "auto_issue": false,
+    "labels": ["ralph-git"]
+  },
+
+  "RALPH-303": {
+    "category": "GIT",
+    "severity": "error",
+    "message": "Resume cancelled due to plan change",
+    "details": "Cannot resume build because the plan.md has been modified since the checkpoint was created.",
+    "remediation": [
+      "Start fresh: ralph build N (without --resume)",
+      "Restore plan: git checkout <checkpoint-sha> -- .ralph/PRD-N/plan.md",
+      "Clear checkpoint: rm .ralph/PRD-N/checkpoint.json"
+    ],
+    "see_also": ["RALPH-302"],
+    "auto_issue": false,
+    "labels": ["ralph-git"]
+  },
+
+  "RALPH-401": {
+    "category": "AGENT",
+    "severity": "error",
+    "message": "Agent fallback chain exhausted",
+    "details": "All configured agents have failed for this story. The fallback chain (claude → codex → droid) has been fully tried.",
+    "remediation": [
+      "Check agent authentication: claude auth, codex login",
+      "Review story complexity and break into smaller tasks",
+      "Try with a stronger model: ralph build 1 --model=opus",
+      "Check rate limits and API quotas"
+    ],
+    "see_also": ["RALPH-201", "RALPH-402"],
+    "auto_issue": true,
+    "labels": ["ralph-agent", "bug"]
+  },
+
+  "RALPH-402": {
+    "category": "AGENT",
+    "severity": "error",
+    "message": "Story selection lock timeout",
+    "details": "Could not acquire lock for story selection within the timeout period. Another process may be running.",
+    "remediation": [
+      "Check for running builds: ralph stream status",
+      "Remove stale lock: rm .ralph/locks/story-*.lock",
+      "Kill hung processes: pkill -f 'ralph build'"
+    ],
+    "see_also": ["RALPH-504"],
+    "auto_issue": true,
+    "labels": ["ralph-agent", "bug"]
+  },
+
+  "RALPH-501": {
+    "category": "STREAM",
+    "severity": "error",
+    "message": "Invalid stream ID",
+    "details": "The specified stream ID is not valid. Stream IDs must be positive integers matching existing PRD folders.",
+    "remediation": [
+      "List available streams: ralph stream list",
+      "Check PRD folders: ls .ralph/PRD-*",
+      "Use correct ID: ralph stream build <valid-id> N"
+    ],
+    "see_also": ["RALPH-502"],
+    "auto_issue": false,
+    "labels": ["ralph-stream"]
+  },
+
+  "RALPH-502": {
+    "category": "STREAM",
+    "severity": "error",
+    "message": "Stream not found",
+    "details": "The specified PRD stream does not exist. Ensure the PRD folder exists before running stream commands.",
+    "remediation": [
+      "Create PRD: ralph prd",
+      "List streams: ralph stream list",
+      "Check folder: ls .ralph/PRD-N/"
+    ],
+    "see_also": ["RALPH-501", "RALPH-002"],
+    "auto_issue": false,
+    "labels": ["ralph-stream"]
+  },
+
+  "RALPH-503": {
+    "category": "STREAM",
+    "severity": "error",
+    "message": "Worktree not initialized",
+    "details": "The git worktree for this stream has not been created. Initialize it first.",
+    "remediation": [
+      "Initialize worktree: ralph stream init N",
+      "Check worktrees: git worktree list",
+      "Use --no-worktree flag: ralph stream build N 5 --no-worktree"
+    ],
+    "see_also": ["RALPH-504"],
+    "auto_issue": false,
+    "labels": ["ralph-stream"]
+  },
+
+  "RALPH-504": {
+    "category": "STREAM",
+    "severity": "warning",
+    "message": "Merge lock held by another process",
+    "details": "Another process is currently performing a merge operation. Waiting for lock to be released.",
+    "remediation": [
+      "Wait for completion: ralph stream status",
+      "Remove stale lock: rm .ralph/locks/merge.lock",
+      "Check running processes: ps aux | grep ralph"
+    ],
+    "see_also": ["RALPH-402"],
+    "auto_issue": false,
+    "labels": ["ralph-stream"]
+  },
+
+  "RALPH-505": {
+    "category": "STREAM",
+    "severity": "error",
+    "message": "Rebase failed due to conflicts",
+    "details": "Git rebase failed because of merge conflicts. Manual conflict resolution is required.",
+    "remediation": [
+      "Check conflicts: git status",
+      "Resolve manually: edit conflicting files",
+      "Continue rebase: git rebase --continue",
+      "Abort rebase: git rebase --abort"
+    ],
+    "see_also": ["RALPH-301"],
+    "auto_issue": false,
+    "labels": ["ralph-stream", "ralph-git"]
+  },
+
+  "RALPH-506": {
+    "category": "STREAM",
+    "severity": "error",
+    "message": "PR creation failed",
+    "details": "Failed to create pull request via GitHub CLI. Check authentication and repository permissions.",
+    "remediation": [
+      "Check gh auth: gh auth status",
+      "Login to GitHub: gh auth login",
+      "Check repo permissions",
+      "Try manual PR: gh pr create --title '...' --body '...'"
+    ],
+    "see_also": [],
+    "auto_issue": true,
+    "labels": ["ralph-stream", "bug"]
+  },
+
+  "RALPH-901": {
+    "category": "INTERNAL",
+    "severity": "critical",
+    "message": "Unexpected internal error",
+    "details": "An unexpected error occurred within Ralph CLI. This is likely a bug.",
+    "remediation": [
+      "Check logs: cat .ralph/errors.log",
+      "Report issue: https://github.com/AskTinNguyen/ralph-cli/issues",
+      "Run diagnostics: ralph doctor"
+    ],
+    "see_also": [],
+    "auto_issue": true,
+    "labels": ["ralph-internal", "bug", "critical"]
+  }
+}

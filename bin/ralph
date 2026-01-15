@@ -353,6 +353,8 @@ async function main() {
     "diagnose", "experiment", "watch", "optimize",
     // Project & Knowledge Management
     "registry", "search", "import", "routing",
+    // Error Management
+    "error",
   ];
 
   if (moduleCommands.includes(cmd)) {

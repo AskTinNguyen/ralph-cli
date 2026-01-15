@@ -356,3 +356,116 @@ This concise, agent-friendly reference contains:
 - Response templates
 
 **When to reference**: Before executing Ralph commands, check the Agent Guide for the correct pattern to follow.
+
+## Error Handling & Issue Creation
+
+Ralph CLI uses standardized error codes (RALPH-XXX) for consistent error handling and automated GitHub issue creation.
+
+### Error Code Reference
+
+| Range | Category | Description |
+|-------|----------|-------------|
+| 001-099 | CONFIG | Configuration errors (missing files, invalid settings) |
+| 100-199 | PRD | PRD/Plan errors (missing stories, malformed documents) |
+| 200-299 | BUILD | Build failures (agent errors, rollback issues) |
+| 300-399 | GIT | Git errors (conflicts, dirty state, diverged branches) |
+| 400-499 | AGENT | Agent errors (fallback exhausted, timeouts) |
+| 500-599 | STREAM | Stream errors (lock conflicts, worktree issues) |
+| 900-999 | INTERNAL | Internal errors (unexpected failures) |
+
+### Error Lookup
+
+```bash
+# Look up specific error
+ralph error RALPH-401
+
+# List all errors
+ralph error --list
+
+# Filter by category
+ralph error --list --category=BUILD
+
+# Show errors that auto-create GitHub issues
+ralph error --list --auto-issue
+```
+
+### Error Code Usage in Builds
+
+When build failures occur, agents should:
+
+1. **Reference error codes** when reporting failures
+2. **Check remediation steps**: `ralph error RALPH-XXX`
+3. **Include error code** in progress.md updates
+4. **Follow remediation** before retrying
+
+Example in progress.md:
+```markdown
+## Iteration 3 - Failed
+- Error: [RALPH-401] Agent fallback chain exhausted
+- Story: US-003
+- See: `ralph error RALPH-401` for remediation
+```
+
+### GitHub Issue Creation
+
+Ralph can auto-create GitHub issues for critical failures. **Disabled by default** - enable via config.
+
+**Enable auto-issue creation:**
+```bash
+# In .agents/ralph/config.sh
+export RALPH_AUTO_ISSUES=true
+```
+
+**Errors that trigger auto-issue creation:**
+- `RALPH-201`: Agent command failed
+- `RALPH-202`: Rollback failed - manual intervention required
+- `RALPH-401`: Agent fallback chain exhausted
+- `RALPH-402`: Story selection lock timeout
+- `RALPH-506`: PR creation failed
+
+**Issue format:**
+- Title: `[RALPH-XXX] Error message`
+- Labels: `ralph-error`, category-specific label
+- Body: Error details, context, remediation steps, logs
+
+### MCP GitHub Issue Creation
+
+When working as an agent and encountering critical failures, create GitHub issues using MCP:
+
+```javascript
+mcp__github__create_issue({
+  owner: "<repo-owner>",
+  repo: "<repo-name>",
+  title: "[RALPH-XXX] <short description>",
+  body: "<formatted error context>",
+  labels: ["ralph-error", "ralph-<category>"]
+})
+```
+
+**Required context in issues:**
+- Error code and message
+- PRD and story being worked on
+- Agent chain tried (if applicable)
+- Last 50 lines of run log
+- Link to error documentation
+
+**Create issues for:** `RALPH-201`, `RALPH-202`, `RALPH-401`, `RALPH-402`, `RALPH-506`
+
+**Do NOT create issues for:**
+- CONFIG errors (0XX range) - user configuration issues
+- GIT errors (3XX range) - requires manual resolution
+- Transient network errors - should retry
+
+### Configuration
+
+Add to `.agents/ralph/config.sh`:
+```bash
+# Enable/disable auto issue creation (default: false)
+export RALPH_AUTO_ISSUES=false
+
+# Override repo for issues (default: current project repo)
+export RALPH_ISSUE_REPO=""
+
+# Deduplication window in hours (default: 24)
+export RALPH_ISSUE_DEDUP_HOURS=24
+```
