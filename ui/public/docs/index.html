@@ -8,6 +8,30 @@
   <meta name="description" content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
 
   <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* Ralph icon decorations */
+    .rams-workflow-step {
+      position: relative;
+    }
+    .rams-quickstart-num {
+      position: relative;
+    }
+
+    /* Floating Ralph decorations */
+    @keyframes float-ralph {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .ralph-float {
+      animation: float-ralph 3s ease-in-out infinite;
+    }
+
+    /* Make the main header Ralph logo bounce */
+    .rams-h1 img {
+      animation: float-ralph 2.5s ease-in-out infinite;
+    }
+  </style>
 </head>
 <body class="rams-page">
 
@@ -15,7 +39,7 @@
   <aside class="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark"></div>
+        <img src="/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; object-fit: contain; margin-right: 8px;">
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -87,7 +111,10 @@
         </svg>
         Autonomous Coding Made Simple
       </div>
-      <h1 class="rams-h1">Meet Ralph, Your Coding Companion</h1>
+      <h1 class="rams-h1" style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+        <img src="/ralph-logo.png" alt="Ralph Logo" style="width: 48px; height: 48px; object-fit: contain;">
+        Meet Ralph, Your Coding Companion
+      </h1>
       <p class="rams-lead">
         Imagine having a tireless assistant who takes your ideas and turns them into working code,
         one careful step at a time. That's Ralph.
@@ -176,6 +203,7 @@
 
         <div class="rams-workflow">
           <div class="rams-workflow-step">
+            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">1</div>
             <div class="rams-workflow-title">PRD</div>
             <div class="rams-workflow-desc">
@@ -186,6 +214,7 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
+            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">2</div>
             <div class="rams-workflow-title">Plan</div>
             <div class="rams-workflow-desc">
@@ -196,6 +225,7 @@
           <div class="rams-workflow-arrow">→</div>
 
           <div class="rams-workflow-step">
+            <img src="/ralph-logo.png" alt="Ralph" style="width: 24px; height: 24px; object-fit: contain; position: absolute; top: 8px; right: 8px; opacity: 0.3;">
             <div class="rams-workflow-number">3</div>
             <div class="rams-workflow-title">Build</div>
             <div class="rams-workflow-desc">
@@ -384,6 +414,7 @@ ralph build 5  # Run 5 build iterations</code></pre>
         <p class="rams-text-sm rams-text-center">
           Made with care for developers everywhere.
           <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-link">Ralph CLI</a> is open source.
+          <img src="/ralph-logo.png" alt="Ralph" style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
         </p>
       </footer>
     </article>
