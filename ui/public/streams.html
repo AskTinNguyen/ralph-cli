@@ -669,6 +669,14 @@
       </div>
       <div class="rams-topbar-actions">
         <button
+          id="streams-view-toggle"
+          class="rams-btn rams-btn-secondary"
+          onclick="toggleStreamsView()"
+          title="Switch to Progress View"
+        >
+          📊 Progress View
+        </button>
+        <button
           class="rams-btn rams-btn-primary"
           onclick="openWizard()"
         >
@@ -800,7 +808,7 @@
         <!-- Quick Start -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">1</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">1</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">Quick Start Guide</h2>
               <p class="rams-subtitle">Get started with parallel streams in 5 steps</p>
@@ -894,7 +902,7 @@ ralph stream merge 2</code></pre>
         <!-- Architecture -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">2</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">2</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">Stream Architecture</h2>
               <p class="rams-subtitle">Understanding isolated execution layers</p>
@@ -953,7 +961,7 @@ ralph/PRD-3  - Feature branch for PRD 3</code></pre>
         <!-- Understanding Worktrees -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">3</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">3</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">Understanding Worktrees</h2>
               <p class="rams-subtitle">Multiple working directories from the same repository</p>
@@ -988,7 +996,7 @@ ralph/PRD-3  - Feature branch for PRD 3</code></pre>
         <!-- Safety Features -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">4</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">4</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">Safety Features</h2>
               <p class="rams-subtitle">Built-in conflict prevention and validation</p>
@@ -1048,7 +1056,7 @@ ralph/PRD-3  - Feature branch for PRD 3</code></pre>
         <!-- When to Use Streams -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">5</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">5</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">When to Use Streams</h2>
               <p class="rams-subtitle">Optimal scenarios for parallel execution</p>
@@ -1080,7 +1088,7 @@ ralph/PRD-3  - Feature branch for PRD 3</code></pre>
         <!-- Performance -->
         <div class="rams-step">
           <div class="rams-step-header">
-            <span class="rams-step-num">6</span>
+            <div style="flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--rams-accent); color: var(--rams-white); border-radius: 50%; font-weight: 600; font-size: var(--rams-text-sm); font-family: var(--rams-font-mono);">6</div>
             <div class="rams-step-info">
               <h2 class="rams-h2">Performance Tips</h2>
               <p class="rams-subtitle">Maximizing speed and efficiency</p>
@@ -2979,6 +2987,51 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // ============================================
+    // STREAMS VIEW TOGGLE
+    // ============================================
+
+    // Stream View Mode (grid or progress)
+    var streamsViewMode = localStorage.getItem("streamsViewMode") || "grid";
+
+    function toggleStreamsView() {
+      const toggleBtn = document.getElementById("streams-view-toggle");
+      const container = document.getElementById("streams-container");
+
+      streamsViewMode = streamsViewMode === "grid" ? "progress" : "grid";
+      localStorage.setItem("streamsViewMode", streamsViewMode);
+
+      // Update button
+      if (streamsViewMode === "progress") {
+        toggleBtn.innerHTML = "📋 Grid View";
+        toggleBtn.title = "Switch to Grid View";
+      } else {
+        toggleBtn.innerHTML = "📊 Progress View";
+        toggleBtn.title = "Switch to Progress View";
+      }
+
+      // Update HTMX endpoint
+      const endpoint = streamsViewMode === "grid"
+        ? "/api/partials/streams"
+        : "/api/partials/streams-progress";
+
+      container.setAttribute("hx-get", endpoint);
+      htmx.process(container);
+      htmx.trigger(container, "load");
+    }
+
+    // Initialize on page load
+    document.addEventListener("DOMContentLoaded", function() {
+      const toggleBtn = document.getElementById("streams-view-toggle");
+      const container = document.getElementById("streams-container");
+
+      if (streamsViewMode === "progress") {
+        toggleBtn.innerHTML = "📋 Grid View";
+        toggleBtn.title = "Switch to Grid View";
+        container.setAttribute("hx-get", "/api/partials/streams-progress");
+      }
+    });
   </script>
 </body>
 </html>

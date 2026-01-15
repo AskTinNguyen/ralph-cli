@@ -2083,6 +2083,108 @@ api.get("/partials/streams", (c) => {
 });
 
 /**
+ * GET /api/partials/streams-progress
+ *
+ * Returns HTML fragment for the progress-focused view.
+ * Lists active streams prominently with completed streams collapsed.
+ */
+api.get("/partials/streams-progress", (c) => {
+  const streams = getStreams();
+
+  if (streams.length === 0) {
+    return c.html(`
+<div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+  <div style="font-size: 48px; margin-bottom: var(--rams-space-4);">&#128203;</div>
+  <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">No streams found</h3>
+  <p class="rams-text-muted">Create a PRD with <code class="rams-code">ralph prd</code> or use the 'New Stream' button to get started.</p>
+</div>
+`);
+  }
+
+  // Separate streams by status
+  const activeStreams = streams.filter(s =>
+    s.status === 'running' || s.status === 'in_progress' || s.status === 'ready'
+  );
+  const completedStreams = streams.filter(s =>
+    s.status === 'completed' || s.merged
+  ).reverse(); // Most recent first
+
+  // Helper function to render stream item
+  const renderStreamItem = (stream: Stream, isActive: boolean) => {
+    const percentage = stream.totalStories > 0
+      ? Math.round((stream.completedStories / stream.totalStories) * 100)
+      : 0;
+
+    const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1).replace(/_/g, ' ');
+    const badgeClass = stream.status === 'running' ? 'rams-badge-running' :
+                       stream.status === 'completed' ? 'rams-badge-success' :
+                       stream.status === 'in_progress' ? 'rams-badge-in-progress' :
+                       stream.status === 'idle' ? 'rams-badge-idle' : 'rams-badge-pending';
+
+    const itemClass = isActive ? 'stream-item-active' : 'stream-item-completed';
+    const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
+    return `
+      <div class="stream-item ${itemClass}"
+           onclick="showStreamDetail('${stream.id}', '${escapedName}')"
+           style="cursor: pointer;">
+        <div style="min-width: 80px;">
+          <span class="rams-label">PRD-${stream.id}</span>
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <h3 class="rams-h3" style="margin-bottom: var(--rams-space-2);">${escapeHtml(stream.name)}</h3>
+          <div class="rams-progress rams-progress-thick">
+            <div class="rams-progress-bar" style="width: ${percentage}%"></div>
+          </div>
+        </div>
+        <div style="min-width: 120px; text-align: right;">
+          <div style="font-family: var(--rams-font-mono); font-size: var(--rams-text-lg); font-weight: 600; margin-bottom: var(--rams-space-1);">
+            ${percentage}%
+          </div>
+          <div style="font-size: var(--rams-text-xs); color: var(--rams-gray-600);">
+            ${stream.completedStories} / ${stream.totalStories}
+          </div>
+        </div>
+        <div>
+          <span class="rams-badge ${badgeClass}">
+            <span class="rams-badge-dot"></span>${statusLabel}
+          </span>
+          ${stream.merged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
+        </div>
+      </div>`;
+  };
+
+  // Build active section
+  const activeSection = activeStreams.length > 0 ? `
+    <div class="streams-section">
+      <div class="streams-section-header">
+        <h2 class="rams-h2">Active Streams</h2>
+      </div>
+      ${activeStreams.map(s => renderStreamItem(s, true)).join('')}
+    </div>` : '';
+
+  // Build completed section
+  const completedSection = completedStreams.length > 0 ? `
+    <details class="streams-collapsible" open>
+      <summary class="streams-collapsible-header">
+        <span class="chevron">▼</span>
+        <h3 class="rams-h3" style="margin: 0;">Completed Streams</h3>
+        <span class="rams-badge rams-badge-muted">${completedStreams.length}</span>
+      </summary>
+      <div class="streams-collapsible-content">
+        ${completedStreams.map(s => renderStreamItem(s, false)).join('')}
+      </div>
+    </details>` : '';
+
+  return c.html(`
+    <div class="streams-progress-view">
+      ${activeSection}
+      ${completedSection}
+    </div>
+  `);
+});
+
+/**
  * GET /api/partials/streams-timeline
  *
  * Returns HTML fragment for the streams timeline view.
