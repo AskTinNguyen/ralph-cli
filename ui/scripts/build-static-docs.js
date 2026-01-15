@@ -126,17 +126,17 @@ async function copyRootDocs() {
 }
 
 /**
- * Copy standalone landing page as root index.html
+ * Copy animated grid landing page as root index.html
  */
 async function copyLandingPage() {
-  console.log('🏠 Copying standalone landing page as root index...');
+  console.log('🏠 Copying animated grid landing page as root index...');
 
-  const landingPageSrc = path.join(publicDir, 'landing.html');
+  const landingPageSrc = path.join(publicDir, 'index.html');
   const landingPageDest = path.join(outputDir, 'index.html');
 
   if (await fs.pathExists(landingPageSrc)) {
     await fs.copy(landingPageSrc, landingPageDest);
-    console.log('✅ Copied standalone landing page to root');
+    console.log('✅ Copied animated landing page to root');
   } else {
     console.error('❌ Landing page not found at:', landingPageSrc);
     throw new Error('Landing page not found');

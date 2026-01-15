@@ -2,378 +2,673 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/ralph-cli/favicon.png">
-  <title>Ralph CLI - Your Autonomous Coding Companion</title>
-  <meta name="description" content="Ralph CLI transforms your product requirements into working code, step by step. An approachable guide to autonomous development.">
-
-  <link rel="stylesheet" href="/ralph-cli/docs/rams-design-system.css">
+  <title>Ralph CLI - From One to Many</title>
   <style>
-    /* Remove sidebar layout - use full width */
-    .rams-page {
-      display: block;
-      padding-left: 0;
-    }
-
-    /* Center content with max width */
-    .rams-main {
-      max-width: 1200px;
-      margin: 0 auto;
+    * {
+      margin: 0;
       padding: 0;
+      box-sizing: border-box;
     }
 
-    /* Ralph icon decorations */
-    .rams-workflow-step {
+    body {
+      background: #ffffff;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
       position: relative;
-    }
-    .rams-quickstart-num {
-      position: relative;
+      scroll-behavior: smooth;
     }
 
-    /* Floating Ralph decorations */
-    @keyframes float-ralph {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
-    }
-
-    .ralph-float {
-      animation: float-ralph 3s ease-in-out infinite;
-    }
-
-    /* Make the main header Ralph logo bounce */
-    .rams-h1 img {
-      animation: float-ralph 2.5s ease-in-out infinite;
-    }
-
-    /* Add top navigation bar */
-    .landing-nav {
-      position: sticky;
+    /* Grid container */
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), 1fr);
+      gap: 2px;
+      position: fixed;
       top: 0;
-      z-index: 1000;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      perspective: 1000px;
+      transform-style: preserve-3d;
+    }
+
+    /* Individual tile */
+    .tile {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    }
+
+    .tile img {
+      width: 80%;
+      height: 80%;
+      object-fit: contain;
+      filter: grayscale(100%);
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+
+    .tile.elevated {
+      transform: translateZ(30px) scale(1.02);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+    }
+
+    .tile.elevated img {
+      opacity: 1;
+    }
+
+    .tile.slight-elevated {
+      transform: translateZ(15px) scale(1.01);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .tile.slight-elevated img {
+      opacity: 0.85;
+    }
+
+    /* Hero section */
+    .hero-section {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .hero-content {
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .tagline {
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 300;
+      color: #1a1a1a;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
       background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--rams-gray-200);
-      padding: var(--rams-space-4) var(--rams-space-6);
+      padding: 1.5rem 3rem;
+      border: 2px solid #1a1a1a;
+      text-shadow: none;
+      margin-bottom: 2rem;
     }
 
-    .landing-nav-content {
-      max-width: 1200px;
+    .tagline strong {
+      font-weight: 700;
+    }
+
+    .scroll-hint {
+      font-size: 0.875rem;
+      color: #666;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 0.75rem 1.5rem;
+      border: 1px solid #ccc;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: translateY(0); }
+      50% { opacity: 0.6; transform: translateY(-5px); }
+    }
+
+    /* Philosophy section */
+    .philosophy-section {
+      position: relative;
+      min-height: 100vh;
+      background: rgba(255, 255, 255, 0.98);
+      z-index: 100;
+      padding: 4rem 2rem;
+      border-top: 2px solid #1a1a1a;
+    }
+
+    .philosophy-content {
+      max-width: 800px;
       margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      line-height: 1.8;
     }
 
-    .landing-logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: var(--rams-gray-900);
+    .philosophy-content h2 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+      text-transform: uppercase;
+      color: #1a1a1a;
+    }
+
+    .philosophy-content p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #333;
+      margin-bottom: 1.5rem;
+    }
+
+    .philosophy-content strong {
       font-weight: 600;
-      font-size: 18px;
+      color: #1a1a1a;
     }
 
-    .landing-logo img {
-      width: 32px;
-      height: 32px;
+    .philosophy-content ul {
+      list-style: none;
+      margin: 2rem 0;
+      padding-left: 1rem;
     }
 
-    .landing-nav-links {
-      display: flex;
-      gap: var(--rams-space-6);
-      align-items: center;
+    .philosophy-content li {
+      font-size: clamp(1rem, 2vw, 1.125rem);
+      color: #333;
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+      position: relative;
     }
 
-    .landing-nav-link {
-      text-decoration: none;
-      color: var(--rams-gray-700);
+    .philosophy-content li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: #1a1a1a;
+      font-weight: bold;
+    }
+
+    .philosophy-content code {
+      background: #f5f5f5;
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+      border: 1px solid #e0e0e0;
+    }
+
+    /* Visual story section */
+    .visual-story {
+      text-align: center;
+      margin: 0 0 4rem 0;
+      padding: 2rem 0;
+    }
+
+    .hero-ralph {
+      max-width: 300px;
+      width: 100%;
+      height: auto;
+      margin: 0 auto 3rem;
+      display: block;
+      filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
+    }
+
+    .arrow-down {
+      font-size: 2rem;
+      color: #1a1a1a;
+      margin: 1rem 0 2rem;
+      animation: arrowBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes arrowBounce {
+      0%, 100% { transform: translateY(0); opacity: 1; }
+      50% { transform: translateY(10px); opacity: 0.6; }
+    }
+
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 1.5rem;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: rgba(245, 245, 245, 0.5);
+      border-radius: 8px;
+      border: 2px dashed #ccc;
+    }
+
+    .agent-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto;
+      animation: agentVibrate 0.3s ease-in-out infinite;
+      animation-delay: calc(var(--agent-index) * 0.1s);
+      filter: grayscale(100%);
+      opacity: 0.8;
+      transition: all 0.3s ease;
+    }
+
+    .agent-icon:hover {
+      filter: grayscale(0%);
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    @keyframes agentVibrate {
+      0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+        transform: translate(-2px, -1px) rotate(-1deg);
+      }
+      50% {
+        transform: translate(2px, 1px) rotate(1deg);
+      }
+      75% {
+        transform: translate(-1px, 2px) rotate(-0.5deg);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .agents-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        padding: 1.5rem;
+      }
+
+      .agent-icon {
+        width: 60px;
+        height: 60px;
+      }
+    }
+
+    /* Fixed CTA button - bottom right */
+    .enter-btn {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 2rem;
+      font-size: 0.875rem;
       font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .landing-nav-link:hover {
-      color: var(--rams-primary);
-    }
-
-    .landing-nav-cta {
-      padding: 8px 20px;
-      background: var(--rams-primary);
-      color: white;
-      border-radius: 6px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #fff;
+      background: #1a1a1a;
+      border: 2px solid #1a1a1a;
       text-decoration: none;
-      font-weight: 600;
-      transition: background 0.2s;
+      transition: all 0.3s ease;
+      z-index: 200;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
     }
 
-    .landing-nav-cta:hover {
-      background: var(--rams-primary-dark);
+    .enter-btn:hover {
+      background: #fff;
+      color: #1a1a1a;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .enter-btn-hint {
+      display: block;
+      font-size: 0.7rem;
+      margin-top: 0.25rem;
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+    }
+
+    /* Traversing color Ralph */
+    .traverser {
+      position: fixed;
+      z-index: 50;
+      pointer-events: none;
+      will-change: transform;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+      padding: 4px;
+      overflow: hidden;
+    }
+
+    .traverser img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #fff;
+    }
+
+    .traverser.bounce {
+      animation: bounce 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
+    /* Responsive grid columns */
+    @media (min-width: 1400px) {
+      :root { --cols: 12; }
+    }
+    @media (min-width: 1000px) and (max-width: 1399px) {
+      :root { --cols: 10; }
+    }
+    @media (min-width: 700px) and (max-width: 999px) {
+      :root { --cols: 8; }
+    }
+    @media (max-width: 699px) {
+      :root { --cols: 6; }
     }
   </style>
-<meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Ralph CLI - Your Autonomous Coding Companion"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ralph CLI - Your Autonomous Coding Companion"></head>
-<body class="rams-page">
+<meta name="author" content="Ralph CLI"><meta name="robots" content="index, follow"><meta property="og:type" content="website"><meta property="og:title" content="Ralph CLI - From One to Many"><meta property="og:description" content="Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation."><meta property="og:site_name" content="Ralph CLI"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Ralph CLI - From One to Many"></head>
+<body>
+  <div class="logo-grid" id="grid"></div>
+  <div id="traversers"></div>
 
-  <!-- Navigation Bar -->
-  <nav class="landing-nav">
-    <div class="landing-nav-content">
-      <a href="/ralph-cli/" class="landing-logo">
-        <img src="/ralph-cli/ralph-logo.png" alt="Ralph">
-        <span>RALPH</span>
-      </a>
-      <div class="landing-nav-links">
-        <a href="#what-is-ralph" class="landing-nav-link">About</a>
-        <a href="#how-it-works" class="landing-nav-link">How It Works</a>
-        <a href="#quickstart" class="landing-nav-link">Quick Start</a>
-        <a href="https://github.com/AskTinNguyen/ralph-cli" class="landing-nav-link" target="_blank">GitHub</a>
-        <a href="/ralph-cli/docs/" class="landing-nav-cta">Enter Documentation</a>
-      </div>
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <div class="tagline"><strong>Ralph</strong> — From One to Many</div>
+      <div class="scroll-hint">↓ Scroll to Explore ↓</div>
     </div>
-  </nav>
+  </section>
 
-  <!-- Main Content -->
-  <main class="rams-main">
-
-    <!-- Hero Header -->
-    <header class="rams-header rams-header-hero">
-      <div class="rams-hero-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-          <path d="M2 17l10 5 10-5"></path>
-          <path d="M2 12l10 5 10-5"></path>
-        </svg>
-        Autonomous Coding Made Simple
+  <!-- Philosophy Section -->
+  <section class="philosophy-section">
+    <div class="philosophy-content">
+      <!-- Visual Story -->
+      <div class="visual-story">
+        <img src="/ralph-cli/ralph-hero.png" alt="Ralph - The One" class="hero-ralph">
+        <div class="arrow-down">↓</div>
+        <div class="agents-grid" id="agents-grid">
+          <!-- Agents generated by JavaScript -->
+        </div>
       </div>
-      <h1 class="rams-h1" style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
-        <img src="/ralph-cli/ralph-logo.png" alt="Ralph Logo" style="width: 48px; height: 48px; object-fit: contain;">
-        Meet Ralph, Your Coding Companion
-      </h1>
-      <p class="rams-lead">
-        Imagine having a tireless assistant who takes your ideas and turns them into working code,
-        one careful step at a time. That's Ralph.
+
+      <h2>🚀 The Ralph Wiggum Technique</h2>
+
+      <p>
+        Named after the persistent (and often confused) Simpsons character, the <strong>Ralph Wiggum Loop</strong>
+        is a methodology for autonomous software development that embraces a counterintuitive truth:
+        <strong>"Iteration beats perfection."</strong>
       </p>
-      <div class="rams-hero-actions">
-        <a href="/ralph-cli/docs/" class="rams-btn rams-btn-primary rams-btn-lg">
-          Enter Documentation
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7"></path>
-          </svg>
-        </a>
-        <a href="/ralph-cli/docs/tutorial.html" class="rams-btn rams-btn-secondary rams-btn-lg">
-          View Tutorial
-        </a>
-      </div>
-    </header>
 
-    <!-- What is Ralph? Section -->
-    <article class="rams-content" id="what-is-ralph">
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">What is Ralph?</h2>
-          <p class="rams-text rams-text-center" style="max-width: 700px; margin: 0 auto;">
-            Think of Ralph as a meticulous craftsperson for your software projects.
-            You describe what you want to build, and Ralph works through it methodically —
-            reading your requirements, making a plan, and building feature by feature.
-          </p>
-        </div>
+      <p>
+        Instead of trying to coax a perfect result from an AI in one shot, you put the agent in an infinite loop.
+        Feed it a prompt, let it write code and tests, and if it fails or tries to exit before the task is truly done—the
+        loop re-injects the same prompt. Again. And again.
+      </p>
 
-        <div class="rams-card-grid">
-          <div class="rams-feature-card">
-            <div class="rams-feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-            </div>
-            <h3 class="rams-h3">Describe Your Vision</h3>
-            <p class="rams-text">
-              Write what you want in plain language. Ralph understands requirements documents (PRDs)
-              and breaks them down into manageable stories.
-            </p>
-          </div>
+      <p>
+        <strong>Why it works:</strong> Large language models are probabilistic. They might fail spectacularly on iteration 1
+        but nail it on iteration 10. By clearing the context window but preserving updated files and git history,
+        the AI effectively "wakes up" fresh—seeing the progress made by its predecessor without the baggage of previous failures.
+      </p>
 
-          <div class="rams-feature-card">
-            <div class="rams-feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
-            </div>
-            <h3 class="rams-h3">Watch It Work</h3>
-            <p class="rams-text">
-              Ralph picks up one story at a time, implements it, tests it, and commits the code.
-              Each step is logged so you always know what's happening.
-            </p>
-          </div>
+      <p>
+        <strong>Real-world proof:</strong> Huntley famously used this technique to build "Cursed Lang," a programming language
+        featuring Gen Z slang keywords like <code>no_cap</code> and <code>fr</code>, by running a Ralph loop continuously
+        for <strong>three consecutive months</strong>. The result? A fully functional, battle-tested language born from
+        relentless iteration.
+      </p>
 
-          <div class="rams-feature-card">
-            <div class="rams-feature-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <h3 class="rams-h3">Save Time</h3>
-            <p class="rams-text">
-              No more context switching. Start a build, step away for coffee, and come back
-              to find your feature implemented and committed.
-            </p>
-          </div>
-        </div>
-      </section>
+      <h2>From One to Many</h2>
 
-      <!-- How Ralph Works -->
-      <section class="rams-section rams-section-gray" id="how-it-works">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">How Ralph Works</h2>
-          <p class="rams-text rams-text-center">
-            Three simple steps from idea to implementation
-          </p>
-        </div>
+      <p>
+        Ralph loops scale the technique horizontally. What starts as a single agent iterating on one task becomes
+        <strong>many agents executing in parallel streams</strong>—each with its own isolated workspace, progress tracking,
+        and autonomous decision-making.
+      </p>
 
-        <div class="rams-workflow">
-          <div class="rams-workflow-step ralph-float" style="animation-delay: 0s;">
-            <div class="rams-workflow-num">
-              <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; opacity: 0.8;">
-              <span>1</span>
-            </div>
-            <h3 class="rams-h3">PRD</h3>
-            <p class="rams-text">
-              Write a Product Requirements Document describing what you want to build.
-              No fancy format needed — just clear, plain language.
-            </p>
-          </div>
+      <p>
+        Traditional development is linear: one developer, one task, one outcome. Ralph loops are exponential:
+        one specification multiplies into concurrent work streams, each progressing independently while maintaining coherence
+        through shared learnings captured in guardrails.
+      </p>
 
-          <div class="rams-workflow-step ralph-float" style="animation-delay: 0.5s;">
-            <div class="rams-workflow-num">
-              <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; opacity: 0.8;">
-              <span>2</span>
-            </div>
-            <h3 class="rams-h3">Plan</h3>
-            <p class="rams-text">
-              Ralph reads your PRD and breaks it into ordered user stories.
-              Each story is a small, focused piece of work.
-            </p>
-          </div>
+      <h2>Beyond Software</h2>
 
-          <div class="rams-workflow-step ralph-float" style="animation-delay: 1s;">
-            <div class="rams-workflow-num">
-              <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 32px; height: 32px; opacity: 0.8;">
-              <span>3</span>
-            </div>
-            <h3 class="rams-h3">Build</h3>
-            <p class="rams-text">
-              Ralph executes stories one by one, making commits as it goes.
-              You can watch progress in real-time or check back when it's done.
-            </p>
-          </div>
-        </div>
-      </section>
+      <p>
+        This implementation is the <strong>first iteration</strong> of a paradigm that extends far beyond code.
+        Any domain requiring systematic execution, learning from failures, and relentless iteration can benefit:
+      </p>
 
-      <!-- Quick Start -->
-      <section class="rams-section" id="quickstart">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">Quick Start</h2>
-          <p class="rams-text rams-text-center">Get up and running in 5 minutes</p>
-        </div>
+      <ul>
+        <li><strong>Research &amp; Development:</strong> Parallel hypothesis testing with autonomous learning from failures</li>
+        <li><strong>Content Creation:</strong> Multi-stream narrative development with coherent convergence</li>
+        <li><strong>Design Systems:</strong> Concurrent exploration of design spaces with automated constraint satisfaction</li>
+        <li><strong>Business Strategy:</strong> Parallel scenario planning with adaptive resource allocation</li>
+        <li><strong>Scientific Computing:</strong> Multi-parameter optimization with autonomous backtracking</li>
+      </ul>
 
-        <div class="rams-quickstart-grid">
-          <div class="rams-quickstart-step">
-            <div class="rams-quickstart-num">1</div>
-            <h3 class="rams-h3">Install Ralph CLI</h3>
-            <div class="rams-code-block">
-              <button class="rams-copy-button" aria-label="Copy code">Copy</button>
-              <pre><code>git clone https://github.com/AskTinNguyen/ralph-cli.git
-cd ralph-cli &amp;&amp; npm i &amp;&amp; npm link</code></pre>
-            </div>
-          </div>
+      <h2>The Vision</h2>
 
-          <div class="rams-quickstart-step">
-            <div class="rams-quickstart-num">2</div>
-            <h3 class="rams-h3">Install to your project</h3>
-            <div class="rams-code-block">
-              <button class="rams-copy-button" aria-label="Copy code">Copy</button>
-              <pre><code>cd your-project
-ralph install</code></pre>
-            </div>
-          </div>
+      <p>
+        As large language models become more capable, the complexity and scope of what Ralph loops can autonomously
+        accomplish will expand dramatically. This isn't about replacing human creativity—it's about
+        <strong>amplifying human intent</strong>.
+      </p>
 
-          <div class="rams-quickstart-step">
-            <div class="rams-quickstart-num">3</div>
-            <h3 class="rams-h3">Generate a PRD and start building</h3>
-            <div class="rams-code-block">
-              <button class="rams-copy-button" aria-label="Copy code">Copy</button>
-              <pre><code>ralph prd
-ralph plan
-ralph build 5</code></pre>
-            </div>
-          </div>
-        </div>
+      <p>
+        We define the vision. Ralph loops execute with machine precision and tireless iteration. The result?
+        Productivity that scales not with headcount, but with the clarity of human goals and the boundless capacity
+        of AI to pursue them relentlessly.
+      </p>
 
-        <div style="text-align: center; margin-top: var(--rams-space-8);">
-          <a href="/ralph-cli/docs/tutorial.html" class="rams-link rams-link-arrow">
-            Follow the Full Tutorial
-          </a>
-        </div>
-      </section>
+      <p>
+        <strong>This is just the beginning.</strong> Every iteration brings us closer to unlocking humanity's full
+        productive potential.
+      </p>
+    </div>
+  </section>
 
-      <!-- What Teams Are Saying -->
-      <section class="rams-section rams-section-gray">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">What Teams Are Saying</h2>
-        </div>
+  <!-- Fixed CTA Button -->
+  <a href="/ralph-cli/dashboard.html" class="enter-btn">
+    READY TO LOOP?
+    <span class="enter-btn-hint">Press Enter ↵</span>
+  </a>
 
-        <div class="rams-testimonial-grid">
-          <div class="rams-testimonial">
-            <p class="rams-text">
-              "I went to spend time on objectives and having Ralph work autonomously and return later to
-              a half-built MVP is insanely cool. I bet many people will come back later to PRs, already ready. My builds continue without blocking me. This really solves the continuity problem."
-            </p>
-            <div class="rams-testimonial-author">- Independent Developer</div>
-          </div>
+  <script>
+    const grid = document.getElementById('grid');
+    const logoSrc = '/ralph-logo-bw.png';
 
-          <div class="rams-testimonial">
-            <p class="rams-text">
-              "No more context switches! Rather than spending time managing Ralph's execution, Ralph behaves more like a human. I can continue my work without actively blocking the autonomous agent. This decouples AI from change latency of me driving tasks. New PRs no longer need batch attention."
-            </p>
-            <div class="rams-testimonial-author">- Team Lead</div>
-          </div>
-        </div>
-      </section>
+    // Calculate grid size based on viewport
+    function getGridSize() {
+      const width = window.innerWidth;
+      let cols;
+      if (width >= 1400) cols = 12;
+      else if (width >= 1000) cols = 10;
+      else if (width >= 700) cols = 8;
+      else cols = 6;
 
-      <!-- Ready to Get Started -->
-      <section class="rams-section rams-section-gray">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">Ready to Get Started?</h2>
-          <p class="rams-text rams-text-center" style="max-width: 500px; margin: 0 auto;">
-            Join developers who are shipping faster with Ralph CLI
-          </p>
-        </div>
-        <div class="rams-cta-actions">
-          <a href="/ralph-cli/docs/" class="rams-btn rams-btn-primary rams-btn-lg">
-            Get Started
-          </a>
-          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-btn rams-btn-secondary rams-btn-lg" target="_blank" rel="noopener">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path>
-            </svg>
-            View on GitHub
-          </a>
-        </div>
-      </section>
+      const tileSize = width / cols;
+      const rows = Math.ceil(window.innerHeight / tileSize) + 1;
+      return { cols, rows, total: cols * rows };
+    }
 
-      <!-- Footer -->
-      <footer class="rams-footer">
-        <p class="rams-text-sm rams-text-center">
-          Made with care for developers everywhere.
-          <a href="https://github.com/AskTinNguyen/ralph-cli" class="rams-link">Ralph CLI</a> is open source.
-          <img src="/ralph-cli/ralph-logo.png" alt="Ralph" style="width: 20px; height: 20px; object-fit: contain; display: inline-block; vertical-align: middle; margin-left: 8px; opacity: 0.6;">
-        </p>
-      </footer>
-    </article>
+    // Create tiles
+    function createGrid() {
+      const { cols, rows, total } = getGridSize();
+      grid.innerHTML = '';
+      grid.style.setProperty('--cols', cols);
 
-  </main>
+      for (let i = 0; i < total; i++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.index = i;
+        tile.dataset.col = i % cols;
+        tile.dataset.row = Math.floor(i / cols);
 
+        const img = document.createElement('img');
+        img.src = logoSrc;
+        img.alt = 'Ralph';
+        img.draggable = false;
+
+        tile.appendChild(img);
+        grid.appendChild(tile);
+      }
+    }
+
+    // Wave animation
+    let animationId;
+    let time = 0;
+
+    function animateWave() {
+      const tiles = document.querySelectorAll('.tile');
+      const { cols } = getGridSize();
+      const centerX = cols / 2;
+      const centerY = (tiles.length / cols) / 2;
+
+      tiles.forEach(tile => {
+        const col = parseInt(tile.dataset.col);
+        const row = parseInt(tile.dataset.row);
+
+        // Create wave pattern emanating from center
+        const dx = col - centerX;
+        const dy = row - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Multiple wave sources for more dynamic effect
+        const wave1 = Math.sin(distance * 0.8 - time * 2) * 0.5 + 0.5;
+        const wave2 = Math.sin(distance * 0.5 + time * 1.5 + Math.PI) * 0.3 + 0.5;
+        const combined = (wave1 + wave2) / 2;
+
+        tile.classList.remove('elevated', 'slight-elevated');
+
+        if (combined > 0.75) {
+          tile.classList.add('elevated');
+        } else if (combined > 0.55) {
+          tile.classList.add('slight-elevated');
+        }
+      });
+
+      time += 0.03;
+      animationId = requestAnimationFrame(animateWave);
+    }
+
+    // Initialize
+    createGrid();
+    animateWave();
+
+    // Handle resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        cancelAnimationFrame(animationId);
+        createGrid();
+        animateWave();
+      }, 200);
+    });
+
+    // Traversing Color Ralph
+    const traversersContainer = document.getElementById('traversers');
+    const colorLogoSrc = '/ralph-logo.png';
+    const activeTraversers = [];
+    const maxTraversers = 3;
+
+    function createTraverser() {
+      if (activeTraversers.length >= maxTraversers) return;
+
+      const { cols } = getGridSize();
+      const tileSize = window.innerWidth / cols;
+      const size = tileSize * (0.8 + Math.random() * 0.4); // Random size variation
+
+      const traverser = document.createElement('div');
+      traverser.className = 'traverser bounce';
+      traverser.style.width = size + 'px';
+      traverser.style.height = size + 'px';
+
+      // Random vertical position (avoid center where tagline is)
+      const centerY = window.innerHeight / 2;
+      const avoidZone = 150;
+      let yPos;
+      if (Math.random() > 0.5) {
+        yPos = Math.random() * (centerY - avoidZone - size);
+      } else {
+        yPos = centerY + avoidZone + Math.random() * (window.innerHeight - centerY - avoidZone - size);
+      }
+      traverser.style.top = yPos + 'px';
+
+      // Start from left or right
+      const fromLeft = Math.random() > 0.5;
+      const startX = fromLeft ? -size : window.innerWidth;
+      const endX = fromLeft ? window.innerWidth : -size;
+      traverser.style.left = startX + 'px';
+
+      const img = document.createElement('img');
+      img.src = colorLogoSrc;
+      img.alt = 'Color Ralph';
+      img.draggable = false;
+      traverser.appendChild(img);
+
+      traversersContainer.appendChild(traverser);
+      activeTraversers.push(traverser);
+
+      // Animate across screen
+      const duration = 8000 + Math.random() * 6000; // 8-14 seconds
+      const startTime = performance.now();
+
+      function moveTraverser(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = elapsed / duration;
+
+        if (progress >= 1) {
+          traverser.remove();
+          const idx = activeTraversers.indexOf(traverser);
+          if (idx > -1) activeTraversers.splice(idx, 1);
+          return;
+        }
+
+        // Easing for smooth movement
+        const x = startX + (endX - startX) * progress;
+
+        // Add subtle wave motion synced with grid
+        const waveOffset = Math.sin(progress * Math.PI * 4 + time) * 20;
+
+        traverser.style.left = x + 'px';
+        traverser.style.top = (yPos + waveOffset) + 'px';
+
+        requestAnimationFrame(moveTraverser);
+      }
+
+      requestAnimationFrame(moveTraverser);
+    }
+
+    // Spawn traversers at random intervals
+    function scheduleNextTraverser() {
+      const delay = 3000 + Math.random() * 5000; // 3-8 seconds
+      setTimeout(() => {
+        createTraverser();
+        scheduleNextTraverser();
+      }, delay);
+    }
+
+    // Start spawning after a short delay
+    setTimeout(() => {
+      createTraverser();
+      scheduleNextTraverser();
+    }, 2000);
+
+    // Enter key shortcut to navigate to dashboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Only trigger if not typing in an input field
+        if (document.activeElement.tagName !== 'INPUT' &&
+            document.activeElement.tagName !== 'TEXTAREA') {
+          window.location.href = '/dashboard.html';
+        }
+      }
+    });
+
+    // Generate agent icons (2 rows of 8 = 16 agents)
+    const agentsGrid = document.getElementById('agents-grid');
+    const agentCount = 16;
+    for (let i = 0; i < agentCount; i++) {
+      const agent = document.createElement('img');
+      agent.src = '/ralph-agent-bw.png';
+      agent.alt = `Agent ${i + 1}`;
+      agent.className = 'agent-icon';
+      agent.style.setProperty('--agent-index', i);
+      agent.draggable = false;
+      agentsGrid.appendChild(agent);
+    }
+  </script>
 
 
 </body></html>
