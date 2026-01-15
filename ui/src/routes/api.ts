@@ -2064,7 +2064,7 @@ api.get("/partials/streams", (c) => {
                         !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
                         "Merge to main branch";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+        <button class="rams-btn rams-btn-success" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
           Merge
         </button>`;
     }
@@ -2291,7 +2291,7 @@ api.get("/partials/streams-progress", (c) => {
                         !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
                         "Merge to main branch";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-warning" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+        <button class="rams-btn rams-btn-success" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
           Merge
         </button>`;
     }
