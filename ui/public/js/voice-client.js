@@ -35,12 +35,27 @@
   const confirmBtn = document.getElementById('confirm-btn');
   const rejectBtn = document.getElementById('reject-btn');
   const outputDisplay = document.getElementById('output-display');
+  const filteredOutput = document.getElementById('filtered-output');
   const historyList = document.getElementById('history-list');
   const sttStatus = document.getElementById('stt-status');
   const ollamaStatus = document.getElementById('ollama-status');
+  const claudeCodeStatus = document.getElementById('claude-code-status');
+  const ttsStatusDot = document.getElementById('tts-status-dot');
   const sessionStatus = document.getElementById('session-status');
   const waveformCanvas = document.getElementById('waveform');
   const waveformCtx = waveformCanvas.getContext('2d');
+
+  // TTS elements
+  const ttsEnabled = document.getElementById('tts-enabled');
+  const ttsStopBtn = document.getElementById('tts-stop-btn');
+  const ttsStatusText = document.getElementById('tts-status');
+  const toggleFilteredBtn = document.getElementById('toggle-filtered');
+  const toggleFullBtn = document.getElementById('toggle-full');
+
+  // TTS state
+  let ttsSpeaking = false;
+  let showFilteredOutput = true;
+  let ttsEnabledState = true;
 
   /**
    * Initialize the voice client
@@ -58,6 +73,20 @@
     micButton.addEventListener('click', toggleRecording);
     confirmBtn.addEventListener('click', confirmAction);
     rejectBtn.addEventListener('click', rejectAction);
+
+    // Set up TTS event listeners
+    if (ttsEnabled) {
+      ttsEnabled.addEventListener('change', handleTTSToggle);
+    }
+    if (ttsStopBtn) {
+      ttsStopBtn.addEventListener('click', stopTTS);
+    }
+    if (toggleFilteredBtn) {
+      toggleFilteredBtn.addEventListener('click', () => setOutputView('filtered'));
+    }
+    if (toggleFullBtn) {
+      toggleFullBtn.addEventListener('click', () => setOutputView('full'));
+    }
 
     // Set up waveform canvas
     resizeWaveformCanvas();
@@ -82,6 +111,20 @@
       sttStatus.className = 'status-dot ' + (data.services.sttServer.healthy ? 'healthy' : 'error');
       ollamaStatus.className = 'status-dot ' + (data.services.ollama.healthy ? 'healthy' : 'error');
 
+      // Update Claude Code status
+      if (claudeCodeStatus && data.services.claudeCode) {
+        claudeCodeStatus.className = 'status-dot ' + (data.services.claudeCode.healthy ? 'healthy' : 'error');
+      }
+
+      // Update TTS status
+      if (ttsStatusDot && data.services.tts) {
+        ttsStatusDot.className = 'status-dot ' + (data.services.tts.healthy ? 'healthy' : 'error');
+        ttsEnabledState = data.services.tts.enabled || false;
+        if (ttsEnabled) {
+          ttsEnabled.checked = ttsEnabledState;
+        }
+      }
+
       if (!data.services.sttServer.healthy) {
         recordingStatus.textContent = 'STT server not running. Start with: python ui/python/stt_server.py';
       }
@@ -93,6 +136,8 @@
       console.error('Health check failed:', error);
       sttStatus.className = 'status-dot error';
       ollamaStatus.className = 'status-dot error';
+      if (claudeCodeStatus) claudeCodeStatus.className = 'status-dot error';
+      if (ttsStatusDot) ttsStatusDot.className = 'status-dot error';
       recordingStatus.textContent = 'Could not connect to voice agent services';
     }
   }
@@ -170,6 +215,26 @@
     eventSource.addEventListener('execution_complete', function(event) {
       const data = JSON.parse(event.data);
       showExecutionResult(data.data);
+    });
+
+    eventSource.addEventListener('filtered_output', function(event) {
+      const data = JSON.parse(event.data);
+      showFilteredOutputText(data.data.text);
+    });
+
+    eventSource.addEventListener('tts_start', function(event) {
+      const data = JSON.parse(event.data);
+      updateTTSStatus(true, data.data.text);
+    });
+
+    eventSource.addEventListener('tts_complete', function(event) {
+      updateTTSStatus(false);
+    });
+
+    eventSource.addEventListener('tts_error', function(event) {
+      const data = JSON.parse(event.data);
+      console.error('TTS error:', data.data.error);
+      updateTTSStatus(false);
     });
 
     eventSource.addEventListener('heartbeat', function(event) {
@@ -345,6 +410,50 @@
   function mockClassify(text) {
     const lowerText = text.toLowerCase();
 
+    // Claude Code - explicit requests to Claude
+    if (lowerText.match(/^(ask|tell)\s+claude/i)) {
+      return {
+        action: 'claude_code',
+        command: text.replace(/^(ask|tell)\s+claude\s*/i, ''),
+        confidence: 0.95,
+        requiresConfirmation: false,
+        originalText: text
+      };
+    }
+
+    // Claude Code - coding tasks (create, write, build, implement, fix, refactor, etc.)
+    if (lowerText.match(/^(create|write|build|implement|add|fix|refactor|update|modify|change)\s+(a\s+)?(function|class|component|module|file|test|code|method|api|endpoint|feature)/i)) {
+      return {
+        action: 'claude_code',
+        command: text,
+        confidence: 0.9,
+        requiresConfirmation: false,
+        originalText: text
+      };
+    }
+
+    // Claude Code - explanation/question commands
+    if (lowerText.match(/^(what|how|why|where|explain|show|describe)\s+(is|does|do|are|the|this|that|me)/i)) {
+      return {
+        action: 'claude_code',
+        command: text,
+        confidence: 0.85,
+        requiresConfirmation: false,
+        originalText: text
+      };
+    }
+
+    // Claude Code - follow-up commands
+    if (lowerText.match(/^(now|then|also|next|and)\s+(fix|update|add|change|commit|push|create|write|refactor)/i)) {
+      return {
+        action: 'claude_code',
+        command: text,
+        confidence: 0.9,
+        requiresConfirmation: false,
+        originalText: text
+      };
+    }
+
     // NPM commands
     if (lowerText.includes('npm')) {
       const match = text.match(/npm\s+(\S+)/i);
@@ -452,6 +561,17 @@
         command: text.replace(/^(run\s+)?/i, ''),
         confidence: 0.7,
         requiresConfirmation: true,
+        originalText: text
+      };
+    }
+
+    // Unknown - but might be a Claude Code request if it sounds like a question or task
+    if (lowerText.match(/^(can|could|would|should|please|help|i need|i want)/i)) {
+      return {
+        action: 'claude_code',
+        command: text,
+        confidence: 0.6,
+        requiresConfirmation: false,
         originalText: text
       };
     }
@@ -805,6 +925,142 @@
    */
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // ==================== TTS Functions ====================
+
+  /**
+   * Handle TTS enable/disable toggle
+   */
+  async function handleTTSToggle(event) {
+    const enabled = event.target.checked;
+    try {
+      const endpoint = enabled ? `${API_BASE}/tts/enable` : `${API_BASE}/tts/disable`;
+      const response = await fetch(endpoint, { method: 'POST' });
+      const result = await response.json();
+
+      if (result.success) {
+        ttsEnabledState = enabled;
+        if (ttsStatusText) {
+          ttsStatusText.textContent = enabled ? 'TTS enabled' : 'TTS disabled';
+        }
+      } else {
+        // Revert checkbox on failure
+        event.target.checked = !enabled;
+        console.error('Failed to toggle TTS:', result.error);
+      }
+    } catch (error) {
+      // Revert checkbox on error
+      event.target.checked = !enabled;
+      console.error('TTS toggle error:', error);
+    }
+  }
+
+  /**
+   * Stop TTS playback
+   */
+  async function stopTTS() {
+    try {
+      const response = await fetch(`${API_BASE}/tts/stop`, { method: 'POST' });
+      const result = await response.json();
+
+      if (result.success) {
+        updateTTSStatus(false);
+      }
+    } catch (error) {
+      console.error('Failed to stop TTS:', error);
+    }
+  }
+
+  /**
+   * Set output view mode (filtered or full)
+   */
+  function setOutputView(mode) {
+    showFilteredOutput = (mode === 'filtered');
+
+    // Update button states
+    if (toggleFilteredBtn) {
+      toggleFilteredBtn.classList.toggle('active', showFilteredOutput);
+    }
+    if (toggleFullBtn) {
+      toggleFullBtn.classList.toggle('active', !showFilteredOutput);
+    }
+
+    // Toggle visibility
+    if (filteredOutput) {
+      filteredOutput.style.display = showFilteredOutput ? 'block' : 'none';
+    }
+    if (outputDisplay) {
+      outputDisplay.style.display = showFilteredOutput ? 'none' : 'block';
+    }
+  }
+
+  /**
+   * Show filtered output text (for TTS)
+   */
+  function showFilteredOutputText(text) {
+    if (filteredOutput) {
+      filteredOutput.textContent = text;
+      filteredOutput.scrollTop = filteredOutput.scrollHeight;
+    }
+  }
+
+  /**
+   * Update TTS status in UI
+   */
+  function updateTTSStatus(speaking, text) {
+    ttsSpeaking = speaking;
+
+    // Update stop button state
+    if (ttsStopBtn) {
+      ttsStopBtn.disabled = !speaking;
+    }
+
+    // Update status text
+    if (ttsStatusText) {
+      if (speaking) {
+        const truncatedText = text && text.length > 50 ? text.substring(0, 50) + '...' : text;
+        ttsStatusText.textContent = `Speaking: ${truncatedText || 'Processing...'}`;
+      } else {
+        ttsStatusText.textContent = ttsEnabledState ? 'TTS ready' : 'TTS disabled';
+      }
+    }
+
+    // Update TTS status dot
+    if (ttsStatusDot) {
+      if (speaking) {
+        ttsStatusDot.className = 'status-dot speaking';
+      } else {
+        ttsStatusDot.className = 'status-dot ' + (ttsEnabledState ? 'healthy' : 'warning');
+      }
+    }
+  }
+
+  /**
+   * Manually speak text through TTS
+   */
+  async function speakText(text) {
+    if (!ttsEnabledState) {
+      console.log('TTS is disabled');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/tts/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        updateTTSStatus(true, text);
+      } else {
+        console.error('TTS speak failed:', result.error);
+      }
+    } catch (error) {
+      console.error('TTS speak error:', error);
+    }
   }
 
   // Initialize on DOM ready

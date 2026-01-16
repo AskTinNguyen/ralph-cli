@@ -214,9 +214,100 @@
     .action-badge.terminal { background: #111827; color: white; }
     .action-badge.app_control { background: #8b5cf6; color: white; }
     .action-badge.ralph_command { background: var(--rams-accent); color: white; }
+    .action-badge.claude_code { background: #ec4899; color: white; }
     .action-badge.web_search { background: #3b82f6; color: white; }
     .action-badge.file_operation { background: #f59e0b; color: white; }
     .action-badge.unknown { background: var(--rams-gray-400); color: white; }
+
+    /* TTS Controls */
+    .tts-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-3);
+      padding: var(--rams-space-3);
+      background: var(--rams-gray-50);
+      border-radius: var(--rams-radius-md);
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .tts-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+    }
+
+    .tts-toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+
+    .tts-stop-btn {
+      padding: var(--rams-space-2) var(--rams-space-3);
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: var(--rams-radius-sm);
+      cursor: pointer;
+      font-size: var(--rams-text-sm);
+    }
+
+    .tts-stop-btn:hover {
+      background: #dc2626;
+    }
+
+    .tts-stop-btn:disabled {
+      background: var(--rams-gray-400);
+      cursor: not-allowed;
+    }
+
+    .tts-status {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-600);
+    }
+
+    .tts-status.speaking {
+      color: #22c55e;
+      font-weight: 500;
+    }
+
+    /* Filtered Output Toggle */
+    .output-toggle {
+      display: flex;
+      gap: var(--rams-space-2);
+      margin-bottom: var(--rams-space-2);
+    }
+
+    .output-toggle-btn {
+      padding: var(--rams-space-1) var(--rams-space-3);
+      border: 1px solid var(--rams-border-color);
+      background: white;
+      border-radius: var(--rams-radius-sm);
+      cursor: pointer;
+      font-size: var(--rams-text-xs);
+    }
+
+    .output-toggle-btn.active {
+      background: var(--rams-accent);
+      color: white;
+      border-color: var(--rams-accent);
+    }
+
+    .filtered-output {
+      background: #1e3a5f;
+      color: #e0f2fe;
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .filtered-output:empty {
+      display: none;
+    }
 
     /* Confirmation Dialog */
     .confirmation-dialog {
@@ -370,6 +461,14 @@
             <span>Ollama LLM</span>
           </div>
           <div class="status-item">
+            <div class="status-dot" id="claude-code-status"></div>
+            <span>Claude Code</span>
+          </div>
+          <div class="status-item">
+            <div class="status-dot" id="tts-status-dot"></div>
+            <span>TTS</span>
+          </div>
+          <div class="status-item">
             <div class="status-dot" id="session-status"></div>
             <span>Session</span>
           </div>
@@ -432,7 +531,26 @@
           </div>
         </div>
 
-        <!-- Output Display -->
+        <!-- TTS Controls -->
+        <div class="tts-controls">
+          <div class="tts-toggle">
+            <input type="checkbox" id="tts-enabled" checked>
+            <label for="tts-enabled">TTS Enabled</label>
+          </div>
+          <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop Speaking</button>
+          <span class="tts-status" id="tts-status">Ready</span>
+        </div>
+
+        <!-- Output Toggle -->
+        <div class="output-toggle">
+          <button class="output-toggle-btn active" id="toggle-filtered" data-mode="filtered">TTS Output</button>
+          <button class="output-toggle-btn" id="toggle-full" data-mode="full">Full Output</button>
+        </div>
+
+        <!-- Filtered Output (TTS) -->
+        <div class="filtered-output" id="filtered-output"></div>
+
+        <!-- Full Output Display -->
         <div class="output-display" id="output-display"></div>
 
         <!-- History Section -->

@@ -25,6 +25,11 @@ import {
   type RalphExecutor,
 } from "./ralph-executor.js";
 import {
+  createClaudeCodeExecutor,
+  type ClaudeCodeExecutor,
+} from "./claude-code-executor.js";
+import { createTTSEngine, type TTSEngine } from "../tts/tts-engine.js";
+import {
   createStatusHandler,
   type StatusHandler,
   type StatusQueryResult,
@@ -103,9 +108,12 @@ export class ActionRouter {
   private terminalExecutor: TerminalExecutor;
   private appleScriptExecutor: AppleScriptExecutor;
   private ralphExecutor: RalphExecutor;
+  private claudeCodeExecutor: ClaudeCodeExecutor;
+  private ttsEngine: TTSEngine | null = null;
   private statusHandler: StatusHandler;
   private conversationContext: ConversationContext;
   private config: VoiceAgentConfig;
+  private ttsEnabled: boolean = true;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
     this.config = {
@@ -125,8 +133,29 @@ export class ActionRouter {
     this.terminalExecutor = createTerminalExecutor();
     this.appleScriptExecutor = createAppleScriptExecutor();
     this.ralphExecutor = createRalphExecutor();
+    this.claudeCodeExecutor = createClaudeCodeExecutor();
     this.statusHandler = createStatusHandler();
     this.conversationContext = createConversationContext();
+
+    // Initialize TTS engine asynchronously
+    this.initTTS();
+  }
+
+  /**
+   * Initialize the TTS engine
+   */
+  private async initTTS(): Promise<void> {
+    try {
+      this.ttsEngine = await createTTSEngine({ provider: "macos" });
+      const available = await this.ttsEngine.checkAvailable();
+      if (!available.available) {
+        console.warn("TTS not available:", available.error);
+        this.ttsEnabled = false;
+      }
+    } catch (error) {
+      console.warn("Failed to initialize TTS:", error);
+      this.ttsEnabled = false;
+    }
   }
 
   /**
@@ -379,6 +408,9 @@ export class ActionRouter {
     options: InterpreterOptions = {}
   ): Promise<ExecutionResult> {
     switch (intent.action) {
+      case "claude_code":
+        return this.executeClaudeCode(intent, options);
+
       case "terminal":
         return this.terminalExecutor.execute(intent, options);
 
@@ -403,6 +435,38 @@ export class ActionRouter {
           intent,
         };
     }
+  }
+
+  /**
+   * Execute a Claude Code command with TTS response
+   */
+  private async executeClaudeCode(
+    intent: VoiceIntent,
+    options: InterpreterOptions = {}
+  ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string }> {
+    const startTime = Date.now();
+
+    // Execute via Claude Code executor
+    const result = await this.claudeCodeExecutor.execute(intent, {
+      cwd: options.cwd || process.cwd(),
+      timeout: options.timeout || 300000, // 5 minutes default
+      includeContext: true,
+      sessionId: "voice-session", // Could be made configurable
+    });
+
+    // Speak the response via TTS if enabled
+    if (this.ttsEnabled && this.ttsEngine && result.ttsText) {
+      try {
+        await this.ttsEngine.speak(result.ttsText);
+      } catch (error) {
+        console.warn("TTS failed:", error);
+      }
+    }
+
+    return {
+      ...result,
+      duration_ms: Date.now() - startTime,
+    };
   }
 
   /**
@@ -604,6 +668,8 @@ export class ActionRouter {
     llm: boolean;
     appleScript: boolean;
     ralph: boolean;
+    claudeCode: boolean;
+    tts: boolean;
     openInterpreter: boolean;
     messages: string[];
   }> {
@@ -639,11 +705,31 @@ export class ActionRouter {
       messages.push(oiCheck.error || "Open Interpreter not available");
     }
 
+    // Check Claude Code CLI
+    const claudeCodeCheck = await this.claudeCodeExecutor.checkAvailable();
+    if (!claudeCodeCheck.available) {
+      messages.push(claudeCodeCheck.error || "Claude Code CLI not available");
+    }
+
+    // Check TTS
+    let ttsAvailable = false;
+    if (this.ttsEngine) {
+      const ttsCheck = await this.ttsEngine.checkAvailable();
+      ttsAvailable = ttsCheck.available;
+      if (!ttsCheck.available) {
+        messages.push(ttsCheck.error || "TTS not available");
+      }
+    } else {
+      messages.push("TTS engine not initialized");
+    }
+
     return {
       stt: sttStatus.healthy,
       llm: llmCheck.available,
       appleScript: appleScriptCheck.available,
       ralph: ralphCheck.available,
+      claudeCode: claudeCodeCheck.available,
+      tts: ttsAvailable,
       openInterpreter: oiCheck.available,
       messages,
     };
@@ -703,6 +789,69 @@ export class ActionRouter {
    */
   setCurrentPrd(prdNumber: string): void {
     this.conversationContext.setCurrentPrd(prdNumber);
+  }
+
+  /**
+   * Enable or disable TTS
+   */
+  setTTSEnabled(enabled: boolean): void {
+    this.ttsEnabled = enabled;
+  }
+
+  /**
+   * Check if TTS is enabled
+   */
+  isTTSEnabled(): boolean {
+    return this.ttsEnabled;
+  }
+
+  /**
+   * Stop current TTS playback
+   */
+  stopTTS(): void {
+    if (this.ttsEngine) {
+      this.ttsEngine.stop();
+    }
+  }
+
+  /**
+   * Check if TTS is currently speaking
+   */
+  isTTSSpeaking(): boolean {
+    return this.ttsEngine?.isSpeaking() ?? false;
+  }
+
+  /**
+   * Speak text via TTS (manual trigger)
+   */
+  async speak(text: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.ttsEngine) {
+      return { success: false, error: "TTS engine not initialized" };
+    }
+
+    if (!this.ttsEnabled) {
+      return { success: false, error: "TTS is disabled" };
+    }
+
+    const result = await this.ttsEngine.speak(text);
+    return result;
+  }
+
+  /**
+   * Get available TTS voices
+   */
+  async getTTSVoices(): Promise<string[]> {
+    if (!this.ttsEngine) {
+      return [];
+    }
+    return this.ttsEngine.getVoices();
+  }
+
+  /**
+   * Get Claude Code executor for direct access
+   */
+  getClaudeCodeExecutor(): ClaudeCodeExecutor {
+    return this.claudeCodeExecutor;
   }
 }
 

@@ -300,7 +300,7 @@ export class ConversationStateManager {
   private cleanupExpiredSessions(): void {
     const now = Date.now();
 
-    for (const [sessionId, session] of this.sessions) {
+    for (const [sessionId, session] of Array.from(this.sessions.entries())) {
       const age = now - session.lastActivity.getTime();
       if (age > this.config.sessionTimeout) {
         this.sessions.delete(sessionId);

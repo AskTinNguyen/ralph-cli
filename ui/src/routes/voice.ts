@@ -605,6 +605,8 @@ voice.get("/services", async (c) => {
       llm: services.llm,
       appleScript: services.appleScript,
       ralph: services.ralph,
+      claudeCode: services.claudeCode,
+      tts: services.tts,
       openInterpreter: services.openInterpreter,
     },
     messages: services.messages,
@@ -672,5 +674,103 @@ voice.post("/context/prd", async (c) => {
     success: true,
     message: `Current PRD set to ${prdNumber}`,
     context: actionRouter.getConversationSummary(),
+  });
+});
+
+// ============================================
+// TTS (Text-to-Speech) Endpoints
+// ============================================
+
+/**
+ * GET /voice/tts/status
+ * Get TTS status
+ */
+voice.get("/tts/status", async (c) => {
+  return c.json({
+    success: true,
+    enabled: actionRouter.isTTSEnabled(),
+    speaking: actionRouter.isTTSSpeaking(),
+  });
+});
+
+/**
+ * POST /voice/tts/speak
+ * Speak text via TTS
+ */
+voice.post("/tts/speak", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { text } = body;
+
+    if (!text || typeof text !== "string") {
+      return c.json(
+        {
+          success: false,
+          error: "Text is required",
+        },
+        400
+      );
+    }
+
+    const result = await actionRouter.speak(text);
+    return c.json(result);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        success: false,
+        error: `TTS failed: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /voice/tts/stop
+ * Stop current TTS playback
+ */
+voice.post("/tts/stop", (c) => {
+  actionRouter.stopTTS();
+  return c.json({
+    success: true,
+    message: "TTS stopped",
+  });
+});
+
+/**
+ * POST /voice/tts/enable
+ * Enable TTS
+ */
+voice.post("/tts/enable", (c) => {
+  actionRouter.setTTSEnabled(true);
+  return c.json({
+    success: true,
+    enabled: true,
+  });
+});
+
+/**
+ * POST /voice/tts/disable
+ * Disable TTS
+ */
+voice.post("/tts/disable", (c) => {
+  actionRouter.setTTSEnabled(false);
+  return c.json({
+    success: true,
+    enabled: false,
+  });
+});
+
+/**
+ * GET /voice/tts/voices
+ * Get available TTS voices
+ */
+voice.get("/tts/voices", async (c) => {
+  const voices = await actionRouter.getTTSVoices();
+  return c.json({
+    success: true,
+    voices,
   });
 });
