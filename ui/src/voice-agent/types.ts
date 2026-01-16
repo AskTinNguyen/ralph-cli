@@ -329,7 +329,7 @@ export interface ClaudeCodeExecutorOptions {
 /**
  * TTS (Text-to-Speech) provider types
  */
-export type TTSProvider = 'macos' | 'espeak' | 'system';
+export type TTSProvider = 'macos' | 'espeak' | 'system' | 'elevenlabs';
 
 /**
  * TTS configuration

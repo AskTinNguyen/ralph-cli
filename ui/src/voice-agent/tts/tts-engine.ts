@@ -8,7 +8,7 @@
 /**
  * TTS provider types
  */
-export type TTSProvider = "macos" | "espeak" | "system";
+export type TTSProvider = "macos" | "espeak" | "system" | "elevenlabs";
 
 /**
  * TTS configuration
@@ -107,6 +107,19 @@ export async function createTTSEngine(
     case "macos": {
       const { MacOSTTSEngine } = await import("./macos-tts.js");
       return new MacOSTTSEngine(fullConfig);
+    }
+    case "elevenlabs": {
+      // Check if API key is available
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        console.warn(
+          "[TTS Factory] ELEVENLABS_API_KEY not set, falling back to macOS TTS"
+        );
+        const { MacOSTTSEngine } = await import("./macos-tts.js");
+        return new MacOSTTSEngine(fullConfig);
+      }
+      const { ElevenLabsTTSEngine } = await import("./elevenlabs-tts.js");
+      return new ElevenLabsTTSEngine(fullConfig);
     }
     case "espeak":
     case "system":
