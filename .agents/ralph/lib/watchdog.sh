@@ -19,6 +19,10 @@ WATCHDOG_MAX_RESTARTS="${RALPH_WATCHDOG_MAX_RESTARTS:-3}"
 # Stall threshold in seconds (matches heartbeat.sh default)
 STALL_THRESHOLD="${RALPH_STALL_THRESHOLD_SILENT:-1800}"
 
+# US-011: Iteration timeout - 90 minutes (5400 seconds)
+# Watchdog enforces this by killing long-running iterations
+TIMEOUT_ITERATION="${RALPH_TIMEOUT_ITERATION:-5400}"
+
 # ============================================================================
 # Watchdog State File
 # ============================================================================
@@ -191,6 +195,87 @@ is_build_running() {
     return 0
   fi
   return 1
+}
+
+# ============================================================================
+# Iteration Time Tracking (US-011 - file-based for cross-process visibility)
+# ============================================================================
+# These functions use file-based storage so the watchdog process (separate from
+# the main loop) can monitor iteration duration and enforce timeouts.
+
+# Get iteration start file path
+_get_iteration_start_file() {
+  local prd_folder="$1"
+  echo "$prd_folder/.iteration_start"
+}
+
+# Set iteration start time (called by loop.sh at start of each iteration)
+# Usage: set_iteration_start <prd_folder>
+set_iteration_start() {
+  local prd_folder="$1"
+  if [[ -z "$prd_folder" ]]; then
+    return 1
+  fi
+  local start_file
+  start_file=$(_get_iteration_start_file "$prd_folder")
+  date +%s > "$start_file"
+}
+
+# Get iteration elapsed time in seconds (file-based, for watchdog)
+# Usage: get_iteration_elapsed <prd_folder>
+# Note: This is different from timeout.sh's get_iteration_elapsed which uses in-memory tracking
+get_iteration_elapsed() {
+  local prd_folder="$1"
+  if [[ -z "$prd_folder" ]]; then
+    echo "0"
+    return
+  fi
+  local start_file
+  start_file=$(_get_iteration_start_file "$prd_folder")
+
+  if [[ ! -f "$start_file" ]]; then
+    echo "0"
+    return
+  fi
+
+  local start_time
+  start_time=$(cat "$start_file" 2>/dev/null)
+  if [[ -z "$start_time" ]]; then
+    echo "0"
+    return
+  fi
+
+  local now
+  now=$(date +%s)
+  echo $((now - start_time))
+}
+
+# Check if iteration has exceeded timeout (file-based, for watchdog)
+# Usage: is_iteration_timed_out <prd_folder>
+is_iteration_timed_out() {
+  local prd_folder="$1"
+  if [[ -z "$prd_folder" ]]; then
+    return 1  # Not timed out if no folder specified
+  fi
+  local elapsed
+  elapsed=$(get_iteration_elapsed "$prd_folder")
+
+  if [[ "$elapsed" -ge "$TIMEOUT_ITERATION" ]]; then
+    return 0  # Timed out
+  fi
+  return 1  # Not timed out
+}
+
+# Clear iteration start time (on completion or timeout restart)
+# Usage: clear_iteration_start <prd_folder>
+clear_iteration_start() {
+  local prd_folder="$1"
+  if [[ -z "$prd_folder" ]]; then
+    return 1
+  fi
+  local start_file
+  start_file=$(_get_iteration_start_file "$prd_folder")
+  rm -f "$start_file"
 }
 
 # ============================================================================
@@ -400,7 +485,42 @@ run_watchdog() {
       break
     fi
 
-    # Check heartbeat
+    # US-011: Check iteration timeout (90 minutes max)
+    # This is separate from stall detection - enforces absolute time limit
+    if is_iteration_timed_out "$prd_folder"; then
+      local iter_elapsed
+      iter_elapsed=$(get_iteration_elapsed "$prd_folder")
+      local timeout_mins=$((TIMEOUT_ITERATION / 60))
+      log_watchdog_error "$prd_folder" "Iteration timeout: ${iter_elapsed}s elapsed (limit=${TIMEOUT_ITERATION}s/${timeout_mins}m)"
+
+      # Log to events and activity
+      local events_file="$prd_folder/.events.log"
+      local activity_log="$prd_folder/activity.log"
+      local ts
+      ts=$(date '+%Y-%m-%d %H:%M:%S')
+      echo "[$ts] ERROR Iteration timeout exceeded ${timeout_mins}m | type=iteration duration=${iter_elapsed}s threshold=${TIMEOUT_ITERATION}s" >> "$events_file"
+      echo "[$ts] TIMEOUT iteration duration=${iter_elapsed}s threshold=${TIMEOUT_ITERATION}s" >> "$activity_log"
+
+      # Check if max restarts exceeded
+      local restart_count
+      restart_count=$(get_watchdog_state "$prd_folder" "restart_count")
+      restart_count=${restart_count:-0}
+
+      if [[ "$restart_count" -ge "$WATCHDOG_MAX_RESTARTS" ]]; then
+        log_watchdog_error "$prd_folder" "Max restarts ($WATCHDOG_MAX_RESTARTS) exceeded - escalating to NEEDS_HUMAN"
+        update_watchdog_state "$prd_folder" "status" "needs_human"
+        create_needs_human_marker "$prd_folder" "Iteration timeout with max restarts"
+        break
+      fi
+
+      log_watchdog_warn "$prd_folder" "Restarting due to iteration timeout (attempt $((restart_count + 1))/$WATCHDOG_MAX_RESTARTS)"
+      restart_build "$prd_folder" "$build_pid"
+      clear_iteration_start "$prd_folder"
+      sleep 5
+      continue
+    fi
+
+    # Check heartbeat for stall detection
     local heartbeat_age
     heartbeat_age=$(get_heartbeat_age "$prd_folder")
 

@@ -183,7 +183,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-011: Timeout enforcement
+### [x] US-011: Timeout enforcement
 
 **As a** developer
 **I want** automatic timeouts for long-running operations
@@ -191,11 +191,11 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Agent call timeout: 60 minutes (uses `timeout` command)
-- [ ] Iteration timeout: 90 minutes (watchdog enforced)
-- [ ] Story timeout: 3 hours across multiple attempts
-- [ ] Timeout logged with context (agent, story, duration)
-- [ ] Configurable via env vars: `RALPH_TIMEOUT_AGENT`, `RALPH_TIMEOUT_ITERATION`
+- [x] Agent call timeout: 60 minutes (uses `timeout` command)
+- [x] Iteration timeout: 90 minutes (watchdog enforced)
+- [x] Story timeout: 3 hours across multiple attempts
+- [x] Timeout logged with context (agent, story, duration)
+- [x] Configurable via env vars: `RALPH_TIMEOUT_AGENT`, `RALPH_TIMEOUT_ITERATION`
 
 ---
 

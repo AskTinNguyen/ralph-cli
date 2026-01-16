@@ -389,30 +389,35 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Add timeout wrappers to agent calls, iterations, and stories using `timeout` command, log timeout events with context.
 
-- [ ] Add agent call timeout (60 minutes)
+- [x] Add agent call timeout (60 minutes)
   - Scope: Wrap agent execution in `loop.sh` with `timeout 3600s` command
   - Acceptance: Agent killed after 60 minutes, exit code 124 indicates timeout
   - Verification: Set low timeout for testing, verify agent killed correctly
+  - Notes: Agent timeout implemented in `lib/agent.sh` with `TIMEOUT_ENABLED=true` by default. Uses GNU `timeout` command with SIGTERM/SIGKILL fallback. Exit codes 124/137 indicate timeout. Timeout handling added to `run_agent_with_retry()` in loop.sh.
 
-- [ ] Add iteration timeout (90 minutes)
+- [x] Add iteration timeout (90 minutes)
   - Scope: Watchdog enforces 90-minute max per iteration (separate from stall detection)
   - Acceptance: Watchdog kills iteration if it runs > 90min
   - Verification: Force long iteration, verify watchdog terminates at 90min
+  - Notes: Implemented in `lib/watchdog.sh`. Watchdog checks `is_iteration_timed_out()` every 60s. Uses `.iteration_start` file to track iteration start time. Iteration start recorded via `set_iteration_start()` at beginning of each iteration in loop.sh.
 
-- [ ] Add story timeout (3 hours across retries)
+- [x] Add story timeout (3 hours across retries)
   - Scope: Track cumulative time per story across all attempts, fail story after 3 hours total
   - Acceptance: Story marked failed if cumulative time exceeds threshold
   - Verification: Multiple retries on same story, verify cumulative timeout enforced
+  - Notes: Implemented in `lib/timeout.sh`. Story times tracked in `.story_times.json` using `update_story_time()`. Timeout checked via `is_story_timed_out()` before each iteration. Story time cleared on success via `clear_story_time()`.
 
-- [ ] Log timeout events with context
+- [x] Log timeout events with context
   - Scope: Write timeout events to `.events.log` and `activity.log` with: timeout type, duration, story ID, agent
   - Acceptance: Timeout events logged: `TIMEOUT type=agent iteration=N story=US-XXX duration=3601s`
   - Verification: Trigger timeout, verify event logged with correct metadata
+  - Notes: `log_timeout_event()` and `display_timeout_event()` functions in timeout.sh. Agent timeouts logged in loop.sh after detecting exit codes 124/137. Iteration timeouts logged by watchdog. Story timeouts logged before skipping story.
 
-- [ ] Make timeouts configurable
+- [x] Make timeouts configurable
   - Scope: Add env vars: `RALPH_TIMEOUT_AGENT`, `RALPH_TIMEOUT_ITERATION`, `RALPH_TIMEOUT_STORY`
   - Acceptance: Timeouts can be overridden via environment
   - Verification: Set custom timeouts via env, verify they're used
+  - Notes: All timeouts configurable: `RALPH_TIMEOUT_AGENT` (default 3600s/60m), `RALPH_TIMEOUT_ITERATION` (default 5400s/90m), `RALPH_TIMEOUT_STORY` (default 10800s/3h). Also `RALPH_TIMEOUT_ENABLED=false` disables agent timeout.
 
 ---
 
