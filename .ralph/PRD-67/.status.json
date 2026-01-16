@@ -1,8 +1,8 @@
 {
   "phase": "executing",
-  "story_id": "US-014",
-  "story_title": "Extract metrics builder to TypeScript",
-  "iteration": 12,
-  "elapsed_seconds": 4659,
-  "updated_at": "2026-01-16T10:34:15Z"
+  "story_id": "US-015",
+  "story_title": "Extract story selection to TypeScript",
+  "iteration": 15,
+  "elapsed_seconds": 5520,
+  "updated_at": "2026-01-16T10:41:54Z"
 }

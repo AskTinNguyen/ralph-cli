@@ -250,7 +250,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-015: Extract story selection to TypeScript
+### [x] US-015: Extract story selection to TypeScript
 
 **As a** developer
 **I want** story parsing and locking to be reliable
@@ -258,11 +258,11 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Module: `lib/story/index.js`
-- [ ] Parse plan.md into structured Story objects
-- [ ] Atomic lock + select operation
-- [ ] Unit tests for race conditions
-- [ ] Bash integration: `node lib/story/cli.js select-and-lock "$plan"`
+- [x] Module: `lib/story/index.js`
+- [x] Parse plan.md into structured Story objects
+- [x] Atomic lock + select operation
+- [x] Unit tests for race conditions
+- [x] Bash integration: `node lib/story/cli.js select-and-lock "$plan"`
 
 ---
 

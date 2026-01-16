@@ -1208,9 +1208,23 @@ Path(sys.argv[2]).write_text(src)
 PY
 }
 
+# TypeScript story selection module path (US-015)
+STORY_CLI="${ROOT_DIR}/lib/story/cli.js"
+
 select_story() {
+  # Story selection for builds - parses PRD and selects next uncompleted story
+  # Prefers TypeScript implementation (US-015) when available, falls back to Python
+  # Usage: select_story "$meta_out" "$block_out"
   local meta_out="$1"
   local block_out="$2"
+
+  # Use TypeScript module if available (US-015)
+  if [ -f "$STORY_CLI" ] && command -v node >/dev/null 2>&1; then
+    node "$STORY_CLI" select "$PRD_PATH" "$meta_out" "$block_out" >/dev/null 2>&1
+    return 0
+  fi
+
+  # Fallback to inline Python implementation
   python3 - "$PRD_PATH" "$meta_out" "$block_out" <<'PY'
 import json
 import re
@@ -1268,7 +1282,23 @@ PY
 }
 
 remaining_stories() {
+  # Get remaining story count from metadata file
+  # Prefers TypeScript implementation (US-015) when available, falls back to Python/jq
   local meta_file="$1"
+
+  # Use TypeScript module if available (US-015)
+  if [ -f "$STORY_CLI" ] && command -v node >/dev/null 2>&1; then
+    node "$STORY_CLI" field "$meta_file" remaining 2>/dev/null || echo "unknown"
+    return 0
+  fi
+
+  # Fallback: try jq first (faster), then Python
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '.remaining // "unknown"' "$meta_file" 2>/dev/null || echo "unknown"
+    return 0
+  fi
+
+  # Fallback to Python
   python3 - "$meta_file" <<'PY'
 import json
 import sys
@@ -1280,8 +1310,24 @@ PY
 }
 
 story_field() {
+  # Get a specific field from story metadata file
+  # Prefers TypeScript implementation (US-015) when available, falls back to Python/jq
   local meta_file="$1"
   local field="$2"
+
+  # Use TypeScript module if available (US-015)
+  if [ -f "$STORY_CLI" ] && command -v node >/dev/null 2>&1; then
+    node "$STORY_CLI" field "$meta_file" "$field" 2>/dev/null || echo ""
+    return 0
+  fi
+
+  # Fallback: try jq first (faster), then Python
+  if command -v jq >/dev/null 2>&1; then
+    jq -r ".$field // empty" "$meta_file" 2>/dev/null || echo ""
+    return 0
+  fi
+
+  # Fallback to Python
   python3 - "$meta_file" "$field" <<'PY'
 import json
 import sys
@@ -1344,11 +1390,21 @@ release_story_lock() {
 # Wrapper for select_story with locking (P1.3)
 select_story_locked() {
   # Thread-safe story selection for parallel builds
+  # Prefers TypeScript atomic select-and-lock (US-015) when available
   # Usage: select_story_locked "$prd_folder" "$meta_out" "$block_out"
   local prd_folder="$1"
   local meta_out="$2"
   local block_out="$3"
+  local prd_path="${prd_folder}/prd.md"
 
+  # Use TypeScript atomic select-and-lock if available (US-015)
+  # This is more reliable than bash-level locking for race conditions
+  if [ -f "$STORY_CLI" ] && command -v node >/dev/null 2>&1 && [ -f "$prd_path" ]; then
+    node "$STORY_CLI" select-and-lock "$prd_path" "$meta_out" "$block_out" >/dev/null 2>&1
+    return $?
+  fi
+
+  # Fallback to bash-level locking with Python selection
   if acquire_story_lock "$prd_folder"; then
     select_story "$meta_out" "$block_out"
     release_story_lock "$prd_folder"
@@ -1356,6 +1412,77 @@ select_story_locked() {
   else
     return 1
   fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TypeScript Story Selection Integration (US-015)
+# Provides reliable, testable story parsing and atomic lock+select operations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Check if TypeScript story module is available
+# Returns 0 if available, 1 otherwise
+story_ts_available() {
+  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
+  if command -v node >/dev/null 2>&1 && [ -f "$story_cli" ]; then
+    return 0
+  fi
+  return 1
+}
+
+# Select next story using TypeScript module with atomic locking (US-015)
+# Falls back to bash implementation if Node.js not available
+# Usage: select_story_ts "$prd_path" "$meta_out" "$block_out"
+select_story_ts() {
+  local prd_path="$1"
+  local meta_out="$2"
+  local block_out="$3"
+  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
+
+  if story_ts_available; then
+    # Use TypeScript module with atomic locking
+    if node "$story_cli" select-and-lock "$prd_path" "$meta_out" "$block_out" >/dev/null 2>&1; then
+      return 0
+    else
+      # Fall back to bash if TypeScript fails
+      log_activity "STORY_TS_FALLBACK reason=select_failed prd=$prd_path"
+    fi
+  fi
+
+  # Fallback to bash implementation
+  local prd_folder
+  prd_folder="$(dirname "$prd_path")"
+  select_story_locked "$prd_folder" "$meta_out" "$block_out"
+}
+
+# Get remaining story count using TypeScript module (US-015)
+# Usage: remaining=$(remaining_stories_ts "$prd_path")
+remaining_stories_ts() {
+  local prd_path="$1"
+  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
+
+  if story_ts_available; then
+    node "$story_cli" remaining "$prd_path" 2>/dev/null
+    return $?
+  fi
+
+  # Fallback to bash implementation via meta file
+  remaining_stories "$1"
+}
+
+# Extract field from story metadata using TypeScript module (US-015)
+# Usage: story_id=$(story_field_ts "$meta_file" "id")
+story_field_ts() {
+  local meta_file="$1"
+  local field="$2"
+  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
+
+  if story_ts_available; then
+    node "$story_cli" field "$meta_file" "$field" 2>/dev/null
+    return $?
+  fi
+
+  # Fallback to bash implementation
+  story_field "$meta_file" "$field"
 }
 
 log_activity() {

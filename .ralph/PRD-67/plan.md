@@ -563,35 +563,41 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create `lib/story/index.js` for parsing plan.md into structured objects, implement atomic lock+select operation, add race condition tests, provide bash CLI wrapper.
 
-- [ ] Create story parser
+- [x] Create story parser
   - Scope: New file `lib/story/parser.js` that parses plan.md markdown into array of Story objects: `{ id, title, status, tasks: [] }`
   - Acceptance: Correctly parses all story formats from plan.md
   - Verification: Test with various plan.md samples, verify parsing
+  - Notes: Created `lib/story/parser.js` with `parseStories()` and `parseStoriesFromFile()` functions. Exports `StoryStatus` enum and pattern matching utilities.
 
-- [ ] Implement story selector
+- [x] Implement story selector
   - Scope: Function `selectNextStory(stories)` returns next unchecked story
   - Acceptance: Returns first story with status !== 'completed'
   - Verification: Test with mix of completed/pending stories, verify selection
+  - Notes: Implemented `selectNextStory()` in `lib/story/index.js` along with helper functions: `isCompleted()`, `isPending()`, `getRemaining()`, `getCompleted()`, `findById()`, `getSummary()`.
 
-- [ ] Implement atomic lock+select
+- [x] Implement atomic lock+select
   - Scope: Use file locking (flock or similar) to atomically lock, select, and mark story in progress
   - Acceptance: Concurrent processes don't select same story
   - Verification: Run parallel story selection, verify no duplicates
+  - Notes: Implemented `acquireLock()`, `releaseLock()`, `checkStaleLock()`, `selectAndLock()` in `lib/story/index.js`. Uses mkdir-based atomic locking with PID file for stale lock detection. Supports configurable timeout and poll interval.
 
-- [ ] Add race condition tests
+- [x] Add race condition tests
   - Scope: Unit tests that spawn multiple concurrent selectors, verify mutual exclusion
   - Acceptance: Tests pass with 100 parallel selections
   - Verification: `npm test -- story.test.js`, verify no race conditions
+  - Notes: Created `tests/test-story.js` with 41 unit tests including race condition tests with 5-10 concurrent selections. Tests verify: parsing, selection, locking, stale lock detection, concurrent access serialization. All tests pass.
 
-- [ ] Create CLI wrapper
+- [x] Create CLI wrapper
   - Scope: `lib/story/cli.js select-and-lock <plan.md>` outputs selected story JSON or error
   - Acceptance: CLI performs atomic selection, returns story or "no stories available"
   - Verification: Run CLI multiple times concurrently, verify locking works
+  - Notes: Created `lib/story/cli.js` with commands: `select-and-lock`, `select`, `list`, `remaining`, `field`. Supports file output via `<meta_out>` and `<block_out>` params for bash integration.
 
-- [ ] Integrate into loop.sh
+- [x] Integrate into loop.sh
   - Scope: Replace bash story selection in `loop.sh` with call to TypeScript CLI
   - Acceptance: Loop uses TypeScript for story selection
   - Verification: Run parallel builds, verify no duplicate story selection
+  - Notes: Updated `select_story()`, `remaining_stories()`, `story_field()`, and `select_story_locked()` in loop.sh to prefer TypeScript CLI when available, with fallback to Python/jq implementations. TypeScript integration uses atomic lock+select for reliable parallel builds.
 
 ---
 
