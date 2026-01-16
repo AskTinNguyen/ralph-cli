@@ -1276,3 +1276,44 @@ Run summary: N/A
   - Exponential backoff prevents thundering herd on lock contention
   - Separating lock vs no-lock methods enables efficient batch updates
 ---
+
+## [2026-01-16 22:50] - US-017: Optional TypeScript executor
+Thread:
+Run: manual (iteration 17)
+Run log: N/A
+Run summary: N/A
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: (pending)
+- Post-commit status: clean
+- Verification:
+  - Command: node tests/test-executor-loop.js -> PASS (24/24 tests)
+  - Command: node lib/executor/loop.js --help -> PASS
+- Files changed:
+  - lib/executor/loop.js (new - 530 lines)
+  - tests/test-executor-loop.js (new - 318 lines)
+  - bin/ralph (modified - added TypeScript executor opt-in)
+- What was implemented:
+  - **Executor Module** (lib/executor/loop.js):
+    - BuildState class for tracking build state
+    - runBuild(config) - main orchestration function
+    - parseStories() - parse plan.md into story objects
+    - selectNextStory() - find next uncompleted story
+    - saveCheckpoint/loadCheckpoint/clearCheckpoint - checkpoint management
+    - runAgent() - execute agent with prompt
+    - switchAgent() - fallback chain advancement
+    - Status file updates during execution
+    - Event and activity logging
+  - **Unit Tests** (tests/test-executor-loop.js):
+    - 24 tests covering all functionality
+    - Module structure, BuildState, story parsing, checkpoints, agent switching
+    - All tests pass
+  - **CLI Integration** (bin/ralph):
+    - Opt-in check for RALPH_EXECUTOR=typescript
+    - Graceful fallback to bash loop on errors
+    - Config extraction from globalFlags
+- **Learnings for future iterations:**
+  - Direct file operations are more reliable than depending on module behaviors
+  - Node.js async/await provides cleaner control flow than bash
+  - Graceful fallback is critical for production reliability
+---

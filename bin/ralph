@@ -805,6 +805,61 @@ async function main() {
       }
     }
 
+    // Check for TypeScript executor opt-in (US-017)
+    if (process.env.RALPH_EXECUTOR === "typescript" && cmd === "build") {
+      try {
+        info("Using TypeScript executor (RALPH_EXECUTOR=typescript)");
+        const executorLoop = require("../lib/executor/loop");
+
+        // Determine PRD paths
+        const ralphDir = path.join(cwd, ".ralph");
+        let prdFolder = null;
+
+        if (globalFlags.prdNumber) {
+          const upperPath = path.join(ralphDir, `PRD-${globalFlags.prdNumber}`);
+          const lowerPath = path.join(ralphDir, `prd-${globalFlags.prdNumber}`);
+          if (exists(upperPath)) prdFolder = upperPath;
+          else if (exists(lowerPath)) prdFolder = lowerPath;
+        } else if (exists(ralphDir)) {
+          const entries = fs.readdirSync(ralphDir, { withFileTypes: true });
+          const prdFolders = entries
+            .filter((e) => e.isDirectory() && /^PRD-\d+$/i.test(e.name))
+            .sort((a, b) => {
+              const numA = parseInt(a.name.replace(/PRD-/i, ""), 10);
+              const numB = parseInt(b.name.replace(/PRD-/i, ""), 10);
+              return numB - numA;
+            });
+          if (prdFolders.length > 0) {
+            prdFolder = path.join(ralphDir, prdFolders[0].name);
+          }
+        }
+
+        if (!prdFolder) {
+          error("No PRD folder found. Run `ralph prd` first.");
+          process.exit(1);
+        }
+
+        const config = {
+          prdPath: path.join(prdFolder, "prd.md"),
+          planPath: path.join(prdFolder, "plan.md"),
+          maxIterations: globalFlags.iterations || parseInt(args[0], 10) || 5,
+          agent: globalFlags.agent || "claude",
+          noCommit: globalFlags.noCommit,
+          verbose: globalFlags.verbose,
+          workDir: cwd,
+          templatesPath: templateDir,
+        };
+
+        const result = await executorLoop.runBuild(config);
+        process.exit(result.success ? 0 : 1);
+      } catch (err) {
+        // Graceful fallback to bash loop
+        warn(`TypeScript executor failed: ${err.message}`);
+        info("Falling back to bash loop...");
+        // Continue to bash execution below
+      }
+    }
+
     const loopArgs = args.length ? args : ["build"];
     const result = spawnBashScript(loopPath, loopArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);

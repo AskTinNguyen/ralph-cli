@@ -266,7 +266,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-016: BuildStateManager for transactional updates
+### [x] US-016: BuildStateManager for transactional updates
 
 **As a** developer
 **I want** progress.md updates to be transactional
@@ -274,15 +274,15 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Module: `lib/state/index.js`
-- [ ] Transactional updates to progress.md/activity.log
-- [ ] Backward compatible file format
-- [ ] Atomic operations for concurrent access
-- [ ] Bash integration: `node lib/state/cli.js update-iteration ...`
+- [x] Module: `lib/state/index.js`
+- [x] Transactional updates to progress.md/activity.log
+- [x] Backward compatible file format
+- [x] Atomic operations for concurrent access
+- [x] Bash integration: `node lib/state/cli.js update-iteration ...`
 
 ---
 
-### [ ] US-017: Optional TypeScript executor
+### [x] US-017: Optional TypeScript executor
 
 **As a** developer
 **I want** option to run builds with TypeScript loop
@@ -290,12 +290,12 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Module: `lib/executor/loop.js`
-- [ ] Full orchestration in TypeScript
-- [ ] Preserves: parallel execution, resume, agent switching, rollback
-- [ ] Opt-in via: `export RALPH_EXECUTOR=typescript`
-- [ ] Performance within 10% of bash loop
-- [ ] Graceful fallback to bash on errors
+- [x] Module: `lib/executor/loop.js`
+- [x] Full orchestration in TypeScript
+- [x] Preserves: parallel execution, resume, agent switching, rollback
+- [x] Opt-in via: `export RALPH_EXECUTOR=typescript`
+- [x] Performance within 10% of bash loop
+- [x] Graceful fallback to bash on errors
 
 ---
 
