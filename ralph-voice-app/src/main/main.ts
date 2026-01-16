@@ -30,7 +30,7 @@ function createWindow(): BrowserWindow {
     vibrancy: 'under-window',
     visualEffectState: 'active',
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -105,15 +105,15 @@ export function toggleWindow(): void {
 }
 
 async function initApp(): Promise<void> {
-  // Create the window (hidden initially)
-  createWindow();
-
-  // Initialize STT service
+  // Initialize STT service first
   sttService = new STTService();
   await sttService.start();
 
-  // Set up IPC handlers
+  // Set up IPC handlers BEFORE creating window
   setupIpcHandlers(sttService);
+
+  // Create the window (hidden initially)
+  createWindow();
 
   // Register global shortcuts
   registerShortcuts();

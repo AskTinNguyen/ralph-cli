@@ -51,11 +51,13 @@
   const ttsStatusText = document.getElementById('tts-status');
   const toggleFilteredBtn = document.getElementById('toggle-filtered');
   const toggleFullBtn = document.getElementById('toggle-full');
+  const voiceSelect = document.getElementById('voice-select');
 
   // TTS state
   let ttsSpeaking = false;
   let showFilteredOutput = true;
   let ttsEnabledState = true;
+  let currentVoice = 'alba';
 
   /**
    * Initialize the voice client
@@ -86,6 +88,11 @@
     }
     if (toggleFullBtn) {
       toggleFullBtn.addEventListener('click', () => setOutputView('full'));
+    }
+    if (voiceSelect) {
+      voiceSelect.addEventListener('change', handleVoiceChange);
+      // Load available voices
+      loadVoices();
     }
 
     // Set up waveform canvas
@@ -969,6 +976,82 @@
       }
     } catch (error) {
       console.error('Failed to stop TTS:', error);
+    }
+  }
+
+  /**
+   * Load available TTS voices
+   */
+  async function loadVoices() {
+    try {
+      const response = await fetch(`${API_BASE}/tts/voices`);
+      const result = await response.json();
+
+      if (result.success && voiceSelect) {
+        // Clear existing options
+        voiceSelect.innerHTML = '';
+
+        // Voice display names
+        const voiceNames = {
+          alba: 'Alba (Scottish)',
+          jenny: 'Jenny (British)',
+          lessac: 'Lessac (American)',
+          ryan: 'Ryan (American)',
+          libritts: 'LibriTTS (Multi)',
+          hfc_female: 'HFC Female',
+        };
+
+        // Add voice options
+        for (const voice of result.voices) {
+          const option = document.createElement('option');
+          option.value = voice;
+          option.textContent = voiceNames[voice] || voice;
+          voiceSelect.appendChild(option);
+        }
+
+        // Set current voice
+        if (result.currentVoice) {
+          currentVoice = result.currentVoice;
+          voiceSelect.value = currentVoice;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load voices:', error);
+    }
+  }
+
+  /**
+   * Handle voice selection change
+   */
+  async function handleVoiceChange(event) {
+    const selectedVoice = event.target.value;
+    try {
+      const response = await fetch(`${API_BASE}/tts/voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: selectedVoice }),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        currentVoice = result.voice;
+        if (ttsStatusText) {
+          ttsStatusText.textContent = `Voice: ${currentVoice}`;
+          // Reset after a moment
+          setTimeout(() => {
+            if (!ttsSpeaking) {
+              ttsStatusText.textContent = ttsEnabledState ? 'TTS ready' : 'TTS disabled';
+            }
+          }, 2000);
+        }
+      } else {
+        // Revert selection on failure
+        event.target.value = currentVoice;
+        console.error('Failed to set voice:', result.error);
+      }
+    } catch (error) {
+      event.target.value = currentVoice;
+      console.error('Voice change error:', error);
     }
   }
 

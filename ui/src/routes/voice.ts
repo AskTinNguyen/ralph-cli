@@ -769,8 +769,48 @@ voice.post("/tts/disable", (c) => {
  */
 voice.get("/tts/voices", async (c) => {
   const voices = await actionRouter.getTTSVoices();
+  const currentVoice = actionRouter.getTTSVoice();
   return c.json({
     success: true,
     voices,
+    currentVoice,
   });
+});
+
+/**
+ * GET /voice/tts/voice
+ * Get current TTS voice
+ */
+voice.get("/tts/voice", (c) => {
+  return c.json({
+    success: true,
+    voice: actionRouter.getTTSVoice(),
+  });
+});
+
+/**
+ * POST /voice/tts/voice
+ * Set TTS voice
+ */
+voice.post("/tts/voice", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { voice: voiceName } = body;
+
+    if (!voiceName) {
+      return c.json({ success: false, error: "Voice name required" }, 400);
+    }
+
+    actionRouter.setTTSVoice(voiceName);
+
+    return c.json({
+      success: true,
+      voice: actionRouter.getTTSVoice(),
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to set voice",
+    }, 500);
+  }
 });

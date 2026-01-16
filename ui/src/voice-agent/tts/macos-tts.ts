@@ -9,12 +9,22 @@ import { spawn, type ChildProcess } from "node:child_process";
 import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine.js";
 
 /**
+ * Queue item for streaming TTS
+ */
+interface QueueItem {
+  text: string;
+  resolve: () => void;
+}
+
+/**
  * macOS TTS Engine class
  */
 export class MacOSTTSEngine implements TTSEngine {
   private config: TTSConfig;
   private currentProcess: ChildProcess | null = null;
   private speaking: boolean = false;
+  private queue: QueueItem[] = [];
+  private processing: boolean = false;
 
   constructor(config: TTSConfig) {
     this.config = config;
@@ -103,14 +113,19 @@ export class MacOSTTSEngine implements TTSEngine {
   }
 
   /**
-   * Stop current speech
+   * Stop current speech and clear queue
    */
   stop(): void {
+    // Clear the queue first
+    this.clearQueue();
+
+    // Stop current process
     if (this.currentProcess) {
       this.currentProcess.kill("SIGTERM");
       this.currentProcess = null;
     }
     this.speaking = false;
+    this.processing = false;
     // Note: Removed aggressive pkill which was killing newly spawned processes
   }
 
@@ -262,6 +277,153 @@ export class MacOSTTSEngine implements TTSEngine {
     }
 
     return results;
+  }
+
+  /**
+   * Enqueue text for speaking (non-blocking)
+   * Adds text to queue and returns immediately.
+   * Items are spoken sequentially without interrupting current speech.
+   */
+  enqueue(text: string): void {
+    if (!text || text.trim().length === 0) {
+      return;
+    }
+
+    // Add to queue with a promise for completion tracking
+    this.queue.push({
+      text: text.trim(),
+      resolve: () => {},
+    });
+
+    // Start processing if not already running
+    if (!this.processing) {
+      this.processQueue();
+    }
+  }
+
+  /**
+   * Process items in the queue sequentially
+   */
+  private async processQueue(): Promise<void> {
+    if (this.processing) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+      if (!item) continue;
+
+      // Speak without stopping (unlike speak() which calls stop())
+      await this.speakImmediate(item.text);
+      item.resolve();
+    }
+
+    this.processing = false;
+  }
+
+  /**
+   * Speak text immediately without stopping current speech
+   * Used internally for queue processing.
+   */
+  private async speakImmediate(text: string): Promise<TTSResult> {
+    if (!text || text.trim().length === 0) {
+      return { success: true, duration_ms: 0 };
+    }
+
+    const startTime = Date.now();
+
+    return new Promise((resolve) => {
+      this.speaking = true;
+
+      // Build say command arguments
+      const args: string[] = [];
+
+      // Voice
+      if (this.config.voice) {
+        args.push("-v", this.config.voice);
+      }
+
+      // Rate (words per minute)
+      if (this.config.rate) {
+        args.push("-r", String(this.config.rate));
+      }
+
+      // Add the text to speak
+      args.push(text);
+
+      this.currentProcess = spawn("say", args, {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+
+      let stderr = "";
+
+      if (this.currentProcess.stderr) {
+        this.currentProcess.stderr.on("data", (data: Buffer) => {
+          stderr += data.toString();
+        });
+      }
+
+      this.currentProcess.on("exit", (code, signal) => {
+        const duration_ms = Date.now() - startTime;
+        this.speaking = false;
+        this.currentProcess = null;
+
+        if (signal === "SIGTERM" || signal === "SIGKILL") {
+          resolve({
+            success: true,
+            duration_ms,
+            interrupted: true,
+          });
+        } else if (code === 0) {
+          resolve({
+            success: true,
+            duration_ms,
+            interrupted: false,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: stderr || `Exit code: ${code}`,
+            duration_ms,
+          });
+        }
+      });
+
+      this.currentProcess.on("error", (error) => {
+        this.speaking = false;
+        this.currentProcess = null;
+        resolve({
+          success: false,
+          error: `TTS error: ${error.message}`,
+          duration_ms: Date.now() - startTime,
+        });
+      });
+    });
+  }
+
+  /**
+   * Clear pending items in the queue
+   * Does not stop currently speaking item.
+   */
+  clearQueue(): void {
+    // Resolve any pending promises
+    for (const item of this.queue) {
+      item.resolve();
+    }
+    this.queue = [];
+  }
+
+  /**
+   * Get number of items waiting in queue
+   */
+  getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  /**
+   * Check if queue is actively processing
+   */
+  isProcessing(): boolean {
+    return this.processing;
   }
 }
 

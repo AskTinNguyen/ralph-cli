@@ -270,6 +270,37 @@
       font-weight: 500;
     }
 
+    .voice-selector {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+    }
+
+    .voice-selector label {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-600);
+    }
+
+    .voice-dropdown {
+      padding: var(--rams-space-1) var(--rams-space-2);
+      border: 1px solid var(--rams-border-color);
+      border-radius: var(--rams-radius-sm);
+      background: white;
+      font-size: var(--rams-text-sm);
+      cursor: pointer;
+      min-width: 140px;
+    }
+
+    .voice-dropdown:hover {
+      border-color: var(--rams-accent);
+    }
+
+    .voice-dropdown:focus {
+      outline: none;
+      border-color: var(--rams-accent);
+      box-shadow: 0 0 0 2px rgba(var(--rams-accent-rgb), 0.2);
+    }
+
     /* Filtered Output Toggle */
     .output-toggle {
       display: flex;
@@ -535,9 +566,15 @@
         <div class="tts-controls">
           <div class="tts-toggle">
             <input type="checkbox" id="tts-enabled" checked>
-            <label for="tts-enabled">TTS Enabled</label>
+            <label for="tts-enabled">TTS</label>
           </div>
-          <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop Speaking</button>
+          <div class="voice-selector">
+            <label for="voice-select">Voice:</label>
+            <select id="voice-select" class="voice-dropdown">
+              <option value="alba">Alba (Scottish)</option>
+            </select>
+          </div>
+          <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop</button>
           <span class="tts-status" id="tts-status">Ready</span>
         </div>
 

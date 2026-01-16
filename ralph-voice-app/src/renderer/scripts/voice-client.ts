@@ -522,5 +522,102 @@ async function speakText(text: string): Promise<void> {
   }
 }
 
+// ==================== Voice Selection Functions ====================
+
+/**
+ * Load available Piper voices and populate the select dropdown
+ */
+async function loadVoices(): Promise<void> {
+  if (!voiceSelect) return;
+
+  try {
+    // Get detailed voice info
+    const voiceDetails = await window.voiceAPI.getVoiceDetails();
+    const currentVoice = await window.voiceAPI.getCurrentVoice();
+
+    // Clear existing options
+    voiceSelect.innerHTML = '';
+
+    if (voiceDetails.length === 0) {
+      // Fallback to simple voice list
+      const voices = await window.voiceAPI.getVoices();
+      for (const voice of voices) {
+        const option = document.createElement('option');
+        option.value = voice;
+        option.textContent = voice.charAt(0).toUpperCase() + voice.slice(1);
+        if (voice === currentVoice) {
+          option.selected = true;
+        }
+        voiceSelect.appendChild(option);
+      }
+    } else {
+      // Use detailed voice info
+      for (const voice of voiceDetails) {
+        if (!voice.installed) continue; // Only show installed voices
+
+        const option = document.createElement('option');
+        option.value = voice.id;
+
+        // Format: "Name (Language)" e.g., "Alba (en_GB)"
+        const langDisplay = formatLanguage(voice.language);
+        option.textContent = `${voice.name} (${langDisplay})`;
+
+        if (voice.id === currentVoice) {
+          option.selected = true;
+        }
+        voiceSelect.appendChild(option);
+      }
+    }
+
+    console.log(`Loaded ${voiceSelect.options.length} voices, current: ${currentVoice}`);
+  } catch (error) {
+    console.error('Failed to load voices:', error);
+    // Keep default option on error
+  }
+}
+
+/**
+ * Format language code for display
+ */
+function formatLanguage(langCode: string): string {
+  const langMap: Record<string, string> = {
+    'en_US': 'US',
+    'en_GB': 'UK',
+    'en_AU': 'AU',
+    'de_DE': 'DE',
+    'fr_FR': 'FR',
+    'es_ES': 'ES',
+    'it_IT': 'IT',
+    'nl_NL': 'NL',
+    'pl_PL': 'PL',
+    'pt_BR': 'BR',
+    'ru_RU': 'RU',
+    'zh_CN': 'CN',
+  };
+  return langMap[langCode] || langCode;
+}
+
+/**
+ * Handle voice selection change
+ */
+async function handleVoiceChange(event: Event): Promise<void> {
+  const target = event.target as HTMLSelectElement;
+  const selectedVoice = target.value;
+
+  try {
+    await window.voiceAPI.setVoice(selectedVoice);
+    console.log(`Voice changed to: ${selectedVoice}`);
+
+    // Optional: Play a test phrase to preview the voice
+    if (ttsEnabled) {
+      updateTTSStatus(true, 'Testing voice...');
+      await window.voiceAPI.speak(`Voice set to ${selectedVoice}`);
+      updateTTSStatus(false);
+    }
+  } catch (error) {
+    console.error('Failed to set voice:', error);
+  }
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', init);

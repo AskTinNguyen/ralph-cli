@@ -154,6 +154,14 @@ function getPiperVoices(): Record<string, string> {
 }
 
 /**
+ * Queue item for streaming TTS
+ */
+interface QueueItem {
+  text: string;
+  resolve: () => void;
+}
+
+/**
  * Piper TTS Engine class
  */
 export class PiperTTSEngine implements TTSEngine {
@@ -161,6 +169,8 @@ export class PiperTTSEngine implements TTSEngine {
   private currentProcess: ChildProcess | null = null;
   private speaking: boolean = false;
   private piperVoice: string;
+  private queue: QueueItem[] = [];
+  private processing: boolean = false;
 
   constructor(config: TTSConfig) {
     this.config = { ...config, provider: "piper" as any };
@@ -325,14 +335,19 @@ export class PiperTTSEngine implements TTSEngine {
   }
 
   /**
-   * Stop current speech
+   * Stop current speech and clear queue
    */
   stop(): void {
+    // Clear the queue first
+    this.clearQueue();
+
+    // Stop current process
     if (this.currentProcess) {
       this.currentProcess.kill("SIGTERM");
       this.currentProcess = null;
     }
     this.speaking = false;
+    this.processing = false;
   }
 
   /**
@@ -454,7 +469,7 @@ export class PiperTTSEngine implements TTSEngine {
   }
 
   /**
-   * Queue multiple texts to speak in sequence
+   * Queue multiple texts to speak in sequence (blocking)
    */
   async speakQueue(texts: string[]): Promise<TTSResult[]> {
     const results: TTSResult[] = [];
@@ -469,6 +484,181 @@ export class PiperTTSEngine implements TTSEngine {
     }
 
     return results;
+  }
+
+  /**
+   * Enqueue text for speaking (non-blocking)
+   * Adds text to queue and returns immediately.
+   * Items are spoken sequentially without interrupting current speech.
+   */
+  enqueue(text: string): void {
+    if (!text || text.trim().length === 0) {
+      return;
+    }
+
+    // Add to queue with a promise for completion tracking
+    this.queue.push({
+      text: text.trim(),
+      resolve: () => {},
+    });
+
+    // Start processing if not already running
+    if (!this.processing) {
+      this.processQueue();
+    }
+  }
+
+  /**
+   * Process items in the queue sequentially
+   */
+  private async processQueue(): Promise<void> {
+    if (this.processing) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift();
+      if (!item) continue;
+
+      // Speak without stopping (unlike speak() which calls stop())
+      await this.speakImmediate(item.text);
+      item.resolve();
+    }
+
+    this.processing = false;
+  }
+
+  /**
+   * Speak text immediately without stopping current speech
+   * Used internally for queue processing.
+   */
+  private async speakImmediate(text: string): Promise<TTSResult> {
+    if (!text || text.trim().length === 0) {
+      return { success: true, duration_ms: 0 };
+    }
+
+    const startTime = Date.now();
+    const modelPath = this.getModelPath(this.piperVoice);
+
+    // Check if model exists
+    if (!existsSync(modelPath)) {
+      return {
+        success: false,
+        error: `Piper voice model not found: ${modelPath}. Run: pip3 install piper-tts && download voice models.`,
+        duration_ms: 0,
+      };
+    }
+
+    return new Promise((resolve) => {
+      this.speaking = true;
+
+      // Create temp wav file path
+      const wavFile = `/tmp/piper-tts-${Date.now()}.wav`;
+
+      // Run piper to generate audio
+      const piper = spawn("piper", ["--model", modelPath, "--output_file", wavFile], {
+        stdio: ["pipe", "ignore", "pipe"],
+      });
+
+      // Send text to piper's stdin
+      piper.stdin?.write(text);
+      piper.stdin?.end();
+
+      let stderr = "";
+      if (piper.stderr) {
+        piper.stderr.on("data", (data: Buffer) => {
+          stderr += data.toString();
+        });
+      }
+
+      piper.on("exit", (code) => {
+        if (code !== 0) {
+          this.speaking = false;
+          this.currentProcess = null;
+          resolve({
+            success: false,
+            error: stderr || `Piper exit code: ${code}`,
+            duration_ms: Date.now() - startTime,
+          });
+          return;
+        }
+
+        // Play the generated audio
+        this.currentProcess = spawn("afplay", [wavFile], {
+          stdio: ["ignore", "ignore", "pipe"],
+        });
+
+        this.currentProcess.on("exit", (playCode, signal) => {
+          const duration_ms = Date.now() - startTime;
+          this.speaking = false;
+          this.currentProcess = null;
+
+          // Clean up temp file
+          try {
+            execSync(`rm -f ${wavFile}`, { stdio: "ignore" });
+          } catch {}
+
+          if (signal === "SIGTERM" || signal === "SIGKILL") {
+            resolve({
+              success: true,
+              duration_ms,
+              interrupted: true,
+            });
+          } else {
+            resolve({
+              success: playCode === 0,
+              error: playCode !== 0 ? `Audio playback failed` : undefined,
+              duration_ms,
+              interrupted: false,
+            });
+          }
+        });
+
+        this.currentProcess.on("error", (error) => {
+          this.speaking = false;
+          this.currentProcess = null;
+          resolve({
+            success: false,
+            error: `Audio playback error: ${error.message}`,
+            duration_ms: Date.now() - startTime,
+          });
+        });
+      });
+
+      piper.on("error", (error) => {
+        this.speaking = false;
+        resolve({
+          success: false,
+          error: `Piper TTS error: ${error.message}. Is piper-tts installed?`,
+          duration_ms: Date.now() - startTime,
+        });
+      });
+    });
+  }
+
+  /**
+   * Clear pending items in the queue
+   * Does not stop currently speaking item.
+   */
+  clearQueue(): void {
+    // Resolve any pending promises
+    for (const item of this.queue) {
+      item.resolve();
+    }
+    this.queue = [];
+  }
+
+  /**
+   * Get number of items waiting in queue
+   */
+  getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  /**
+   * Check if queue is actively processing
+   */
+  isProcessing(): boolean {
+    return this.processing;
   }
 }
 

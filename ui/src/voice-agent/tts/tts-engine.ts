@@ -60,12 +60,12 @@ export interface TTSResult {
  */
 export interface TTSEngine {
   /**
-   * Speak text
+   * Speak text (blocking - waits for completion)
    */
   speak(text: string): Promise<TTSResult>;
 
   /**
-   * Stop current speech
+   * Stop current speech and clear queue
    */
   stop(): void;
 
@@ -93,6 +93,29 @@ export interface TTSEngine {
    * Get current configuration
    */
   getConfig(): TTSConfig;
+
+  /**
+   * Enqueue text for speaking (non-blocking)
+   * Adds text to queue and returns immediately.
+   * Use for streaming TTS where you want continuous speech.
+   */
+  enqueue(text: string): void;
+
+  /**
+   * Clear pending items in the queue
+   * Does not stop currently speaking item.
+   */
+  clearQueue(): void;
+
+  /**
+   * Get number of items waiting in queue
+   */
+  getQueueLength(): number;
+
+  /**
+   * Check if queue is actively processing
+   */
+  isProcessing(): boolean;
 }
 
 /**
