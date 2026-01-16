@@ -912,3 +912,43 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
   - Story cumulative time tracking persists across restarts via JSON file
   - Timeout events integrate with existing events.log for UI visibility
 ---
+
+## 2026-01-16T17:35 - US-012: Multi-channel notifications
+Thread:
+Run: 20260116-160954-10574 (iteration 12)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-12.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-12.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 32e91e0 feat(notify): complete multi-channel notifications (US-012)
+- Post-commit status: clean (remaining untracked files are unrelated S2-Game content)
+- Verification:
+  - Command: `node bin/ralph notify status` -> PASS (shows all 5 channels: Slack, Discord, Webhook, Email, CLI)
+  - Command: `node bin/ralph notify test` -> PASS (CLI notification displayed, others gracefully skipped)
+- Files changed:
+  - .agents/ralph/notify.conf (NEW - configuration file per PRD requirement)
+  - .agents/ralph/lib/notify.sh (added Email notification support)
+  - .agents/ralph/lib/watchdog.sh (integrated stalled/needs_human notifications)
+  - bin/ralph (registered notify command in moduleCommands)
+  - lib/commands/index.js (added notify to commands registry)
+  - lib/commands/notify.js (fixed templateDir resolution)
+  - .ralph/PRD-67/plan.md (tasks marked complete with notes)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **notify.conf configuration file**: Shell-sourceable KEY=VALUE format with settings for all channels, event filtering, quiet hours
+  - **Email notification support**: `notify_email()` function in notify.sh using mail/sendmail, structured subject line
+  - **Watchdog notification integration**: notify_stalled() on first restart attempt, notify_needs_human() when max restarts exceeded
+  - **CLI command registration**: notify added to moduleCommands in bin/ralph, templateDir fix for correct agent path resolution
+- Acceptance Criteria Verification:
+  1. ✅ Notification channels: CLI, Slack, Discord, Email, Webhooks - all implemented in lib/notify.sh and lib/notify/*.js
+  2. ✅ Events: build_complete, build_failed, stalled, needs_human - integrated in loop.sh and watchdog.sh
+  3. ✅ Configuration file: `.agents/ralph/notify.conf` - created with full schema
+  4. ✅ Graceful failure if channel unavailable - all functions return 0 on missing config, background execution
+  5. ✅ Notification includes: stream ID, event details, timestamp - build_notification_payload() includes all fields
+  6. ✅ Test notification command: `ralph notify test` - registered and working
+- **Learnings for future iterations:**
+  - Notification functions should always run in background (&) to prevent blocking builds
+  - templateDir should be preferred over constructing paths from cwd when available
+  - Shell-sourceable config (KEY=VALUE) is simpler than JSON for bash consumption
+  - mail/sendmail detection provides cross-platform email support without external dependencies
+---
