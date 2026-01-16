@@ -16,9 +16,14 @@ const PIPER_VOICE_DIR = join(homedir(), ".local", "share", "piper-voices");
 
 /** Available Piper voices (name -> model file) */
 const PIPER_VOICES: Record<string, string> = {
-  lessac: "en_US-lessac-medium.onnx",
-  ryan: "en_US-ryan-medium.onnx",
-  alba: "en_GB-alba-medium.onnx",
+  // American voices
+  lessac: "en_US-lessac-medium.onnx",      // American female, professional
+  ryan: "en_US-ryan-medium.onnx",          // American male, casual
+  libritts: "en_US-libritts_r-medium.onnx", // Multi-speaker, high quality
+  hfc_female: "en_US-hfc_female-medium.onnx", // American female, clear
+  // British voices
+  alba: "en_GB-alba-medium.onnx",          // Scottish, distinctive
+  jenny: "en_GB-jenny_dioco-medium.onnx",  // British female, natural
 };
 
 /**
@@ -52,9 +57,12 @@ export class PiperTTSEngine implements TTSEngine {
       return "ryan";
     }
     if (lower.includes("british") || lower === "moira") {
+      return "jenny";
+    }
+    if (lower.includes("scottish")) {
       return "alba";
     }
-    return "lessac"; // Default
+    return "alba"; // Default to Alba (Scottish)
   }
 
   /**

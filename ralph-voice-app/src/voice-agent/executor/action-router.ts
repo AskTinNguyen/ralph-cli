@@ -143,13 +143,13 @@ export class ActionRouter {
 
   /**
    * Initialize the TTS engine
-   * Reads TTS_PROVIDER env var: "piper" | "macos" (default: "macos")
-   * For Piper, also reads TTS_VOICE: "lessac" | "ryan" | "alba" (default: "lessac")
+   * Reads TTS_PROVIDER env var: "piper" | "macos" (default: "piper")
+   * For Piper, also reads TTS_VOICE: "lessac" | "ryan" | "alba" (default: "alba")
    */
   private async initTTS(): Promise<void> {
     try {
-      const provider = (process.env.TTS_PROVIDER || "macos") as "piper" | "macos";
-      const voice = process.env.TTS_VOICE || (provider === "piper" ? "lessac" : "Samantha");
+      const provider = (process.env.TTS_PROVIDER || "piper") as "piper" | "macos";
+      const voice = process.env.TTS_VOICE || (provider === "piper" ? "alba" : "Samantha");
 
       this.ttsEngine = await createTTSEngine({ provider, voice });
       const available = await this.ttsEngine.checkAvailable();

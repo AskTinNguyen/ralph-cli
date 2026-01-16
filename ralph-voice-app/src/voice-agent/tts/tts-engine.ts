@@ -29,11 +29,12 @@ export interface TTSConfig {
 
 /**
  * Default TTS configuration
+ * Uses Piper with Alba (Scottish) voice for natural-sounding speech
  */
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
-  voice: "Samantha",
+  voice: "alba",
   rate: 200,
-  provider: "macos",
+  provider: "piper",
   volume: 1.0,
 };
 
