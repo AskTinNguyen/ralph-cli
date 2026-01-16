@@ -37,6 +37,8 @@ export interface RalphExecutorOptions {
   iterations?: number;
   /** Use headless mode (required for server/UI execution) */
   headless?: boolean;
+  /** Model to use (haiku, sonnet, opus) */
+  model?: 'haiku' | 'sonnet' | 'opus';
   /** Additional CLI flags */
   flags?: string[];
 }
@@ -159,6 +161,19 @@ export class RalphExecutor {
       options.iterations = parseInt(buildMatch[1], 10);
     }
 
+    // Extract model preference (haiku, sonnet, opus)
+    const modelMatch = text.match(/(?:using|with|use)\s+(haiku|sonnet|opus)/i);
+    if (modelMatch) {
+      options.model = modelMatch[1].toLowerCase() as 'haiku' | 'sonnet' | 'opus';
+    }
+    // Also check parameters from entity extraction
+    if (intent.parameters?.model) {
+      const modelParam = intent.parameters.model.toLowerCase();
+      if (['haiku', 'sonnet', 'opus'].includes(modelParam)) {
+        options.model = modelParam as 'haiku' | 'sonnet' | 'opus';
+      }
+    }
+
     // Determine command
     let command: RalphCommand | undefined;
 
@@ -223,6 +238,9 @@ export class RalphExecutor {
         }
         if (options.prdNumber) {
           args.push(`--prd=${options.prdNumber}`);
+        }
+        if (options.model) {
+          args.push(`--model=${options.model}`);
         }
         break;
 

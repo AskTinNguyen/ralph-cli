@@ -18,6 +18,7 @@ import type { VoiceIntent, VoiceActionType, VoiceAgentConfig } from "../types.js
 const INTENT_CLASSIFICATION_PROMPT = `You are a voice command classifier for a desktop automation system.
 
 Classify the user's voice command into ONE of these action types:
+- "claude_code": Ask Claude to help with coding tasks (ask claude, tell claude, claude can you, create/build/implement/add/fix/refactor code, what/how/why/explain code)
 - "terminal": Execute shell/terminal commands (npm, git, ls, mkdir, etc.)
 - "app_control": Control Mac applications (open, close, switch apps)
 - "ralph_command": Execute Ralph CLI commands (ralph prd, ralph build, ralph plan)
@@ -139,6 +140,7 @@ export class IntentClassifier {
 
       // Validate action type
       const validActions: VoiceActionType[] = [
+        "claude_code",
         "terminal",
         "app_control",
         "ralph_command",
@@ -269,6 +271,21 @@ export class IntentClassifier {
       return "terminal";
     }
 
+    // Ralph commands - Status queries
+    if (lowerText.match(/^(what'?s?\s+the\s+status|show\s+(me\s+)?(the\s+)?status|check\s+status|status\s+of)/)) {
+      return "ralph_command";
+    }
+
+    // Ralph commands - Story queries
+    if (lowerText.match(/^(how\s+many\s+stories|what\s+stories|stories\s+(left|remaining|completed))/)) {
+      return "ralph_command";
+    }
+
+    // Ralph commands - Progress queries
+    if (lowerText.match(/^(show\s+(me\s+)?(the\s+)?progress|what'?s?\s+(the\s+)?progress|overall\s+progress)/)) {
+      return "ralph_command";
+    }
+
     // Ralph commands - PRD
     if (lowerText.match(/^(ralph\s+prd|create\s+(a\s+)?(new\s+)?prd|generate\s+(a\s+)?prd|write\s+(a\s+)?prd)/)) {
       return "ralph_command";
@@ -292,6 +309,73 @@ export class IntentClassifier {
     // Ralph commands - Factory
     if (lowerText.match(/^ralph\s+factory/)) {
       return "ralph_command";
+    }
+
+    // Window management
+    if (lowerText.match(/^(snap|tile|move)\s+(window\s+)?(to\s+)?(left|right|top|bottom)/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(center|centre)\s+(the\s+)?window/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^move\s+to\s+(next|other)\s+display/)) {
+      return "app_control";
+    }
+
+    // Browser control
+    if (lowerText.match(/^(open|go\s+to|navigate\s+to)\s+[\w.-]+\.[\w]+/)) {
+      return "app_control"; // URLs
+    }
+
+    if (lowerText.match(/^(new\s+tab|close\s+tab|refresh|reload|go\s+back|go\s+forward)/)) {
+      return "app_control";
+    }
+
+    // Clipboard
+    if (lowerText.match(/^(copy|paste|select\s+all|what'?s?\s+on\s+(the\s+)?clipboard)/)) {
+      return "app_control";
+    }
+
+    // Finder
+    if (lowerText.match(/^(open|go\s+to)\s+(documents|desktop|downloads|pictures|home|music|movies)/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(new\s+finder\s+window|finder)/)) {
+      return "app_control";
+    }
+
+    // VS Code / Cursor
+    if (lowerText.match(/^(command\s+palette|go\s+to\s+line|open\s+file)/)) {
+      return "app_control";
+    }
+
+    // Terminal
+    if (lowerText.match(/^(clear|cls|clean)\s+(terminal|screen|console)/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(delete|remove)\s+(this\s+)?(line|word)/)) {
+      return "app_control";
+    }
+
+    // Communication
+    if (lowerText.match(/^(send|text|message)\s+/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(send\s+)?email\s+/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(create|add|schedule)\s+(event|meeting|appointment)/)) {
+      return "app_control";
+    }
+
+    if (lowerText.match(/^(create|add|set)\s+reminder/)) {
+      return "app_control";
     }
 
     // App control - open/launch/start
@@ -363,6 +447,35 @@ export class IntentClassifier {
       return "file_operation";
     }
 
+    // Claude Code - explicit requests to Claude
+    if (lowerText.match(/^(ask|tell)\s+claude/i)) {
+      return "claude_code";
+    }
+
+    if (lowerText.match(/^claude[,.]?\s+(can\s+you|please|help|what|how|why)/i)) {
+      return "claude_code";
+    }
+
+    // Claude Code - coding tasks (create/build/implement/add/fix/refactor)
+    if (lowerText.match(/^(create|write|build|implement|add|fix|refactor|update|modify|change)\s+(a\s+)?(function|class|component|module|file|test|code|method|api|endpoint|feature)/i)) {
+      return "claude_code";
+    }
+
+    // Claude Code - explanation requests about code
+    if (lowerText.match(/^(what|how|why|explain|describe|show\s+me)\s+(does|is|are|the|this|that)/i)) {
+      return "claude_code";
+    }
+
+    // Claude Code - follow-up commands
+    if (lowerText.match(/^(now|then|also|next|and)\s+(fix|update|add|change|commit|push)/i)) {
+      return "claude_code";
+    }
+
+    // Claude Code - do it again / fix it patterns
+    if (lowerText.match(/^(fix\s+it|do\s+(that|it)\s+again|undo\s+that|revert\s+that)/i)) {
+      return "claude_code";
+    }
+
     // Default to unknown for LLM fallback
     return "unknown";
   }
@@ -407,6 +520,12 @@ export class IntentClassifier {
             ...(entities.prdNumber && { prdNumber: entities.prdNumber }),
             ...(entities.iterations && { iterations: entities.iterations }),
             ...(entities.description && { description: entities.description }),
+            ...(entities.model && { model: entities.model }),
+            ...(entities.queryType && { queryType: entities.queryType }),
+            ...(entities.streamIds && { streamIds: entities.streamIds.join(',') }),
+            ...(entities.parallel && { parallel: 'true' }),
+            ...(entities.ambiguous && { ambiguous: 'true' }),
+            ...(entities.needsContext && { needsContext: 'true' }),
           },
         };
 
@@ -435,6 +554,16 @@ export class IntentClassifier {
    */
   private buildRalphCommand(entities: any): string {
     const cmd = entities.ralphCommand || "prd";
+
+    // Handle status queries (not an actual CLI command, but a query)
+    if (cmd === "status") {
+      let command = "ralph stream status";
+      if (entities.prdNumber) {
+        command = `ralph stream status ${entities.prdNumber}`;
+      }
+      return command;
+    }
+
     let command = `ralph ${cmd}`;
 
     if (cmd === "prd" && entities.description) {
@@ -445,12 +574,26 @@ export class IntentClassifier {
       if (entities.prdNumber) {
         command += ` --prd=${entities.prdNumber}`;
       }
+      if (entities.model) {
+        command += ` --model=${entities.model}`;
+      }
     } else if (cmd === "plan" && entities.prdNumber) {
       command += ` --prd=${entities.prdNumber}`;
     } else if (cmd === "factory" && entities.description) {
       command += ` run ${entities.description}`;
-    } else if (cmd === "stream" && entities.extra) {
-      command += ` ${entities.extra.subcommand || "status"}`;
+    } else if (cmd === "stream") {
+      if (entities.streamIds && Array.isArray(entities.streamIds)) {
+        if (entities.parallel) {
+          // For parallel streams, output as separate commands
+          command = entities.streamIds.map((id: string) => `ralph stream build ${id}`).join(' & ');
+        } else {
+          command += ` build ${entities.streamIds[0]}`;
+        }
+      } else if (entities.extra?.subcommand) {
+        command += ` ${entities.extra.subcommand}`;
+      } else {
+        command += " status";
+      }
     }
 
     return command;
@@ -489,6 +632,52 @@ export class IntentClassifier {
       return {
         action: "terminal",
         command: "ls -la",
+        confidence: 0.9,
+        originalText,
+        requiresConfirmation: false,
+      };
+    }
+
+    // Ralph commands - Status queries
+    if (lowerText.match(/^(what'?s?\s+the\s+status|show\s+(me\s+)?(the\s+)?status|check\s+status|status\s+of)/)) {
+      const prdMatch = lowerText.match(/prd[- ]?(\d+)/i);
+      return {
+        action: "ralph_command",
+        command: prdMatch ? `ralph stream status ${prdMatch[1]}` : "ralph stream status",
+        parameters: {
+          command: "status",
+          queryType: "prd",
+          ...(prdMatch && { prdNumber: prdMatch[1] }),
+        },
+        confidence: 0.9,
+        originalText,
+        requiresConfirmation: false,
+      };
+    }
+
+    // Ralph commands - Story queries
+    if (lowerText.match(/^(how\s+many\s+stories|what\s+stories|stories\s+(left|remaining|completed))/)) {
+      const prdMatch = lowerText.match(/prd[- ]?(\d+)/i);
+      return {
+        action: "ralph_command",
+        command: "ralph stream status",
+        parameters: {
+          command: "status",
+          queryType: "stories",
+          ...(prdMatch && { prdNumber: prdMatch[1] }),
+        },
+        confidence: 0.9,
+        originalText,
+        requiresConfirmation: false,
+      };
+    }
+
+    // Ralph commands - Progress queries
+    if (lowerText.match(/^(show\s+(me\s+)?(the\s+)?progress|what'?s?\s+(the\s+)?progress|overall\s+progress)/)) {
+      return {
+        action: "ralph_command",
+        command: "ralph stream status",
+        parameters: { command: "status", queryType: "overall" },
         confidence: 0.9,
         originalText,
         requiresConfirmation: false,

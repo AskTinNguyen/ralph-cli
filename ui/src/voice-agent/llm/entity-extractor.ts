@@ -29,7 +29,7 @@ export interface ExtractedEntities {
   /** File or directory path (for file_operation) */
   path?: string;
 
-  /** Ralph command type (prd, plan, build, etc.) */
+  /** Ralph command type (prd, plan, build, stream, factory, status) */
   ralphCommand?: string;
 
   /** PRD number */
@@ -40,6 +40,24 @@ export interface ExtractedEntities {
 
   /** Description (for PRD creation) */
   description?: string;
+
+  /** Model to use (haiku, sonnet, opus) */
+  model?: string;
+
+  /** Query type for status queries (prd, stories, overall) */
+  queryType?: string;
+
+  /** Stream IDs for parallel execution */
+  streamIds?: string[];
+
+  /** Whether to run in parallel */
+  parallel?: boolean;
+
+  /** Whether the command is ambiguous and needs context */
+  ambiguous?: boolean;
+
+  /** Whether context is needed to resolve ambiguity */
+  needsContext?: boolean;
 
   /** Additional parameters */
   extra?: Record<string, string>;
@@ -60,30 +78,64 @@ export interface ExtractionResult {
  * Few-shot examples for each intent type
  */
 const FEW_SHOT_EXAMPLES: Record<VoiceActionType, string> = {
+  claude_code: `Examples:
+User: "ask claude to help with authentication"
+{"action": "ask", "description": "help with authentication"}
+
+User: "tell claude to fix the login bug"
+{"action": "fix", "description": "login bug"}
+
+User: "explain how the routing works"
+{"action": "explain", "description": "how the routing works"}`,
+
   app_control: `Examples:
 User: "open chrome"
 {"appName": "Google Chrome", "action": "open"}
 
-User: "launch spotify and play some music"
-{"appName": "Spotify", "action": "open"}
-
-User: "close safari"
-{"appName": "Safari", "action": "close"}
-
 User: "play music"
 {"appName": "Spotify", "action": "play"}
 
-User: "play a song"
-{"appName": "Spotify", "action": "play"}
+User: "snap window left"
+{"appName": "Google Chrome", "action": "snap_left"}
 
-User: "pause spotify"
-{"appName": "Spotify", "action": "pause"}
+User: "tile right"
+{"appName": "Code", "action": "snap_right"}
 
-User: "next track"
-{"appName": "Spotify", "action": "next"}
+User: "center window"
+{"appName": "Safari", "action": "center"}
 
-User: "quit visual studio code"
-{"appName": "Visual Studio Code", "action": "quit"}`,
+User: "move to next display"
+{"appName": "Chrome", "action": "move_display"}
+
+User: "open google.com"
+{"appName": "Safari", "action": "open_url", "extra": {"url": "https://google.com"}}
+
+User: "new tab"
+{"appName": "Chrome", "action": "new_tab"}
+
+User: "refresh page"
+{"appName": "Safari", "action": "refresh"}
+
+User: "go back"
+{"appName": "Chrome", "action": "back"}
+
+User: "copy that"
+{"action": "copy"}
+
+User: "paste it"
+{"action": "paste"}
+
+User: "open documents folder"
+{"appName": "Finder", "action": "open_folder", "extra": {"path": "Documents"}}
+
+User: "command palette"
+{"appName": "Visual Studio Code", "action": "command_palette"}
+
+User: "go to line 42"
+{"appName": "Code", "action": "go_to_line", "extra": {"line": "42"}}
+
+User: "clear terminal"
+{"appName": "Terminal", "action": "clear_terminal"}`,
 
   terminal: `Examples:
 User: "run npm test"
@@ -113,6 +165,30 @@ User: "run ralph build 5 iterations"
 
 User: "ralph build 3 for PRD 2"
 {"ralphCommand": "build", "iterations": "3", "prdNumber": "2"}
+
+User: "build PRD 3 with 5 iterations using opus"
+{"ralphCommand": "build", "prdNumber": "3", "iterations": "5", "model": "opus"}
+
+User: "run 3 builds with haiku"
+{"ralphCommand": "build", "iterations": "3", "model": "haiku"}
+
+User: "what's the status of PRD 2"
+{"ralphCommand": "status", "prdNumber": "2", "queryType": "prd"}
+
+User: "how many stories are left"
+{"ralphCommand": "status", "queryType": "stories"}
+
+User: "show me the overall progress"
+{"ralphCommand": "status", "queryType": "overall"}
+
+User: "run streams 1 and 2 in parallel"
+{"ralphCommand": "stream", "streamIds": ["1", "2"], "parallel": true}
+
+User: "build it"
+{"ralphCommand": "build", "ambiguous": true, "needsContext": true}
+
+User: "run that again"
+{"ralphCommand": "build", "ambiguous": true, "needsContext": true}
 
 User: "start the factory my-factory"
 {"ralphCommand": "factory", "description": "my-factory"}`,
@@ -144,6 +220,15 @@ User: "move config.json to the backup folder"
  * System prompts for entity extraction by intent type
  */
 const EXTRACTION_PROMPTS: Record<VoiceActionType, string> = {
+  claude_code: `You are an entity extractor for coding assistance requests.
+Extract the action and description from the user's request to Claude.
+
+IMPORTANT RULES:
+1. action should be one of: ask, tell, explain, fix, create, build, implement, refactor
+2. Extract the description of what the user wants help with
+
+Respond with ONLY a JSON object. No explanation.`,
+
   app_control: `You are an entity extractor for macOS app control commands.
 Extract ONLY the application name and action from the user's command.
 
@@ -151,7 +236,17 @@ IMPORTANT RULES:
 1. Extract ONLY the app name - ignore everything after "and", "then", or punctuation
 2. Normalize common app names (chrome → Google Chrome, vscode → Visual Studio Code)
 3. For media commands (play, pause, stop, next, previous) WITHOUT a specified app, default to "Spotify"
-4. Action should be one of: open, close, quit, play, pause, stop, next, previous, hide, minimize
+4. Action types:
+   - Window: snap_left, snap_right, snap_top, snap_bottom, center, move_display
+   - App: open, close, quit, activate, hide, show, minimize, maximize, fullscreen
+   - Media: play, pause, stop, next, previous
+   - Browser: open_url, new_tab, close_tab, refresh, back, forward
+   - Edit: copy, paste, select_all, read_clipboard
+   - Finder: open_folder, new_window, go_to_path
+   - VS Code: command_palette, go_to_line, open_file
+   - Terminal: clear_terminal, delete_line, delete_word
+   - Communication: send_message, send_email, create_event, create_reminder
+5. Extract parameters like url, path, line number, recipient, etc. into "extra" object
 
 Respond with ONLY a JSON object. No explanation.`,
 
@@ -170,10 +265,18 @@ Respond with ONLY a JSON object. No explanation.`,
 Extract the Ralph command details from the user's voice command.
 
 IMPORTANT RULES:
-1. ralphCommand should be one of: prd, plan, build, stream, factory
+1. ralphCommand should be one of: prd, plan, build, stream, factory, status
 2. Extract PRD numbers if mentioned (e.g., "PRD 3" → prdNumber: "3")
 3. Extract iteration counts for build (e.g., "5 iterations" → iterations: "5")
 4. Extract descriptions for PRD creation
+5. Extract model preference if mentioned (e.g., "using opus" → model: "opus")
+   Valid models are: haiku, sonnet, opus
+6. For status queries (what's the status, how many stories, show progress):
+   - Set ralphCommand to "status"
+   - Set queryType to: "prd" (specific PRD), "stories" (story count), or "overall" (general status)
+7. For ambiguous commands like "build it", "run that", "do it again":
+   - Set ambiguous: true and needsContext: true
+8. For parallel stream commands, extract streamIds as an array and set parallel: true
 
 Respond with ONLY a JSON object. No explanation.`,
 

@@ -1,0 +1,676 @@
+/**
+ * Voice Agent API Routes
+ *
+ * HTTP and SSE endpoints for the voice-controlled automation system.
+ */
+
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import {
+  voiceProcessManager,
+  type VoiceEvent,
+} from "../voice-agent/process/voice-process-manager.js";
+import { createWhisperClient } from "../voice-agent/stt/whisper-client.js";
+import { createIntentClassifier } from "../voice-agent/llm/intent-classifier.js";
+import { createActionRouter } from "../voice-agent/executor/action-router.js";
+import type { VoiceIntent, TranscriptionResult } from "../voice-agent/types.js";
+
+export const voice = new Hono();
+
+// Create clients
+const whisperClient = createWhisperClient();
+const intentClassifier = createIntentClassifier();
+const actionRouter = createActionRouter();
+
+/**
+ * GET /voice/health
+ * Check voice agent services health
+ */
+voice.get("/health", async (c) => {
+  const services = await voiceProcessManager.checkServices();
+  const sttStatus = voiceProcessManager.getSTTServerStatus();
+
+  return c.json({
+    healthy: services.sttServer && services.ollama,
+    services: {
+      sttServer: {
+        healthy: services.sttServer,
+        ...sttStatus,
+      },
+      ollama: {
+        healthy: services.ollama,
+      },
+    },
+    messages: services.messages,
+    config: voiceProcessManager.getConfig(),
+  });
+});
+
+/**
+ * POST /voice/stt/start
+ * Start the Whisper STT server
+ */
+voice.post("/stt/start", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { port, model, preload } = body;
+
+  const result = await voiceProcessManager.startSTTServer({
+    port,
+    model,
+    preload,
+  });
+
+  if (result.success) {
+    return c.json(result);
+  } else {
+    return c.json(result, 400);
+  }
+});
+
+/**
+ * POST /voice/stt/stop
+ * Stop the Whisper STT server
+ */
+voice.post("/stt/stop", async (c) => {
+  const result = voiceProcessManager.stopSTTServer();
+
+  if (result.success) {
+    return c.json(result);
+  } else {
+    return c.json(result, 400);
+  }
+});
+
+/**
+ * GET /voice/stt/status
+ * Get STT server status
+ */
+voice.get("/stt/status", (c) => {
+  return c.json(voiceProcessManager.getSTTServerStatus());
+});
+
+/**
+ * POST /voice/transcribe
+ * Transcribe audio to text
+ *
+ * Accepts audio data as multipart form data or raw binary.
+ * Proxies to the Whisper STT server.
+ */
+voice.post("/transcribe", async (c) => {
+  try {
+    const contentType = c.req.header("content-type") || "";
+
+    let audioData: ArrayBuffer;
+    let language: string | undefined;
+
+    if (contentType.includes("multipart/form-data")) {
+      // Handle multipart form data
+      const formData = await c.req.formData();
+      const file = formData.get("file");
+      language = formData.get("language")?.toString();
+
+      if (!file || !(file instanceof File)) {
+        return c.json(
+          {
+            success: false,
+            error: "No audio file provided",
+          },
+          400
+        );
+      }
+
+      audioData = await file.arrayBuffer();
+    } else {
+      // Handle raw binary data
+      audioData = await c.req.arrayBuffer();
+      language = c.req.query("language");
+    }
+
+    if (audioData.byteLength < 100) {
+      return c.json(
+        {
+          success: false,
+          error: "Audio data too small",
+        },
+        400
+      );
+    }
+
+    // Update Whisper client language if provided
+    if (language) {
+      whisperClient.setLanguage(language);
+    }
+
+    // Transcribe via Whisper client
+    const result = await whisperClient.transcribe(Buffer.from(audioData), {
+      language,
+    });
+
+    return c.json(result);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        success: false,
+        error: `Transcription failed: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /voice/session
+ * Create a new voice session
+ */
+voice.post("/session", (c) => {
+  const { session, eventEmitter } = voiceProcessManager.createSession();
+
+  return c.json({
+    success: true,
+    sessionId: session.id,
+    state: session.state,
+    sseUrl: `/api/voice/session/${session.id}/events`,
+  });
+});
+
+/**
+ * GET /voice/session/:sessionId
+ * Get session info
+ */
+voice.get("/session/:sessionId", (c) => {
+  const sessionId = c.req.param("sessionId");
+  const session = voiceProcessManager.getSession(sessionId);
+
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  return c.json({
+    success: true,
+    session,
+  });
+});
+
+/**
+ * DELETE /voice/session/:sessionId
+ * Close a voice session
+ */
+voice.delete("/session/:sessionId", (c) => {
+  const sessionId = c.req.param("sessionId");
+  const session = voiceProcessManager.getSession(sessionId);
+
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  voiceProcessManager.closeSession(sessionId);
+
+  return c.json({
+    success: true,
+    message: "Session closed",
+  });
+});
+
+/**
+ * GET /voice/session/:sessionId/events
+ * SSE stream for session events
+ */
+voice.get("/session/:sessionId/events", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  const eventEmitter = voiceProcessManager.getEventEmitter(sessionId);
+
+  if (!eventEmitter) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  return streamSSE(c, async (stream) => {
+    // Send initial connection event
+    await stream.writeSSE({
+      event: "connected",
+      data: JSON.stringify({
+        sessionId,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    // Set up event listener
+    const onEvent = async (event: VoiceEvent) => {
+      try {
+        await stream.writeSSE({
+          event: event.type,
+          data: JSON.stringify({
+            sessionId: event.sessionId,
+            data: event.data,
+            timestamp: event.timestamp.toISOString(),
+          }),
+        });
+      } catch {
+        // Stream closed, ignore
+      }
+    };
+
+    eventEmitter.on("event", onEvent);
+
+    // Keep connection alive with heartbeat
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        await stream.writeSSE({
+          event: "heartbeat",
+          data: JSON.stringify({
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      } catch {
+        clearInterval(heartbeatInterval);
+      }
+    }, 30000);
+
+    // Clean up on close
+    stream.onAbort(() => {
+      clearInterval(heartbeatInterval);
+      eventEmitter.off("event", onEvent);
+    });
+
+    // Keep stream open
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (stream.aborted) break;
+    }
+  });
+});
+
+/**
+ * POST /voice/session/:sessionId/state
+ * Update session state
+ */
+voice.post("/session/:sessionId/state", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  const session = voiceProcessManager.getSession(sessionId);
+
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  const body = await c.req.json();
+  const { state } = body;
+
+  if (!state) {
+    return c.json(
+      {
+        success: false,
+        error: "State is required",
+      },
+      400
+    );
+  }
+
+  voiceProcessManager.updateSessionState(sessionId, state);
+
+  return c.json({
+    success: true,
+    state,
+  });
+});
+
+/**
+ * POST /voice/session/:sessionId/confirm
+ * Confirm a pending action
+ */
+voice.post("/session/:sessionId/confirm", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  const session = voiceProcessManager.getSession(sessionId);
+
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  if (!session.pendingIntent) {
+    return c.json(
+      {
+        success: false,
+        error: "No pending action to confirm",
+      },
+      400
+    );
+  }
+
+  const intent = session.pendingIntent;
+  voiceProcessManager.clearPendingIntent(sessionId);
+  voiceProcessManager.updateSessionState(sessionId, "executing");
+
+  // Emit confirmation event
+  voiceProcessManager.emitEvent(sessionId, "execution_start", {
+    intent,
+    confirmed: true,
+  });
+
+  return c.json({
+    success: true,
+    message: "Action confirmed",
+    intent,
+  });
+});
+
+/**
+ * POST /voice/session/:sessionId/reject
+ * Reject a pending action
+ */
+voice.post("/session/:sessionId/reject", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  const session = voiceProcessManager.getSession(sessionId);
+
+  if (!session) {
+    return c.json(
+      {
+        success: false,
+        error: "Session not found",
+      },
+      404
+    );
+  }
+
+  if (!session.pendingIntent) {
+    return c.json(
+      {
+        success: false,
+        error: "No pending action to reject",
+      },
+      400
+    );
+  }
+
+  voiceProcessManager.clearPendingIntent(sessionId);
+  voiceProcessManager.updateSessionState(sessionId, "idle");
+
+  return c.json({
+    success: true,
+    message: "Action rejected",
+  });
+});
+
+/**
+ * GET /voice/sessions
+ * List all active sessions
+ */
+voice.get("/sessions", (c) => {
+  const sessionIds = voiceProcessManager.getActiveSessions();
+  const sessions = sessionIds
+    .map((id) => voiceProcessManager.getSession(id))
+    .filter((s) => s !== null);
+
+  return c.json({
+    success: true,
+    count: sessions.length,
+    sessions,
+  });
+});
+
+/**
+ * GET /voice/config
+ * Get voice agent configuration
+ */
+voice.get("/config", (c) => {
+  return c.json({
+    success: true,
+    config: voiceProcessManager.getConfig(),
+  });
+});
+
+/**
+ * PATCH /voice/config
+ * Update voice agent configuration
+ */
+voice.patch("/config", async (c) => {
+  const updates = await c.req.json();
+  voiceProcessManager.updateConfig(updates);
+
+  return c.json({
+    success: true,
+    config: voiceProcessManager.getConfig(),
+  });
+});
+
+/**
+ * POST /voice/classify
+ * Classify text into an intent (for testing)
+ */
+voice.post("/classify", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { text } = body;
+
+    if (!text || typeof text !== "string") {
+      return c.json(
+        {
+          success: false,
+          error: "Text is required",
+        },
+        400
+      );
+    }
+
+    const result = await intentClassifier.classifyWithFallback(text);
+
+    return c.json({
+      success: result.success,
+      intent: result.intent,
+      raw: result.raw,
+      error: result.error,
+      duration_ms: result.duration_ms,
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        success: false,
+        error: `Classification failed: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /voice/execute
+ * Execute an intent directly (for testing)
+ */
+voice.post("/execute", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { intent, autoExecute } = body;
+
+    if (!intent) {
+      return c.json(
+        {
+          success: false,
+          error: "Intent is required",
+        },
+        400
+      );
+    }
+
+    // Check if confirmation is required
+    if (actionRouter.requiresConfirmation(intent) && !autoExecute) {
+      return c.json({
+        success: false,
+        requiresConfirmation: true,
+        intent,
+        message: "This action requires confirmation. Set autoExecute: true to proceed.",
+      });
+    }
+
+    const result = await actionRouter.execute(intent);
+
+    return c.json({
+      success: result.success,
+      output: result.output,
+      error: result.error,
+      exitCode: result.exitCode,
+      duration_ms: result.duration_ms,
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        success: false,
+        error: `Execution failed: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /voice/process
+ * Process text through full pipeline (classify + execute)
+ */
+voice.post("/process", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { text, autoExecute } = body;
+
+    if (!text || typeof text !== "string") {
+      return c.json(
+        {
+          success: false,
+          error: "Text is required",
+        },
+        400
+      );
+    }
+
+    const result = await actionRouter.processText(text, {
+      autoExecute: autoExecute || false,
+    });
+
+    return c.json(result);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        success: false,
+        error: `Processing failed: ${errorMessage}`,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /voice/services
+ * Check all service availability (detailed)
+ */
+voice.get("/services", async (c) => {
+  const services = await actionRouter.checkServices();
+
+  return c.json({
+    success: true,
+    services: {
+      stt: services.stt,
+      llm: services.llm,
+      appleScript: services.appleScript,
+      ralph: services.ralph,
+      openInterpreter: services.openInterpreter,
+    },
+    messages: services.messages,
+    allHealthy: services.stt && services.llm,
+  });
+});
+
+/**
+ * GET /voice/ralph/status
+ * Get Ralph PRD status (for voice queries like "what's the status?")
+ */
+voice.get("/ralph/status", async (c) => {
+  const prdNumber = c.req.query("prd");
+  const queryType = c.req.query("type") || "overall";
+
+  const result = await actionRouter.getStatus({
+    prdNumber,
+    queryType,
+  });
+
+  return c.json(result);
+});
+
+/**
+ * GET /voice/context
+ * Get current conversation context summary
+ */
+voice.get("/context", (c) => {
+  const summary = actionRouter.getConversationSummary();
+  return c.json({
+    success: true,
+    context: summary,
+  });
+});
+
+/**
+ * DELETE /voice/context
+ * Clear conversation context
+ */
+voice.delete("/context", (c) => {
+  actionRouter.clearConversationContext();
+  return c.json({
+    success: true,
+    message: "Conversation context cleared",
+  });
+});
+
+/**
+ * POST /voice/context/prd
+ * Set current PRD in conversation context
+ */
+voice.post("/context/prd", async (c) => {
+  const body = await c.req.json();
+  const { prdNumber } = body;
+
+  if (!prdNumber) {
+    return c.json({
+      success: false,
+      error: "prdNumber is required",
+    }, 400);
+  }
+
+  actionRouter.setCurrentPrd(prdNumber.toString());
+  return c.json({
+    success: true,
+    message: `Current PRD set to ${prdNumber}`,
+    context: actionRouter.getConversationSummary(),
+  });
+});

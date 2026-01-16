@@ -29,7 +29,45 @@ export type AppControlAction =
   | "previous"
   | "volume_up"
   | "volume_down"
-  | "mute";
+  | "mute"
+  // Window management
+  | "snap_left"
+  | "snap_right"
+  | "snap_top"
+  | "snap_bottom"
+  | "center"
+  | "move_display"
+  | "tile_left"
+  | "tile_right"
+  // Browser
+  | "open_url"
+  | "new_tab"
+  | "close_tab"
+  | "refresh"
+  | "back"
+  | "forward"
+  // Clipboard
+  | "copy"
+  | "paste"
+  | "select_all"
+  | "read_clipboard"
+  // Finder
+  | "open_folder"
+  | "new_window"
+  | "go_to_path"
+  // VS Code
+  | "open_file"
+  | "go_to_line"
+  | "command_palette"
+  // Terminal
+  | "clear_terminal"
+  | "delete_line"
+  | "delete_word"
+  // Communication
+  | "send_message"
+  | "send_email"
+  | "create_event"
+  | "create_reminder";
 
 /**
  * App control event
@@ -240,6 +278,229 @@ export class AppleScriptExecutor {
 
       case "mute":
         return `set volume with output muted`;
+
+      // Window Management
+      case "snap_left":
+      case "tile_left":
+        return `
+tell application "System Events" to tell process "${app}"
+  set screenSize to size of first desktop
+  set screenWidth to item 1 of screenSize
+  set screenHeight to item 2 of screenSize
+  set position of window 1 to {0, 25}
+  set size of window 1 to {screenWidth / 2, screenHeight - 25}
+end tell`;
+
+      case "snap_right":
+      case "tile_right":
+        return `
+tell application "System Events" to tell process "${app}"
+  set screenSize to size of first desktop
+  set screenWidth to item 1 of screenSize
+  set screenHeight to item 2 of screenSize
+  set position of window 1 to {screenWidth / 2, 25}
+  set size of window 1 to {screenWidth / 2, screenHeight - 25}
+end tell`;
+
+      case "snap_top":
+        return `
+tell application "System Events" to tell process "${app}"
+  set screenSize to size of first desktop
+  set screenWidth to item 1 of screenSize
+  set screenHeight to item 2 of screenSize
+  set position of window 1 to {0, 25}
+  set size of window 1 to {screenWidth, screenHeight / 2}
+end tell`;
+
+      case "snap_bottom":
+        return `
+tell application "System Events" to tell process "${app}"
+  set screenSize to size of first desktop
+  set screenWidth to item 1 of screenSize
+  set screenHeight to item 2 of screenSize
+  set position of window 1 to {0, screenHeight / 2}
+  set size of window 1 to {screenWidth, screenHeight / 2}
+end tell`;
+
+      case "center":
+        return `
+tell application "System Events" to tell process "${app}"
+  set screenSize to size of first desktop
+  set screenWidth to item 1 of screenSize
+  set screenHeight to item 2 of screenSize
+  set windowSize to size of window 1
+  set windowWidth to item 1 of windowSize
+  set windowHeight to item 2 of windowSize
+  set position of window 1 to {(screenWidth - windowWidth) / 2, (screenHeight - windowHeight) / 2}
+end tell`;
+
+      case "move_display":
+        // Move window to next display (macOS Cmd+Opt+M equivalent)
+        return `tell application "System Events" to keystroke "m" using {command down, option down}`;
+
+      // Browser Controls
+      case "open_url":
+        const url = parameters?.url || parameters?.target || "";
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to open location "${url}"`;
+        }
+        return null;
+
+      case "new_tab":
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to make new tab`;
+        }
+        return `tell application "System Events" to keystroke "t" using command down`;
+
+      case "close_tab":
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to close current tab`;
+        }
+        return `tell application "System Events" to keystroke "w" using command down`;
+
+      case "refresh":
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to tell active tab of front window to reload`;
+        }
+        return `tell application "System Events" to keystroke "r" using command down`;
+
+      case "back":
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to go back`;
+        }
+        return `tell application "System Events" to key code 123 using command down`; // Cmd+Left
+
+      case "forward":
+        if (this.isBrowserApp(app)) {
+          return `tell application "${app}" to go forward`;
+        }
+        return `tell application "System Events" to key code 124 using command down`; // Cmd+Right
+
+      // Clipboard
+      case "copy":
+        return `tell application "System Events" to keystroke "c" using command down`;
+
+      case "paste":
+        return `tell application "System Events" to keystroke "v" using command down`;
+
+      case "select_all":
+        return `tell application "System Events" to keystroke "a" using command down`;
+
+      case "read_clipboard":
+        return `the clipboard as text`;
+
+      // Finder
+      case "open_folder":
+        const folderPath = parameters?.path || parameters?.target || "Documents";
+        if (folderPath.startsWith("/")) {
+          return `tell application "Finder" to open POSIX file "${folderPath}"`;
+        }
+        return `tell application "Finder" to open folder "${folderPath}" of home`;
+
+      case "new_window":
+        if (app === "Finder") {
+          return `tell application "Finder" to make new Finder window`;
+        }
+        return `tell application "System Events" to keystroke "n" using command down`;
+
+      case "go_to_path":
+        const targetPath = parameters?.path || parameters?.target || "";
+        if (app === "Finder" && targetPath) {
+          return `tell application "Finder" to open POSIX file "${targetPath}"`;
+        }
+        return null;
+
+      // VS Code / Cursor
+      case "open_file":
+        const filePath = parameters?.path || parameters?.file || "";
+        if (this.isEditorApp(app) && filePath) {
+          return `do shell script "code '${filePath}'"`;
+        }
+        return `tell application "System Events" to keystroke "p" using command down`;
+
+      case "go_to_line":
+        const lineNumber = parameters?.line || "";
+        if (this.isEditorApp(app)) {
+          return `
+tell application "System Events" to tell process "${app}"
+  keystroke "g" using command down
+  keystroke "${lineNumber}"
+  keystroke return
+end tell`;
+        }
+        return null;
+
+      case "command_palette":
+        if (this.isEditorApp(app)) {
+          return `tell application "System Events" to keystroke "p" using {command down, shift down}`;
+        }
+        return null;
+
+      // Terminal
+      case "clear_terminal":
+        if (this.isTerminalApp(app)) {
+          return `tell application "System Events" to keystroke "k" using command down`;
+        }
+        return `tell application "System Events" to keystroke "l" using control down`;
+
+      case "delete_line":
+        return `tell application "System Events" to keystroke "u" using control down`;
+
+      case "delete_word":
+        return `tell application "System Events" to keystroke (key code 51) using option down`; // Opt+Delete
+
+      // Communication
+      case "send_message":
+        const recipient = parameters?.recipient || parameters?.target || "";
+        const messageText = parameters?.message || parameters?.text || "";
+        if (app === "Messages" && recipient && messageText) {
+          return `
+tell application "Messages"
+  send "${messageText}" to buddy "${recipient}"
+end tell`;
+        }
+        return null;
+
+      case "send_email":
+        const emailTo = parameters?.to || parameters?.recipient || "";
+        const subject = parameters?.subject || "";
+        const body = parameters?.body || parameters?.message || "";
+        if (app === "Mail" && emailTo) {
+          return `
+tell application "Mail"
+  set newMessage to make new outgoing message with properties {subject:"${subject}", content:"${body}", visible:true}
+  tell newMessage
+    make new to recipient with properties {address:"${emailTo}"}
+  end tell
+  activate
+end tell`;
+        }
+        return null;
+
+      case "create_event":
+        const eventTitle = parameters?.title || parameters?.event || "";
+        const eventDate = parameters?.date || "";
+        if (app === "Calendar" && eventTitle) {
+          return `
+tell application "Calendar"
+  tell calendar "Work"
+    make new event with properties {summary:"${eventTitle}"}
+  end tell
+end tell`;
+        }
+        return null;
+
+      case "create_reminder":
+        const reminderText = parameters?.text || parameters?.reminder || "";
+        if (app === "Reminders" && reminderText) {
+          return `
+tell application "Reminders"
+  tell list "Reminders"
+    make new reminder with properties {name:"${reminderText}"}
+  end tell
+end tell`;
+        }
+        return null;
 
       default:
         return null;
@@ -477,6 +738,30 @@ export class AppleScriptExecutor {
   private isMusicApp(app: string): boolean {
     const musicApps = ["Music", "Spotify", "iTunes", "Apple Music"];
     return musicApps.some((m) => app.toLowerCase().includes(m.toLowerCase()));
+  }
+
+  /**
+   * Check if app is a browser
+   */
+  private isBrowserApp(app: string): boolean {
+    const browsers = ["Safari", "Chrome", "Google Chrome", "Firefox", "Edge", "Arc"];
+    return browsers.some((b) => app.toLowerCase().includes(b.toLowerCase()));
+  }
+
+  /**
+   * Check if app is a code editor
+   */
+  private isEditorApp(app: string): boolean {
+    const editors = ["Visual Studio Code", "VS Code", "Code", "Cursor", "Xcode"];
+    return editors.some((e) => app.toLowerCase().includes(e.toLowerCase()));
+  }
+
+  /**
+   * Check if app is a terminal
+   */
+  private isTerminalApp(app: string): boolean {
+    const terminals = ["Terminal", "iTerm", "iTerm2"];
+    return terminals.some((t) => app.toLowerCase().includes(t.toLowerCase()));
   }
 
   /**

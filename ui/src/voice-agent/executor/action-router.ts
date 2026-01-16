@@ -3,6 +3,7 @@
  *
  * Routes voice intents to the appropriate executor based on action type.
  * Coordinates the full voice command pipeline: transcribe -> classify -> execute.
+ * Includes status query handling and conversation context for multi-turn support.
  */
 
 import { EventEmitter } from "node:events";
@@ -23,6 +24,16 @@ import {
   createRalphExecutor,
   type RalphExecutor,
 } from "./ralph-executor.js";
+import {
+  createStatusHandler,
+  type StatusHandler,
+  type StatusQueryResult,
+} from "../ralph/status-handler.js";
+import {
+  createConversationContext,
+  type ConversationContext,
+  type ClarificationRequest,
+} from "../context/conversation-context.js";
 import type {
   VoiceIntent,
   ExecutionResult,
@@ -84,6 +95,7 @@ export interface PipelineResult {
  * Action Router class
  *
  * Orchestrates the voice command pipeline and routes to appropriate executors.
+ * Includes status query handling and conversation context for multi-turn support.
  */
 export class ActionRouter {
   private whisperClient: WhisperClient;
@@ -91,6 +103,8 @@ export class ActionRouter {
   private terminalExecutor: TerminalExecutor;
   private appleScriptExecutor: AppleScriptExecutor;
   private ralphExecutor: RalphExecutor;
+  private statusHandler: StatusHandler;
+  private conversationContext: ConversationContext;
   private config: VoiceAgentConfig;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
@@ -111,6 +125,8 @@ export class ActionRouter {
     this.terminalExecutor = createTerminalExecutor();
     this.appleScriptExecutor = createAppleScriptExecutor();
     this.ralphExecutor = createRalphExecutor();
+    this.statusHandler = createStatusHandler();
+    this.conversationContext = createConversationContext();
   }
 
   /**
@@ -391,16 +407,85 @@ export class ActionRouter {
 
   /**
    * Execute a Ralph CLI command
+   * Handles status queries and conversation context for ambiguous commands
    */
   private async executeRalphCommand(
     intent: VoiceIntent,
     options: InterpreterOptions = {}
   ): Promise<ExecutionResult> {
-    return this.ralphExecutor.execute(intent, {
+    const startTime = Date.now();
+
+    // Check if this is a status query
+    if (intent.parameters?.command === 'status' || intent.parameters?.queryType) {
+      const statusResult = await this.statusHandler.handleQuery({
+        prdNumber: intent.parameters?.prdNumber,
+        queryType: intent.parameters?.queryType,
+      });
+
+      return {
+        success: statusResult.success,
+        output: statusResult.summary,
+        error: statusResult.error,
+        action: intent.action,
+        intent,
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
+    // Check for ambiguous commands and try to resolve
+    if (intent.parameters?.ambiguous === 'true' || intent.parameters?.needsContext === 'true') {
+      const resolved = this.conversationContext.resolveAmbiguity(intent);
+
+      // If we got a clarification request, return it as an error requiring user input
+      if ('type' in resolved && resolved.type === 'clarification') {
+        return {
+          success: false,
+          error: resolved.question,
+          output: JSON.stringify({
+            needsClarification: true,
+            question: resolved.question,
+            options: resolved.options,
+          }),
+          action: intent.action,
+          intent,
+          duration_ms: Date.now() - startTime,
+        };
+      }
+
+      // Use the resolved intent
+      const result = await this.ralphExecutor.execute(resolved as VoiceIntent, {
+        cwd: options.cwd || process.cwd(),
+        timeout: options.timeout,
+        headless: true,
+      });
+
+      // Record in conversation context
+      this.conversationContext.addTurn({
+        text: intent.originalText || '',
+        intent: resolved as VoiceIntent,
+        timestamp: new Date(),
+        result,
+      });
+
+      return result;
+    }
+
+    // Execute normal Ralph command
+    const result = await this.ralphExecutor.execute(intent, {
       cwd: options.cwd || process.cwd(),
       timeout: options.timeout,
       headless: true, // Always headless for server execution
     });
+
+    // Record in conversation context
+    this.conversationContext.addTurn({
+      text: intent.originalText || '',
+      intent,
+      timestamp: new Date(),
+      result,
+    });
+
+    return result;
   }
 
   /**
@@ -583,6 +668,41 @@ export class ActionRouter {
    */
   getConfig(): VoiceAgentConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Get status for Ralph PRDs
+   */
+  async getStatus(params: {
+    prdNumber?: string;
+    queryType?: string;
+  } = {}): Promise<StatusQueryResult> {
+    return this.statusHandler.handleQuery(params);
+  }
+
+  /**
+   * Get conversation context summary
+   */
+  getConversationSummary(): {
+    turnCount: number;
+    currentPrd?: string;
+    lastCommand?: string;
+  } {
+    return this.conversationContext.getSummary();
+  }
+
+  /**
+   * Clear conversation context
+   */
+  clearConversationContext(): void {
+    this.conversationContext.clear();
+  }
+
+  /**
+   * Set current PRD in conversation context
+   */
+  setCurrentPrd(prdNumber: string): void {
+    this.conversationContext.setCurrentPrd(prdNumber);
   }
 }
 

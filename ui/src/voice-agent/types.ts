@@ -11,6 +11,7 @@ export type VoiceActionType =
   | 'terminal'         // Execute terminal commands via Open Interpreter
   | 'app_control'      // Control Mac apps via AppleScript (Phase 2)
   | 'ralph_command'    // Execute Ralph CLI commands
+  | 'claude_code'      // Execute via Claude Code CLI with TTS response
   | 'web_search'       // Search the web
   | 'file_operation'   // File system operations
   | 'unknown';         // Unrecognized intent
@@ -300,4 +301,83 @@ export interface RalphExecutorOptions {
 
   /** Whether to use headless mode */
   headless?: boolean;
+}
+
+/**
+ * Claude Code executor options
+ */
+export interface ClaudeCodeExecutorOptions {
+  /** Working directory for command execution */
+  cwd?: string;
+
+  /** Timeout in milliseconds (default: 5 minutes) */
+  timeout?: number;
+
+  /** Model to use (haiku, sonnet, opus) */
+  model?: string;
+
+  /** Whether to include conversation context */
+  includeContext?: boolean;
+
+  /** Session ID for conversation context */
+  sessionId?: string;
+
+  /** Whether to speak the response via TTS */
+  enableTTS?: boolean;
+}
+
+/**
+ * TTS (Text-to-Speech) provider types
+ */
+export type TTSProvider = 'macos' | 'espeak' | 'system';
+
+/**
+ * TTS configuration
+ */
+export interface TTSConfig {
+  /** Voice name (e.g., "Samantha", "Daniel") */
+  voice: string;
+
+  /** Speech rate (words per minute, typically 150-250) */
+  rate: number;
+
+  /** Provider to use */
+  provider: TTSProvider;
+
+  /** Volume (0.0 to 1.0) */
+  volume: number;
+
+  /** Whether TTS is enabled */
+  enabled: boolean;
+}
+
+/**
+ * TTS result from speaking
+ */
+export interface TTSResult {
+  /** Whether speech was successful */
+  success: boolean;
+
+  /** Error message if failed */
+  error?: string;
+
+  /** Duration of speech in milliseconds */
+  duration_ms?: number;
+
+  /** Whether speech was interrupted */
+  interrupted?: boolean;
+}
+
+/**
+ * Extended execution result with TTS fields
+ */
+export interface ExecutionResultWithTTS extends ExecutionResult {
+  /** Filtered output suitable for TTS */
+  filteredOutput?: string;
+
+  /** Text that was/will be spoken */
+  ttsText?: string;
+
+  /** TTS result if speech was attempted */
+  ttsResult?: TTSResult;
 }

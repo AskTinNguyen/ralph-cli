@@ -37,3 +37,4 @@ __pycache__/
 
 # UI test screenshots
 ralph-ui-*.png
+ui/python/venv/

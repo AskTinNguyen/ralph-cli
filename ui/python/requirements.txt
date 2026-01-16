@@ -1,0 +1,22 @@
+# Ralph Voice Agent - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Whisper STT (Speech-to-Text)
+openai-whisper>=20231117
+
+# Flask HTTP server
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Open Interpreter for terminal execution
+open-interpreter>=0.3.0
+
+# Audio processing (optional, enhances Whisper performance)
+ffmpeg-python>=0.2.0
+
+# NumPy (required by Whisper)
+numpy>=1.24.0
+
+# Torch (CPU version - for GPU, install separately)
+# For GPU: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+torch>=2.0.0
