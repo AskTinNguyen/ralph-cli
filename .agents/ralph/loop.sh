@@ -249,6 +249,55 @@ abs_path() {
   fi
 }
 
+# Check if currently in a worktree context (ralph/PRD-N branch)
+in_worktree_context() {
+  local current_branch
+  current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  [[ "$current_branch" =~ ^ralph/PRD-[0-9]+$ ]]
+}
+
+# Show context-aware completion instructions
+# Usage: show_completion_instructions <prd_number>
+show_completion_instructions() {
+  local prd_num="${1:-}"
+
+  if in_worktree_context; then
+    # Worktree build completed - manual merge required
+    printf "\n${C_YELLOW}╔════════════════════════════════════════════════════════╗${C_RESET}\n"
+    printf "${C_YELLOW}║  ⚠️  MANUAL MERGE REQUIRED                             ║${C_RESET}\n"
+    printf "${C_YELLOW}╚════════════════════════════════════════════════════════╝${C_RESET}\n"
+    printf "\n${C_CYAN}Build completed in isolated worktree branch.${C_RESET}\n"
+    printf "${C_DIM}Changes are NOT on main branch yet.${C_RESET}\n\n"
+
+    printf "${C_BOLD}Next Steps:${C_RESET}\n"
+    printf "  ${C_GREEN}1.${C_RESET} Review changes:\n"
+    printf "     ${C_DIM}git log --oneline${C_RESET}\n"
+    printf "     ${C_DIM}git diff main${C_RESET}\n\n"
+
+    printf "  ${C_GREEN}2.${C_RESET} Validate build:\n"
+    printf "     ${C_DIM}npm test${C_RESET}  ${C_DIM}# or your test command${C_RESET}\n"
+    printf "     ${C_DIM}npm run build${C_RESET}  ${C_DIM}# verify production build${C_RESET}\n\n"
+
+    printf "  ${C_GREEN}3.${C_RESET} Merge to main:\n"
+    if [[ -n "$prd_num" ]]; then
+      printf "     ${C_CYAN}ralph stream merge ${prd_num}${C_RESET}\n"
+    else
+      printf "     ${C_CYAN}ralph stream merge N${C_RESET}  ${C_DIM}# replace N with PRD number${C_RESET}\n"
+    fi
+    printf "     ${C_DIM}(You will be prompted for confirmation)${C_RESET}\n\n"
+
+    printf "${C_DIM}See: CLAUDE.md for full workflow documentation${C_RESET}\n"
+    printf "${C_YELLOW}────────────────────────────────────────────────────────${C_RESET}\n\n"
+  else
+    # Direct-to-main build completed
+    printf "\n${C_GREEN}╔════════════════════════════════════════════════════════╗${C_RESET}\n"
+    printf "${C_GREEN}║  ✓ BUILD COMPLETE                                      ║${C_RESET}\n"
+    printf "${C_GREEN}╚════════════════════════════════════════════════════════╝${C_RESET}\n"
+    printf "\n${C_CYAN}All stories committed directly to main branch.${C_RESET}\n"
+    printf "${C_DIM}No merge required - changes are already on main.${C_RESET}\n\n"
+  fi
+}
+
 PRD_PATH="$(abs_path "$PRD_PATH")"
 PLAN_PATH="$(abs_path "$PLAN_PATH")"
 PROGRESS_PATH="$(abs_path "$PROGRESS_PATH")"
@@ -1766,6 +1815,72 @@ validate_git_state() {
     msg_error "Git state diverged. Use --resume in interactive mode to override."
     return 1
   fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Scope Validation (Sequential Mode Support)
+# ─────────────────────────────────────────────────────────────────────────────
+# Validates that agent only modified files within PRD scope
+# Used in sequential mode to prevent contamination
+
+validate_prd_scope() {
+  # Check if scope validation is enabled
+  if [[ "${RALPH_VALIDATE_SCOPE:-false}" != "true" ]]; then
+    return 0  # Validation disabled
+  fi
+
+  # Check if ACTIVE_PRD_NUMBER is set
+  if [[ -z "${ACTIVE_PRD_NUMBER:-}" ]]; then
+    return 0  # No active PRD - skip validation
+  fi
+
+  local prd_num="${ACTIVE_PRD_NUMBER##*PRD-}"  # Extract number
+
+  # Get list of changed files in this iteration
+  local changed_files
+  changed_files=$(git diff --name-only HEAD~1 2>/dev/null || echo "")
+
+  if [[ -z "$changed_files" ]]; then
+    # No changes detected - this is OK
+    return 0
+  fi
+
+  # Check if any changed files are in other PRD directories
+  local violations=""
+  while IFS= read -r file; do
+    # Skip if file is in .ralph/PRD-N/ directory (current PRD)
+    if [[ "$file" == ".ralph/PRD-${prd_num}/"* ]]; then
+      continue
+    fi
+
+    # Check if file is in a different PRD directory
+    if [[ "$file" =~ \.ralph/PRD-([0-9]+)/ ]]; then
+      local other_prd="${BASH_REMATCH[1]}"
+      if [[ "$other_prd" != "$prd_num" ]]; then
+        violations="${violations}${violations:+$'\n'}  - $file (PRD-$other_prd)"
+      fi
+    fi
+  done <<< "$changed_files"
+
+  if [[ -n "$violations" ]]; then
+    # Scope violation detected!
+    printf "\n${C_RED}${C_BOLD}SCOPE VIOLATION DETECTED${C_RESET}\n"
+    printf "${C_DIM}Agent modified files outside PRD-${prd_num} scope:${C_RESET}\n"
+    printf "%s\n" "$violations"
+    printf "\n"
+    printf "${C_YELLOW}Rolling back this iteration...${C_RESET}\n"
+
+    # Rollback the commit
+    git reset --hard HEAD~1 2>/dev/null || true
+
+    printf "${C_RED}Iteration rolled back due to contamination.${C_RESET}\n"
+    printf "${C_DIM}Agent must only work on PRD-${prd_num}.${C_RESET}\n"
+    echo ""
+
+    return 1  # Validation failed
+  fi
+
+  return 0  # Validation passed
 }
 
 # Prompt user to confirm resume from checkpoint
@@ -3581,15 +3696,32 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         # Clear checkpoint and switch state on successful completion
         clear_checkpoint "$PRD_FOLDER"
         clear_switch_state "$PRD_FOLDER"
-        msg_success "All stories complete."
+        # Extract PRD number from folder path for completion instructions
+        local prd_num=""
+        if [[ "$PRD_FOLDER" =~ PRD-([0-9]+) ]]; then
+          prd_num="${BASH_REMATCH[1]}"
+        fi
+        show_completion_instructions "$prd_num"
         exit 0
       fi
       msg_info "Completion signal received; stories remaining: $REMAINING"
     fi
+    # Validate PRD scope (sequential mode) before marking iteration complete
+    if ! validate_prd_scope; then
+      # Scope validation failed - iteration was rolled back
+      log_error "ITERATION $i: Scope violation detected - rolled back"
+      FAILED_COUNT=$((FAILED_COUNT + 1))
+      FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i"
+      ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|${STORY_ID:-}|$ITER_DURATION|scope-violation|0"
+      HAS_ERROR=true
+      # Continue to next iteration
+      continue
+    fi
+
     # Iteration completion separator
     printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
     printf "${C_DIM}  Finished: $(date '+%Y-%m-%d %H:%M:%S') (${ITER_DURATION}s)${C_RESET}\n"
-    printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+    printf "${C_CYAN}═══════════════════────────════════════────────────────${C_RESET}\n"
     msg_success "Iteration $i complete. Remaining stories: $REMAINING"
     if [ "$REMAINING" = "0" ]; then
       # Print summary table before exit
@@ -3601,7 +3733,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       # Clear checkpoint and switch state on successful completion
       clear_checkpoint "$PRD_FOLDER"
       clear_switch_state "$PRD_FOLDER"
-      msg_success "No remaining stories."
+      # Extract PRD number from folder path for completion instructions
+      local prd_num=""
+      if [[ "$PRD_FOLDER" =~ PRD-([0-9]+) ]]; then
+        prd_num="${BASH_REMATCH[1]}"
+      fi
+      show_completion_instructions "$prd_num"
       exit 0
     fi
   else

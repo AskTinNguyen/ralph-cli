@@ -441,6 +441,66 @@ get_merge_lock_info() {
 }
 
 # ============================================================================
+# Active PRD Marker (Sequential Mode Support)
+# ============================================================================
+# Track which PRD is currently building to prevent contamination in
+# non-worktree sequential mode. Only one PRD can be active at a time.
+
+ACTIVE_PRD_FILE="$RALPH_DIR/.active-prd"
+
+get_active_prd() {
+  # Returns the currently active PRD number, or empty string if none
+  if [[ -f "$ACTIVE_PRD_FILE" ]]; then
+    cat "$ACTIVE_PRD_FILE"
+  else
+    echo ""
+  fi
+}
+
+is_prd_active() {
+  # Check if a specific PRD is currently active
+  # Args: stream_id (e.g., "PRD-2" or "2")
+  local stream_id="$1"
+  local stream_num="${stream_id##*PRD-}"  # Extract number
+  local active
+  active=$(get_active_prd)
+  [[ -n "$active" && "$active" == "$stream_num" ]]
+}
+
+has_active_prd() {
+  # Returns 0 if any PRD is currently active
+  local active
+  active=$(get_active_prd)
+  [[ -n "$active" ]]
+}
+
+set_active_prd() {
+  # Mark a PRD as active
+  # Args: stream_id (e.g., "PRD-2" or "2")
+  local stream_id="$1"
+  local stream_num="${stream_id##*PRD-}"  # Extract number
+
+  mkdir -p "$RALPH_DIR"
+  echo "$stream_num" > "$ACTIVE_PRD_FILE"
+}
+
+clear_active_prd() {
+  # Clear the active PRD marker
+  rm -f "$ACTIVE_PRD_FILE"
+}
+
+get_active_prd_info() {
+  # Returns formatted info about active PRD for display
+  local active
+  active=$(get_active_prd)
+  if [[ -n "$active" ]]; then
+    echo "PRD-$active"
+  else
+    echo "none"
+  fi
+}
+
+# ============================================================================
 # Retry with backoff (US-004)
 # ============================================================================
 
@@ -1064,13 +1124,40 @@ cmd_build() {
     fi
   fi
 
+  # ============================================================================
+  # Sequential Mode Check (Contamination Prevention)
+  # ============================================================================
+  if [[ "${RALPH_SEQUENTIAL_MODE:-false}" == "true" ]]; then
+    # Sequential mode enabled - only one PRD can build at a time
+    if has_active_prd && ! is_prd_active "$stream_id"; then
+      local active_prd
+      active_prd=$(get_active_prd_info)
+      msg_error "SEQUENTIAL MODE: Another PRD is already building"
+      echo ""
+      printf "Active PRD: ${C_BOLD}%s${C_RESET}\n" "$active_prd"
+      printf "Requested:  ${C_BOLD}%s${C_RESET}\n" "$stream_id"
+      echo ""
+      printf "${C_DIM}Sequential mode allows only ONE PRD to build at a time.${C_RESET}\n"
+      printf "${C_DIM}This prevents context contamination in large repos without worktrees.${C_RESET}\n"
+      echo ""
+      printf "${C_BOLD}Wait for ${C_YELLOW}%s${C_RESET}${C_BOLD} to complete, or:${C_RESET}\n" "$active_prd"
+      numbered_step 1 "Check status: ${C_DIM}ralph stream status${C_RESET}"
+      numbered_step 2 "Disable sequential mode in ${C_DIM}.agents/ralph/config.sh${C_RESET}"
+      echo ""
+      return 1
+    fi
+  fi
+
   # Acquire lock
   if ! acquire_lock "$stream_id"; then
     return 1
   fi
 
+  # Set active PRD marker (for sequential mode tracking)
+  set_active_prd "$stream_id"
+
   # Set up cleanup on exit
-  trap "release_lock '$stream_id'" EXIT
+  trap "release_lock '$stream_id'; clear_active_prd" EXIT
 
   local stream_dir
   stream_dir="$(get_stream_dir "$stream_id")"
@@ -1217,6 +1304,7 @@ cmd_merge() {
   local do_rebase=false
   local do_wait=false
   local force_unlock=false
+  local skip_confirm=false
   local max_wait=300
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -1234,6 +1322,10 @@ cmd_merge() {
         ;;
       --force-unlock)
         force_unlock=true
+        shift
+        ;;
+      --yes|-y)
+        skip_confirm=true
         shift
         ;;
       --max-wait=*)
@@ -1299,6 +1391,57 @@ cmd_merge() {
   if [[ "$status" != "completed" ]]; then
     msg_error "Stream $stream_id is not completed (status: $status)" >&2
     return 1
+  fi
+
+  # Merge confirmation prompt (unless --yes flag is used)
+  if [[ "${RALPH_MERGE_REQUIRE_CONFIRM:-true}" == "true" ]] && [[ "$skip_confirm" == "false" ]]; then
+    local branch="ralph/$stream_id"
+    local base_branch="main"
+
+    # Check if main exists, otherwise use master
+    if ! git show-ref --verify --quiet "refs/heads/main"; then
+      if git show-ref --verify --quiet "refs/heads/master"; then
+        base_branch="master"
+      fi
+    fi
+
+    # Show merge summary
+    printf "\n${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
+    printf "${C_BOLD}Merge Confirmation: $stream_id → $base_branch${C_RESET}\n"
+    printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n\n"
+
+    # Show commit summary
+    msg_dim "Commits to be merged:"
+    local commit_count
+    commit_count=$(git rev-list --count "$base_branch..$branch" 2>/dev/null || echo "0")
+    printf "  ${C_GREEN}%s commit(s)${C_RESET}\n\n" "$commit_count"
+
+    # Show recent commits
+    git log --oneline --no-decorate "$base_branch..$branch" 2>/dev/null | head -n 10 | while read -r line; do
+      printf "  ${C_DIM}•${C_RESET} %s\n" "$line"
+    done
+
+    if [[ "$commit_count" -gt 10 ]]; then
+      printf "  ${C_DIM}... and %d more${C_RESET}\n" $((commit_count - 10))
+    fi
+
+    printf "\n${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n"
+    printf "${C_YELLOW}This will merge the worktree branch into $base_branch.${C_RESET}\n"
+    printf "${C_DIM}Review changes: git log $base_branch..$branch${C_RESET}\n"
+    printf "${C_CYAN}───────────────────────────────────────────────────────${C_RESET}\n\n"
+
+    # Prompt for confirmation
+    printf "${C_BOLD}Proceed with merge? [y/N]:${C_RESET} "
+    read -r confirm
+
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+      msg_dim "Merge cancelled by user."
+      printf "${C_DIM}To merge later: ralph stream merge $stream_id${C_RESET}\n"
+      printf "${C_DIM}To skip confirmation: ralph stream merge $stream_id --yes${C_RESET}\n"
+      return 0
+    fi
+
+    echo ""
   fi
 
   # Acquire global merge lock to prevent concurrent merges

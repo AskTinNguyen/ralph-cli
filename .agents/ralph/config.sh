@@ -209,3 +209,47 @@ AGENT_SWITCH_ON_QUALITY=false
 # How often to show "still running" messages during long-running agent calls.
 # PROGRESS_INTERVAL=30
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Merge Policy Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Control merge behavior for worktree branches to main.
+#
+# Require explicit human confirmation before merging (default: true):
+# When enabled, `ralph stream merge N` will prompt for confirmation before merging.
+# Use --yes flag to skip confirmation: `ralph stream merge N --yes`
+RALPH_MERGE_REQUIRE_CONFIRM=true
+#
+# CRITICAL: Ralph NEVER auto-merges on build completion.
+# Merges must be triggered explicitly via `ralph stream merge N` command.
+# This is a core safety guarantee and cannot be overridden.
+#
+# Override via CLI: ralph stream merge N --yes
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sequential Mode Configuration (Contamination Prevention)
+# ─────────────────────────────────────────────────────────────────────────────
+# Enable sequential mode for projects that cannot use worktrees (e.g., large repos).
+# When enabled, only ONE PRD can build at a time, preventing context contamination.
+#
+# Enable sequential mode (default: false):
+# Set to true for large repos that cannot use worktrees (disk space constraints).
+# This enforces one-at-a-time PRD builds and prevents parallel execution.
+# RALPH_SEQUENTIAL_MODE=false
+#
+# Enable scope validation (default: false):
+# When enabled, validates that agent only modified files within PRD scope.
+# Rolls back iteration if contamination detected (agent accessed other PRDs).
+# Recommended when RALPH_SEQUENTIAL_MODE=true.
+# RALPH_VALIDATE_SCOPE=false
+#
+# Enforce strict PRD ordering (default: false):
+# When enabled, PRD-N cannot start until PRD-(N-1) is completed.
+# Example: Cannot build PRD-3 until PRD-2 is merged/completed.
+# Only useful for workflows requiring strict sequential completion.
+# RALPH_ENFORCE_ORDER=false
+#
+# Note: Worktrees provide strongest isolation and are recommended when possible.
+# Sequential mode is for projects where worktrees are not feasible.
+# ─────────────────────────────────────────────────────────────────────────────
