@@ -530,6 +530,18 @@ run_agent_with_retry() {
       return "$exit_status"
     fi
 
+    # Agent timeout (exit code 124 or 137) - log and handle (US-011)
+    if [ "$exit_status" -eq 124 ] || [ "$exit_status" -eq 137 ]; then
+      local elapsed
+      elapsed=$(get_iteration_elapsed 2>/dev/null || echo "0")
+      # Log timeout event
+      if [ -n "${PRD_FOLDER:-}" ]; then
+        log_timeout_event "$PRD_FOLDER" "agent" "${TIMEOUT_AGENT:-3600}" "$iteration" "${STORY_ID:-}" "${CURRENT_AGENT:-}"
+        display_timeout_event "agent" "${TIMEOUT_AGENT:-3600}" "$iteration" "${STORY_ID:-}" "${CURRENT_AGENT:-}"
+      fi
+      log_activity "TIMEOUT type=agent iteration=$iteration story=${STORY_ID:-} agent=${CURRENT_AGENT:-} timeout_seconds=${TIMEOUT_AGENT:-3600}"
+    fi
+
     # Agent timeout (exit code 124 from timeout command, 137 from SIGKILL) - US-011
     # Log timeout event with context before potentially retrying
     if [ "$exit_status" -eq 124 ] || [ "$exit_status" -eq 137 ]; then
@@ -3359,6 +3371,31 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     STORY_ID="$(story_field "$STORY_META" "id")"
     STORY_TITLE="$(story_field "$STORY_META" "title")"
 
+    # Check story timeout before starting work (US-011)
+    # Skip story if cumulative time across retries exceeds threshold
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    if is_story_timed_out "$PRD_FOLDER" "$STORY_ID"; then
+      local story_time
+      story_time=$(get_story_time "$PRD_FOLDER" "$STORY_ID")
+      local story_attempts
+      story_attempts=$(get_story_attempts "$PRD_FOLDER" "$STORY_ID")
+      msg_warn "Story $STORY_ID has exceeded timeout limit (${story_time}s across $story_attempts attempts)"
+      log_timeout_event "$PRD_FOLDER" "story" "$story_time" "$i" "$STORY_ID" "${CURRENT_AGENT:-}" "attempts=$story_attempts"
+      display_timeout_event "story" "$story_time" "$i" "$STORY_ID" "${CURRENT_AGENT:-}"
+      # Track as timeout for summary
+      ITER_END=$(date +%s)
+      ITER_DURATION=$((ITER_END - ITER_START))
+      ITERATION_COUNT=$((ITERATION_COUNT + 1))
+      TOTAL_DURATION=$((TOTAL_DURATION + ITER_DURATION))
+      ITERATION_RESULTS="${ITERATION_RESULTS}${ITERATION_RESULTS:+,}$i|$STORY_ID|$ITER_DURATION|story-timeout|0"
+      FAILED_COUNT=$((FAILED_COUNT + 1))
+      FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i"
+      continue
+    fi
+
+    # Start iteration timer for timeout tracking (US-011)
+    start_iteration_timer
+
     # Emit status: planning phase complete, entering execution (US-001)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
     ELAPSED=$(elapsed_since "$BUILD_START")
@@ -3449,6 +3486,23 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Log iteration start as info event (US-002)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
     log_event_info "$PRD_FOLDER" "Iteration started" "iteration=$i story=$STORY_ID mode=$MODE"
+
+    # Record iteration start time for watchdog timeout enforcement (US-011)
+    set_iteration_start "$PRD_FOLDER"
+
+    # Check story timeout before starting (US-011)
+    if is_story_timed_out "$PRD_FOLDER" "$STORY_ID"; then
+      local story_time
+      story_time=$(get_story_time "$PRD_FOLDER" "$STORY_ID")
+      local story_timeout_hours=$(( TIMEOUT_STORY / 3600 ))
+      msg_error "Story $STORY_ID has exceeded ${story_timeout_hours}h cumulative timeout (${story_time}s spent)"
+      log_timeout_event "$PRD_FOLDER" "story" "$story_time" "$i" "$STORY_ID" "${CURRENT_AGENT:-}"
+      display_timeout_event "story" "$story_time" "$i" "$STORY_ID" "${CURRENT_AGENT:-}"
+      log_activity "STORY_TIMEOUT story=$STORY_ID cumulative_seconds=$story_time threshold=${TIMEOUT_STORY}s"
+      # Mark story as failed due to timeout and continue to next iteration
+      msg_warn "Skipping story $STORY_ID due to timeout - will try next uncompleted story"
+      continue
+    fi
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
@@ -3503,6 +3557,13 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   ITER_DURATION=$((ITER_END - ITER_START))
   HEAD_AFTER="$(git_head)"
   log_activity "ITERATION $i end (duration=${ITER_DURATION}s)"
+
+  # Update story time tracking for timeout enforcement (US-011)
+  # Track cumulative time spent on each story across retries
+  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    update_story_time "$PRD_FOLDER" "$STORY_ID" "$ITER_DURATION" "true"
+  fi
   if [ "$CMD_STATUS" -ne 0 ]; then
     log_error "ITERATION $i command failed (status=$CMD_STATUS)"
     HAS_ERROR="true"
@@ -3564,6 +3625,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       reset_failure_tracking
       # Reset chain position to primary agent on success (US-002)
       reset_chain_position
+      # Clear story time tracking on success (US-011)
+      clear_story_time "$PRD_FOLDER" "$STORY_ID"
     fi
   fi
   # Track iteration result for summary table

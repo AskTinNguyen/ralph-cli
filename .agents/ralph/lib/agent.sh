@@ -5,7 +5,7 @@
 # This library provides functions for:
 # - Resolving agent names to command strings
 # - Validating agent installation
-# - Executing agents with prompts
+# - Executing agents with prompts (with optional timeout)
 # - Getting experiment assignments for A/B testing
 #
 # Usage:
@@ -22,9 +22,17 @@
 #   EXPERIMENT_NAME      - Name of assigned experiment
 #   EXPERIMENT_VARIANT   - Variant name (e.g., "control", "treatment")
 #   EXPERIMENT_EXCLUDED  - "true" if excluded from experiment
+#
+# Environment Variables (US-011 timeout enforcement):
+#   RALPH_TIMEOUT_AGENT   - Agent call timeout in seconds (default: 3600 = 60 min)
+#   RALPH_TIMEOUT_ENABLED - Set to "false" to disable timeout (default: "true")
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
+
+# Agent call timeout: 60 minutes (3600 seconds) - US-011
+TIMEOUT_AGENT="${RALPH_TIMEOUT_AGENT:-3600}"
+TIMEOUT_ENABLED="${RALPH_TIMEOUT_ENABLED:-true}"
 
 # Experiment tracking globals (set by get_experiment_assignment)
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
@@ -125,7 +133,7 @@ require_agent() {
 # ─────────────────────────────────────────────────────────────────────────────
 # run_agent
 # ─────────────────────────────────────────────────────────────────────────────
-# Execute agent with prompt from file.
+# Execute agent with prompt from file, with timeout enforcement (US-011).
 # Handles both stdin-based agents (claude, codex) and file-based agents (droid).
 #
 # Arguments:
@@ -133,6 +141,14 @@ require_agent() {
 #
 # Environment Variables:
 #   AGENT_CMD - Agent command (set by resolve_agent_cmd or config.sh)
+#   RALPH_TIMEOUT_AGENT - Timeout in seconds (default: 3600 = 60 min)
+#   RALPH_TIMEOUT_ENABLED - Set to "false" to disable timeout
+#
+# Exit Codes:
+#   0   - Success
+#   124 - Timeout (SIGTERM sent by timeout command)
+#   137 - Killed (128 + 9 = SIGKILL after grace period)
+#   *   - Other exit codes from agent
 #
 # Security:
 #   - Uses bash -c for command isolation (preferred over eval)
@@ -141,20 +157,38 @@ require_agent() {
 #
 # Example:
 #   run_agent "/tmp/prompt.md"
-#   # Executes: claude -p --dangerously-skip-permissions < /tmp/prompt.md
-#   # Or: droid exec --skip-permissions-unsafe -f /tmp/prompt.md
+#   # Executes: timeout 3600 claude -p --dangerously-skip-permissions < /tmp/prompt.md
+#   # Or: timeout 3600 droid exec --skip-permissions-unsafe -f /tmp/prompt.md
 # ─────────────────────────────────────────────────────────────────────────────
 run_agent() {
   local prompt_file="$1"
+  local use_timeout="$TIMEOUT_ENABLED"
+  local timeout_secs="$TIMEOUT_AGENT"
+
+  # Check if timeout command is available and enabled
+  local timeout_prefix=""
+  if [[ "$use_timeout" == "true" ]] && command -v timeout &>/dev/null; then
+    # Use timeout with SIGTERM, then SIGKILL after 30s grace period
+    timeout_prefix="timeout --signal=TERM --kill-after=30 $timeout_secs"
+  fi
+
   if [[ "$AGENT_CMD" == *"{prompt}"* ]]; then
     # File-based agent (e.g., droid with {prompt} placeholder)
     local escaped
     escaped=$(printf '%q' "$prompt_file")
     local cmd="${AGENT_CMD//\{prompt\}/$escaped}"
-    eval "$cmd"
+    if [[ -n "$timeout_prefix" ]]; then
+      eval "$timeout_prefix $cmd"
+    else
+      eval "$cmd"
+    fi
   else
     # Stdin-based agent (e.g., claude, codex)
-    cat "$prompt_file" | eval "$AGENT_CMD"
+    if [[ -n "$timeout_prefix" ]]; then
+      cat "$prompt_file" | eval "$timeout_prefix $AGENT_CMD"
+    else
+      cat "$prompt_file" | eval "$AGENT_CMD"
+    fi
   fi
 }
 
