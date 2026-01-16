@@ -576,3 +576,42 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
     5. ✅ Cost persists across checkpoint/resume (init_cost_tracking preserves existing .cost.json)
 - **Note**: This iteration was assigned US-007 but the story was already completed in a previous iteration. No new commits needed.
 ---
+
+## [2026-01-16T16:50:00+07:00] - US-008: Budget warnings and enforcement
+Thread:
+Run: 20260116-160954-10574 (iteration 8)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-8.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-8.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 2ab5e3a docs(PRD-67): mark US-008 acceptance criteria as complete
+- Post-commit status: clean (only unrelated S2-Game files remain)
+- Verification:
+  - Command: RALPH_ROOT=/path/.ralph node bin/ralph budget set 5.00 --prd=67 -> PASS (creates .budget.json)
+  - Command: cat .ralph/PRD-67/.budget.json -> PASS (valid JSON with limit, warnings, enforce)
+  - Command: RALPH_ROOT=/path/.ralph node bin/ralph budget show -> PASS (displays budget table)
+  - Command: RALPH_ROOT=/path/.ralph node bin/ralph budget clear --prd=67 -> PASS (removes .budget.json)
+  - Verification: budget.sh sourced in loop.sh (line 52)
+  - Verification: check_and_enforce_budget() called after update_cost() in loop.sh (line 3505-3509)
+  - Verification: display_budget_warning() shows color-coded warnings at 75%/90%
+  - Verification: prompt_budget_continue() prompts user at 100% in interactive mode
+  - API verification: GET /api/streams/:id/budget endpoint implemented (api.ts lines 8778-8831)
+  - API verification: GET /api/partials/budget-display endpoint implemented (api.ts lines 8843-8921)
+  - CSS verification: .budget-display styles with 4 color states defined (rams-ui.css lines 1798-1935)
+- Files changed:
+  - .ralph/PRD-67/prd.md (acceptance criteria marked complete)
+- What was implemented:
+  - US-008 was already implemented in commit 7a6512b (earlier in this build run)
+  - This iteration verified all 6 acceptance criteria are met:
+    1. ✅ Budget config file: `.ralph/PRD-N/.budget.json` created by `ralph budget set`
+    2. ✅ Warning at 75% of budget (yellow) - display_budget_warning()
+    3. ✅ Warning at 90% of budget (orange/bold yellow) - display_budget_warning()
+    4. ✅ Error at 100% of budget (red, build pauses) - check_and_enforce_budget() + prompt_budget_continue()
+    5. ✅ Warnings visible in both CLI and UI - CLI via budget.sh, UI via budget-display partial
+    6. ✅ Budget config command: `ralph budget set <amount>` - lib/commands/budget.js
+- **Learnings for future iterations:**
+  - Budget checking integrates cleanly with existing cost tracking from US-007
+  - Warning markers (.budget-warnings-shown) prevent duplicate warnings in CLI
+  - Non-interactive mode auto-stops at budget limit for safety
+  - getEffectiveCwd() walks up to find .ralph, may need RALPH_ROOT in some scenarios
+---

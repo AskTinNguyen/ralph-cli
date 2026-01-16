@@ -131,7 +131,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-008: Budget warnings and enforcement
+### [x] US-008: Budget warnings and enforcement
 
 **As a** developer with budget limits
 **I want** warnings before exceeding budget
@@ -139,12 +139,12 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Budget config file: `.ralph/PRD-N/.budget.json`
-- [ ] Warning at 75% of budget (yellow)
-- [ ] Warning at 90% of budget (orange)
-- [ ] Error at 100% of budget (red, build pauses)
-- [ ] Warnings visible in both CLI and UI
-- [ ] Budget config command: `ralph budget set <amount>`
+- [x] Budget config file: `.ralph/PRD-N/.budget.json`
+- [x] Warning at 75% of budget (yellow)
+- [x] Warning at 90% of budget (orange)
+- [x] Error at 100% of budget (red, build pauses)
+- [x] Warnings visible in both CLI and UI
+- [x] Budget config command: `ralph budget set <amount>`
 
 ---
 
