@@ -55,13 +55,20 @@ source "$SCRIPT_DIR/lib/budget.sh"
 # shellcheck source=lib/heartbeat.sh
 source "$SCRIPT_DIR/lib/heartbeat.sh"
 
+# Source timeout utilities for timeout enforcement (US-011)
+# Note: Sourced before watchdog.sh so file-based iteration tracking functions take precedence
+# shellcheck source=lib/timeout.sh
+source "$SCRIPT_DIR/lib/timeout.sh"
+
 # Source watchdog utilities for auto-recovery (US-010)
+# Note: Sourced after timeout.sh - its file-based iteration tracking functions override
+# the in-memory versions, enabling cross-process visibility for watchdog monitoring
 # shellcheck source=lib/watchdog.sh
 source "$SCRIPT_DIR/lib/watchdog.sh"
 
-# Source timeout utilities for timeout enforcement (US-011)
-# shellcheck source=lib/timeout.sh
-source "$SCRIPT_DIR/lib/timeout.sh"
+# Source notification utilities for multi-channel notifications (US-012)
+# shellcheck source=lib/notify.sh
+source "$SCRIPT_DIR/lib/notify.sh"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
@@ -3320,6 +3327,9 @@ TOTAL_BUILD_COST=0
 # Start watchdog for auto-recovery from stalled builds (US-010)
 start_watchdog "$PRD_FOLDER_FOR_COST"
 
+# Send build start notification (US-012)
+notify_build_start "$PRD_FOLDER_FOR_COST" "$MAX_ITERATIONS"
+
 for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
@@ -3593,6 +3603,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           chain_error_context=$(extract_error_context "$LOG_FILE")
           log_event_error_with_context "$PRD_FOLDER" "Agent fallback chain exhausted" "" "$LOG_FILE" "$i" "$STORY_ID" "$CURRENT_AGENT"
           display_error_with_context "Agent fallback chain exhausted" "story=$STORY_ID iteration=$i" "$chain_error_context"
+          # Send needs_human notification (US-012)
+          notify_needs_human "$PRD_FOLDER" "Agent fallback chain exhausted - all agents failed" "$STORY_ID"
           # Continue to next iteration rather than infinite loop
           # Story remains unchecked and can be retried manually later
         else
@@ -3999,6 +4011,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           prd_num="${BASH_REMATCH[1]}"
         fi
         show_completion_instructions "$prd_num"
+        # Send build completion notification (US-012)
+        notify_build_complete "$PRD_FOLDER" "$SUCCESS_COUNT" "$TOTAL_DURATION" "$TOTAL_BUILD_COST"
         # Stop watchdog before exit (US-010)
         stop_watchdog "$PRD_FOLDER"
         exit 0
@@ -4038,6 +4052,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         prd_num="${BASH_REMATCH[1]}"
       fi
       show_completion_instructions "$prd_num"
+      # Send build completion notification (US-012)
+      notify_build_complete "$PRD_FOLDER" "$SUCCESS_COUNT" "$TOTAL_DURATION" "$TOTAL_BUILD_COST"
       # Stop watchdog before exit (US-010)
       stop_watchdog "$PRD_FOLDER"
       exit 0
@@ -4116,6 +4132,14 @@ fi
 print_error_summary "$FAILED_ITERATIONS" "$FAILED_COUNT"
 
 if [ "$HAS_ERROR" = "true" ]; then
+  # Send build failure notification (US-012)
+  PRD_FOLDER="$(dirname "$PRD_PATH")"
+  notify_build_failed "$PRD_FOLDER" "$FAILED_COUNT iteration(s) failed" "${STORY_ID:-}"
   exit 1
 fi
+
+# Send build completion notification for max iterations reached (US-012)
+PRD_FOLDER="$(dirname "$PRD_PATH")"
+notify_build_complete "$PRD_FOLDER" "$SUCCESS_COUNT" "$TOTAL_DURATION" "${TOTAL_BUILD_COST:-0}"
+
 exit 0
