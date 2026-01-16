@@ -143,14 +143,26 @@ export class ActionRouter {
 
   /**
    * Initialize the TTS engine
+   * Uses Piper TTS with Alba voice by default, falls back to macOS if unavailable
    */
   private async initTTS(): Promise<void> {
     try {
-      this.ttsEngine = await createTTSEngine({ provider: "macos" });
+      // Default to Piper with Alba voice
+      this.ttsEngine = await createTTSEngine({ provider: "piper", voice: "alba" });
       const available = await this.ttsEngine.checkAvailable();
       if (!available.available) {
-        console.warn("TTS not available:", available.error);
-        this.ttsEnabled = false;
+        console.warn("Piper TTS not available, falling back to macOS:", available.error);
+        // Fall back to macOS
+        this.ttsEngine = await createTTSEngine({ provider: "macos" });
+        const macosAvailable = await this.ttsEngine.checkAvailable();
+        if (!macosAvailable.available) {
+          console.warn("macOS TTS also not available:", macosAvailable.error);
+          this.ttsEnabled = false;
+        } else {
+          console.log("TTS initialized: macOS (fallback)");
+        }
+      } else {
+        console.log("TTS initialized: Piper (alba)");
       }
     } catch (error) {
       console.warn("Failed to initialize TTS:", error);
