@@ -505,6 +505,58 @@ export interface SwitchEvent {
 }
 
 /**
+ * Author types for authorship tracking
+ */
+export type AuthorType =
+  | 'human'              // Local user via UI
+  | 'ai:claude'          // Claude agent (generic)
+  | 'ai:claude:opus'     // Specific models
+  | 'ai:claude:sonnet'
+  | 'ai:claude:haiku'
+  | 'ai:codex'           // OpenAI Codex
+  | 'ai:droid'           // Factory.ai
+  | 'unknown';           // Imported/legacy content
+
+/**
+ * A block of content with authorship information
+ */
+export interface AuthorshipBlock {
+  id: string;                    // UUID
+  lineStart: number;             // 1-indexed
+  lineEnd: number;               // inclusive
+  contentHash: string;           // SHA-256 for change detection
+  author: AuthorType;
+  timestamp: string;             // ISO 8601
+  modifiedBy?: AuthorType;       // If edited by different author
+  modifiedAt?: string;
+  originalAuthor?: AuthorType;   // Before modification
+  context?: {
+    storyId?: string;            // US-XXX
+    runId?: string;              // Ralph run ID
+    model?: string;              // Full model name
+  };
+}
+
+/**
+ * Authorship metadata for a file
+ */
+export interface AuthorshipMetadata {
+  version: 1;
+  filePath: string;
+  lastUpdated: string;
+  defaultAuthor: AuthorType;
+  blocks: AuthorshipBlock[];
+  stats: {
+    humanLines: number;
+    aiLines: number;
+    unknownLines: number;
+    totalLines: number;
+    humanPercentage: number;
+    aiPercentage: number;
+  };
+}
+
+/**
  * Data point for success rate time series
  */
 export interface SuccessRateDataPoint {

@@ -3020,6 +3020,12 @@ api.get("/partials/stream-detail", (c) => {
       <span>${stream.completedStories} / ${stream.totalStories} stories (${completionPercentage}%)</span>
     </div>
   </div>
+  <div class="stream-detail-actions">
+    <a href="/workflow.html?stream=${stream.id}" class="rams-btn rams-btn-primary" style="display: inline-flex; align-items: center; gap: var(--rams-space-2);">
+      <span>🏭</span>
+      <span>View Workflow</span>
+    </a>
+  </div>
 </div>
 
 <div class="stream-progress" style="margin-bottom: var(--spacing-lg);">
@@ -3484,6 +3490,251 @@ api.put("/files/*", async (c) => {
       {
         error: "internal_error",
         message: "Failed to write file",
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Authorship Tracking API Endpoints
+ *
+ * REST API endpoints for managing authorship metadata.
+ * Tracks which content was written by AI agents vs humans.
+ */
+
+// Import authorship functions (dynamic import for lazy loading)
+let authorshipReader: typeof import('../services/authorship-reader.js') | null = null;
+
+async function getAuthorshipReader() {
+  if (!authorshipReader) {
+    authorshipReader = await import('../services/authorship-reader.js');
+  }
+  return authorshipReader;
+}
+
+/**
+ * GET /api/authorship/:path
+ *
+ * Get authorship metadata for a file.
+ * The :path parameter should be a relative path within .ralph (e.g., PRD-3/prd.md)
+ *
+ * Returns:
+ *   - 200 with authorship metadata (JSON)
+ *   - 200 with null if no authorship data exists
+ *   - 400 if path is invalid
+ *   - 403 if path is outside .ralph directory
+ */
+api.get("/authorship/*", async (c) => {
+  const rawPath = c.req.path.replace(/^\/api\/authorship\//, "");
+  const requestedPath = decodeURIComponent(rawPath);
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: "bad_request",
+        message: "File path is required",
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
+      },
+      403
+    );
+  }
+
+  try {
+    const reader = await getAuthorshipReader();
+    const metadata = reader.loadAuthorship(requestedPath);
+
+    return c.json({
+      success: true,
+      metadata,
+      path: requestedPath,
+    });
+  } catch (err) {
+    return c.json(
+      {
+        error: "internal_error",
+        message: "Failed to load authorship metadata",
+      },
+      500
+    );
+  }
+});
+
+/**
+ * PUT /api/authorship/:path
+ *
+ * Update authorship metadata for a file.
+ * The :path parameter should be a relative path within .ralph (e.g., PRD-3/prd.md)
+ *
+ * Request body: JSON with:
+ *   - content: The current file content (for reconciliation)
+ *   - author: The author type making the change
+ *   - metadata: Optional - full metadata object to save directly
+ *
+ * Returns:
+ *   - 200 on success with updated metadata
+ *   - 400 if path or body is invalid
+ *   - 403 if path is outside .ralph directory
+ */
+api.put("/authorship/*", async (c) => {
+  const rawPath = c.req.path.replace(/^\/api\/authorship\//, "");
+  const requestedPath = decodeURIComponent(rawPath);
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: "bad_request",
+        message: "File path is required",
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
+      },
+      403
+    );
+  }
+
+  try {
+    const body = await c.req.json();
+    const reader = await getAuthorshipReader();
+
+    let metadata;
+
+    if (body.metadata) {
+      // Direct metadata update
+      metadata = body.metadata;
+    } else if (body.content !== undefined && body.author) {
+      // Reconcile authorship with new content
+      const oldMeta = reader.loadAuthorship(requestedPath);
+      metadata = reader.reconcileAuthorship(
+        oldMeta,
+        body.content,
+        body.author,
+        requestedPath
+      );
+    } else {
+      return c.json(
+        {
+          error: "bad_request",
+          message: "Request must include either 'metadata' or both 'content' and 'author'",
+        },
+        400
+      );
+    }
+
+    // Save the metadata
+    reader.saveAuthorship(requestedPath, metadata);
+
+    return c.json({
+      success: true,
+      metadata,
+      path: requestedPath,
+    });
+  } catch (err) {
+    return c.json(
+      {
+        error: "internal_error",
+        message: "Failed to save authorship metadata",
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/authorship/:path/initialize
+ *
+ * Initialize authorship metadata for a file that doesn't have any.
+ * Marks all existing content with the specified default author.
+ *
+ * Request body: JSON with:
+ *   - defaultAuthor: The author type for existing content (default: 'unknown')
+ *
+ * Returns:
+ *   - 200 on success with new metadata
+ *   - 400 if path is invalid
+ *   - 403 if path is outside .ralph directory
+ *   - 404 if file doesn't exist
+ */
+api.post("/authorship/*/initialize", async (c) => {
+  const rawPath = c.req.path.replace(/^\/api\/authorship\//, "").replace(/\/initialize$/, "");
+  const requestedPath = decodeURIComponent(rawPath);
+
+  if (!requestedPath) {
+    return c.json(
+      {
+        error: "bad_request",
+        message: "File path is required",
+      },
+      400
+    );
+  }
+
+  // Validate the path is within .ralph
+  const validatedPath = validateFilePath(requestedPath);
+
+  if (!validatedPath) {
+    return c.json(
+      {
+        error: "forbidden",
+        message: "Access denied: path is outside .ralph directory",
+      },
+      403
+    );
+  }
+
+  // Check if file exists
+  if (!fs.existsSync(validatedPath)) {
+    return c.json(
+      {
+        error: "not_found",
+        message: `File not found: ${requestedPath}`,
+      },
+      404
+    );
+  }
+
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const defaultAuthor = body.defaultAuthor || 'unknown';
+
+    const reader = await getAuthorshipReader();
+    const content = fs.readFileSync(validatedPath, 'utf-8');
+
+    const metadata = reader.initializeAuthorship(content, requestedPath, defaultAuthor);
+    reader.saveAuthorship(requestedPath, metadata);
+
+    return c.json({
+      success: true,
+      metadata,
+      path: requestedPath,
+    });
+  } catch (err) {
+    return c.json(
+      {
+        error: "internal_error",
+        message: "Failed to initialize authorship metadata",
       },
       500
     );
@@ -9585,6 +9836,232 @@ api.get("/partials/streams-grid", (c) => {
       ${streamCards}
     </div>
   `);
+});
+
+/**
+ * GET /api/streams/:id/workflow-graph
+ *
+ * Get workflow graph data for visualization (Cytoscape.js format)
+ *
+ * Returns:
+ *   - dispatcher: Dispatcher node (PRD) data
+ *   - stats: Story and agent statistics
+ *   - elements: Cytoscape graph elements (nodes + edges)
+ */
+api.get('/streams/:id/workflow-graph', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      { error: 'not_found', message: 'Ralph root not found' },
+      404
+    );
+  }
+
+  const prdDir = path.join(ralphRoot, `PRD-${id}`);
+  const planPath = path.join(prdDir, 'plan.md');
+  const progressPath = path.join(prdDir, 'progress.md');
+  const statusPath = path.join(prdDir, '.status.json');
+
+  // Also check worktree paths
+  const worktreePrdDir = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+  const worktreePlanPath = path.join(worktreePrdDir, 'plan.md');
+  const worktreeProgressPath = path.join(worktreePrdDir, 'progress.md');
+  const worktreeStatusPath = path.join(worktreePrdDir, '.status.json');
+
+  // Use worktree paths if they exist
+  const effectivePlanPath = fs.existsSync(worktreePlanPath) ? worktreePlanPath : planPath;
+  const effectiveProgressPath = fs.existsSync(worktreeProgressPath) ? worktreeProgressPath : progressPath;
+  const effectiveStatusPath = fs.existsSync(worktreeStatusPath) ? worktreeStatusPath : statusPath;
+
+  if (!fs.existsSync(effectivePlanPath)) {
+    return c.json(
+      { error: 'not_found', message: 'Plan file not found' },
+      404
+    );
+  }
+
+  try {
+    // Parse plan.md to get all stories
+    const planContent = fs.readFileSync(effectivePlanPath, 'utf-8');
+
+    // Parse stories from plan.md (format: ### US-XXX: Title or ### [ ] US-XXX: Title)
+    const stories: { id: string; title: string; status: string; acceptanceCriteria: any[] }[] = [];
+    const lines = planContent.split('\n');
+
+    for (const line of lines) {
+      // Match story headings with or without checkbox
+      // Pattern: ### US-001: Title or ### [ ] US-001: Title or ### [x] US-001: Title
+      const storyMatch = line.match(/^###\s*(?:\[([ xX])\]\s*)?(US-\d+):\s*(.+)$/i);
+
+      if (storyMatch) {
+        const checkbox = storyMatch[1]; // May be undefined for plan.md format
+        const storyId = storyMatch[2].toUpperCase();
+        const storyTitle = storyMatch[3].trim();
+        const isCompleted = checkbox && checkbox.toLowerCase() === 'x';
+
+        stories.push({
+          id: storyId,
+          title: storyTitle,
+          status: isCompleted ? 'completed' : 'pending',
+          acceptanceCriteria: []
+        });
+      }
+    }
+
+    // Parse progress.md to get completion status
+    const progressStories = new Map<string, { status: string; progress: number }>();
+    if (fs.existsSync(effectiveProgressPath)) {
+      const progressContent = fs.readFileSync(effectiveProgressPath, 'utf-8');
+      const lines = progressContent.split('\n');
+
+      for (const line of lines) {
+        // Match story completion markers: ## [x] US-001: Title or ## [ ] US-001: Title
+        const storyMatch = line.match(/^##\s*\[([ xX])\]\s*(US-\d+):/i);
+        if (storyMatch) {
+          const storyId = storyMatch[2].toUpperCase();
+          const isCompleted = storyMatch[1].toLowerCase() === 'x';
+          progressStories.set(storyId, {
+            status: isCompleted ? 'completed' : 'in_progress',
+            progress: isCompleted ? 1.0 : 0.5,
+          });
+        }
+      }
+    }
+
+    // Get current build status
+    let currentStoryId: string | null = null;
+    let currentIteration = 0;
+    let currentModel = 'sonnet';
+
+    if (fs.existsSync(effectiveStatusPath)) {
+      const statusContent = fs.readFileSync(effectiveStatusPath, 'utf-8');
+      const status = JSON.parse(statusContent);
+      currentStoryId = status.story_id || null;
+      currentIteration = status.iteration || 0;
+      // Try to infer model from status (may not be available)
+      currentModel = status.model || 'sonnet';
+    }
+
+    // Build graph nodes
+    const nodes: any[] = [];
+    const edges: any[] = [];
+
+    // Dispatcher node (PRD)
+    const dispatcherId = `PRD-${id}`;
+    const completedCount = stories.filter(s =>
+      progressStories.get(s.id)?.status === 'completed' || s.status === 'completed'
+    ).length;
+
+    nodes.push({
+      data: {
+        id: dispatcherId,
+        type: 'dispatcher',
+        label: `PRD-${id}`,
+        total_stories: stories.length,
+        completed_stories: completedCount,
+      },
+      classes: ['dispatcher', 'status-running'],
+    });
+
+    // Story nodes
+    let inProgressCount = 0;
+    for (const story of stories) {
+      const progressData = progressStories.get(story.id);
+      const status = progressData?.status || story.status || 'ready';
+      const progress = progressData?.progress || 0;
+
+      if (status === 'in_progress') {
+        inProgressCount++;
+      }
+
+      nodes.push({
+        data: {
+          id: story.id,
+          type: 'story',
+          label: story.title.substring(0, 30) + (story.title.length > 30 ? '...' : ''),
+          status: status,
+          progress: progress,
+          iterations: 0,
+          cost: 0,
+        },
+        classes: ['story', `status-${status}`],
+      });
+
+      // Edge from dispatcher to story
+      edges.push({
+        data: {
+          id: `edge-${dispatcherId}-to-${story.id}`,
+          source: dispatcherId,
+          target: story.id,
+          type: 'story-path',
+        },
+        classes: [],
+      });
+    }
+
+    // Add active agent node if there's a running build
+    let activeAgents = 0;
+    if (currentStoryId && currentIteration > 0) {
+      const agentId = `agent-${id}-${currentStoryId}-active`;
+      nodes.push({
+        data: {
+          id: agentId,
+          type: 'agent',
+          label: `Iter ${currentIteration}`,
+          parent_story: currentStoryId,
+          model: currentModel,
+          tokens_budget: 50000,
+          tokens_used: 0,
+          elapsed_seconds: 0,
+          phase: 'executing',
+        },
+        classes: ['agent', `model-${currentModel}`],
+      });
+
+      // Edge from dispatcher to current story (active path)
+      edges.push({
+        data: {
+          id: `edge-active-${agentId}`,
+          source: dispatcherId,
+          target: currentStoryId,
+          type: 'agent-path',
+        },
+        classes: ['active'],
+      });
+
+      activeAgents = 1;
+    }
+
+    // Return graph data
+    return c.json({
+      dispatcher_id: dispatcherId,
+      dispatcher: {
+        id: dispatcherId,
+        label: `PRD-${id}`,
+        total_stories: stories.length,
+        completed_stories: completedCount,
+      },
+      stats: {
+        total_stories: stories.length,
+        completed_stories: completedCount,
+        inprogress_stories: inProgressCount,
+        active_agents: activeAgents,
+      },
+      elements: {
+        nodes: nodes,
+        edges: edges,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('Error generating workflow graph:', error);
+    return c.json(
+      { error: 'internal_error', message: error.message },
+      500
+    );
+  }
 });
 
 export { api };

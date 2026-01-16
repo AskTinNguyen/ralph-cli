@@ -267,6 +267,168 @@
       max-width: 100%;
       height: auto;
     }
+
+    /* Authorship tracking styles */
+    .authorship-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-2) var(--rams-space-3);
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+      background: var(--rams-white);
+      border: var(--rams-border-width) solid var(--rams-border-color);
+      border-radius: var(--rams-radius-sm);
+      color: var(--rams-gray-600);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .authorship-toggle:hover {
+      color: var(--rams-gray-900);
+      border-color: var(--rams-gray-300);
+    }
+    .authorship-toggle.active {
+      background: var(--rams-accent);
+      color: white;
+      border-color: var(--rams-accent);
+    }
+    .authorship-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+    .authorship-stats-badge {
+      font-size: var(--rams-text-xs);
+      color: var(--rams-gray-500);
+      font-family: var(--rams-font-mono);
+    }
+    .authorship-legend {
+      display: none;
+      padding: var(--rams-space-3) var(--rams-space-4);
+      background: var(--rams-gray-50);
+      border-bottom: var(--rams-border-width) solid var(--rams-border-color);
+      gap: var(--rams-space-4);
+      flex-wrap: wrap;
+    }
+    .authorship-legend.visible {
+      display: flex;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      font-size: var(--rams-text-xs);
+      font-weight: 500;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+    .legend-item.human .legend-dot {
+      background: rgba(220, 38, 38, 0.15);
+      border-left: 3px solid #DC2626;
+    }
+    .legend-item.ai-claude .legend-dot {
+      background: rgba(59, 130, 246, 0.15);
+      border-left: 3px solid #3B82F6;
+    }
+    .legend-item.ai-codex .legend-dot {
+      background: rgba(168, 85, 247, 0.15);
+      border-left: 3px solid #A855F7;
+    }
+    .legend-item.ai-droid .legend-dot {
+      background: rgba(245, 158, 11, 0.15);
+      border-left: 3px solid #F59E0B;
+    }
+    .legend-item.unknown .legend-dot {
+      background: rgba(209, 213, 219, 0.2);
+      border-left: 3px solid #D1D5DB;
+    }
+    /* Edit pane authorship highlights - contenteditable overlay */
+    .editor-with-authorship {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+    }
+    .editor-with-authorship .editor-textarea {
+      flex: 1;
+      z-index: 1;
+    }
+    .editor-line-highlights {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      padding: var(--rams-space-4);
+      overflow: hidden;
+      font-family: var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .editor-line-highlights.hidden {
+      display: none;
+    }
+    .line-highlight {
+      display: block;
+      margin-left: -11px;
+      padding-left: 8px;
+    }
+    .line-highlight.authorship-human {
+      background: rgba(220, 38, 38, 0.12);
+      border-left: 3px solid #DC2626;
+    }
+    .line-highlight.authorship-ai-claude {
+      background: rgba(59, 130, 246, 0.08);
+      border-left: 3px solid #3B82F6;
+    }
+    .line-highlight.authorship-ai-codex {
+      background: rgba(168, 85, 247, 0.08);
+      border-left: 3px solid #A855F7;
+    }
+    .line-highlight.authorship-ai-droid {
+      background: rgba(245, 158, 11, 0.08);
+      border-left: 3px solid #F59E0B;
+    }
+    .line-highlight.authorship-unknown {
+      background: rgba(115, 115, 115, 0.08);
+      border-left: 3px solid #737373;
+    }
+    /* Preview pane authorship highlights - block-level elements */
+    .preview-content .authorship-human {
+      background: rgba(220, 38, 38, 0.12);
+      border-left: 3px solid #DC2626;
+      padding-left: var(--rams-space-3);
+      margin-left: -3px;
+    }
+    .preview-content .authorship-ai-claude {
+      background: rgba(59, 130, 246, 0.08);
+      border-left: 3px solid #3B82F6;
+      padding-left: var(--rams-space-3);
+      margin-left: -3px;
+    }
+    .preview-content .authorship-ai-codex {
+      background: rgba(168, 85, 247, 0.08);
+      border-left: 3px solid #A855F7;
+      padding-left: var(--rams-space-3);
+      margin-left: -3px;
+    }
+    .preview-content .authorship-ai-droid {
+      background: rgba(245, 158, 11, 0.08);
+      border-left: 3px solid #F59E0B;
+      padding-left: var(--rams-space-3);
+      margin-left: -3px;
+    }
+    .preview-content .authorship-unknown {
+      background: rgba(115, 115, 115, 0.08);
+      border-left: 3px solid #737373;
+      padding-left: var(--rams-space-3);
+      margin-left: -3px;
+    }
   </style>
 </head>
 <body class="rams-page">
@@ -299,6 +461,7 @@
           <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
           <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
           <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+          <li><a href="/workflow.html" class="rams-nav-link">Workflow</a></li>
         </ul>
       </div>
 
@@ -354,6 +517,14 @@
             <div class="pane-header">
               <span class="pane-title">Edit</span>
               <div class="pane-header-right">
+                <span id="authorship-stats" class="authorship-stats-badge"></span>
+                <button id="authorship-toggle" class="authorship-toggle" data-testid="authorship-toggle" onclick="toggleAuthorship()" title="Toggle authorship highlighting">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>Authorship</span>
+                </button>
                 <div class="view-toggle">
                   <button class="view-toggle-btn active" onclick="switchView('edit')">Edit</button>
                   <button class="view-toggle-btn" onclick="switchView('preview')">Preview</button>
@@ -364,17 +535,47 @@
                 </div>
               </div>
             </div>
-            <textarea id="editor-textarea" class="editor-textarea" placeholder="Select a stream and file to edit..."></textarea>
+            <div id="authorship-legend" class="authorship-legend">
+              <span class="legend-item human"><span class="legend-dot"></span>Human</span>
+              <span class="legend-item ai-claude"><span class="legend-dot"></span>Claude</span>
+              <span class="legend-item ai-codex"><span class="legend-dot"></span>Codex</span>
+              <span class="legend-item ai-droid"><span class="legend-dot"></span>Droid</span>
+              <span class="legend-item unknown"><span class="legend-dot"></span>Unknown</span>
+            </div>
+            <div class="editor-with-authorship">
+              <div id="editor-line-highlights" class="editor-line-highlights hidden"></div>
+              <textarea id="editor-textarea" class="editor-textarea" placeholder="Select a stream and file to edit..."></textarea>
+            </div>
           </div>
 
           <!-- Preview Pane -->
           <div id="preview-pane" class="preview-pane pane-hidden">
             <div class="pane-header">
               <span class="pane-title">Preview</span>
-              <div class="view-toggle">
-                <button class="view-toggle-btn" onclick="switchView('edit')">Edit</button>
-                <button class="view-toggle-btn active" onclick="switchView('preview')">Preview</button>
+              <div class="pane-header-right">
+                <span id="authorship-stats-preview" class="authorship-stats-badge"></span>
+                <button id="authorship-toggle-preview" class="authorship-toggle" data-testid="authorship-toggle-preview" onclick="toggleAuthorship()" title="Toggle authorship highlighting">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>Authorship</span>
+                </button>
+                <div class="view-toggle">
+                  <button class="view-toggle-btn" onclick="switchView('edit')">Edit</button>
+                  <button class="view-toggle-btn active" onclick="switchView('preview')">Preview</button>
+                </div>
+                <div class="pane-actions">
+                  <button id="copy-btn-preview" class="rams-btn rams-btn-secondary rams-btn-sm" onclick="copyContent()">Copy</button>
+                </div>
               </div>
+            </div>
+            <div id="authorship-legend-preview" class="authorship-legend">
+              <span class="legend-item human"><span class="legend-dot"></span>Human</span>
+              <span class="legend-item ai-claude"><span class="legend-dot"></span>Claude</span>
+              <span class="legend-item ai-codex"><span class="legend-dot"></span>Codex</span>
+              <span class="legend-item ai-droid"><span class="legend-dot"></span>Droid</span>
+              <span class="legend-item unknown"><span class="legend-dot"></span>Unknown</span>
             </div>
             <div id="preview-content" class="preview-content">
               <div class="empty-state">
@@ -396,6 +597,10 @@
     let currentView = "edit"; // edit or preview
     let originalContent = "";
     let isReadOnly = false; // Whether the editor is in read-only mode
+
+    // Authorship tracking state
+    let authorshipEnabled = false;
+    let currentAuthorship = null;
 
     if (typeof marked !== "undefined") {
       marked.setOptions({
@@ -579,6 +784,9 @@
 
         if (!response.ok) throw new Error("Failed to save");
 
+        // Update authorship metadata (mark human as author of changes)
+        await saveAuthorship(textarea.value);
+
         originalContent = textarea.value;
         saveBtn.textContent = "Saved!";
 
@@ -726,6 +934,9 @@
         // Update preview
         updatePreview(content);
 
+        // Load authorship metadata
+        await loadAuthorship(filePath);
+
         openBtn.disabled = false;
         updateSaveButton();
       } catch (error) {
@@ -736,6 +947,8 @@
         openBtn.disabled = true;
         currentFilePath = "";
         originalContent = "";
+        currentAuthorship = null;
+        updateAuthorshipUI();
         updateSaveButton();
       }
     });
@@ -818,6 +1031,359 @@
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // ============================================
+    // Authorship Tracking Functions
+    // ============================================
+
+    /**
+     * Load authorship metadata for the current file
+     */
+    async function loadAuthorship(filePath) {
+      try {
+        const response = await fetch(`/api/authorship/${encodeURIComponent(filePath)}`);
+        if (!response.ok) {
+          currentAuthorship = null;
+        } else {
+          const data = await response.json();
+          currentAuthorship = data.metadata;
+        }
+      } catch (error) {
+        console.error("Failed to load authorship:", error);
+        currentAuthorship = null;
+      }
+      updateAuthorshipUI();
+    }
+
+    /**
+     * Save authorship metadata after file edit
+     */
+    async function saveAuthorship(content) {
+      if (!currentFilePath) return;
+
+      try {
+        const response = await fetch(`/api/authorship/${encodeURIComponent(currentFilePath)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: content,
+            author: "human"
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentAuthorship = data.metadata;
+          updateAuthorshipUI();
+        }
+      } catch (error) {
+        console.error("Failed to save authorship:", error);
+      }
+    }
+
+    /**
+     * Initialize authorship for files that don't have it
+     */
+    async function initializeAuthorship() {
+      if (!currentFilePath) return;
+
+      try {
+        const response = await fetch(`/api/authorship/${encodeURIComponent(currentFilePath)}/initialize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ defaultAuthor: "unknown" })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          currentAuthorship = data.metadata;
+          updateAuthorshipUI();
+        }
+      } catch (error) {
+        console.error("Failed to initialize authorship:", error);
+      }
+    }
+
+    /**
+     * Toggle authorship highlighting on/off
+     */
+    function toggleAuthorship() {
+      authorshipEnabled = !authorshipEnabled;
+
+      // Update both edit and preview toggle buttons
+      const toggleBtn = document.getElementById("authorship-toggle");
+      const toggleBtnPreview = document.getElementById("authorship-toggle-preview");
+      const legend = document.getElementById("authorship-legend");
+      const legendPreview = document.getElementById("authorship-legend-preview");
+      const lineHighlights = document.getElementById("editor-line-highlights");
+
+      if (authorshipEnabled) {
+        toggleBtn.classList.add("active");
+        toggleBtnPreview.classList.add("active");
+        legend.classList.add("visible");
+        legendPreview.classList.add("visible");
+        lineHighlights.classList.remove("hidden");
+
+        // Initialize authorship if it doesn't exist
+        if (!currentAuthorship && currentFilePath) {
+          initializeAuthorship();
+        } else {
+          updateAuthorshipHighlights();
+        }
+      } else {
+        toggleBtn.classList.remove("active");
+        toggleBtnPreview.classList.remove("active");
+        legend.classList.remove("visible");
+        legendPreview.classList.remove("visible");
+        lineHighlights.classList.add("hidden");
+      }
+
+      // Update preview with or without authorship classes
+      if (currentView === "preview") {
+        const textarea = document.getElementById("editor-textarea");
+        updatePreview(textarea.value);
+      }
+    }
+
+    /**
+     * Update the authorship UI (stats badge and highlights)
+     */
+    function updateAuthorshipUI() {
+      updateAuthorshipStats();
+      if (authorshipEnabled) {
+        updateAuthorshipHighlights();
+      }
+    }
+
+    /**
+     * Update the authorship stats badge
+     */
+    function updateAuthorshipStats() {
+      const statsEl = document.getElementById("authorship-stats");
+      const statsElPreview = document.getElementById("authorship-stats-preview");
+
+      if (!currentAuthorship || !currentAuthorship.stats) {
+        statsEl.textContent = "";
+        statsElPreview.textContent = "";
+        return;
+      }
+
+      const { aiPercentage, humanPercentage } = currentAuthorship.stats;
+      const parts = [];
+      if (aiPercentage > 0) parts.push(`${aiPercentage}% AI`);
+      if (humanPercentage > 0) parts.push(`${humanPercentage}% Human`);
+
+      const statsText = parts.length > 0 ? parts.join(" / ") : "100% Unknown";
+      statsEl.textContent = statsText;
+      statsElPreview.textContent = statsText;
+    }
+
+    /**
+     * Update the line-by-line authorship highlights in the editor
+     */
+    function updateAuthorshipHighlights() {
+      const highlightsEl = document.getElementById("editor-line-highlights");
+      const textarea = document.getElementById("editor-textarea");
+
+      if (!authorshipEnabled || !currentAuthorship) {
+        highlightsEl.innerHTML = "";
+        return;
+      }
+
+      const lines = textarea.value.split("\n");
+      let html = "";
+
+      for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1;
+        const author = getAuthorForLine(lineNum);
+        const cssClass = normalizeAuthorForCSS(author);
+        // Use non-breaking space to preserve line height for empty lines
+        const lineContent = lines[i] || "\u00A0";
+        html += `<span class="line-highlight authorship-${cssClass}">${escapeHtml(lineContent)}</span>\n`;
+      }
+
+      highlightsEl.innerHTML = html;
+    }
+
+    /**
+     * Get the author for a specific line number
+     */
+    function getAuthorForLine(lineNum) {
+      if (!currentAuthorship || !currentAuthorship.blocks) {
+        return currentAuthorship?.defaultAuthor || "unknown";
+      }
+
+      for (const block of currentAuthorship.blocks) {
+        if (lineNum >= block.lineStart && lineNum <= block.lineEnd) {
+          return block.modifiedBy || block.author;
+        }
+      }
+
+      return currentAuthorship.defaultAuthor || "unknown";
+    }
+
+    /**
+     * Normalize author type for CSS class naming
+     */
+    function normalizeAuthorForCSS(author) {
+      if (author === "human") return "human";
+      if (author === "unknown") return "unknown";
+      if (author && author.startsWith("ai:claude")) return "ai-claude";
+      if (author === "ai:codex") return "ai-codex";
+      if (author === "ai:droid") return "ai-droid";
+      return "unknown";
+    }
+
+    // Update the original updatePreview to support authorship highlighting
+    const originalUpdatePreview = updatePreview;
+
+    async function updatePreview(content) {
+      const preview = document.getElementById("preview-content");
+
+      if (!content || content.trim() === "") {
+        preview.innerHTML = '<div class="empty-state"><p>Markdown preview will appear here</p></div>';
+        return;
+      }
+
+      try {
+        let html = "";
+        if (typeof marked !== "undefined" && typeof marked.parse === "function") {
+          // If authorship is enabled and we have metadata, use custom renderer
+          if (authorshipEnabled && currentAuthorship) {
+            html = parseMarkdownWithAuthorship(content);
+          } else {
+            html = marked.parse(content);
+          }
+        } else {
+          html = "<pre>" + escapeHtml(content) + "</pre>";
+        }
+
+        preview.innerHTML = html;
+
+        // Render Mermaid diagrams
+        if (typeof mermaid !== "undefined") {
+          const mermaidBlocks = preview.querySelectorAll('code.language-mermaid');
+          for (let i = 0; i < mermaidBlocks.length; i++) {
+            const block = mermaidBlocks[i];
+            const code = block.textContent;
+            try {
+              const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, code);
+              const wrapper = document.createElement('div');
+              wrapper.className = 'mermaid-wrapper';
+              wrapper.innerHTML = svg;
+              block.parentElement.replaceWith(wrapper);
+            } catch (err) {
+              console.error("Mermaid rendering error:", err);
+              block.parentElement.innerHTML = `<pre style="color: red;">Mermaid Error: ${err.message}</pre>`;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Markdown parsing error:", error);
+        preview.innerHTML = "<pre>" + escapeHtml(content) + "</pre>";
+      }
+    }
+
+    /**
+     * Parse markdown with authorship class annotations
+     * Adds authorship-* classes to block elements based on line authorship
+     */
+    function parseMarkdownWithAuthorship(content) {
+      const lines = content.split("\n");
+      let html = "";
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+        const lineNum = i + 1;
+
+        // Skip empty lines
+        if (line.trim() === "") {
+          i++;
+          continue;
+        }
+
+        const author = getAuthorForLine(lineNum);
+        const cssClass = normalizeAuthorForCSS(author);
+
+        // Heading
+        if (/^#{1,6}\s/.test(line)) {
+          const level = line.match(/^(#{1,6})/)[1].length;
+          const text = line.replace(/^#{1,6}\s*/, "");
+          html += `<h${level} class="authorship-${cssClass}">${escapeHtml(text)}</h${level}>\n`;
+          i++;
+          continue;
+        }
+
+        // Code block
+        if (line.startsWith("```")) {
+          const blockStart = i;
+          const codeLines = [line];
+          i++;
+          while (i < lines.length && !lines[i].startsWith("```")) {
+            codeLines.push(lines[i]);
+            i++;
+          }
+          if (i < lines.length) {
+            codeLines.push(lines[i]);
+            i++;
+          }
+          // For code blocks, use the authorship of the first line
+          const codeContent = codeLines.slice(1, -1).join("\n");
+          const lang = line.slice(3).trim();
+          html += `<pre class="authorship-${cssClass}"><code class="${lang ? 'language-' + lang : ''}">${escapeHtml(codeContent)}</code></pre>\n`;
+          continue;
+        }
+
+        // List item
+        if (/^[\-\*\+]\s|^\d+\.\s/.test(line)) {
+          const text = line.replace(/^[\-\*\+]\s+|^\d+\.\s+/, "");
+          html += `<ul><li class="authorship-${cssClass}">${marked.parseInline ? marked.parseInline(text) : escapeHtml(text)}</li></ul>\n`;
+          i++;
+          continue;
+        }
+
+        // Paragraph (accumulate consecutive lines)
+        const paragraphStart = i;
+        const paragraphLines = [line];
+        i++;
+        while (i < lines.length && lines[i].trim() !== "" &&
+               !/^#{1,6}\s/.test(lines[i]) &&
+               !/^[\-\*\+]\s|^\d+\.\s/.test(lines[i]) &&
+               !lines[i].startsWith("```")) {
+          paragraphLines.push(lines[i]);
+          i++;
+        }
+        const paragraphText = paragraphLines.join(" ");
+        html += `<p class="authorship-${cssClass}">${marked.parseInline ? marked.parseInline(paragraphText) : escapeHtml(paragraphText)}</p>\n`;
+      }
+
+      return html;
+    }
+
+    // Update textarea scroll sync for highlights
+    document.addEventListener("DOMContentLoaded", () => {
+      const textarea = document.getElementById("editor-textarea");
+      const highlights = document.getElementById("editor-line-highlights");
+
+      if (textarea && highlights) {
+        textarea.addEventListener("scroll", () => {
+          highlights.scrollTop = textarea.scrollTop;
+          highlights.scrollLeft = textarea.scrollLeft;
+        });
+
+        // Update highlights when content changes
+        textarea.addEventListener("input", () => {
+          if (authorshipEnabled) {
+            // Debounce highlight updates
+            clearTimeout(textarea._highlightTimeout);
+            textarea._highlightTimeout = setTimeout(() => {
+              updateAuthorshipHighlights();
+            }, 100);
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>

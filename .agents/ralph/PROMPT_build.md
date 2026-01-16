@@ -200,3 +200,92 @@ If the selected story changes UI, you MUST verify it in the browser:
 4. Take a screenshot if helpful for the progress log.
 
 A frontend story is NOT complete until browser verification passes.
+
+## Authorship Tracking (Required for PRD/Plan Modifications)
+
+When creating or modifying PRD (`prd.md`) or plan (`plan.md`) files, you MUST update the corresponding authorship metadata file. This enables the UI to display which content was written by AI vs humans.
+
+### Authorship File Format
+
+For each markdown file, a sidecar JSON file stores authorship data:
+- `prd.md` → `.prd-authorship.json`
+- `plan.md` → `.plan-authorship.json`
+
+### When Creating New Files
+
+After creating a new `prd.md` or `plan.md` file:
+
+1. Create the corresponding `.{filename}-authorship.json` file
+2. Mark all generated content with your agent type:
+   - Claude agents: `ai:claude:opus`, `ai:claude:sonnet`, or `ai:claude:haiku`
+   - Codex agents: `ai:codex`
+   - Droid agents: `ai:droid`
+3. Include the `runId` in the context block for traceability
+
+Example initial authorship file:
+```json
+{
+  "version": 1,
+  "filePath": "prd.md",
+  "lastUpdated": "2025-01-16T10:00:00Z",
+  "defaultAuthor": "ai:claude:sonnet",
+  "blocks": [
+    {
+      "id": "uuid-1234",
+      "lineStart": 1,
+      "lineEnd": 5,
+      "contentHash": "a1b2c3d4e5f6g7h8",
+      "author": "ai:claude:sonnet",
+      "timestamp": "2025-01-16T10:00:00Z",
+      "context": {
+        "storyId": "US-001",
+        "runId": "{{RUN_ID}}"
+      }
+    }
+  ],
+  "stats": {
+    "humanLines": 0,
+    "aiLines": 25,
+    "unknownLines": 0,
+    "totalLines": 25,
+    "humanPercentage": 0,
+    "aiPercentage": 100
+  }
+}
+```
+
+### When Modifying Existing Files
+
+When modifying PRD or plan content:
+
+1. Load the existing authorship file (if it exists)
+2. For changed/new blocks:
+   - If modifying existing content: preserve `originalAuthor`, set `modifiedBy` to your agent type
+   - If adding new content: set `author` to your agent type
+3. Compute new content hashes for changed blocks (SHA-256, first 16 chars)
+4. Update line numbers for all blocks (content may have shifted)
+5. Recalculate the `stats` section
+
+### Content Hash Computation
+
+Use SHA-256 hash of block content, truncated to first 16 characters:
+```bash
+echo -n "block content" | shasum -a 256 | cut -c1-16
+```
+
+### Block Types
+
+Parse markdown into these block types:
+- `heading`: Lines starting with `#`
+- `paragraph`: Consecutive non-blank lines
+- `list_item`: Lines starting with `-`, `*`, `+`, or numbers
+- `code_block`: Content between ``` markers
+- `blank`: Empty lines (skip in authorship tracking)
+
+### Skip Authorship Updates If
+
+- No authorship file exists AND you're only making minor edits
+- The change is auto-generated (e.g., checkbox updates from verification)
+- You're in a no-commit run ({{NO_COMMIT}} is true)
+
+Authorship tracking helps teams understand the human/AI contribution ratio and maintain accountability for generated content.
