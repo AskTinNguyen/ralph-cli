@@ -47,6 +47,10 @@ source "$SCRIPT_DIR/lib/events.sh"
 # shellcheck source=lib/cost.sh
 source "$SCRIPT_DIR/lib/cost.sh"
 
+# Source budget tracking utilities for cost limits and warnings (US-008)
+# shellcheck source=lib/budget.sh
+source "$SCRIPT_DIR/lib/budget.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -3495,6 +3499,14 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Update cost tracking with this iteration's tokens (US-007)
   ITERATION_COST="$(update_cost "$PRD_FOLDER_FOR_COST" "$i" "${STORY_ID:-plan}" "$LOG_FILE" "${TOKEN_MODEL:-sonnet}")"
   TOTAL_BUILD_COST="$(get_total_cost "$PRD_FOLDER_FOR_COST")"
+
+  # Check budget and enforce limits (US-008)
+  update_budget_usage "$PRD_FOLDER_FOR_COST" "$TOTAL_BUILD_COST"
+  if ! check_and_enforce_budget "$PRD_FOLDER_FOR_COST" "$TOTAL_BUILD_COST"; then
+    log_event_warn "$PRD_FOLDER_FOR_COST" "Build stopped: budget limit exceeded" "cost=$TOTAL_BUILD_COST"
+    msg_warn "Build stopped due to budget limit. Use 'ralph budget set <amount>' to increase limit."
+    exit 0
+  fi
 
   # Build JSON object for run metadata
   RUN_META_JSON=$(python3 -c "import json, sys; print(json.dumps({

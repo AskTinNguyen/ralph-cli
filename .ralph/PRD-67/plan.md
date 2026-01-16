@@ -263,35 +263,41 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create `.budget.json` config file per PRD, implement warning checks at 75%/90%/100%, display warnings in CLI and UI, add `ralph budget` command.
 
-- [ ] Create budget configuration file
+- [x] Create budget configuration file
   - Scope: Define schema for `.ralph/PRD-N/.budget.json`: `{ "limit": 5.00, "warnings": [0.75, 0.90], "enforce": true }`
   - Acceptance: File can be created manually or via command
   - Verification: Create sample budget file, verify structure
+  - Notes: Created `.agents/ralph/lib/budget.sh` with `init_budget()` function that creates JSON with limit, warnings array, enforce flag, and timestamps.
 
-- [ ] Add budget command: ralph budget set
+- [x] Add budget command: ralph budget set
   - Scope: New command in `bin/ralph`: `ralph budget set 5.00` creates/updates `.budget.json` for active PRD
   - Acceptance: Command sets budget limit and creates config file
   - Verification: `ralph budget set 5.00`, verify `.budget.json` created
+  - Notes: Added budget command to bin/ralph with subcommands: `set <amount>`, `show/status`, `clear/remove`. Supports `--prd=N` flag and `--no-enforce` option. Also created lib/commands/budget.js module.
 
-- [ ] Implement budget checking in loop
+- [x] Implement budget checking in loop
   - Scope: After updating `.cost.json`, check against `.budget.json` thresholds and log warning events
   - Acceptance: At 75% log WARN, at 90% log WARN, at 100% log ERROR and pause build
   - Verification: Set low budget, run build, verify warnings triggered
+  - Notes: Integrated in loop.sh after cost update. Calls `update_budget_usage()` and `check_and_enforce_budget()`. Uses warning markers to avoid duplicate warnings.
 
-- [ ] Display budget warnings in CLI
+- [x] Display budget warnings in CLI
   - Scope: Show budget warnings with color: 75% = yellow, 90% = orange, 100% = red + pause
   - Acceptance: CLI shows: `⚠ Budget 76% used ($3.80 / $5.00)` in appropriate color
   - Verification: Trigger budget thresholds, observe CLI warnings
+  - Notes: `display_budget_warning()` function shows colored warnings at 75% and 90% thresholds. Uses warning marker files to show each threshold only once per build.
 
-- [ ] Add budget pause at 100%
+- [x] Add budget pause at 100%
   - Scope: When budget hits 100%, pause build and require user confirmation to continue
   - Acceptance: Build pauses with message: "Budget limit reached. Continue? [y/N]"
   - Verification: Exceed budget, verify build pauses with prompt
+  - Notes: `prompt_budget_continue()` prompts interactively when budget exceeded. Non-interactive mode stops automatically. Respects `enforce` setting in budget config.
 
-- [ ] Display budget in UI dashboard
+- [x] Display budget in UI dashboard
   - Scope: Add budget progress bar to stream cards showing % used with color coding
   - Acceptance: Progress bar shows: green < 75%, yellow 75-90%, red > 90%
   - Verification: Open dashboard with budget config, verify progress bar appears
+  - Notes: Created API endpoints `GET /api/streams/:id/budget` and `GET /api/partials/budget-display`. Added budget section to dashboard.html with progress bar. CSS uses 4 color states: ok (green), warning (yellow), critical (orange), exceeded (red).
 
 ---
 

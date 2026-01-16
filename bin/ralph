@@ -477,6 +477,8 @@ async function main() {
     "help", "doctor", "log", "ping", "completions", "init", "install",
     // Analytics & Estimation
     "ui", "stats", "checkpoint", "eval", "estimate", "improve",
+    // Budget Management (US-008)
+    "budget",
     // Diagnostics & Experimentation
     "diagnose", "experiment", "watch", "optimize",
     // Project & Knowledge Management
@@ -522,6 +524,116 @@ async function main() {
     const streamArgs = args.slice(1);
     const result = spawnBashScript(streamPath, streamArgs, { stdio: "inherit", env });
     process.exit(result.status ?? 1);
+  }
+
+  // Budget command (US-008)
+  if (cmd === "budget") {
+    const budgetArgs = args.slice(1);
+    const subCmd = budgetArgs[0] || "show";
+
+    // Get active PRD folder
+    const ralphDir = path.join(process.cwd(), ".ralph");
+    let activePrd = null;
+    let prdFolder = null;
+
+    // Check for --prd flag
+    const prdFlagIdx = budgetArgs.findIndex(a => a.startsWith("--prd="));
+    if (prdFlagIdx !== -1) {
+      activePrd = budgetArgs[prdFlagIdx].split("=")[1];
+      budgetArgs.splice(prdFlagIdx, 1);
+    }
+
+    if (!activePrd) {
+      // Find latest PRD
+      if (exists(ralphDir)) {
+        const dirs = fs.readdirSync(ralphDir)
+          .filter(d => /^PRD-\d+$/i.test(d))
+          .sort((a, b) => parseInt(b.split("-")[1]) - parseInt(a.split("-")[1]));
+        if (dirs.length > 0) {
+          activePrd = dirs[0].split("-")[1];
+        }
+      }
+    }
+
+    if (!activePrd) {
+      error("No PRD found. Run 'ralph prd' first to create one.");
+      process.exit(1);
+    }
+
+    prdFolder = path.join(ralphDir, `PRD-${activePrd}`);
+    const budgetFile = path.join(prdFolder, ".budget.json");
+
+    if (subCmd === "set") {
+      const amount = parseFloat(budgetArgs[1]);
+      if (isNaN(amount) || amount <= 0) {
+        error("Invalid budget amount. Usage: ralph budget set <amount>");
+        info(`Example: ${pc.cyan("ralph budget set 5.00")}`);
+        process.exit(1);
+      }
+
+      // Check for --no-enforce flag
+      const noEnforce = budgetArgs.includes("--no-enforce");
+      const enforce = !noEnforce;
+
+      const budgetConfig = {
+        limit: amount,
+        warnings: [0.75, 0.90],
+        enforce: enforce,
+        created_at: new Date().toISOString()
+      };
+
+      fs.writeFileSync(budgetFile, JSON.stringify(budgetConfig, null, 2));
+      info(`Budget set: ${pc.green("$" + amount.toFixed(2))} for PRD-${activePrd}`);
+      if (!enforce) {
+        info(`Enforcement: ${pc.yellow("disabled")} (warnings only)`);
+      }
+      process.exit(0);
+    }
+
+    if (subCmd === "show" || subCmd === "status") {
+      if (!exists(budgetFile)) {
+        info(`No budget set for PRD-${activePrd}`);
+        info(`Use ${pc.cyan("ralph budget set <amount>")} to set a budget`);
+        process.exit(0);
+      }
+
+      const budget = JSON.parse(fs.readFileSync(budgetFile, "utf8"));
+      const costFile = path.join(prdFolder, ".cost.json");
+      let currentCost = 0;
+      if (exists(costFile)) {
+        const cost = JSON.parse(fs.readFileSync(costFile, "utf8"));
+        currentCost = cost.total_cost || 0;
+      }
+
+      const percentage = budget.limit > 0 ? Math.round((currentCost / budget.limit) * 100) : 0;
+      const color = percentage >= 100 ? pc.red : percentage >= 90 ? pc.yellow : percentage >= 75 ? pc.yellow : pc.green;
+
+      console.log("");
+      console.log(`  ${pc.bold("Budget Status")} - PRD-${activePrd}`);
+      console.log(`  ${"─".repeat(30)}`);
+      console.log(`  Limit:    ${pc.cyan("$" + budget.limit.toFixed(2))}`);
+      console.log(`  Current:  ${color("$" + currentCost.toFixed(4))}`);
+      console.log(`  Used:     ${color(percentage + "%")}`);
+      console.log(`  Enforce:  ${budget.enforce ? pc.green("yes") : pc.yellow("no")}`);
+      console.log("");
+      process.exit(0);
+    }
+
+    if (subCmd === "clear" || subCmd === "remove") {
+      if (exists(budgetFile)) {
+        fs.unlinkSync(budgetFile);
+        info(`Budget cleared for PRD-${activePrd}`);
+      } else {
+        info(`No budget set for PRD-${activePrd}`);
+      }
+      process.exit(0);
+    }
+
+    error(`Unknown budget command: ${subCmd}`);
+    info(`Usage: ${pc.cyan("ralph budget set <amount>")}`);
+    info(`       ${pc.cyan("ralph budget show")}`);
+    info(`       ${pc.cyan("ralph budget clear")}`);
+    process.exit(1);
   }
 
   // PRD command

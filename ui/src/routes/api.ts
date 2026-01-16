@@ -8762,6 +8762,166 @@ api.get('/partials/cost-display', (c) => {
 });
 
 /**
+ * GET /api/streams/:id/budget
+ *
+ * Returns budget configuration and status for a stream (US-008).
+ * Reads from .budget.json and .cost.json in the PRD folder.
+ *
+ * Response:
+ *   - has_budget: Whether budget is configured
+ *   - limit: Budget limit in dollars
+ *   - current_cost: Current accumulated cost
+ *   - percentage: Percentage of budget used
+ *   - enforce: Whether to enforce budget limits
+ *   - warnings: Array of warning thresholds
+ */
+api.get('/streams/:id/budget', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: 'Ralph root not found' }, 500);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const budgetPath = path.join(prdFolder, '.budget.json');
+  const costPath = path.join(prdFolder, '.cost.json');
+
+  if (!fs.existsSync(budgetPath)) {
+    return c.json({
+      has_budget: false,
+      limit: 0,
+      current_cost: 0,
+      percentage: 0,
+      enforce: false,
+      warnings: [],
+    });
+  }
+
+  try {
+    const budgetContent = fs.readFileSync(budgetPath, 'utf-8');
+    const budget = JSON.parse(budgetContent);
+
+    let currentCost = 0;
+    if (fs.existsSync(costPath)) {
+      const costContent = fs.readFileSync(costPath, 'utf-8');
+      const cost = JSON.parse(costContent);
+      currentCost = cost.total_cost || 0;
+    }
+
+    const percentage = budget.limit > 0 ? Math.round((currentCost / budget.limit) * 100) : 0;
+
+    return c.json({
+      has_budget: true,
+      limit: budget.limit || 0,
+      current_cost: currentCost,
+      percentage: percentage,
+      enforce: budget.enforce !== false,
+      warnings: budget.warnings || [0.75, 0.90],
+    });
+  } catch (err) {
+    return c.json({ error: `Failed to read budget data: ${(err as Error).message}` }, 500);
+  }
+});
+
+/**
+ * GET /api/partials/budget-display
+ *
+ * Returns HTML partial for budget display (US-008).
+ * Shows budget progress bar with color coding.
+ *
+ * Query params:
+ *   - streamId: Stream to show budget for
+ */
+api.get('/partials/budget-display', (c) => {
+  const streamId = c.req.query('streamId');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot || !streamId) {
+    return c.html(`<div id="budget-display" class="rams-hidden"></div>`);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${streamId}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${streamId}`, '.ralph', `PRD-${streamId}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const budgetPath = path.join(prdFolder, '.budget.json');
+  const costPath = path.join(prdFolder, '.cost.json');
+
+  if (!fs.existsSync(budgetPath)) {
+    return c.html(`<div id="budget-display" class="rams-hidden"></div>`);
+  }
+
+  try {
+    const budgetContent = fs.readFileSync(budgetPath, 'utf-8');
+    const budget = JSON.parse(budgetContent);
+
+    let currentCost = 0;
+    if (fs.existsSync(costPath)) {
+      const costContent = fs.readFileSync(costPath, 'utf-8');
+      const cost = JSON.parse(costContent);
+      currentCost = cost.total_cost || 0;
+    }
+
+    const limit = budget.limit || 0;
+    const percentage = limit > 0 ? Math.min(Math.round((currentCost / limit) * 100), 100) : 0;
+    const actualPercentage = limit > 0 ? Math.round((currentCost / limit) * 100) : 0;
+
+    // Determine color based on percentage
+    let colorClass = 'budget-ok';
+    let statusIcon = '✓';
+    if (actualPercentage >= 100) {
+      colorClass = 'budget-exceeded';
+      statusIcon = '⛔';
+    } else if (actualPercentage >= 90) {
+      colorClass = 'budget-critical';
+      statusIcon = '⚠';
+    } else if (actualPercentage >= 75) {
+      colorClass = 'budget-warning';
+      statusIcon = '⚠';
+    }
+
+    const formattedCost = currentCost < 0.01
+      ? `$${currentCost.toFixed(4)}`
+      : `$${currentCost.toFixed(2)}`;
+    const formattedLimit = `$${limit.toFixed(2)}`;
+
+    return c.html(`
+      <div id="budget-display" class="budget-display ${colorClass}" data-stream-id="${streamId}">
+        <div class="budget-display-header">
+          <span class="budget-display-icon">${statusIcon}</span>
+          <span class="budget-display-title">Budget</span>
+          <span class="budget-display-percentage">${actualPercentage}%</span>
+        </div>
+        <div class="budget-display-content">
+          <div class="budget-progress-container">
+            <div class="budget-progress-bar" style="width: ${percentage}%"></div>
+          </div>
+          <div class="budget-display-values">
+            <span class="budget-current">${formattedCost}</span>
+            <span class="budget-separator">/</span>
+            <span class="budget-limit">${formattedLimit}</span>
+          </div>
+        </div>
+      </div>
+    `);
+  } catch (err) {
+    return c.html(`<div id="budget-display" class="rams-hidden"></div>`);
+  }
+});
+
+/**
  * GET /api/partials/checkpoint-banner
  *
  * Returns HTML partial for checkpoint banner.
