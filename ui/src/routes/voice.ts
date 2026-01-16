@@ -14,6 +14,10 @@ import { createWhisperClient } from "../voice-agent/stt/whisper-client.js";
 import { createIntentClassifier } from "../voice-agent/llm/intent-classifier.js";
 import { createActionRouter } from "../voice-agent/executor/action-router.js";
 import type { VoiceIntent, TranscriptionResult } from "../voice-agent/types.js";
+import {
+  analyzeTranscriptionForWakeWord,
+  type WakeWordResult,
+} from "../voice-agent/wake-word/wake-word-detector.js";
 
 export const voice = new Hono();
 
@@ -157,6 +161,162 @@ voice.post("/transcribe", async (c) => {
       },
       500
     );
+  }
+});
+
+// ============================================
+// Wake Word Detection Endpoint
+// ============================================
+
+/**
+ * POST /voice/wake-word
+ * Detect wake word ("Hey Claude") in audio stream
+ *
+ * Accepts audio data and transcribes it using Whisper STT in streaming mode,
+ * then checks if the transcription contains the wake phrase.
+ * Designed for low-latency detection (< 500ms target).
+ */
+voice.post("/wake-word", async (c) => {
+  const startTime = Date.now();
+
+  try {
+    const contentType = c.req.header("content-type") || "";
+
+    let audioData: ArrayBuffer;
+
+    if (contentType.includes("multipart/form-data")) {
+      // Handle multipart form data
+      const formData = await c.req.formData();
+      const file = formData.get("file");
+
+      if (!file || !(file instanceof File)) {
+        return c.json(
+          {
+            detected: false,
+            error: "No audio file provided",
+            duration_ms: Date.now() - startTime,
+          },
+          400
+        );
+      }
+
+      audioData = await file.arrayBuffer();
+    } else {
+      // Handle raw binary data
+      audioData = await c.req.arrayBuffer();
+    }
+
+    // Validate audio data - wake word detection needs short clips
+    // Minimum size check to ensure we have actual audio
+    if (audioData.byteLength < 100) {
+      return c.json(
+        {
+          detected: false,
+          error: "Audio data too small",
+          duration_ms: Date.now() - startTime,
+        },
+        400
+      );
+    }
+
+    // Maximum size check - wake word audio should be short (< 5 seconds typically)
+    // This helps ensure fast processing. 5 seconds of 16kHz mono audio ≈ 160KB
+    const maxSize = 500 * 1024; // 500KB max to ensure fast processing
+    if (audioData.byteLength > maxSize) {
+      return c.json(
+        {
+          detected: false,
+          error: "Audio data too large for wake word detection",
+          duration_ms: Date.now() - startTime,
+        },
+        400
+      );
+    }
+
+    // Transcribe the audio using Whisper STT
+    // For wake word detection, we don't need full transcription - just check for the phrase
+    const transcriptionResult = await whisperClient.transcribe(
+      Buffer.from(audioData),
+      {
+        language: "en", // Wake word is English
+      }
+    );
+
+    const transcriptionTime = Date.now() - startTime;
+
+    if (!transcriptionResult.success) {
+      return c.json({
+        detected: false,
+        error: transcriptionResult.error || "Transcription failed",
+        duration_ms: transcriptionTime,
+      });
+    }
+
+    // Analyze transcription for wake phrase
+    const wakeWordResult = analyzeTranscriptionForWakeWord(
+      transcriptionResult.text
+    );
+
+    const totalTime = Date.now() - startTime;
+
+    // Return wake word detection result
+    const response: WakeWordResult & {
+      transcription?: string;
+      transcription_duration_ms?: number;
+    } = {
+      detected: wakeWordResult.detected,
+      confidence: wakeWordResult.confidence,
+      phrase: wakeWordResult.phrase,
+      duration_ms: totalTime,
+    };
+
+    // Include transcription for debugging (optional, only in non-production)
+    if (process.env.NODE_ENV !== "production") {
+      response.transcription = transcriptionResult.text;
+      response.transcription_duration_ms = transcriptionTime;
+    }
+
+    return c.json(response);
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return c.json(
+      {
+        detected: false,
+        error: `Wake word detection failed: ${errorMessage}`,
+        duration_ms: Date.now() - startTime,
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /voice/wake-word/status
+ * Check if wake word detection service is available
+ */
+voice.get("/wake-word/status", async (c) => {
+  try {
+    // Check if STT server is healthy
+    const sttHealth = await whisperClient.checkHealth();
+
+    return c.json({
+      available: sttHealth.healthy,
+      sttServer: {
+        healthy: sttHealth.healthy,
+        model: sttHealth.model,
+        modelLoaded: sttHealth.modelLoaded,
+      },
+      message: sttHealth.healthy
+        ? "Wake word detection service is available"
+        : "STT server not available, use client-side detection",
+    });
+  } catch (error) {
+    return c.json({
+      available: false,
+      error: "Failed to check wake word service status",
+      message: "Use client-side detection as fallback",
+    });
   }
 });
 

@@ -61,6 +61,10 @@
   let wakeWordEnabled = false;
   let wakeWordListening = false;
   let speechRecognition = null;
+  let wakeWordMode = 'client'; // 'server' | 'client' | 'disabled'
+  let serverWakeWordAvailable = false;
+  let serverWakeWordStream = null;
+  let serverWakeWordRecorder = null;
   const wakeWordIndicator = document.getElementById('wake-word-indicator');
   const wakeWordStatus = document.getElementById('wake-word-status');
 
@@ -102,6 +106,9 @@
     // Load wake word preference from localStorage
     wakeWordEnabled = localStorage.getItem('wakeWordEnabled') === 'true';
 
+    // Check if server-side wake word detection is available
+    await checkServerWakeWordAvailability();
+
     // Enable button if ready
     if (sessionId) {
       micButton.disabled = false;
@@ -112,6 +119,30 @@
       if (wakeWordEnabled) {
         startWakeWordDetection();
       }
+    }
+  }
+
+  /**
+   * Check if server-side wake word detection is available
+   */
+  async function checkServerWakeWordAvailability() {
+    try {
+      const response = await fetch(`${API_BASE}/wake-word/status`);
+      const data = await response.json();
+
+      serverWakeWordAvailable = data.available || false;
+
+      if (serverWakeWordAvailable) {
+        console.log('Server-side wake word detection available');
+        wakeWordMode = 'server';
+      } else {
+        console.log('Server-side wake word not available, using client-side detection');
+        wakeWordMode = 'client';
+      }
+    } catch (error) {
+      console.warn('Failed to check server wake word status:', error);
+      serverWakeWordAvailable = false;
+      wakeWordMode = 'client';
     }
   }
 
@@ -1088,9 +1119,177 @@
   // ==================== Wake Word Detection ====================
 
   /**
-   * Start wake word detection using Web Speech API
+   * Start wake word detection
+   * Uses server-side detection if available, falls back to client-side Web Speech API
    */
   function startWakeWordDetection() {
+    // Don't start if already recording or listening
+    if (state === 'listening' || wakeWordListening) {
+      return;
+    }
+
+    // Try server-side detection first if available
+    if (serverWakeWordAvailable && wakeWordMode === 'server') {
+      startServerWakeWordDetection();
+    } else {
+      startClientWakeWordDetection();
+    }
+  }
+
+  /**
+   * Start server-side wake word detection
+   * Continuously records short audio clips and sends them to the server for detection
+   */
+  async function startServerWakeWordDetection() {
+    try {
+      // Get microphone access
+      serverWakeWordStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+
+      wakeWordListening = true;
+      updateWakeWordUI(true, 'Server listening');
+      console.log('Server-side wake word detection started');
+
+      // Start the detection loop
+      processServerWakeWordLoop();
+
+    } catch (error) {
+      console.warn('Server wake word detection failed, falling back to client-side:', error);
+      wakeWordMode = 'client';
+      startClientWakeWordDetection();
+    }
+  }
+
+  /**
+   * Process server wake word detection loop
+   * Records 2-second audio chunks and sends them for analysis
+   */
+  function processServerWakeWordLoop() {
+    if (!wakeWordListening || !serverWakeWordStream || state === 'listening') {
+      return;
+    }
+
+    try {
+      const chunks = [];
+      serverWakeWordRecorder = new MediaRecorder(serverWakeWordStream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
+      serverWakeWordRecorder.ondataavailable = function(event) {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      serverWakeWordRecorder.onstop = async function() {
+        if (!wakeWordListening || state === 'listening') {
+          return;
+        }
+
+        // Create audio blob and send to server
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+
+        // Only process if we have meaningful audio
+        if (audioBlob.size > 1000) {
+          try {
+            const detected = await sendAudioForWakeWordDetection(audioBlob);
+
+            if (detected) {
+              // Wake word detected!
+              console.log('Server detected wake word!');
+              stopWakeWordDetection();
+              recordingStatus.textContent = '"Hey Claude" detected! Starting recording...';
+
+              // Automatically start recording
+              setTimeout(() => {
+                startRecording();
+              }, 300);
+              return;
+            }
+          } catch (error) {
+            console.warn('Server wake word detection error:', error);
+            // Fall back to client-side on repeated errors
+            if (serverWakeWordAvailable) {
+              console.log('Falling back to client-side detection');
+              stopServerWakeWordDetection();
+              wakeWordMode = 'client';
+              startClientWakeWordDetection();
+              return;
+            }
+          }
+        }
+
+        // Continue the loop if still listening
+        if (wakeWordListening && state !== 'listening') {
+          setTimeout(() => {
+            processServerWakeWordLoop();
+          }, 100); // Small delay between chunks
+        }
+      };
+
+      // Record for 2 seconds (balance between latency and detection accuracy)
+      serverWakeWordRecorder.start();
+      setTimeout(() => {
+        if (serverWakeWordRecorder && serverWakeWordRecorder.state === 'recording') {
+          serverWakeWordRecorder.stop();
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.warn('Server wake word loop error:', error);
+      // Fall back to client-side
+      stopServerWakeWordDetection();
+      wakeWordMode = 'client';
+      startClientWakeWordDetection();
+    }
+  }
+
+  /**
+   * Send audio to server for wake word detection
+   */
+  async function sendAudioForWakeWordDetection(audioBlob) {
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'wake-word-audio.webm');
+
+    const response = await fetch(`${API_BASE}/wake-word`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (result.error && !result.detected) {
+      throw new Error(result.error);
+    }
+
+    return result.detected === true;
+  }
+
+  /**
+   * Stop server-side wake word detection
+   */
+  function stopServerWakeWordDetection() {
+    if (serverWakeWordRecorder && serverWakeWordRecorder.state === 'recording') {
+      serverWakeWordRecorder.stop();
+    }
+    serverWakeWordRecorder = null;
+
+    if (serverWakeWordStream) {
+      serverWakeWordStream.getTracks().forEach(track => track.stop());
+      serverWakeWordStream = null;
+    }
+  }
+
+  /**
+   * Start client-side wake word detection using Web Speech API
+   */
+  function startClientWakeWordDetection() {
     // Check for Web Speech API support
     const SpeechRecognitionAPI = window.webkitSpeechRecognition || window.SpeechRecognition;
 
@@ -1133,7 +1332,7 @@
       speechRecognition.start();
       wakeWordListening = true;
       updateWakeWordUI(true, 'Listening');
-      console.log('Wake word detection started');
+      console.log('Client-side wake word detection started');
 
     } catch (error) {
       console.error('Failed to start wake word detection:', error);
@@ -1142,9 +1341,13 @@
   }
 
   /**
-   * Stop wake word detection
+   * Stop wake word detection (both server and client-side)
    */
   function stopWakeWordDetection() {
+    // Stop server-side detection
+    stopServerWakeWordDetection();
+
+    // Stop client-side detection
     if (speechRecognition) {
       try {
         speechRecognition.abort();
