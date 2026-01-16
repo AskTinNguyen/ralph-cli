@@ -1,0 +1,37 @@
+US-011 timeout enforcement is fully implemented and committed. Here's a summary of what was done:
+
+## US-011: Timeout Enforcement - Complete
+
+### Implemented Features:
+
+1. **Agent Call Timeout (60 minutes)**
+   - Implemented in `.agents/ralph/lib/agent.sh`
+   - Uses GNU `timeout` command with SIGTERM (exit 124) and SIGKILL fallback (exit 137)
+   - Configurable via `RALPH_TIMEOUT_AGENT` env var
+
+2. **Iteration Timeout (90 minutes via watchdog)**
+   - Implemented in `.agents/ralph/lib/watchdog.sh`
+   - File-based iteration start tracking (`.iteration_start`) for cross-process visibility
+   - Functions: `set_iteration_start()`, `get_iteration_elapsed()`, `is_iteration_timed_out()`, `clear_iteration_start()`
+   - Watchdog checks every 60 seconds and triggers restart on timeout
+   - Configurable via `RALPH_TIMEOUT_ITERATION` env var
+
+3. **Story Timeout (3 hours cumulative)**
+   - Implemented in `.agents/ralph/lib/timeout.sh`
+   - Tracks cumulative time in `.story_times.json`
+   - Functions: `get_story_time()`, `update_story_time()`, `is_story_timed_out()`, `clear_story_time()`
+   - Story skipped if cumulative time exceeds threshold
+   - Configurable via `RALPH_TIMEOUT_STORY` env var
+
+4. **Timeout Logging**
+   - `log_timeout_event()` - writes structured events to `.events.log`
+   - `display_timeout_event()` - shows color-coded CLI warnings
+   - Activity log captures TIMEOUT and STORY_TIMEOUT events
+
+### Key Commits:
+- `c580b58` - feat(timeout): implement timeout enforcement (US-011)
+- `0f3405e` - feat(timeout): add iteration timeout enforcement to watchdog (US-011)
+
+### Source Order Fix:
+- Reordered source statements in `loop.sh` so `watchdog.sh` is sourced after `timeout.sh`
+- This ensures file-based iteration tracking functions take precedence for cross-process visibility

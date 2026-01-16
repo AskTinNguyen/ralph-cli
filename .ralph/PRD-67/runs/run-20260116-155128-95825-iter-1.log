@@ -1,0 +1,57 @@
+Excellent! All story headings use the correct format `### [ ] US-XXX: Title`. The planning is complete. Let me create a summary of what was done:
+
+## Planning Complete
+
+I've successfully created an implementation plan for PRD-67 focused on transforming Ralph CLI into a production-grade autonomous system with real-time visibility and operational resilience.
+
+### What I Did:
+
+1. **Read and analyzed the PRD** - A comprehensive PRD with 17 user stories across 5 phases (P0-P2)
+2. **Examined existing infrastructure** - Reviewed:
+   - Build loop (`loop.sh`)
+   - Checkpoint system (already implemented)
+   - UI server with file watcher and SSE
+   - Token estimator and metrics modules
+   - State reader and API routes
+3. **Added Routing Policy** to PRD (was missing)
+4. **Verified story markers** - All 17 stories use correct format `### [ ] US-XXX:`
+5. **Created detailed implementation plan** at `.ralph/PRD-67/plan.md`
+
+### Plan Highlights:
+
+**Phase 1 (Real-Time Feedback - P0):**
+- US-001: Status emission via `.status.json` (phase, story, elapsed)
+- US-002: Event logging to `.events.log` (errors, warnings, retries)  
+- US-003: UI dashboard widget with live status via SSE
+
+**Phase 2 (Error & Resume - P0):**
+- US-004: Error context extraction (last 3-10 error lines)
+- US-005: Auto-detect checkpoint on every `ralph build` (no `--resume` flag needed)
+- US-006: UI checkpoint banner with Resume/Clear buttons
+
+**Phase 3 (Cost Tracking - P1):**
+- US-007: Real-time cost accumulation via `.cost.json`
+- US-008: Budget warnings at 75%/90%/100% with enforcement
+
+**Phase 4 (Production Monitoring - P1):**
+- US-009: Stall detection via `.heartbeat` file (30min threshold)
+- US-010: Watchdog process for auto-recovery (3 restart limit)
+- US-011: Timeout enforcement (agent: 60min, iteration: 90min, story: 3hr)
+- US-012: Multi-channel notifications (CLI, Slack, Discord, Email, Webhooks)
+
+**Phase 5 (TypeScript Migration - P2):**
+- US-013: Extract failure detection from bash to TypeScript with unit tests
+- US-014: Extract metrics builder with JSON schema validation
+- US-015: Extract story selection with atomic locking
+- US-016: BuildStateManager for transactional state updates
+- US-017: Optional TypeScript executor (opt-in via env var)
+
+### Key Architectural Decisions:
+
+- **File-based state** (`.status.json`, `.events.log`, `.cost.json`) maintains portability
+- **Gradual TypeScript migration** via CLI wrappers (bash can call Node.js modules)
+- **Leverage existing infrastructure** (file watcher, SSE, checkpoint module, token estimator)
+- **No breaking changes** - all features opt-in or backward compatible
+- **Graceful degradation** - notification/watchdog failures don't block builds
+
+The plan is ready for implementation with 69 self-contained tasks across 17 stories, prioritized by phase (P0 → P1 → P2).

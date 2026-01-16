@@ -1,0 +1,45 @@
+There are still 13 unchecked stories in the PRD (US-005 through US-017), so I should NOT output the completion signal.
+
+## Summary
+
+US-004 "Inline error context when builds fail" is now complete. Here's what was implemented:
+
+### Key Implementation Details
+
+1. **Error Context Extractor** (`extract_error_context()` in `.agents/ralph/lib/events.sh`):
+   - Extracts last 3-10 lines containing error keywords from log files
+   - Keywords: error, fail, exception, abort, panic, fatal, crashed, timeout, refused, ENOENT, EACCES, EPERM, ERR!, ✗, ✖, 🔴
+   - Falls back to last 3 lines if no error keywords found
+
+2. **Context-Aware Error Logging** (`log_event_error_with_context()`):
+   - Writes error event with metadata (iteration, story_id, agent) to `.events.log`
+   - Appends error context as indented lines under `[context]` marker
+   - Format: `[timestamp] ERROR message | details iteration=N story=US-XXX agent=claude`
+
+3. **CLI Error Display** (`display_error_with_context()`):
+   - Shows error with red ✗ icon and dim details
+   - Displays "Error context:" section with indented context lines
+
+4. **Enhanced Event Polling** (`display_new_events()`):
+   - Now handles context lines when polling `.events.log`
+   - Detects `[context]` markers and indented content for proper display
+
+5. **Integration in loop.sh**:
+   - 5 error scenarios now use context-aware error logging:
+     - Iteration failed
+     - Agent fallback chain exhausted
+     - All retries exhausted
+     - Max retries exhausted
+     - Rollback failed
+
+### Verification
+
+All 8 test cases pass:
+- ✓ extract_error_context returns error lines
+- ✓ extract_error_context returns at least 3 lines
+- ✓ log_event_error_with_context writes to .events.log
+- ✓ Events log contains error context
+- ✓ Events log contains metadata (iteration, story, agent)
+- ✓ display_error_with_context outputs formatted text
+- ✓ display_new_events handles context lines
+- ✓ build_event_details creates metadata string

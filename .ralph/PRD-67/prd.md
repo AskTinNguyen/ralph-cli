@@ -218,7 +218,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ### Phase 5: TypeScript Migration (Priority: P2)
 
-### [ ] US-013: Extract failure detection to TypeScript
+### [x] US-013: Extract failure detection to TypeScript
 
 **As a** developer maintaining Ralph
 **I want** failure detection patterns to be unit testable
@@ -226,11 +226,11 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Module: `lib/failure-detection/index.js`
-- [ ] 40+ regex patterns extracted from loop.sh
-- [ ] Unit tests for each pattern
-- [ ] Bash integration: `node lib/failure-detection/cli.js "$log_file"`
-- [ ] Test coverage >80%
+- [x] Module: `lib/failure-detection/index.js`
+- [x] 40+ regex patterns extracted from loop.sh
+- [x] Unit tests for each pattern
+- [x] Bash integration: `node lib/failure-detection/cli.js "$log_file"`
+- [x] Test coverage >80%
 
 ---
 

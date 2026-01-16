@@ -485,35 +485,41 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create `lib/failure-detection/index.js` module extracting 40+ regex patterns from loop.sh, add unit tests with >80% coverage, provide CLI wrapper for bash integration.
 
-- [ ] Create failure detection module structure
+- [x] Create failure detection module structure
   - Scope: New files: `lib/failure-detection/index.js`, `lib/failure-detection/patterns.js`
   - Acceptance: Module exports `detectFailure(logContent)` function
   - Verification: Import module in Node REPL, verify function exists
+  - Notes: Created `lib/failure-detection/index.js` (main module) and `lib/failure-detection/patterns.js` (pattern definitions). Module exports: detectFailure, detectTestFailure, detectLintFailure, detectTypeFailure, detectBuildFailure, classifyFailureType, extractErrorContext, formatResult.
 
-- [ ] Extract patterns from loop.sh
+- [x] Extract patterns from loop.sh
   - Scope: Find all failure detection regex in `loop.sh`, extract to `patterns.js` as array of `{ pattern, category, severity }`
   - Acceptance: All 40+ patterns extracted and categorized
   - Verification: Compare patterns.js with loop.sh, verify all patterns present
+  - Notes: Extracted 68 patterns total (exceeds 40+ requirement): 15 test, 14 lint, 11 type, 8 build, 14 runtime, 6 git. Patterns organized by category with severity levels (1=info, 2=warning, 3=error, 4=critical).
 
-- [ ] Implement detection logic
+- [x] Implement detection logic
   - Scope: `detectFailure()` runs all patterns against log content, returns matches with context
   - Acceptance: Returns array: `[{ pattern, category, severity, matchedLine, lineNumber }]`
   - Verification: Test with sample error logs, verify correct matches
+  - Notes: `detectFailure(logContent, options)` supports category filtering, severity filtering, and context lines. Returns `{ hasFailure, matches, summary }` with line numbers and context. Added `classifyFailureType()` with priority-based tie-breaking for accurate classification.
 
-- [ ] Create unit tests
+- [x] Create unit tests
   - Scope: Test each pattern with positive/negative cases in `tests/lib/failure-detection.test.js`
   - Acceptance: >80% code coverage, all patterns tested
   - Verification: `npm run test:coverage`, check coverage report
+  - Notes: Created `tests/test-failure-detection.js` with 95 tests across 30 test groups. Coverage: 99.48% statements, 87.3% branches, 100% functions. Tests cover Jest, Mocha, Pytest, Go test, npm, ESLint, Prettier, TypeScript, Rust, mypy, and more.
 
-- [ ] Create CLI wrapper for bash
+- [x] Create CLI wrapper for bash
   - Scope: New file `lib/failure-detection/cli.js` that reads log file from argv, outputs JSON
   - Acceptance: `node lib/failure-detection/cli.js run.log` outputs failure matches as JSON
   - Verification: Run CLI on sample log, verify JSON output
+  - Notes: Created `lib/failure-detection/cli.js` with options: --categories, --min-severity, --format (json/text), --classify, --has-failure, --stats. Supports exit code based detection for bash conditionals.
 
-- [ ] Integrate into loop.sh
+- [x] Integrate into loop.sh
   - Scope: Replace grep-based failure detection in `loop.sh` with call to CLI wrapper
   - Acceptance: Loop uses TypeScript module for failure detection
   - Verification: Run build with failures, verify detection still works
+  - Notes: Added `detect_failure_ts()` and `classify_failure_ts()` functions to loop.sh that wrap the Node.js CLI. Falls back to bash implementation if Node.js unavailable. Existing bash functions preserved for compatibility.
 
 ---
 

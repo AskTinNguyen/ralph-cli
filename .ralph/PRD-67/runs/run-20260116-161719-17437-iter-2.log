@@ -1,0 +1,15 @@
+All US-005 related code changes have been committed. The story is complete.
+
+**Summary of US-005 implementation:**
+
+1. **Checkpoint detection on every `ralph build` start** - Implemented in `bin/ralph` lines 605-690. Automatically checks for checkpoint.json when build starts without requiring `--resume` flag.
+
+2. **Visual prompt shows: last iteration, story ID, agent used** - Shows checkpoint details including iteration number, story ID, agent name, and creation timestamp using @clack/prompts.
+
+3. **Interactive prompt: "Resume from checkpoint? [Y/n]"** - Users can choose to resume, start fresh, or cancel. Uses a polished select menu with clear options.
+
+4. **Choosing "n" clears checkpoint and starts fresh** - When user selects "No, start fresh", the checkpoint is cleared via `checkpointModule.clearCheckpoint()`.
+
+5. **Non-interactive mode (CI/CD) auto-resumes** - Detects if `process.stdin.isTTY` is false and automatically resumes from checkpoint if validation passes.
+
+6. **Validation before resume (git state, plan hash unchanged)** - Validates both git SHA and plan.md hash. Git SHA divergence is a warning, plan.md change is an error requiring confirmation.

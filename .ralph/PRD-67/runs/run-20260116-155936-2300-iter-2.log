@@ -1,0 +1,27 @@
+US-002: Event log for errors, warnings, and retries is now complete.
+
+**Summary of changes:**
+
+1. **Created `.agents/ralph/lib/events.sh`** - New module with structured event logging functions:
+   - `log_event_error()`, `log_event_warn()`, `log_event_info()`, `log_event_retry()` - Write events to `.events.log`
+   - `display_event()` - Display events in CLI with color-coded visual indicators
+   - `display_new_events()` - Poll and display new events incrementally
+   - Events format: `[timestamp] LEVEL message | details`
+   - Visual indicators: ✗ (red=error), ⚠ (yellow=warn), ↻ (cyan=retry), ℹ (dim=info)
+
+2. **Integrated event logging into `loop.sh`** at key points:
+   - Iteration start (INFO)
+   - Iteration success/completion (INFO)
+   - Iteration failure (ERROR)
+   - Retry attempts with delay info (RETRY)
+   - Retry success (INFO)
+   - All retries exhausted (ERROR)
+   - Agent switch warnings (WARN)
+   - Uncommitted changes (WARN)
+   - Rollback failures (ERROR)
+   - Max retries exhausted (ERROR)
+   - Agent chain exhausted (ERROR)
+
+3. **Events persist** via `>>` append operator to `.ralph/PRD-N/.events.log` and accumulate across builds for historical review.
+
+**Commit:** `45f8885 feat(events): implement event log for errors, warnings, and retries (US-002)`

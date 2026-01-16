@@ -1,0 +1,28 @@
+---
+
+## Summary
+
+**US-008: Budget warnings and enforcement** was already implemented in a previous iteration (commit `7a6512b`). This iteration verified all 6 acceptance criteria are met:
+
+1. ✅ **Budget config file**: `.ralph/PRD-N/.budget.json` created by `ralph budget set`
+2. ✅ **Warning at 75%** (yellow): `display_budget_warning()` with event logging
+3. ✅ **Warning at 90%** (orange): `display_budget_warning()` with event logging  
+4. ✅ **Error at 100%** (red, build pauses): `check_and_enforce_budget()` + `prompt_budget_continue()`
+5. ✅ **Warnings in CLI and UI**: CLI via budget.sh, UI via `/api/partials/budget-display`
+6. ✅ **Budget command**: `ralph budget set <amount>` - lib/commands/budget.js
+
+**Verification Results:**
+- Budget percentage calculation: 8/8 tests passed
+- Threshold detection: 4/4 tests passed
+- Budget limit reading: PASS
+- Enforcement check: PASS
+- Budget module direct test: PASS
+
+**Files changed:**
+- `.ralph/PRD-67/progress.md` (added verification log)
+
+**Commit:** `4d792e6 docs(PRD-67): add verification log for US-008 budget warnings (iteration 6)`
+
+**Post-commit status:** clean (remaining files are unrelated S2-Game content)
+
+There are still 9 unchecked stories remaining in the PRD (US-009 through US-017), so no completion signal is output.

@@ -1,0 +1,32 @@
+## Summary
+
+I have successfully completed **US-009: Stall detection system** for PRD-67. Here's what was implemented:
+
+### Implementation Details
+
+**New file: `.agents/ralph/lib/heartbeat.sh`** - Heartbeat and stall detection module with:
+- `update_heartbeat()` - Updates `.heartbeat` file with Unix timestamp atomically
+- `get_heartbeat()` / `get_heartbeat_age()` - Reads heartbeat timestamp and calculates age
+- `is_stalled()` - Detects stall when heartbeat age exceeds threshold (default 30 minutes)
+- `start_stall_detector()` / `stop_stall_detector()` - Background process monitoring heartbeat every 60s
+- `create_stalled_marker()` - Creates `.stalled` JSON file with diagnostics (timestamp, PID, story, last output)
+- Configurable via `RALPH_STALL_THRESHOLD_SILENT` environment variable
+
+**Loop integration:**
+- Heartbeat updated on every line of agent output via `tee_with_heartbeat()`
+- Stall detector starts before agent execution, stops after
+- Heartbeat and stalled marker cleared on build completion
+- Background detector auto-exits when parent dies (prevents orphans)
+
+### Commits
+1. `f6b9d7e` - feat(stall-detection): implement heartbeat and stall detection (US-009)
+2. `c3ea6e1` - docs(PRD-67): add progress entry for US-009 stall detection (iteration 7)
+
+### All Acceptance Criteria Met
+- ✅ Heartbeat file (`.heartbeat`) updated every agent output
+- ✅ Stall detected after 30 minutes of no output
+- ✅ Stall logged to `activity.log` and `.events.log`
+- ✅ Stall creates `.stalled` marker file with diagnostics
+- ✅ Configurable threshold via `RALPH_STALL_THRESHOLD_SILENT`
+
+**Remaining stories in PRD-67:** US-010 through US-017 (8 stories, Phase 4-5)

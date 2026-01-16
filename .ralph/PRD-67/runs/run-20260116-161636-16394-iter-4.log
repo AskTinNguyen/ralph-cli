@@ -1,0 +1,22 @@
+All tasks are complete. Let me provide a summary:
+
+## Summary
+
+**US-006: UI checkpoint banner with resume button** was already fully implemented and committed in a previous iteration (commit `8aa9069`).
+
+This iteration (4) verified that all acceptance criteria are working:
+
+1. ✅ **Checkpoint banner appears when `.checkpoint.json` exists** - Confirmed via browser testing with dev-browser
+2. ✅ **Banner shows: iteration number, story ID, timestamp** - Shows "Iteration 4 • Story US-006 • Agent: claude • Last checkpoint: 1m ago"
+3. ✅ **"Resume Build" button triggers build with resume** - Button present and wired to POST /api/streams/:id/resume
+4. ✅ **"Start Fresh" button clears checkpoint** - Button present and wired to POST /api/streams/:id/checkpoint/clear
+5. ✅ **API endpoints working** - GET /api/streams/:id/checkpoint returns checkpoint data, POST endpoints functional
+
+**Verification performed:**
+- TypeScript build: PASS
+- API endpoint tests: PASS
+- Browser automation with dev-browser: PASS (screenshot captured)
+
+**Commit:** `73bb926 docs(PRD-67): add progress entry for US-006 re-verification (iteration 4)`
+
+**Remaining stories:** 11 stories remain (US-007 through US-017) - the PRD is not complete yet, so no `<promise>COMPLETE</promise>` signal.

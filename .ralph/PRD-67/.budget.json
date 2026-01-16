@@ -1,0 +1,9 @@
+{
+  "limit": 5,
+  "warnings": [
+    0.75,
+    0.9
+  ],
+  "enforce": true,
+  "created_at": "2026-01-16T09:51:08.057Z"
+}

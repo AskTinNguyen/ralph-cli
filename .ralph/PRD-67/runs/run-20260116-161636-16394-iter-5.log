@@ -1,0 +1,15 @@
+## Summary
+
+US-007: Real-time cost accumulation has been **verified complete**. The story was already implemented and committed in a previous iteration (commit 0515424).
+
+**All 5 acceptance criteria are met:**
+
+1. ✅ `.cost.json` file updated after each agent call - `update_cost()` called in loop.sh after each iteration
+2. ✅ Running total calculated using existing estimator - `calculate_cost()` uses model pricing (Sonnet: $3/$15 per 1M tokens)
+3. ✅ Cost displayed in CLI: `$0.0234` next to status - `format_cost()` shows 4 decimal precision
+4. ✅ UI dashboard shows cost with 4 decimal precision - `/api/partials/cost-display` endpoint with green accent styling
+5. ✅ Cost persists across checkpoint/resume - `init_cost_tracking()` preserves existing `.cost.json`
+
+**Commit:** 5472a93 docs(PRD-67): add verification log for US-007 cost accumulation (iteration 5)
+
+**Note:** The remaining uncommitted changes (`.agents/ralph/lib/budget.sh` and loop.sh modifications) are for US-008 (Budget warnings and enforcement), not US-007. These will be committed when US-008 is worked on.

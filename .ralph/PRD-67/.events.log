@@ -1,0 +1,81 @@
+[2026-01-16 16:09:54] INFO Iteration started | iteration=1 story=US-002 mode=build
+[2026-01-16 16:10:59] INFO Test event | test=true
+[2026-01-16 16:10:59] ERROR Test error | code=1
+[2026-01-16 16:10:59] WARN Test warning | retry=1/3
+[2026-01-16 16:10:59] RETRY Retry 2/3 (delay: 2s) | attempt=2 max=3 delay=2s reason=exit_code=1
+[2026-01-16 16:11:18] INFO Session 2 test | session=2
+[2026-01-16 16:13:46] INFO Iteration completed | iteration=1 story=US-002 duration=231s
+[2026-01-16 16:13:49] INFO Iteration started | iteration=2 story=US-003 mode=build
+[2026-01-16 16:16:36] INFO Iteration started | iteration=1 story=US-003 mode=build
+[2026-01-16 16:17:20] INFO Iteration started | iteration=1 story=US-003 mode=build
+[2026-01-16 16:19:38] INFO Iteration started | iteration=1 story=US-004 mode=build
+[2026-01-16 16:21:36] INFO Iteration completed | iteration=2 story=US-003 duration=468s
+[2026-01-16 16:21:36] WARN Uncommitted changes | iteration=0 story=US-003
+[2026-01-16 16:21:40] INFO Iteration started | iteration=3 story=US-004 mode=build
+[2026-01-16 16:22:02] INFO Iteration completed | iteration=1 story=US-003 duration=326s
+[2026-01-16 16:22:02] WARN Uncommitted changes | iteration=0 story=US-003
+[2026-01-16 16:22:05] INFO Iteration started | iteration=2 story=US-004 mode=build
+[2026-01-16 16:23:03] INFO Iteration completed | iteration=1 story=US-003 duration=344s
+[2026-01-16 16:23:03] WARN Uncommitted changes | iteration=0 story=US-003
+[2026-01-16 16:23:06] INFO Iteration started | iteration=2 story=US-005 mode=build
+[2026-01-16 16:25:55] INFO Iteration completed | iteration=3 story=US-004 duration=256s
+[2026-01-16 16:25:55] WARN Uncommitted changes | iteration=0 story=US-004
+[2026-01-16 16:25:58] INFO Iteration started | iteration=4 story=US-005 mode=build
+[2026-01-16 16:27:19] INFO Iteration completed | iteration=2 story=US-004 duration=314s
+[2026-01-16 16:27:19] WARN Uncommitted changes | iteration=0 story=US-004
+[2026-01-16 16:27:22] INFO Iteration started | iteration=3 story=US-006 mode=build
+[2026-01-16 16:29:35] INFO Iteration completed | iteration=2 story=US-005 duration=389s
+[2026-01-16 16:29:35] WARN Uncommitted changes | iteration=0 story=US-005
+[2026-01-16 16:29:38] INFO Iteration started | iteration=3 story=US-006 mode=build
+[2026-01-16 16:30:49] INFO Iteration completed | iteration=4 story=US-005 duration=291s
+[2026-01-16 16:30:49] WARN Uncommitted changes | iteration=0 story=US-005
+[2026-01-16 16:30:52] INFO Iteration started | iteration=5 story=US-006 mode=build
+[2026-01-16 16:36:44] INFO Iteration completed | iteration=5 story=US-006 duration=353s
+[2026-01-16 16:36:44] WARN Uncommitted changes | iteration=0 story=US-006
+[2026-01-16 16:36:44] INFO Iteration completed | iteration=3 story=US-006 duration=426s
+[2026-01-16 16:36:44] INFO Iteration completed | iteration=3 story=US-006 duration=563s
+[2026-01-16 16:36:44] WARN Uncommitted changes | iteration=0 story=US-006
+[2026-01-16 16:36:47] INFO Iteration started | iteration=6 story=US-006 mode=build
+[2026-01-16 16:36:48] INFO Iteration started | iteration=4 story=US-006 mode=build
+[2026-01-16 16:40:28] INFO Iteration completed | iteration=6 story=US-006 duration=221s
+[2026-01-16 16:40:28] WARN Uncommitted changes | iteration=0 story=US-006
+[2026-01-16 16:40:31] INFO Iteration started | iteration=7 story=US-007 mode=build
+[2026-01-16 16:42:11] INFO Iteration completed | iteration=4 story=US-006 duration=323s
+[2026-01-16 16:42:11] WARN Uncommitted changes | iteration=0 story=US-006
+[2026-01-16 16:42:14] INFO Iteration started | iteration=5 story=US-007 mode=build
+[2026-01-16 16:44:43] INFO Iteration completed | iteration=7 story=US-007 duration=252s
+[2026-01-16 16:44:43] WARN Uncommitted changes | iteration=0 story=US-007
+[2026-01-16 16:44:46] INFO Iteration started | iteration=8 story=US-008 mode=build
+[2026-01-16 16:46:40] INFO Iteration completed | iteration=5 story=US-007 duration=267s
+[2026-01-16 16:46:40] WARN Uncommitted changes | iteration=0 story=US-007
+[2026-01-16 16:46:43] INFO Iteration started | iteration=6 story=US-008 mode=build
+[2026-01-16 16:52:49] INFO Iteration completed | iteration=8 story=US-008 duration=483s
+[2026-01-16 16:52:49] WARN Uncommitted changes | iteration=0 story=US-008
+[2026-01-16 16:52:52] INFO Iteration started | iteration=9 story=US-009 mode=build
+[2026-01-16 16:54:29] INFO Iteration completed | iteration=6 story=US-008 duration=465s
+[2026-01-16 16:54:29] WARN Uncommitted changes | iteration=0 story=US-008
+[2026-01-16 16:54:32] INFO Iteration started | iteration=7 story=US-009 mode=build
+[2026-01-16 16:58:37] INFO Iteration completed | iteration=9 story=US-009 duration=346s
+[2026-01-16 16:58:37] WARN Uncommitted changes | iteration=0 story=US-009
+[2026-01-16 16:58:40] INFO Iteration started | iteration=10 story=US-010 mode=build
+[2026-01-16 16:58:41] INFO Iteration completed | iteration=7 story=US-009 duration=250s
+[2026-01-16 16:58:41] WARN Uncommitted changes | iteration=0 story=US-009
+[2026-01-16 16:58:44] INFO Iteration started | iteration=8 story=US-010 mode=build
+[2026-01-16 17:04:06] INFO Iteration completed | iteration=8 story=US-010 duration=323s
+[2026-01-16 17:04:06] WARN Uncommitted changes | iteration=0 story=US-010
+[2026-01-16 17:04:09] INFO Iteration started | iteration=9 story=US-011 mode=build
+[2026-01-16 17:05:38] INFO Iteration completed | iteration=10 story=US-010 duration=418s
+[2026-01-16 17:05:38] WARN Uncommitted changes | iteration=0 story=US-010
+[2026-01-16 17:05:41] INFO Iteration started | iteration=11 story=US-011 mode=build
+[2026-01-16 17:15:54] INFO Iteration completed | iteration=11 story=US-011 duration=614s
+[2026-01-16 17:15:54] WARN Uncommitted changes | iteration=0 story=US-011
+[2026-01-16 17:15:57] INFO Iteration started | iteration=12 story=US-012 mode=build
+[2026-01-16 17:17:33] INFO Iteration completed | iteration=9 story=US-011 duration=803s
+[2026-01-16 17:17:33] WARN Uncommitted changes | iteration=0 story=US-011
+[2026-01-16 17:17:36] INFO Iteration started | iteration=10 story=US-012 mode=build
+[2026-01-16 17:24:15] INFO Iteration completed | iteration=12 story=US-012 duration=498s
+[2026-01-16 17:24:15] WARN Uncommitted changes | iteration=0 story=US-012
+[2026-01-16 17:24:18] INFO Iteration started | iteration=13 story=US-013 mode=build
+[2026-01-16 17:26:06] INFO Iteration completed | iteration=10 story=US-012 duration=511s
+[2026-01-16 17:26:06] WARN Uncommitted changes | iteration=0 story=US-012
+[2026-01-16 17:26:09] INFO Iteration started | iteration=11 story=US-013 mode=build

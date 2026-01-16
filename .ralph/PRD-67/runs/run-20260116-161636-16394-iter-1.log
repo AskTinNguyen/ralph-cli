@@ -1,0 +1,37 @@
+The US-003 story implementation is complete. The story was already fully implemented and committed by a previous iteration (`350ec5f`). My work this iteration was verification:
+
+## Summary
+
+**US-003: UI real-time dashboard widget** - Already Complete
+
+### Verification Results:
+
+1. **API Endpoints Working:**
+   - `GET /api/streams/:id/status` - Returns phase, story_id, story_title, iteration, elapsed_seconds, updated_at
+   - `GET /api/streams/:id/events` - Returns parsed events array with timestamp, level, message, details
+
+2. **File Watcher Configured:**
+   - Emits `status_updated` when `.status.json` changes
+   - Emits `events_updated` when `.events.log` changes
+   - Supports both PRD folder and worktree paths
+
+3. **Widget Component:**
+   - Shows phase badge (planning/executing/committing/verifying)
+   - Shows story ID and title
+   - Shows elapsed time
+   - Shows iteration number
+   - Shows last 5 recent events with color-coded icons
+
+4. **Widget Visibility:**
+   - Appears when status file exists (build running)
+   - Hides with `rams-hidden` class when no build active
+
+5. **Browser Verification:**
+   - Dashboard loads correctly
+   - Widget updates via SSE/HTMX
+   - All visual elements render properly
+
+### Commit:
+- `350ec5f` - feat(ui): implement real-time dashboard widget for build status (US-003)
+
+No new commit needed - implementation already committed by previous iteration. Story is complete but PRD has 14 remaining unchecked stories.

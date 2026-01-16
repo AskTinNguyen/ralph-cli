@@ -1,0 +1,31 @@
+There are still many unchecked stories (US-005 through US-017). The PRD is not complete, so I should NOT output the COMPLETE signal.
+
+Let me provide a final summary of what was implemented for US-004:
+
+## Summary
+
+Successfully implemented **US-004: Inline error context when builds fail** with the following changes:
+
+### Files Changed:
+- `.agents/ralph/lib/events.sh` - Added 3 new functions:
+  - `extract_error_context()` - Extracts last 3-10 lines with error keywords from log files
+  - `log_event_error_with_context()` - Logs errors with context and metadata to `.events.log`
+  - `display_error_with_context()` - Displays errors with colored context in CLI
+  - Updated `display_new_events()` to handle context lines when polling
+
+- `.agents/ralph/loop.sh` - Updated 5 error logging sites to use context-aware functions:
+  - Iteration failed
+  - Agent fallback chain exhausted  
+  - All retries exhausted
+  - Max retries exhausted
+  - Rollback failed
+
+### Acceptance Criteria Met:
+- [x] Error events include last 3-10 lines containing error keywords
+- [x] Context shown in both CLI and `.events.log`
+- [x] Context includes: iteration number, story ID, agent name
+- [x] CLI displays error context with proper formatting
+
+### Commits:
+1. `2f6b61c` - Main implementation of US-004
+2. `1876a93` - Fix for context line display in polling function

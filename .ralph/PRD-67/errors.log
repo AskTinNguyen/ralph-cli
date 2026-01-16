@@ -1,0 +1,17 @@
+# Error Log
+
+> Failures and repeated issues. Use this to add guardrails.
+
+[2026-01-16 16:05:39] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-155936-2300-iter-1.md
+[2026-01-16 16:22:02] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-1.md
+[2026-01-16 16:23:03] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161719-17437-iter-1.md
+[2026-01-16 16:27:19] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-2.md
+[2026-01-16 16:29:35] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161719-17437-iter-2.md
+[2026-01-16 16:36:44] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-3.md
+[2026-01-16 16:42:11] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-4.md
+[2026-01-16 16:46:40] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-5.md
+[2026-01-16 16:54:29] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-6.md
+[2026-01-16 16:58:41] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-7.md
+[2026-01-16 17:04:06] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-8.md
+[2026-01-16 17:17:33] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-9.md
+[2026-01-16 17:26:06] ITERATION 0 left uncommitted changes; review run summary at /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-10.md

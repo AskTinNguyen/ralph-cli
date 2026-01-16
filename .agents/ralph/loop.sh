@@ -1633,6 +1633,77 @@ detect_failure() {
   esac
 }
 
+# TypeScript-based failure detection (US-013)
+# Wrapper that uses the Node.js failure detection module for enhanced pattern matching
+# Falls back to bash implementation if Node.js is unavailable
+# Usage: detect_failure_ts <log_file> [category]
+# Returns: 0 if failure detected, 1 if no failure
+detect_failure_ts() {
+  local log_file="$1"
+  local category="${2:-}"
+
+  if [ ! -f "$log_file" ]; then
+    return 1
+  fi
+
+  # Path to the TypeScript CLI module
+  local cli_path="$SCRIPT_DIR/../../lib/failure-detection/cli.js"
+
+  # Check if Node.js module exists and node is available
+  if [ -f "$cli_path" ] && command -v node >/dev/null 2>&1; then
+    local args=("$log_file" "--has-failure")
+    if [ -n "$category" ]; then
+      args+=("--categories=$category")
+    fi
+
+    # Use Node.js module - returns 0 on failure detected, 1 on no failure
+    if node "$cli_path" "${args[@]}" 2>/dev/null; then
+      return 0  # Failure detected
+    else
+      return 1  # No failure detected
+    fi
+  else
+    # Fallback to bash implementation
+    if [ -n "$category" ]; then
+      case "$category" in
+        test) detect_test_failure "$log_file"; return $? ;;
+        lint) detect_lint_failure "$log_file"; return $? ;;
+        type) detect_type_failure "$log_file"; return $? ;;
+        *) detect_test_failure "$log_file"; return $? ;;
+      esac
+    else
+      detect_test_failure "$log_file"
+      return $?
+    fi
+  fi
+}
+
+# Get failure type classification using TypeScript module (US-013)
+# Returns failure type: test, lint, type, build, runtime, git, or unknown
+# Usage: classify_failure_ts <log_file>
+classify_failure_ts() {
+  local log_file="$1"
+
+  if [ ! -f "$log_file" ]; then
+    echo "unknown"
+    return
+  fi
+
+  local cli_path="$SCRIPT_DIR/../../lib/failure-detection/cli.js"
+
+  if [ -f "$cli_path" ] && command -v node >/dev/null 2>&1; then
+    local result
+    result=$(node "$cli_path" "$log_file" --classify --format=json 2>/dev/null)
+    if [ $? -eq 0 ] && [ -n "$result" ]; then
+      echo "$result" | sed -n 's/.*"failureType"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+      return
+    fi
+  fi
+
+  # Fallback - use bash classify_failure_type
+  classify_failure_type 0 "$log_file"
+}
+
 # Check if story has rollback disabled via <!-- no-rollback --> comment (US-003)
 # Returns: 0 if rollback should be skipped, 1 if rollback is allowed
 # Usage: story_has_no_rollback <story_block_file>
