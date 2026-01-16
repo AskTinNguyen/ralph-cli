@@ -1611,3 +1611,89 @@ body.sidebar-collapsed .rams-banner {
 .live-status-widget.sse-updated {
   box-shadow: 0 0 0 2px var(--rams-accent-lighter);
 }
+
+/* ============================================================================
+   Checkpoint Banner (US-006)
+   ============================================================================ */
+
+.checkpoint-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.checkpoint-banner.rams-hidden {
+  display: none;
+}
+
+.checkpoint-banner-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.checkpoint-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.checkpoint-banner-title {
+  font-weight: 600;
+  color: var(--rams-warning, #f59e0b);
+  font-size: 0.9375rem;
+  margin-bottom: 0.25rem;
+}
+
+.checkpoint-banner-details {
+  font-size: 0.8125rem;
+  color: var(--rams-gray-300);
+  line-height: 1.5;
+}
+
+.checkpoint-banner-details strong {
+  color: var(--rams-text-primary);
+}
+
+.checkpoint-banner-time {
+  color: var(--rams-gray-500);
+  font-size: 0.75rem;
+}
+
+.checkpoint-banner-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.checkpoint-banner-actions .btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.checkpoint-banner-actions .btn-primary {
+  background: var(--rams-accent);
+  color: white;
+  border: none;
+}
+
+.checkpoint-banner-actions .btn-primary:hover {
+  background: var(--rams-accent-lighter);
+}
+
+.checkpoint-banner-actions .btn-secondary {
+  background: transparent;
+  color: var(--rams-gray-400);
+  border: 1px solid var(--rams-gray-600);
+}
+
+.checkpoint-banner-actions .btn-secondary:hover {
+  color: var(--rams-gray-200);
+  border-color: var(--rams-gray-500);
+}

@@ -211,6 +211,19 @@
         </div>
       </section>
 
+      <!-- Checkpoint Banner Section (US-006) -->
+      <section class="rams-section" id="checkpoint-section">
+        <div
+          id="checkpoint-container"
+          hx-get="/api/partials/checkpoint-banner"
+          hx-trigger="load, every 10s, sse:run_started, sse:run_completed, sse:file_changed"
+          hx-swap="innerHTML transition:true"
+          class="sse-updatable"
+        >
+          <!-- Checkpoint banner appears when .checkpoint.json exists -->
+        </div>
+      </section>
+
       <!-- Live Status Widget Section (US-003) -->
       <section class="rams-section" id="live-status-section">
         <div
@@ -378,22 +391,27 @@
       var progressContainer = document.getElementById("progress-container");
       var storiesContainer = document.getElementById("stories-container");
       var liveStatusContainer = document.getElementById("live-status-container");
+      var checkpointContainer = document.getElementById("checkpoint-container");
 
       var progressUrl = "/api/partials/progress" + (streamId ? "?streamId=" + streamId : "");
       var storiesUrl = "/api/partials/stories" + (streamId ? "?streamId=" + streamId : "");
       var liveStatusUrl = "/api/partials/live-status-widget" + (streamId ? "?streamId=" + streamId : "");
+      var checkpointUrl = "/api/partials/checkpoint-banner" + (streamId ? "?streamId=" + streamId : "");
 
       progressContainer.setAttribute("hx-get", progressUrl);
       storiesContainer.setAttribute("hx-get", storiesUrl);
       liveStatusContainer.setAttribute("hx-get", liveStatusUrl);
+      checkpointContainer.setAttribute("hx-get", checkpointUrl);
 
       htmx.process(progressContainer);
       htmx.process(storiesContainer);
       htmx.process(liveStatusContainer);
+      htmx.process(checkpointContainer);
 
       htmx.trigger(progressContainer, "load");
       htmx.trigger(storiesContainer, "load");
       htmx.trigger(liveStatusContainer, "load");
+      htmx.trigger(checkpointContainer, "load");
     });
 
     // Stream View Toggle

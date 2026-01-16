@@ -197,30 +197,35 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Add banner component to UI dashboard that appears when `.checkpoint.json` exists, shows checkpoint details, provides Resume/Clear buttons with API integration.
 
-- [ ] Create API endpoint: GET /api/streams/:id/checkpoint
+- [x] Create API endpoint: GET /api/streams/:id/checkpoint
   - Scope: Add route in `ui/src/routes/api.ts` that reads `.ralph/PRD-N/.checkpoint.json` and returns checkpoint data
   - Acceptance: Returns `{ iteration, story_id, story_title, git_sha, timestamp, agent }` or 404 if no checkpoint
   - Verification: Create checkpoint, `curl http://localhost:3000/api/streams/1/checkpoint` returns data
+  - Notes: Implemented in api.ts lines 8469-8518. Returns checkpoint data with time_ago formatting. Handles both PRD folder and worktree paths.
 
-- [ ] Create API endpoint: POST /api/streams/:id/resume
+- [x] Create API endpoint: POST /api/streams/:id/resume
   - Scope: Add route that triggers `ralph build` with checkpoint present (relies on auto-resume from US-005)
   - Acceptance: Starts build process and resumes from checkpoint
   - Verification: POST to endpoint, verify build starts and resumes correctly
+  - Notes: Implemented in api.ts lines 8529-8585. Spawns detached ralph build process with --resume flag. Accepts optional iterations parameter in body.
 
-- [ ] Create API endpoint: POST /api/streams/:id/checkpoint/clear
+- [x] Create API endpoint: POST /api/streams/:id/checkpoint/clear
   - Scope: Add route that deletes `.checkpoint.json` file
   - Acceptance: Checkpoint file removed, returns success
   - Verification: POST to endpoint, verify `.checkpoint.json` deleted
+  - Notes: Implemented in api.ts lines 8593-8624. Deletes checkpoint.json file from PRD folder.
 
-- [ ] Create checkpoint banner UI component
+- [x] Create checkpoint banner UI component
   - Scope: Add banner to dashboard showing: "⚠ Build interrupted at iteration N (US-XXX). Last checkpoint: [timestamp]"
   - Acceptance: Banner appears when checkpoint exists, hidden otherwise
   - Verification: Create checkpoint, refresh UI, banner appears with correct data
+  - Notes: Implemented as /api/partials/checkpoint-banner (api.ts lines 8635-8714). CSS in rams-ui.css lines 1615-1699. Uses HTMX for buttons.
 
-- [ ] Add Resume/Clear buttons to banner
+- [x] Add Resume/Clear buttons to banner
   - Scope: Wire buttons to API endpoints (Resume → POST /resume, Clear → POST /checkpoint/clear)
   - Acceptance: Resume button starts build, Clear button removes banner and checkpoint
   - Verification: Click buttons, verify API calls and state changes
+  - Notes: Buttons use hx-post with hx-on::after-request to hide banner on success. Resume reloads page, Clear just hides banner.
 
 ---
 

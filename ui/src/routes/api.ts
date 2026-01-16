@@ -8454,4 +8454,263 @@ api.get('/partials/live-status-widget', (c) => {
   `);
 });
 
+// ============================================================================
+// US-006: Checkpoint endpoints
+// ============================================================================
+
+/**
+ * GET /api/streams/:id/checkpoint
+ *
+ * Returns checkpoint data for a stream if one exists.
+ * Includes iteration, story, agent, git SHA, and creation time.
+ *
+ * Returns 404 if no checkpoint exists.
+ */
+api.get('/streams/:id/checkpoint', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: 'Ralph root not found' }, 500);
+  }
+
+  // Determine PRD folder path (check both PRD folder and worktree)
+  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
+
+  if (!fs.existsSync(checkpointPath)) {
+    return c.json({ error: 'No checkpoint found', notFound: true }, 404);
+  }
+
+  try {
+    const content = fs.readFileSync(checkpointPath, 'utf-8');
+    const checkpoint = JSON.parse(content);
+
+    // Add formatted time ago
+    let timeAgo = 'unknown';
+    if (checkpoint.created_at) {
+      const created = new Date(checkpoint.created_at);
+      const diffMs = Date.now() - created.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) timeAgo = 'just now';
+      else if (diffMins < 60) timeAgo = `${diffMins}m ago`;
+      else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
+      else timeAgo = `${diffDays}d ago`;
+    }
+
+    return c.json({
+      ...checkpoint,
+      time_ago: timeAgo,
+      prd_folder: prdFolder,
+    });
+  } catch (err) {
+    return c.json({ error: `Failed to read checkpoint: ${(err as Error).message}` }, 500);
+  }
+});
+
+/**
+ * POST /api/streams/:id/resume
+ *
+ * Triggers a build resume for the specified stream.
+ * Uses the checkpoint to resume from the last saved state.
+ *
+ * Query params:
+ *   - iterations: Number of iterations to run (default: 1)
+ */
+api.post('/streams/:id/resume', async (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: 'Ralph root not found' }, 500);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
+
+  if (!fs.existsSync(checkpointPath)) {
+    return c.json({ error: 'No checkpoint found to resume from' }, 404);
+  }
+
+  // Parse body for iterations
+  let iterations = 1;
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    if (body.iterations && typeof body.iterations === 'number') {
+      iterations = Math.min(Math.max(1, body.iterations), 100);
+    }
+  } catch {
+    // Use default
+  }
+
+  try {
+    // Spawn ralph build with --resume flag
+    const cwd = path.dirname(path.dirname(ralphRoot)); // Get project root
+    const child = spawn('ralph', ['build', String(iterations), `--prd=${id}`, '--resume'], {
+      cwd,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        RALPH_RESUME: '1',
+      },
+    });
+
+    child.unref();
+
+    return c.json({
+      success: true,
+      message: `Resuming build for PRD-${id} with ${iterations} iteration(s)`,
+      pid: child.pid,
+    });
+  } catch (err) {
+    return c.json({ error: `Failed to start build: ${(err as Error).message}` }, 500);
+  }
+});
+
+/**
+ * POST /api/streams/:id/checkpoint/clear
+ *
+ * Clears (deletes) the checkpoint for a stream.
+ * This allows starting a fresh build.
+ */
+api.post('/streams/:id/checkpoint/clear', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: 'Ralph root not found' }, 500);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
+
+  if (!fs.existsSync(checkpointPath)) {
+    return c.json({ error: 'No checkpoint found to clear', notFound: true }, 404);
+  }
+
+  try {
+    fs.unlinkSync(checkpointPath);
+    return c.json({
+      success: true,
+      message: `Checkpoint cleared for PRD-${id}`,
+    });
+  } catch (err) {
+    return c.json({ error: `Failed to clear checkpoint: ${(err as Error).message}` }, 500);
+  }
+});
+
+/**
+ * GET /api/partials/checkpoint-banner
+ *
+ * Returns HTML partial for checkpoint banner.
+ * Shows checkpoint info and Resume/Clear buttons.
+ *
+ * Query params:
+ *   - streamId: Stream to show checkpoint for
+ */
+api.get('/partials/checkpoint-banner', (c) => {
+  const streamId = c.req.query('streamId');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot || !streamId) {
+    return c.html(`<div id="checkpoint-banner" class="rams-hidden"></div>`);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${streamId}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${streamId}`, '.ralph', `PRD-${streamId}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
+
+  if (!fs.existsSync(checkpointPath)) {
+    return c.html(`<div id="checkpoint-banner" class="rams-hidden"></div>`);
+  }
+
+  try {
+    const content = fs.readFileSync(checkpointPath, 'utf-8');
+    const checkpoint = JSON.parse(content);
+
+    // Calculate time ago
+    let timeAgo = 'unknown';
+    if (checkpoint.created_at) {
+      const created = new Date(checkpoint.created_at);
+      const diffMs = Date.now() - created.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) timeAgo = 'just now';
+      else if (diffMins < 60) timeAgo = `${diffMins}m ago`;
+      else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
+      else timeAgo = `${diffDays}d ago`;
+    }
+
+    const iteration = checkpoint.iteration || 1;
+    const storyId = checkpoint.story_id || 'unknown';
+    const agent = checkpoint.loop_state?.agent || 'unknown';
+
+    return c.html(`
+      <div id="checkpoint-banner" class="checkpoint-banner" data-stream-id="${streamId}">
+        <div class="checkpoint-banner-icon">⚠️</div>
+        <div class="checkpoint-banner-content">
+          <div class="checkpoint-banner-title">Build interrupted</div>
+          <div class="checkpoint-banner-details">
+            Iteration <strong>${iteration}</strong> • Story <strong>${storyId}</strong> • Agent: ${agent}
+            <br>
+            <span class="checkpoint-banner-time">Last checkpoint: ${timeAgo}</span>
+          </div>
+        </div>
+        <div class="checkpoint-banner-actions">
+          <button
+            class="btn btn-primary"
+            hx-post="/api/streams/${streamId}/resume"
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) { this.closest('.checkpoint-banner').classList.add('rams-hidden'); window.location.reload(); }"
+          >
+            Resume
+          </button>
+          <button
+            class="btn btn-secondary"
+            hx-post="/api/streams/${streamId}/checkpoint/clear"
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful) { this.closest('.checkpoint-banner').classList.add('rams-hidden'); }"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    `);
+  } catch {
+    return c.html(`<div id="checkpoint-banner" class="rams-hidden"></div>`);
+  }
+});
+
 export { api };

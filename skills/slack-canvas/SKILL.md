@@ -300,9 +300,37 @@ https://app.slack.com/client/T022R9VEBPA/unified-files/doc/F0A8D6U5MV1
 - Team ID starts with `T`
 - Do NOT use `https://{workspace}.slack.com/docs/{canvas_id}` - returns 404
 
+## Embedded Files in Canvases
+
+Canvases often contain embedded files (documents, images, etc.) that appear as:
+
+```html
+<p class='embedded-file'>File ID: F0A90QWS0F7, File URL: https://...</p>
+```
+
+**To download embedded files**, use the `slack-file` skill which provides:
+- File download scripts
+- Bot vs user token guidance
+- Batch download from canvas HTML
+
+See: `slack-file` skill for complete file download documentation.
+
+**Quick download:**
+```bash
+# Extract file ID from canvas, then download
+curl -s "https://slack.com/api/files.info?file=FILE_ID" \
+  -H "Authorization: Bearer $SLACK_USER_TOKEN" | \
+  grep -o '"url_private_download":"[^"]*"' | \
+  sed 's/.*"url_private_download":"//;s/"$//' | \
+  xargs -I{} curl -sL {} -H "Authorization: Bearer $SLACK_USER_TOKEN" -o output.md
+```
+
+**Note:** Embedded files often require **user token** (`xoxp-`) instead of bot token for access.
+
 ## References
 
 - https://docs.slack.dev/surfaces/canvases/
 - https://docs.slack.dev/reference/methods/canvases.create/
 - https://docs.slack.dev/reference/methods/canvases.edit/
 - https://api.slack.com/methods/conversations.info
+- See also: `slack-file` skill for file downloads
