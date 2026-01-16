@@ -426,3 +426,39 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
     5. ✅ API endpoints working: GET /api/streams/:id/checkpoint, POST /api/streams/:id/resume
 - **Note**: This iteration was assigned US-006 but the story was already completed in a previous iteration. No new commits needed.
 ---
+
+## [2026-01-16T16:50:00+07:00] - US-006: UI checkpoint banner with resume button (Final Verification)
+Thread:
+Run: 20260116-161719-17437 (iteration 3)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161719-17437-iter-3.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161719-17437-iter-3.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (US-006 already completed in commit 8aa9069)
+- Post-commit status: N/A (story already complete)
+- Verification:
+  - Command: cd ui && npm run typecheck -> PASS (TypeScript compiles without errors)
+  - Command: curl http://localhost:3000/api/streams/67/checkpoint -> PASS (returns checkpoint JSON)
+  - Command: curl http://localhost:3000/api/partials/checkpoint-banner?streamId=67 -> PASS (returns HTML banner)
+  - Browser test with dev-browser skill:
+    - Banner visible at position: { x: 292, y: 646, width: 956, height: 99.5 }
+    - Banner content: "⚠️ Build interrupted - Iteration 5 • Story US-006 • Agent: claude"
+    - Resume button: present with hx-post="/api/streams/67/resume"
+    - Clear button: present with hx-post="/api/streams/67/checkpoint/clear"
+  - Screenshot: skills/dev-browser/tmp/checkpoint-top.png
+- What was verified:
+  - US-006 remains fully implemented (commit 8aa9069)
+  - All 5 acceptance criteria confirmed working:
+    1. ✅ Checkpoint banner appears when `.checkpoint.json` exists
+    2. ✅ Banner shows: iteration (5), story ID (US-006), timestamp ("just now")
+    3. ✅ "Resume Build" button triggers POST /api/streams/:id/resume
+    4. ✅ "Start Fresh" (Clear) button triggers POST /api/streams/:id/checkpoint/clear
+    5. ✅ API endpoints: GET /checkpoint (200), POST /resume, POST /checkpoint/clear
+- **Important RALPH_ROOT note:**
+  - UI server requires RALPH_ROOT to point to the .ralph directory (not project root)
+  - Run: `RALPH_ROOT=/path/to/.ralph npm run dev` for correct operation
+- **Learnings for future iterations:**
+  - Browser verification essential for UI stories - visual inspection confirms correctness
+  - Checkpoint banner is server-rendered HTMX partial for optimal performance
+  - SSE events (run_started, run_completed, file_changed) trigger automatic banner refresh
+---
