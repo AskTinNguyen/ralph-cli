@@ -489,6 +489,8 @@ async function main() {
     "error",
     // Notifications (US-012)
     "notify",
+    // Factory Mode (Meta-orchestration)
+    "factory",
   ];
 
   if (moduleCommands.includes(actualCmd)) {
