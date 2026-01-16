@@ -197,6 +197,13 @@ DEFAULT_AGENT_NAME="${DEFAULT_AGENT:-claude}"
 DEFAULT_AGENT_CMD="$(resolve_agent_cmd "$DEFAULT_AGENT_NAME")"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Agent/Model Compatibility Validation
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate that the selected agent is compatible with Claude model routing.
+# Non-Claude agents (codex, droid) cannot use Claude models (haiku/sonnet/opus).
+validate_agent_model_compatibility "$DEFAULT_AGENT_NAME" "${RALPH_ROUTING_ENABLED:-true}"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Experiment Assignment (now in lib/agent.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # Global variables for experiment tracking (set by get_experiment_assignment)

@@ -127,3 +127,21 @@ ralph stream merge 1          # Merge when done
 ```
 
 See `ralph stream --help` for details.
+
+## Model Selection (Claude Only)
+
+Ralph auto-selects Claude models based on task complexity:
+
+| Complexity | Score | Model |
+|------------|-------|-------|
+| Low | 1-3 | Haiku |
+| Medium | 4-7 | Sonnet |
+| High | 8-10 | Opus |
+
+Override per build:
+
+```bash
+ralph build 5 --model=opus    # Force Opus
+```
+
+**Note:** Model routing only works with Claude agent. Codex/Droid use their provider's default models.

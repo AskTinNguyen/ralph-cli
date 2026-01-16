@@ -89,6 +89,129 @@ resolve_agent_cmd() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# is_claude_agent
+# ─────────────────────────────────────────────────────────────────────────────
+# Check if an agent name is a Claude-based agent.
+# Claude model routing (haiku, sonnet, opus) only works with Claude agents.
+#
+# Arguments:
+#   $1 - Agent name (claude, codex, droid)
+#
+# Returns:
+#   0 - Is a Claude agent
+#   1 - Not a Claude agent
+#
+# Example:
+#   if is_claude_agent "claude"; then echo "Compatible"; fi
+# ─────────────────────────────────────────────────────────────────────────────
+is_claude_agent() {
+  local name="${1:-}"
+  case "$name" in
+    claude|"")
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# validate_agent_model_compatibility
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate that the selected agent is compatible with model routing.
+# Claude models (haiku, sonnet, opus) only work with Claude agents.
+# Using Codex or Droid with Claude model routing will fail.
+#
+# Arguments:
+#   $1 - Agent name (claude, codex, droid)
+#   $2 - Routing enabled flag (true/false)
+#
+# Environment Variables:
+#   RALPH_ROUTING_ENABLED - If true, model routing is active
+#
+# Returns:
+#   0 - Compatible (or routing disabled)
+#   1 - Incompatible (non-Claude agent with routing enabled)
+#
+# Side Effects:
+#   - Prints warning message if incompatible
+#   - Sets RALPH_ROUTING_ENABLED=false if incompatible
+#
+# Example:
+#   validate_agent_model_compatibility "codex" "true"
+#   # Prints warning and returns 1
+# ─────────────────────────────────────────────────────────────────────────────
+validate_agent_model_compatibility() {
+  local agent_name="${1:-claude}"
+  local routing_enabled="${2:-${RALPH_ROUTING_ENABLED:-true}}"
+
+  # If routing is disabled, any agent is fine
+  if [[ "$routing_enabled" != "true" ]]; then
+    return 0
+  fi
+
+  # Check if agent is Claude-compatible
+  if is_claude_agent "$agent_name"; then
+    return 0
+  fi
+
+  # Non-Claude agent with routing enabled - warn and disable routing
+  msg_warn "Agent '$agent_name' is not compatible with Claude model routing (haiku/sonnet/opus)"
+  msg_warn "Claude models only work with the Claude agent"
+  msg_warn "Auto-disabling model routing for this session"
+  msg_info "To fix: use --agent=claude or set RALPH_ROUTING_ENABLED=false in config.sh"
+
+  # Disable routing for this session
+  export RALPH_ROUTING_ENABLED=false
+
+  return 1
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# get_compatible_fallback_chain
+# ─────────────────────────────────────────────────────────────────────────────
+# Get fallback chain filtered to only include Claude-compatible agents
+# when model routing is enabled.
+#
+# Arguments:
+#   $1 - Original fallback chain (space-separated)
+#   $2 - Routing enabled flag (true/false)
+#
+# Returns:
+#   Filtered chain (Claude-only if routing enabled, original otherwise)
+#
+# Example:
+#   chain=$(get_compatible_fallback_chain "claude codex droid" "true")
+#   # Returns: "claude"
+# ─────────────────────────────────────────────────────────────────────────────
+get_compatible_fallback_chain() {
+  local chain="${1:-claude codex droid}"
+  local routing_enabled="${2:-${RALPH_ROUTING_ENABLED:-true}}"
+
+  # If routing is disabled, return full chain
+  if [[ "$routing_enabled" != "true" ]]; then
+    echo "$chain"
+    return
+  fi
+
+  # Filter to Claude-only agents when routing is enabled
+  local filtered_chain=""
+  for agent in $chain; do
+    if is_claude_agent "$agent"; then
+      filtered_chain="${filtered_chain}${filtered_chain:+ }$agent"
+    fi
+  done
+
+  # If no Claude agents in chain, default to claude
+  if [[ -z "$filtered_chain" ]]; then
+    filtered_chain="claude"
+  fi
+
+  echo "$filtered_chain"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # require_agent
 # ─────────────────────────────────────────────────────────────────────────────
 # Validate that the specified agent is installed and available.

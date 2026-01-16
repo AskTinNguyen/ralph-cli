@@ -110,20 +110,40 @@ RALPH_RISK_PAUSE=true
 # ─────────────────────────────────────────────────────────────────────────────
 # Model Routing Configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# Automatically select AI model based on task complexity.
-# Routing: Haiku (1-3), Sonnet (4-7), Opus (8-10)
+# Automatically select Claude model based on task complexity.
 #
-# Enable/disable automatic model routing (default: true):
-# RALPH_ROUTING_ENABLED=true
+# Enable/disable complexity-based model routing (default: true):
+# Set to false to always use RALPH_DEFAULT_MODEL
+RALPH_ROUTING_ENABLED=false
 #
-# Maximum complexity score for Haiku (simple fixes, docs, typos):
-# RALPH_HAIKU_MAX_COMPLEXITY=3
+# ─────────────────────────────────────────────────────────────────────────────
+# Model Selection per Complexity Tier
+# ─────────────────────────────────────────────────────────────────────────────
+# Customize which Claude model to use for each complexity level.
+# Options: haiku (fastest/cheapest), sonnet (balanced), opus (most capable)
 #
-# Maximum complexity score for Sonnet (features, refactoring):
-# RALPH_SONNET_MAX_COMPLEXITY=7
+# Model for LOW complexity tasks (score 1-3):
+# Simple fixes, documentation, typos
+RALPH_LOW_COMPLEXITY_MODEL=opus
+#
+# Model for MEDIUM complexity tasks (score 4-7):
+# Features, refactoring, moderate changes
+RALPH_MEDIUM_COMPLEXITY_MODEL=opus
+#
+# Model for HIGH complexity tasks (score 8-10):
+# Architecture, new systems, complex multi-file changes
+RALPH_HIGH_COMPLEXITY_MODEL=opus
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Complexity Score Thresholds (Advanced)
+# ─────────────────────────────────────────────────────────────────────────────
+# Customize the complexity score boundaries between tiers:
+# RALPH_HAIKU_MAX_COMPLEXITY=3    # Scores 1-3 use LOW model
+# RALPH_SONNET_MAX_COMPLEXITY=7   # Scores 4-7 use MEDIUM model
+#                                  # Scores 8-10 use HIGH model
 #
 # Default model when routing is disabled or unavailable:
-# RALPH_DEFAULT_MODEL=sonnet
+RALPH_DEFAULT_MODEL=opus
 #
 # Override model selection via CLI: ralph build 1 --model=opus
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,8 +155,13 @@ RALPH_RISK_PAUSE=true
 # When an agent fails consecutively, Ralph can suggest or auto-switch to alternatives.
 #
 # Fallback chain order when switching agents (space-separated):
-# Default chain: claude → codex → droid
-AGENT_FALLBACK_CHAIN="claude codex droid"
+# IMPORTANT: When RALPH_ROUTING_ENABLED=true, only Claude agents are compatible
+# with Claude models (haiku, sonnet, opus). Non-Claude agents (codex, droid)
+# will auto-disable routing and use their own model selection.
+#
+# For Claude model routing: use "claude" only
+# For mixed agents: use "claude codex droid" (routing auto-disabled for non-Claude)
+AGENT_FALLBACK_CHAIN="claude"
 #
 # Number of consecutive failures before triggering switch suggestion (default: 2):
 AGENT_SWITCH_THRESHOLD=2

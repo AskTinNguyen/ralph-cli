@@ -196,6 +196,44 @@ claude -> curl -fsSL https://claude.ai/install.sh | bash
 droid  -> curl -fsSL https://app.factory.ai/cli | sh
 ```
 
+### Model Routing (Claude Only)
+
+Ralph can automatically select the optimal Claude model based on task complexity.
+
+**Important:** Model routing only works with the Claude agent. Codex and Droid use their own model selection.
+
+Configure in `.agents/ralph/config.sh`:
+
+```bash
+# Enable complexity-based routing
+RALPH_ROUTING_ENABLED=true
+
+# Model per complexity tier
+RALPH_LOW_COMPLEXITY_MODEL=haiku      # Score 1-3: simple fixes, docs
+RALPH_MEDIUM_COMPLEXITY_MODEL=sonnet  # Score 4-7: features, refactoring
+RALPH_HIGH_COMPLEXITY_MODEL=opus      # Score 8-10: architecture, complex
+
+# Default when routing disabled
+RALPH_DEFAULT_MODEL=sonnet
+```
+
+Override per build:
+
+```bash
+ralph build 5 --model=opus          # Force Opus for all stories
+ralph stream build 1 5 --model=haiku  # Force Haiku for stream
+```
+
+**Agent/Model Compatibility:**
+
+| Agent | Model Routing | Notes |
+|-------|---------------|-------|
+| Claude | ✅ Full support | haiku, sonnet, opus |
+| Codex | ❌ Auto-disabled | Uses OpenAI models |
+| Droid | ❌ Auto-disabled | Uses Factory.ai models |
+
+If you try to use Codex/Droid with routing enabled, Ralph will warn and auto-disable routing.
+
 ## File Structure
 
 ```

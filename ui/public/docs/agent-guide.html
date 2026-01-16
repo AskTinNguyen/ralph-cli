@@ -834,7 +834,15 @@ mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2"
           <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
             <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Flags</strong>
             <div style="font-family: monospace; line-height: 1.5;">
-              --headless (prd)<br>--no-worktree<br>--force<br>--prd=N<br>--agent=claude
+              --headless (prd)<br>--no-worktree<br>--force<br>--prd=N<br>--agent=claude<br>--model=opus|sonnet|haiku
+            </div>
+          </div>
+          <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; display: block; margin-bottom: 4px;">Model Routing (Claude Only)</strong>
+            <div style="font-size: 10px; line-height: 1.5;">
+              Low (1-3) → Haiku<br>Medium (4-7) → Sonnet<br>High (8-10) → Opus<br><br>
+              <strong>Note:</strong> Only works with --agent=claude<br>
+              Codex/Droid auto-disable routing
             </div>
           </div>
         </div>
