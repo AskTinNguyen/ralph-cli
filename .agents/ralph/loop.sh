@@ -59,6 +59,10 @@ source "$SCRIPT_DIR/lib/heartbeat.sh"
 # shellcheck source=lib/watchdog.sh
 source "$SCRIPT_DIR/lib/watchdog.sh"
 
+# Source timeout utilities for timeout enforcement (US-011)
+# shellcheck source=lib/timeout.sh
+source "$SCRIPT_DIR/lib/timeout.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -524,6 +528,27 @@ run_agent_with_retry() {
     # User interruption (SIGINT=130, SIGTERM=143) - don't retry
     if [ "$exit_status" -eq 130 ] || [ "$exit_status" -eq 143 ]; then
       return "$exit_status"
+    fi
+
+    # Agent timeout (exit code 124 from timeout command, 137 from SIGKILL) - US-011
+    # Log timeout event with context before potentially retrying
+    if [ "$exit_status" -eq 124 ] || [ "$exit_status" -eq 137 ]; then
+      local agent_duration="${TIMEOUT_AGENT:-3600}"
+      log_activity "TIMEOUT agent iteration=$iteration duration=${agent_duration}s exit_code=$exit_status"
+
+      # Log and display timeout event (US-011)
+      if [ -n "${PRD_FOLDER:-}" ]; then
+        log_timeout_event "$PRD_FOLDER" "agent" "$agent_duration" "$iteration" "${STORY_ID:-}" "${CURRENT_AGENT:-}"
+        display_timeout_event "agent" "$agent_duration" "$iteration" "${STORY_ID:-}" "${CURRENT_AGENT:-}"
+      fi
+
+      # Append timeout info to run log
+      {
+        echo ""
+        echo "[TIMEOUT] Agent timed out after ${agent_duration}s (exit code: $exit_status)"
+        echo "[TIMEOUT] Iteration: $iteration, Story: ${STORY_ID:-unknown}, Agent: ${CURRENT_AGENT:-unknown}"
+        echo ""
+      } >> "$log_file"
     fi
 
     retry_count=$((retry_count + 1))
@@ -3280,6 +3305,9 @@ PRD_FOLDER_FOR_COST="$(dirname "$PRD_PATH")"
 init_cost_tracking "$PRD_FOLDER_FOR_COST"
 TOTAL_BUILD_COST=0
 
+# Start watchdog for auto-recovery from stalled builds (US-010)
+start_watchdog "$PRD_FOLDER_FOR_COST"
+
 for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
@@ -3314,6 +3342,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     REMAINING="$(remaining_stories "$STORY_META")"
     if [ "$REMAINING" = "unknown" ]; then
       msg_error "Could not parse stories from PRD: $PRD_PATH"
+      # Stop watchdog before exit (US-010)
+      stop_watchdog "$(dirname "$PRD_PATH")"
       exit 1
     fi
     if [ "$REMAINING" = "0" ]; then
@@ -3322,6 +3352,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
       clear_checkpoint "$PRD_FOLDER"
       clear_switch_state "$PRD_FOLDER"
       msg_success "No remaining stories."
+      # Stop watchdog before exit (US-010)
+      stop_watchdog "$PRD_FOLDER"
       exit 0
     fi
     STORY_ID="$(story_field "$STORY_META" "id")"
@@ -3904,6 +3936,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           prd_num="${BASH_REMATCH[1]}"
         fi
         show_completion_instructions "$prd_num"
+        # Stop watchdog before exit (US-010)
+        stop_watchdog "$PRD_FOLDER"
         exit 0
       fi
       msg_info "Completion signal received; stories remaining: $REMAINING"
@@ -3941,6 +3975,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         prd_num="${BASH_REMATCH[1]}"
       fi
       show_completion_instructions "$prd_num"
+      # Stop watchdog before exit (US-010)
+      stop_watchdog "$PRD_FOLDER"
       exit 0
     fi
   else
@@ -3972,6 +4008,8 @@ if [ "$MODE" = "build" ] && [ -n "${PRD_PATH:-}" ]; then
   clear_status "$PRD_FOLDER"
   clear_heartbeat "$PRD_FOLDER"
   clear_stalled_marker "$PRD_FOLDER"
+  # Stop watchdog on build completion (US-010)
+  stop_watchdog "$PRD_FOLDER"
 fi
 
 # Get final remaining count for summary
