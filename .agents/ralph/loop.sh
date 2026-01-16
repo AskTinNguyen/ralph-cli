@@ -1485,11 +1485,71 @@ story_field_ts() {
   story_field "$meta_file" "$field"
 }
 
+# Get path to state CLI
+# Returns path to lib/state/cli.js or empty if not available
+get_state_cli() {
+  local state_cli
+  if [[ -n "${RALPH_ROOT:-}" ]]; then
+    state_cli="$RALPH_ROOT/lib/state/cli.js"
+  else
+    state_cli="$SCRIPT_DIR/../../lib/state/cli.js"
+  fi
+
+  if [ -f "$state_cli" ] && command -v node >/dev/null 2>&1; then
+    echo "$state_cli"
+  fi
+}
+
+# Transactional log_activity using BuildStateManager (US-016)
+# Falls back to direct append if Node.js not available
 log_activity() {
   local message="$1"
   local timestamp
   timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-  echo "[$timestamp] $message" >> "$ACTIVITY_LOG_PATH"
+
+  local state_cli
+  state_cli=$(get_state_cli)
+
+  if [[ -n "$state_cli" && -n "${PRD_FOLDER:-}" ]]; then
+    # Use transactional update via BuildStateManager
+    node "$state_cli" log-activity "$PRD_FOLDER" "$message" --json >/dev/null 2>&1 || \
+      echo "[$timestamp] $message" >> "$ACTIVITY_LOG_PATH"
+  else
+    # Fallback: direct append
+    echo "[$timestamp] $message" >> "$ACTIVITY_LOG_PATH"
+  fi
+}
+
+# Transactional add run summary using BuildStateManager (US-016)
+# Usage: log_run_summary <run-id> <iteration> <mode> <story-id> <duration> <status> [cost]
+log_run_summary() {
+  local run_id="$1"
+  local iteration="$2"
+  local mode="$3"
+  local story_id="${4:-}"
+  local duration="$5"
+  local status="$6"
+  local cost="${7:-}"
+
+  local state_cli
+  state_cli=$(get_state_cli)
+
+  if [[ -n "$state_cli" && -n "${PRD_FOLDER:-}" ]]; then
+    # Build JSON for run summary
+    local json_data
+    if [[ -n "$cost" ]]; then
+      json_data=$(printf '{"run":"%s","iter":%s,"mode":"%s","story":"%s","duration":%s,"status":"%s","cost":"%s"}' \
+        "$run_id" "$iteration" "$mode" "$story_id" "$duration" "$status" "$cost")
+    elif [[ -n "$story_id" ]]; then
+      json_data=$(printf '{"run":"%s","iter":%s,"mode":"%s","story":"%s","duration":%s,"status":"%s"}' \
+        "$run_id" "$iteration" "$mode" "$story_id" "$duration" "$status")
+    else
+      json_data=$(printf '{"run":"%s","iter":%s,"mode":"%s","duration":%s,"status":"%s"}' \
+        "$run_id" "$iteration" "$mode" "$duration" "$status")
+    fi
+
+    node "$state_cli" add-run-summary "$PRD_FOLDER" "$json_data" --json >/dev/null 2>&1
+  fi
 }
 
 log_error() {
