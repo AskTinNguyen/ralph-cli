@@ -1931,3 +1931,21 @@ body.sidebar-collapsed .rams-banner {
   font-size: 0.75rem;
   color: var(--rams-gray-400);
 }
+
+/* Smooth fade transitions for detail view */
+#streams-overview,
+#streams-list-section,
+#stream-detail-section {
+  transition: opacity var(--rams-transition-normal),
+              transform var(--rams-transition-normal);
+}
+
+.rams-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.rams-visible {
+  opacity: 1;
+  transform: translateY(0);
+}

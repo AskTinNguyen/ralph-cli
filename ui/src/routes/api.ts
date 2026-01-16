@@ -1945,7 +1945,14 @@ api.get("/partials/streams-summary", (c) => {
  * Returns HTML fragment for the streams list grid.
  */
 api.get("/partials/streams", (c) => {
-  const streams = getStreams();
+  const showClosed = c.req.query('showClosed') === 'true';
+  let streams = getStreams();
+
+  // Filter out closed streams unless showClosed=true
+  if (!showClosed) {
+    streams = streams.filter(s => !s.closed);
+  }
+
   const ralphRoot = getRalphRoot();
 
   if (streams.length === 0) {
@@ -2131,8 +2138,20 @@ api.get("/partials/streams", (c) => {
     const clickableBadgeStyle = 'cursor: pointer; transition: opacity 0.2s;';
     const clickableBadgeHover = 'onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"';
 
+    // Show close button for 0% streams (not started)
+    const showCloseButton = completionPercentage === 0 && !isRunning && !isMerged && !isCompleted;
+    const closeButtonHtml = showCloseButton ? `
+      <button class="rams-btn rams-btn-danger rams-btn-sm"
+              onclick="closeStream('${stream.id}', event)"
+              style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; font-size: 12px;"
+              title="Close this PRD (hide from list)">
+        ✕
+      </button>
+    ` : '';
+
     return `
-<div class="rams-card" style="${cardStyle}" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+<div class="rams-card" style="${cardStyle} position: relative;" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
+  ${closeButtonHtml}
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
     <span class="rams-label">PRD-${stream.id}</span>
     <div style="display: flex; gap: var(--rams-space-2);">
@@ -2225,7 +2244,14 @@ api.get("/partials/streams", (c) => {
  * Separates streams into In Progress (running) and Idle (not running) categories.
  */
 api.get("/partials/streams-progress", (c) => {
-  const streams = getStreams();
+  const showClosed = c.req.query('showClosed') === 'true';
+  let streams = getStreams();
+
+  // Filter out closed streams unless showClosed=true
+  if (!showClosed) {
+    streams = streams.filter(s => !s.closed);
+  }
+
   const ralphRoot = getRalphRoot();
 
   if (streams.length === 0) {
@@ -2367,6 +2393,17 @@ api.get("/partials/streams-progress", (c) => {
     const clickableBadgeStyle = 'cursor: pointer; transition: opacity 0.2s;';
     const clickableBadgeHover = 'onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"';
 
+    // Show close button for 0% streams (not started)
+    const showCloseButton = percentage === 0 && !isRunning && !isMerged && !isCompleted;
+    const closeButtonHtml = showCloseButton ? `
+      <button class="rams-btn rams-btn-danger rams-btn-sm"
+              onclick="closeStream('${stream.id}', event)"
+              style="margin-left: var(--rams-space-2); padding: 4px 8px; font-size: 12px;"
+              title="Close this PRD (hide from list)">
+        ✕
+      </button>
+    ` : '';
+
     // Render stories section
     const storiesHtml = stories.length > 0 ? stories.map(story => {
       const criteriaTotal = story.acceptanceCriteria.length;
@@ -2426,11 +2463,14 @@ api.get("/partials/streams-progress", (c) => {
               ${stream.completedStories} / ${stream.totalStories}
             </div>
           </div>
-          <div>
-            <span class="rams-badge ${badgeClass}">
-              <span class="rams-badge-dot"></span>${statusLabel}
-            </span>
-            ${isMerged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
+          <div style="display: flex; align-items: center; gap: var(--rams-space-2);">
+            <div>
+              <span class="rams-badge ${badgeClass}">
+                <span class="rams-badge-dot"></span>${statusLabel}
+              </span>
+              ${isMerged ? '<span class="rams-badge rams-badge-info" style="display: block; margin-top: var(--rams-space-1);"><span class="rams-badge-dot"></span>Merged</span>' : ''}
+            </div>
+            ${closeButtonHtml}
           </div>
         </summary>
 
@@ -3838,6 +3878,119 @@ api.post("/stream/:id/stop", async (c) => {
       command: status.command,
     },
   });
+});
+
+/**
+ * POST /api/streams/:id/close
+ *
+ * Mark a stream as closed (inactive). Creates a .closed marker file.
+ * Only allowed for streams at 0% completion that are not running, merged, or completed.
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 400 if stream has progress or is in an invalid state
+ *   - 404 if stream not found
+ */
+api.post("/streams/:id/close", async (c) => {
+  const streamId = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: "not_initialized", message: "Ralph not initialized" }, 500);
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+
+  if (!fs.existsSync(streamPath)) {
+    return c.json({ error: "not_found", message: `Stream PRD-${streamId} not found` }, 404);
+  }
+
+  // Get stream details to validate state
+  const streams = getStreams();
+  const stream = streams.find(s => s.id === streamId);
+
+  if (!stream) {
+    return c.json({ error: "not_found", message: `Stream PRD-${streamId} not found` }, 404);
+  }
+
+  // Validate: can only close streams at 0% that are not running/merged/completed
+  if (stream.completedStories > 0) {
+    return c.json(
+      { error: "invalid_state", message: "Cannot close stream with completed stories" },
+      400
+    );
+  }
+
+  if (stream.status === 'running') {
+    return c.json(
+      { error: "invalid_state", message: "Cannot close a running stream" },
+      400
+    );
+  }
+
+  if (stream.merged) {
+    return c.json(
+      { error: "invalid_state", message: "Cannot close a merged stream" },
+      400
+    );
+  }
+
+  if (stream.status === 'completed') {
+    return c.json(
+      { error: "invalid_state", message: "Cannot close a completed stream" },
+      400
+    );
+  }
+
+  // Create .closed marker file
+  const closedMarkerPath = path.join(streamPath, '.closed');
+  try {
+    fs.writeFileSync(closedMarkerPath, new Date().toISOString());
+    return c.json({ success: true, message: `Stream PRD-${streamId} closed` });
+  } catch (error) {
+    return c.json(
+      { error: "write_failed", message: `Failed to create .closed marker: ${error}` },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/streams/:id/restore
+ *
+ * Restore a closed stream by removing the .closed marker file.
+ *
+ * Returns:
+ *   - 200 on success
+ *   - 404 if stream not found or not closed
+ */
+api.post("/streams/:id/restore", async (c) => {
+  const streamId = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: "not_initialized", message: "Ralph not initialized" }, 500);
+  }
+
+  const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+  const closedMarkerPath = path.join(streamPath, '.closed');
+
+  if (!fs.existsSync(closedMarkerPath)) {
+    return c.json(
+      { error: "not_found", message: `Stream PRD-${streamId} is not closed` },
+      404
+    );
+  }
+
+  try {
+    fs.unlinkSync(closedMarkerPath);
+    return c.json({ success: true, message: `Stream PRD-${streamId} restored` });
+  } catch (error) {
+    return c.json(
+      { error: "delete_failed", message: `Failed to remove .closed marker: ${error}` },
+      500
+    );
+  }
 });
 
 /**

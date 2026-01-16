@@ -305,6 +305,16 @@ function isStreamMerged(ralphRoot: string, streamId: string): boolean {
 }
 
 /**
+ * Check if a stream has been closed (marked as inactive)
+ * Checks for .closed marker file
+ */
+function isStreamClosed(ralphRoot: string, streamId: string): boolean {
+  const streamPath = path.join(ralphRoot, `PRD-${streamId}`);
+  const closedMarkerPath = path.join(streamPath, '.closed');
+  return fs.existsSync(closedMarkerPath);
+}
+
+/**
  * Extract commit hashes from progress.md
  */
 function getPrdCommits(streamPath: string): string[] {
@@ -522,6 +532,7 @@ export function getStreams(): Stream[] {
 
         const status = getStreamStatus(ralphRoot, streamId, effectivePrdPath);
         const merged = isStreamMerged(ralphRoot, streamId);
+        const closed = isStreamClosed(ralphRoot, streamId);
 
         // Extract name from effective PRD title if available
         let name = `PRD-${streamId}`;
@@ -546,6 +557,7 @@ export function getStreams(): Stream[] {
           hasPlan,
           hasProgress,
           merged,
+          closed,
           stories: [], // Populated by getStreamDetails
           totalStories,
           completedStories,
@@ -1040,6 +1052,7 @@ export function getStreamDetails(id: string): Stream | null {
   // Determine status and merged state
   const status = getStreamStatus(ralphRoot, id, effectivePrdPath);
   const merged = isStreamMerged(ralphRoot, id);
+  const closed = isStreamClosed(ralphRoot, id);
 
   return {
     id,
@@ -1050,6 +1063,7 @@ export function getStreamDetails(id: string): Stream | null {
     hasPlan,
     hasProgress,
     merged,
+    closed,
     stories,
     totalStories,
     completedStories,

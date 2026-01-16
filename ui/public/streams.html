@@ -680,6 +680,13 @@
           📊 Progress View
         </button>
         <button
+          id="toggle-closed-btn"
+          class="rams-btn rams-btn-secondary"
+          onclick="toggleClosedStreams()"
+        >
+          Show Closed
+        </button>
+        <button
           class="rams-btn rams-btn-primary"
           onclick="openWizard()"
         >
@@ -1335,17 +1342,29 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
       });
     }
 
-    // Show stream detail view
+    // Show stream detail view with smooth transition
     function showStreamDetail(streamId, streamName) {
-      document.getElementById("streams-overview").style.display = "none";
-      document.getElementById("streams-list-section").style.display = "none";
-      var detailSection = document.getElementById("stream-detail-section");
-      detailSection.classList.remove("rams-hidden");
-      detailSection.style.display = "block";
-      document.getElementById("stream-detail-title").textContent = streamName;
+      var overview = document.getElementById("streams-overview");
+      var listSection = document.getElementById("streams-list-section");
 
-      // Load stream detail content via HTMX
-      htmx.ajax("GET", "/api/partials/stream-detail?id=" + streamId, "#stream-detail-container");
+      // Fade out grid
+      overview.classList.add("rams-hidden");
+      if (listSection) listSection.classList.add("rams-hidden");
+
+      // Wait for fade, then hide
+      setTimeout(function() {
+        overview.style.display = "none";
+        if (listSection) listSection.style.display = "none";
+
+        // Show detail section
+        var detailSection = document.getElementById("stream-detail-section");
+        detailSection.classList.remove("rams-hidden");
+        detailSection.style.display = "block";
+        document.getElementById("stream-detail-title").textContent = streamName;
+
+        // Load stream detail content via HTMX
+        htmx.ajax("GET", "/api/partials/stream-detail?id=" + streamId, "#stream-detail-container");
+      }, 200); // Match transition duration
     }
 
     // Show stream detail view and switch to estimate tab
@@ -1361,18 +1380,93 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
       }, 300);
     }
 
-    // Hide stream detail view and show streams list
+    // Hide stream detail view and show streams list with smooth transition
     function hideStreamDetail() {
-      var overviewSection = document.getElementById("streams-overview");
-      if (overviewSection) overviewSection.style.display = "block";
-
-      var listSection = document.querySelector(".rams-section:nth-of-type(2)");
-      if (listSection) listSection.style.display = "block";
-
       var detailSection = document.getElementById("stream-detail-section");
       detailSection.classList.add("rams-hidden");
-      detailSection.style.display = "none";
+
+      setTimeout(function() {
+        detailSection.style.display = "none";
+
+        var overview = document.getElementById("streams-overview");
+        var listSection = document.querySelector(".rams-section:nth-of-type(2)");
+
+        if (overview) {
+          overview.style.display = "block";
+          overview.classList.remove("rams-hidden");
+        }
+
+        if (listSection) {
+          listSection.style.display = "block";
+          listSection.classList.remove("rams-hidden");
+        }
+      }, 200); // Match transition duration
     }
+
+    // Close a stream (mark as inactive)
+    async function closeStream(streamId, event) {
+      event.stopPropagation();
+      if (!confirm('Close PRD-' + streamId + '? This PRD will be hidden from the list. You can restore it later.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/streams/' + streamId + '/close', { method: 'POST' });
+        if (response.ok) {
+          showAlert('success', 'PRD-' + streamId + ' closed successfully', 3000);
+          htmx.ajax('GET', '/api/partials/streams', { target: '#streams-container', swap: 'innerHTML' });
+        } else {
+          const error = await response.json();
+          showAlert('error', 'Failed to close: ' + error.message, 5000);
+        }
+      } catch (error) {
+        showAlert('error', 'Failed to close: ' + error.message, 5000);
+      }
+    }
+
+    // Restore a closed stream
+    async function restoreStream(streamId, event) {
+      event.stopPropagation();
+      try {
+        const response = await fetch('/api/streams/' + streamId + '/restore', { method: 'POST' });
+        if (response.ok) {
+          showAlert('success', 'PRD-' + streamId + ' restored', 3000);
+          htmx.ajax('GET', '/api/partials/streams', { target: '#streams-container', swap: 'innerHTML' });
+        } else {
+          const error = await response.json();
+          showAlert('error', 'Failed to restore: ' + error.message, 5000);
+        }
+      } catch (error) {
+        showAlert('error', 'Failed to restore: ' + error.message, 5000);
+      }
+    }
+
+    // Toggle showing closed streams
+    function toggleClosedStreams() {
+      const showClosed = localStorage.getItem('showClosedStreams') === 'true';
+      const newState = !showClosed;
+      localStorage.setItem('showClosedStreams', newState);
+
+      // Check current view mode to reload the correct endpoint
+      const viewMode = localStorage.getItem('streamsViewMode') || 'grid';
+      const baseUrl = viewMode === 'grid' ? '/api/partials/streams' : '/api/partials/streams-progress';
+      const url = baseUrl + (newState ? '?showClosed=true' : '');
+
+      htmx.ajax('GET', url, { target: '#streams-container', swap: 'innerHTML' });
+
+      // Update button text
+      const btn = document.getElementById('toggle-closed-btn');
+      if (btn) btn.textContent = newState ? 'Hide Closed' : 'Show Closed';
+    }
+
+    // Initialize toggle button state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const showClosed = localStorage.getItem('showClosedStreams') === 'true';
+      const btn = document.getElementById('toggle-closed-btn');
+      if (btn && showClosed) {
+        btn.textContent = 'Hide Closed';
+      }
+    });
 
     // Show alert message
     function showAlert(type, message, duration) {
@@ -3171,10 +3265,12 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
         toggleBtn.title = "Switch to Progress View";
       }
 
-      // Update HTMX endpoint
-      const endpoint = streamsViewMode === "grid"
+      // Preserve showClosed state when switching views
+      const showClosed = localStorage.getItem('showClosedStreams') === 'true';
+      const baseEndpoint = streamsViewMode === "grid"
         ? "/api/partials/streams"
         : "/api/partials/streams-progress";
+      const endpoint = baseEndpoint + (showClosed ? '?showClosed=true' : '');
 
       container.setAttribute("hx-get", endpoint);
       htmx.process(container);
@@ -3185,11 +3281,16 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
     document.addEventListener("DOMContentLoaded", function() {
       const toggleBtn = document.getElementById("streams-view-toggle");
       const container = document.getElementById("streams-container");
+      const showClosed = localStorage.getItem('showClosedStreams') === 'true';
 
       if (streamsViewMode === "progress") {
         toggleBtn.innerHTML = "📋 Grid View";
         toggleBtn.title = "Switch to Grid View";
-        container.setAttribute("hx-get", "/api/partials/streams-progress");
+        const endpoint = "/api/partials/streams-progress" + (showClosed ? '?showClosed=true' : '');
+        container.setAttribute("hx-get", endpoint);
+      } else if (showClosed) {
+        // Also set the grid view endpoint with showClosed if needed
+        container.setAttribute("hx-get", "/api/partials/streams?showClosed=true");
       }
     });
   </script>
