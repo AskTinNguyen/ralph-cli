@@ -35,6 +35,10 @@ source "$SCRIPT_DIR/lib/git-utils.sh"
 # shellcheck source=lib/telemetry.sh
 source "$SCRIPT_DIR/lib/telemetry.sh"
 
+# Source status utilities for real-time visibility (US-001)
+# shellcheck source=lib/status.sh
+source "$SCRIPT_DIR/lib/status.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -3065,8 +3069,8 @@ check_risk() {
   fi
 }
 
-# Progress indicator: prints elapsed time every N seconds (TTY only)
-# Usage: start_progress_indicator; ... long process ...; stop_progress_indicator
+# Progress indicator: prints elapsed time, phase, and story every N seconds (TTY only) (US-001)
+# Usage: start_progress_indicator <start_time> <prd_folder>; ... long process ...; stop_progress_indicator
 PROGRESS_PID=""
 start_progress_indicator() {
   # Only show progress in TTY mode
@@ -3074,7 +3078,7 @@ start_progress_indicator() {
     return
   fi
   local start_time="$1"
-  local story_info="${2:-}"
+  local prd_folder="${2:-}"
   local parent_pid=$$  # Capture parent PID to detect orphaning
   (
     while true; do
@@ -3082,15 +3086,38 @@ start_progress_indicator() {
       if ! kill -0 "$parent_pid" 2>/dev/null; then
         exit 0
       fi
-      sleep 5
+      sleep 1  # Update every 1 second for better responsiveness (US-001)
       local now=$(date +%s)
       local elapsed=$((now - start_time))
       local mins=$((elapsed / 60))
       local secs=$((elapsed % 60))
+
+      # Read status from .status.json if available (US-001)
+      local phase=""
+      local story_id=""
+      local status_file="$prd_folder/.status.json"
+      if [ -n "$prd_folder" ] && [ -f "$status_file" ]; then
+        if command -v jq >/dev/null 2>&1; then
+          phase=$(jq -r '.phase // ""' "$status_file" 2>/dev/null || echo "")
+          story_id=$(jq -r '.story_id // ""' "$status_file" 2>/dev/null || echo "")
+        elif command -v python3 >/dev/null 2>&1; then
+          phase=$(python3 -c "import json,sys; d=json.load(open('$status_file')); print(d.get('phase',''))" 2>/dev/null || echo "")
+          story_id=$(python3 -c "import json,sys; d=json.load(open('$status_file')); print(d.get('story_id',''))" 2>/dev/null || echo "")
+        fi
+      fi
+
+      # Format status line (US-001)
+      local time_str
       if [ "$mins" -gt 0 ]; then
-        printf "${C_DIM}  ⏱ Elapsed: %dm %ds${C_RESET}\n" "$mins" "$secs"
+        time_str="⏱ ${mins}m ${secs}s"
       else
-        printf "${C_DIM}  ⏱ Elapsed: %ds${C_RESET}\n" "$secs"
+        time_str="⏱ ${secs}s"
+      fi
+
+      if [ -n "$phase" ] && [ -n "$story_id" ]; then
+        printf "${C_DIM}  %s | %s | %s${C_RESET}\n" "$time_str" "$phase" "$story_id"
+      else
+        printf "${C_DIM}  %s${C_RESET}\n" "$time_str"
       fi
     done
   ) &
@@ -3165,6 +3192,9 @@ elif [ "$MODE" = "build" ]; then
   load_switch_state "$PRD_FOLDER" 2>/dev/null || true
 fi
 
+# Track overall build start time for status emission (US-001)
+BUILD_START=$(date +%s)
+
 for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
@@ -3211,6 +3241,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     fi
     STORY_ID="$(story_field "$STORY_META" "id")"
     STORY_TITLE="$(story_field "$STORY_META" "title")"
+
+    # Emit status: planning phase complete, entering execution (US-001)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    ELAPSED=$(elapsed_since "$BUILD_START")
+    update_status "$PRD_FOLDER" "planning" "$i" "$STORY_ID" "$STORY_TITLE" "$ELAPSED"
 
     # Check for experiment assignment (may override AGENT_CMD for this story)
     get_experiment_assignment "$STORY_ID"
@@ -3304,9 +3339,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME"
   fi
 
+  # Emit status: entering executing phase (US-001)
+  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    ELAPSED=$(elapsed_since "$BUILD_START")
+    update_status "$PRD_FOLDER" "executing" "$i" "$STORY_ID" "$STORY_TITLE" "$ELAPSED"
+  fi
+
   set +e
-  # Start progress indicator before agent execution
-  start_progress_indicator "$ITER_START"
+  # Start progress indicator before agent execution (US-001)
+  PRD_FOLDER="$(dirname "$PRD_PATH")"
+  start_progress_indicator "$ITER_START" "$PRD_FOLDER"
   if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
@@ -3532,7 +3575,8 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
               # Execute retry
               RETRY_START=$(date +%s)
               set +e
-              start_progress_indicator "$RETRY_START"
+              PRD_FOLDER="$(dirname "$PRD_PATH")"
+              start_progress_indicator "$RETRY_START" "$PRD_FOLDER"
               run_agent_with_retry "$RETRY_PROMPT_RENDERED" "$RETRY_LOG_FILE" "$i"
               RETRY_STATUS=$?
               stop_progress_indicator
@@ -3763,6 +3807,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   sleep 2
 
 done
+
+# Clear status file when build completes (US-001)
+if [ "$MODE" = "build" ] && [ -n "${PRD_PATH:-}" ]; then
+  PRD_FOLDER="$(dirname "$PRD_PATH")"
+  clear_status "$PRD_FOLDER"
+fi
 
 # Get final remaining count for summary
 FINAL_REMAINING="${REMAINING:-unknown}"
