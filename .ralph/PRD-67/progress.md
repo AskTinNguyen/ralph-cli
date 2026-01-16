@@ -490,3 +490,59 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-it
   - No new code changes needed
 - **Note**: This iteration performed redundant verification - US-006 was already fully implemented and committed in previous iterations.
 ---
+
+## [2026-01-16T17:10:00+07:00] - US-007: Real-time cost accumulation
+Thread:
+Run: 20260116-160954-10574 (iteration 7)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-7.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-7.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0515424 feat(cost): implement real-time cost accumulation (US-007)
+- Post-commit status: `clean` (US-007 files committed; remaining files are unrelated S2-Game content)
+- Verification:
+  - Command: bash -n .agents/ralph/lib/cost.sh -> PASS
+  - Command: source cost.sh && init_cost_tracking -> PASS (creates .cost.json)
+  - Command: format_cost "0.012345" -> PASS (returns $0.0123, 4 decimal precision)
+  - Command: calculate_cost 1000000 500000 sonnet -> PASS (returns 10.500000)
+  - Command: cd ui && npx tsc --noEmit -> PASS (TypeScript compiles)
+  - All acceptance criteria verified programmatically (see below)
+- Files changed:
+  - .agents/ralph/lib/cost.sh (new - cost tracking module)
+  - .agents/ralph/loop.sh (integrated cost tracking)
+  - ui/src/routes/api.ts (added /api/streams/:id/cost, /api/partials/cost-display)
+  - ui/public/dashboard.html (added cost-section with HTMX)
+  - ui/public/css/rams-ui.css (added .cost-display styles)
+  - .ralph/PRD-67/prd.md (marked US-007 complete)
+  - .ralph/PRD-67/plan.md (tasks already marked complete)
+- What was implemented:
+  - **Cost tracking module** (.agents/ralph/lib/cost.sh):
+    - `init_cost_tracking()` - creates .cost.json if missing
+    - `extract_tokens_from_log()` - extracts tokens from log file using Node.js extractor or grep fallback
+    - `calculate_cost()` - computes cost using model pricing (Sonnet: $3/$15 per 1M tokens)
+    - `update_cost()` - updates .cost.json with iteration data and running totals
+    - `get_total_cost()` - reads current total from .cost.json
+    - `format_cost()` - formats as $0.XXXX (4 decimal precision)
+  - **Loop integration**:
+    - Cost tracking initialized before iteration loop
+    - `update_cost()` called after each iteration
+    - Cost displayed in CLI: "💰 Cost: $X.XXXX (iteration) | $X.XXXX (total)"
+    - `total_cost` saved in checkpoint for resume persistence
+  - **UI integration**:
+    - GET /api/streams/:id/cost - returns .cost.json data
+    - GET /api/partials/cost-display - HTMX partial for dashboard
+    - Cost section in dashboard.html with 10s polling + SSE triggers
+    - CSS styling with green accent, token counts, iteration count
+- Acceptance Criteria Verification:
+  1. ✅ `.cost.json` file updated after each agent call (update_cost called in loop.sh line 3496)
+  2. ✅ Running total calculated using existing estimator (extract_tokens_from_log + calculate_cost)
+  3. ✅ Cost displayed in CLI: `$0.0234` next to status (format_cost with 4 decimals)
+  4. ✅ UI dashboard shows cost with 4 decimal precision (GET /api/partials/cost-display)
+  5. ✅ Cost persists across checkpoint/resume (init_cost_tracking preserves existing .cost.json)
+- **Learnings for future iterations:**
+  - Token extraction uses Node.js extractor as primary source, grep patterns as fallback
+  - Cost file structure supports per-iteration tracking with total aggregation
+  - UI cost display updates via both polling (10s) and SSE events for real-time feel
+  - Checkpoint integration stores total_cost in loop_state for redundancy
+  - bc command provides high precision floating point; awk fallback for systems without bc
+---
