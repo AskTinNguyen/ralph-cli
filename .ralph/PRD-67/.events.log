@@ -91,3 +91,110 @@
 [2026-01-16 17:41:51] INFO Iteration completed | iteration=14 story=US-014 duration=461s
 [2026-01-16 17:41:51] WARN Uncommitted changes | iteration=0 story=US-014
 [2026-01-16 17:41:54] INFO Iteration started | iteration=15 story=US-015 mode=build
+[2026-01-16 18:22:38] INFO Iteration completed | iteration=13 story=US-015 duration=2490s
+[2026-01-16 18:22:38] WARN Uncommitted changes | iteration=0 story=US-015
+[2026-01-16 18:22:41] INFO Iteration started | iteration=14 story=US-016 mode=build
+[2026-01-16 18:23:18] INFO Iteration completed | iteration=15 story=US-015 duration=2485s
+[2026-01-16 18:23:18] WARN Uncommitted changes | iteration=0 story=US-015
+[2026-01-16 18:23:21] INFO Iteration started | iteration=16 story=US-016 mode=build
+[2026-01-16 18:28:29] RETRY Retry 2/3 (delay: 1.531s) | attempt=2 max=3 delay=1.531s reason=exit_code=1
+[2026-01-16 18:28:36] RETRY Retry 3/3 (delay: 2.719s) | attempt=3 max=3 delay=2.719s reason=exit_code=1
+[2026-01-16 18:28:43] ERROR All retries exhausted | iteration=16 attempts=3 exit_code=1
+[2026-01-16 18:28:43] ERROR Iteration failed | iteration=16 story=US-016 exit_code=1
+[2026-01-16 18:28:43] WARN Uncommitted changes | iteration=16 story=US-016
+[2026-01-16 18:28:46] INFO Iteration started | iteration=17 story=US-016 mode=build
+[2026-01-16 18:28:50] RETRY Retry 2/3 (delay: 1.933s) | attempt=2 max=3 delay=1.933s reason=exit_code=1
+[2026-01-16 18:28:50] RETRY Retry 2/3 (delay: 1.647s) | attempt=2 max=3 delay=1.647s reason=exit_code=1
+[2026-01-16 18:28:56] RETRY Retry 3/3 (delay: 2.270s) | attempt=3 max=3 delay=2.270s reason=exit_code=1
+[2026-01-16 18:28:57] RETRY Retry 3/3 (delay: 2.771s) | attempt=3 max=3 delay=2.771s reason=exit_code=1
+[2026-01-16 18:29:02] ERROR All retries exhausted | iteration=14 attempts=3 exit_code=1
+[2026-01-16 18:29:03] ERROR Iteration failed | iteration=14 story=US-016 exit_code=1
+[2026-01-16 18:29:03] WARN Uncommitted changes | iteration=14 story=US-016
+[2026-01-16 18:29:04] ERROR All retries exhausted | iteration=17 attempts=3 exit_code=1
+[2026-01-16 18:29:04] ERROR Iteration failed | iteration=17 story=US-016 exit_code=1
+[2026-01-16 18:29:04] WARN Switching agent | from=claude to=codex story=US-016
+[2026-01-16 18:29:04] WARN Uncommitted changes | iteration=1 story=US-016
+[2026-01-16 18:29:06] INFO Iteration started | iteration=15 story=US-016 mode=build
+[2026-01-16 18:29:07] INFO Iteration started | iteration=18 story=US-016 mode=build
+[2026-01-16 18:29:10] RETRY Retry 2/3 (delay: 1.168s) | attempt=2 max=3 delay=1.168s reason=exit_code=1
+[2026-01-16 18:29:16] RETRY Retry 3/3 (delay: 2.673s) | attempt=3 max=3 delay=2.673s reason=exit_code=1
+[2026-01-16 18:29:23] ERROR All retries exhausted | iteration=15 attempts=3 exit_code=1
+[2026-01-16 18:29:23] ERROR Iteration failed | iteration=15 story=US-016 exit_code=1
+[2026-01-16 18:29:23] WARN Switching agent | from=claude to=codex story=US-016
+[2026-01-16 18:29:23] WARN Uncommitted changes | iteration=1 story=US-016
+[2026-01-16 18:29:26] INFO Iteration started | iteration=16 story=US-016 mode=build
+[2026-01-16 18:29:41] RETRY Retry 2/3 (delay: 1.856s) | attempt=2 max=3 delay=1.856s reason=exit_code=1
+[2026-01-16 18:30:01] RETRY Retry 2/3 (delay: 1.789s) | attempt=2 max=3 delay=1.789s reason=exit_code=1
+[2026-01-16 18:30:18] RETRY Retry 3/3 (delay: 2.532s) | attempt=3 max=3 delay=2.532s reason=exit_code=1
+[2026-01-16 18:30:38] RETRY Retry 3/3 (delay: 2.050s) | attempt=3 max=3 delay=2.050s reason=exit_code=1
+[2026-01-16 18:30:54] ERROR All retries exhausted | iteration=18 attempts=3 exit_code=1
+[2026-01-16 18:30:54] ERROR Iteration failed | iteration=18 story=US-016 exit_code=1
+[2026-01-16 18:30:54] WARN Uncommitted changes | iteration=18 story=US-016
+[2026-01-16 18:30:57] INFO Iteration started | iteration=19 story=US-016 mode=build
+[2026-01-16 18:31:15] ERROR All retries exhausted | iteration=16 attempts=3 exit_code=1
+[2026-01-16 18:31:15] ERROR Iteration failed | iteration=16 story=US-016 exit_code=1
+[2026-01-16 18:31:15] WARN Uncommitted changes | iteration=16 story=US-016
+[2026-01-16 18:31:18] INFO Iteration started | iteration=17 story=US-016 mode=build
+[2026-01-16 18:31:31] RETRY Retry 2/3 (delay: 1.719s) | attempt=2 max=3 delay=1.719s reason=exit_code=1
+[2026-01-16 18:31:55] RETRY Retry 2/3 (delay: 1.697s) | attempt=2 max=3 delay=1.697s reason=exit_code=1
+[2026-01-16 18:32:07] RETRY Retry 3/3 (delay: 2.720s) | attempt=3 max=3 delay=2.720s reason=exit_code=1
+[2026-01-16 18:32:31] RETRY Retry 3/3 (delay: 2.454s) | attempt=3 max=3 delay=2.454s reason=exit_code=1
+[2026-01-16 18:32:45] ERROR All retries exhausted | iteration=19 attempts=3 exit_code=1
+[2026-01-16 18:32:45] ERROR Iteration failed | iteration=19 story=US-016 exit_code=1
+[2026-01-16 18:32:45] WARN Uncommitted changes | iteration=19 story=US-016
+[2026-01-16 18:32:48] INFO Iteration started | iteration=20 story=US-016 mode=build
+[2026-01-16 18:33:09] ERROR All retries exhausted | iteration=17 attempts=3 exit_code=1
+[2026-01-16 18:33:09] ERROR Iteration failed | iteration=17 story=US-016 exit_code=1
+[2026-01-16 18:33:09] WARN Uncommitted changes | iteration=17 story=US-016
+[2026-01-16 18:33:12] INFO Iteration started | iteration=18 story=US-016 mode=build
+[2026-01-16 18:33:25] RETRY Retry 2/3 (delay: 1.173s) | attempt=2 max=3 delay=1.173s reason=exit_code=1
+[2026-01-16 18:33:46] RETRY Retry 2/3 (delay: 1.621s) | attempt=2 max=3 delay=1.621s reason=exit_code=1
+[2026-01-16 18:34:01] RETRY Retry 3/3 (delay: 2.406s) | attempt=3 max=3 delay=2.406s reason=exit_code=1
+[2026-01-16 18:34:22] RETRY Retry 3/3 (delay: 2.631s) | attempt=3 max=3 delay=2.631s reason=exit_code=1
+[2026-01-16 18:34:39] ERROR All retries exhausted | iteration=20 attempts=3 exit_code=1
+[2026-01-16 18:34:39] ERROR Iteration failed | iteration=20 story=US-016 exit_code=1
+[2026-01-16 18:34:39] WARN Uncommitted changes | iteration=20 story=US-016
+[2026-01-16 18:34:42] INFO Iteration started | iteration=21 story=US-016 mode=build
+[2026-01-16 18:35:00] ERROR All retries exhausted | iteration=18 attempts=3 exit_code=1
+[2026-01-16 18:35:00] ERROR Iteration failed | iteration=18 story=US-016 exit_code=1
+[2026-01-16 18:35:00] WARN Uncommitted changes | iteration=18 story=US-016
+[2026-01-16 18:35:03] INFO Iteration started | iteration=19 story=US-016 mode=build
+[2026-01-16 18:35:19] RETRY Retry 2/3 (delay: 1.989s) | attempt=2 max=3 delay=1.989s reason=exit_code=1
+[2026-01-16 18:35:39] RETRY Retry 2/3 (delay: 1.764s) | attempt=2 max=3 delay=1.764s reason=exit_code=1
+[2026-01-16 18:35:58] RETRY Retry 3/3 (delay: 2.063s) | attempt=3 max=3 delay=2.063s reason=exit_code=1
+[2026-01-16 18:36:16] RETRY Retry 3/3 (delay: 2.699s) | attempt=3 max=3 delay=2.699s reason=exit_code=1
+[2026-01-16 18:36:35] ERROR All retries exhausted | iteration=21 attempts=3 exit_code=1
+[2026-01-16 18:36:35] ERROR Iteration failed | iteration=21 story=US-016 exit_code=1
+[2026-01-16 18:36:35] WARN Uncommitted changes | iteration=21 story=US-016
+[2026-01-16 18:36:38] INFO Iteration started | iteration=22 story=US-016 mode=build
+[2026-01-16 18:36:54] ERROR All retries exhausted | iteration=19 attempts=3 exit_code=1
+[2026-01-16 18:36:54] ERROR Iteration failed | iteration=19 story=US-016 exit_code=1
+[2026-01-16 18:36:54] WARN Uncommitted changes | iteration=19 story=US-016
+[2026-01-16 18:36:57] INFO Iteration started | iteration=20 story=US-016 mode=build
+[2026-01-16 18:37:13] RETRY Retry 2/3 (delay: 1.764s) | attempt=2 max=3 delay=1.764s reason=exit_code=1
+[2026-01-16 18:37:33] RETRY Retry 2/3 (delay: 1.099s) | attempt=2 max=3 delay=1.099s reason=exit_code=1
+[2026-01-16 18:37:49] RETRY Retry 3/3 (delay: 2.909s) | attempt=3 max=3 delay=2.909s reason=exit_code=1
+[2026-01-16 18:38:09] RETRY Retry 3/3 (delay: 2.302s) | attempt=3 max=3 delay=2.302s reason=exit_code=1
+[2026-01-16 18:38:29] ERROR All retries exhausted | iteration=22 attempts=3 exit_code=1
+[2026-01-16 18:38:29] ERROR Iteration failed | iteration=22 story=US-016 exit_code=1
+[2026-01-16 18:38:29] WARN Uncommitted changes | iteration=22 story=US-016
+[2026-01-16 18:38:32] INFO Iteration started | iteration=23 story=US-016 mode=build
+[2026-01-16 18:38:45] ERROR All retries exhausted | iteration=20 attempts=3 exit_code=1
+[2026-01-16 18:38:45] ERROR Iteration failed | iteration=20 story=US-016 exit_code=1
+[2026-01-16 18:38:45] WARN Uncommitted changes | iteration=20 story=US-016
+[2026-01-16 18:39:07] RETRY Retry 2/3 (delay: 1.186s) | attempt=2 max=3 delay=1.186s reason=exit_code=1
+[2026-01-16 18:39:47] RETRY Retry 3/3 (delay: 2.854s) | attempt=3 max=3 delay=2.854s reason=exit_code=1
+[2026-01-16 18:40:24] ERROR All retries exhausted | iteration=23 attempts=3 exit_code=1
+[2026-01-16 18:40:24] ERROR Iteration failed | iteration=23 story=US-016 exit_code=1
+[2026-01-16 18:40:24] WARN Uncommitted changes | iteration=23 story=US-016
+[2026-01-16 18:40:27] INFO Iteration started | iteration=24 story=US-016 mode=build
+[2026-01-16 18:41:02] RETRY Retry 2/3 (delay: 1.146s) | attempt=2 max=3 delay=1.146s reason=exit_code=1
+[2026-01-16 18:41:38] RETRY Retry 3/3 (delay: 2.363s) | attempt=3 max=3 delay=2.363s reason=exit_code=1
+[2026-01-16 18:42:17] ERROR All retries exhausted | iteration=24 attempts=3 exit_code=1
+[2026-01-16 18:42:17] ERROR Iteration failed | iteration=24 story=US-016 exit_code=1
+[2026-01-16 18:42:17] WARN Uncommitted changes | iteration=24 story=US-016
+[2026-01-16 18:42:20] INFO Iteration started | iteration=25 story=US-016 mode=build
+[2026-01-16 18:42:58] RETRY Retry 2/3 (delay: 1.745s) | attempt=2 max=3 delay=1.745s reason=exit_code=1
+[2026-01-16 18:43:34] RETRY Retry 3/3 (delay: 2.064s) | attempt=3 max=3 delay=2.064s reason=exit_code=1
+[2026-01-16 18:44:12] ERROR All retries exhausted | iteration=25 attempts=3 exit_code=1
+[2026-01-16 18:44:12] ERROR Iteration failed | iteration=25 story=US-016 exit_code=1

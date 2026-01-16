@@ -601,39 +601,45 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 ---
 
-### US-016: BuildStateManager for transactional updates
+### [x] US-016: BuildStateManager for transactional updates
 
 **Scope**: Create `lib/state/index.js` for atomic updates to progress.md and activity.log with concurrent access safety, maintain backward compatible format.
 
-- [ ] Create state manager module
+- [x] Create state manager module
   - Scope: New file `lib/state/index.js` with class `BuildStateManager` managing progress.md and activity.log
   - Acceptance: Class provides methods: `addIteration()`, `updateStory()`, `logActivity()`
   - Verification: Import class, verify methods exist
+  - Notes: Created `lib/state/index.js` with BuildStateManager class. Methods: logActivity(), addRunSummary(), addIteration(), updateStoryStatus(), updateCriteriaStatus(), batchUpdate(). Also exports acquireLock(), releaseLock(), checkStaleLock(), formatTimestamp().
 
-- [ ] Implement transactional updates
+- [x] Implement transactional updates
   - Scope: Use file locking for atomic read-modify-write operations on state files
   - Acceptance: Concurrent updates don't corrupt files
   - Verification: Test concurrent writes, verify file integrity
+  - Notes: Directory-based file locking using mkdir (atomic on POSIX). Stale lock detection via PID check and 5-minute timeout. All file operations acquire lock first, then read-modify-write, then release.
 
-- [ ] Maintain backward compatible format
+- [x] Maintain backward compatible format
   - Scope: Output format matches existing progress.md/activity.log exactly
   - Acceptance: Existing parsers work with new output
   - Verification: Generate state files, parse with existing tools
+  - Notes: activity.log format: `[timestamp] message` for events, structured sections for Run Summary. progress.md format: Standard iteration entry format with story ID, commit, verification, files changed, etc.
 
-- [ ] Add retry logic for lock contention
+- [x] Add retry logic for lock contention
   - Scope: Retry lock acquisition with exponential backoff (max 3 retries)
   - Acceptance: Handles temporary lock contention gracefully
   - Verification: Simulate lock contention, verify retries work
+  - Notes: LOCK_CONFIG with maxWaitMs=30000, maxRetries=3, baseDelayMs=100. Exponential backoff: delay = min(baseDelayMs * 2^retry, 1000) + random jitter.
 
-- [ ] Create CLI wrapper
+- [x] Create CLI wrapper
   - Scope: `lib/state/cli.js update-iteration <prd-path> <json>` for bash integration
   - Acceptance: CLI performs transactional state update
   - Verification: Run CLI concurrently, verify no corruption
+  - Notes: Created `lib/state/cli.js` with commands: log-activity, add-run-summary, add-iteration, update-story, update-criteria. Supports --json flag for JSON output. All 30 unit tests pass.
 
-- [ ] Integrate into loop.sh
+- [x] Integrate into loop.sh
   - Scope: Replace manual progress.md appends with state manager calls
   - Acceptance: State updates atomic and safe
   - Verification: Run concurrent builds, verify progress.md integrity
+  - Notes: Updated log_activity() in loop.sh to use BuildStateManager when available, with fallback to direct append. Added log_run_summary() function for run tracking.
 
 ---
 

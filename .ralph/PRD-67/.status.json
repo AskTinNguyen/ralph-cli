@@ -1,8 +1,8 @@
 {
   "phase": "executing",
-  "story_id": "US-015",
-  "story_title": "Extract story selection to TypeScript",
-  "iteration": 15,
-  "elapsed_seconds": 5520,
-  "updated_at": "2026-01-16T10:41:54Z"
+  "story_id": "US-016",
+  "story_title": "BuildStateManager for transactional updates",
+  "iteration": 25,
+  "elapsed_seconds": 9146,
+  "updated_at": "2026-01-16T11:42:20Z"
 }

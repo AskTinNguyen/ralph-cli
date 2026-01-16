@@ -1226,3 +1226,53 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-it
   - Existing test-story.js was already comprehensive - no need to duplicate tests
   - TypeScript/JavaScript CLI provides better error handling than inline Python in bash
 ---
+
+## [2026-01-16 18:30] - US-016: BuildStateManager for transactional updates
+Thread:
+Run: manual (iteration 16)
+Run log: N/A
+Run summary: N/A
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b2b31f8 feat(state): add BuildStateManager for transactional updates (US-016)
+- Post-commit status: clean
+- Verification:
+  - Command: node tests/test-state.js -> PASS (30/30 tests)
+  - Command: bash -n .agents/ralph/loop.sh -> PASS
+- Files changed:
+  - lib/state/index.js (new - 820 lines)
+  - lib/state/cli.js (new - 250 lines)
+  - tests/test-state.js (new - 743 lines)
+  - .agents/ralph/loop.sh (modified - integrated state manager)
+- What was implemented:
+  - **BuildStateManager Class** (lib/state/index.js):
+    - File locking with mkdir-based atomic operations (POSIX compatible)
+    - Stale lock detection via PID check and 5-minute timeout
+    - Methods: logActivity(), addRunSummary(), addIteration(), updateStoryStatus(), updateCriteriaStatus()
+    - batchUpdate() for atomic multi-file operations
+    - Exponential backoff retry: maxWaitMs=30s, maxRetries=3, baseDelayMs=100ms
+    - Internal no-lock variants for batch operations
+  - **CLI Wrapper** (lib/state/cli.js):
+    - log-activity <prd_folder> <message> - append to activity.log
+    - add-run-summary <prd_folder> <json> - add run summary entry
+    - add-iteration <prd_folder> <json> - add progress entry
+    - update-story <plan_path> <story_id> - mark story complete
+    - update-criteria <prd_path> <criteria_text> - mark criteria complete
+    - --json flag for JSON output
+  - **Unit Tests** (tests/test-state.js):
+    - 30 tests covering all functionality
+    - Concurrent write tests (5-10 parallel writes)
+    - Stale lock detection tests
+    - CLI integration tests
+    - All tests pass
+  - **Loop Integration** (.agents/ralph/loop.sh):
+    - Updated log_activity() to use BuildStateManager when available
+    - Added log_run_summary() function for run tracking
+    - Falls back to direct append if Node.js unavailable
+- **Learnings for future iterations:**
+  - mkdir-based locking is simple and cross-platform
+  - PID file in lock directory enables stale lock detection
+  - Keeping backward compatibility (fallback) is critical for gradual migration
+  - Exponential backoff prevents thundering herd on lock contention
+  - Separating lock vs no-lock methods enables efficient batch updates
+---
