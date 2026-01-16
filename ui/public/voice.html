@@ -51,9 +51,30 @@
       animation: pulse 1s infinite;
     }
 
+    .status-dot.speaking {
+      background: #22c55e;
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.wake-word-active {
+      background: #8b5cf6;
+      animation: pulse-wake 2s infinite;
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
+    }
+
+    @keyframes pulse-wake {
+      0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+      }
+      50% {
+        opacity: 0.8;
+        box-shadow: 0 0 8px 4px rgba(139, 92, 246, 0.3);
+      }
     }
 
     /* Recording Section */
@@ -139,11 +160,42 @@
 
     .state-badge.idle { background: var(--rams-gray-200); }
     .state-badge.listening { background: #fef3c7; color: #92400e; }
+    .state-badge.wake_listening { background: #ede9fe; color: #5b21b6; }
     .state-badge.transcribing { background: #dbeafe; color: #1e40af; }
     .state-badge.classifying { background: #e0e7ff; color: #3730a3; }
     .state-badge.confirming { background: #fce7f3; color: #9d174d; }
     .state-badge.executing { background: #d1fae5; color: #065f46; }
     .state-badge.error { background: #fee2e2; color: #991b1b; }
+
+    /* Wake Word Indicator */
+    .wake-word-indicator {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-2) var(--rams-space-4);
+      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+      border-radius: 999px;
+      font-size: var(--rams-text-sm);
+      color: #5b21b6;
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .wake-word-indicator.active {
+      display: inline-flex;
+    }
+
+    .wake-word-indicator .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8b5cf6;
+      animation: pulse-wake 2s infinite;
+    }
+
+    .wake-word-indicator .text {
+      font-weight: 500;
+    }
 
     /* Transcription Display */
     .transcription-display {
@@ -469,6 +521,10 @@
             <span>TTS</span>
           </div>
           <div class="status-item">
+            <div class="status-dot" id="wake-word-status"></div>
+            <span>Wake Word</span>
+          </div>
+          <div class="status-item">
             <div class="status-dot" id="session-status"></div>
             <span>Session</span>
           </div>
@@ -476,6 +532,12 @@
 
         <!-- Recording Section -->
         <div class="recording-section">
+          <!-- Wake Word Indicator -->
+          <div class="wake-word-indicator" id="wake-word-indicator">
+            <span class="dot"></span>
+            <span class="text">Listening for "Hey Claude"...</span>
+          </div>
+
           <button class="mic-button" id="mic-button" disabled>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>

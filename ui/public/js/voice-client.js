@@ -57,6 +57,13 @@
   let showFilteredOutput = true;
   let ttsEnabledState = true;
 
+  // Wake word state
+  let wakeWordEnabled = false;
+  let wakeWordListening = false;
+  let speechRecognition = null;
+  const wakeWordIndicator = document.getElementById('wake-word-indicator');
+  const wakeWordStatus = document.getElementById('wake-word-status');
+
   /**
    * Initialize the voice client
    */
@@ -92,11 +99,19 @@
     resizeWaveformCanvas();
     window.addEventListener('resize', resizeWaveformCanvas);
 
+    // Load wake word preference from localStorage
+    wakeWordEnabled = localStorage.getItem('wakeWordEnabled') === 'true';
+
     // Enable button if ready
     if (sessionId) {
       micButton.disabled = false;
       recordingStatus.textContent = 'Click the microphone to start recording';
       updateState('idle');
+
+      // Start wake word detection if enabled
+      if (wakeWordEnabled) {
+        startWakeWordDetection();
+      }
     }
   }
 
@@ -704,6 +719,13 @@
     } else {
       micButton.disabled = true;
     }
+
+    // Restart wake word detection when returning to idle (if enabled)
+    if (newState === 'idle' && wakeWordEnabled && !wakeWordListening) {
+      setTimeout(() => {
+        startWakeWordDetection();
+      }, 500);
+    }
   }
 
   /**
@@ -1062,6 +1084,213 @@
       console.error('TTS speak error:', error);
     }
   }
+
+  // ==================== Wake Word Detection ====================
+
+  /**
+   * Start wake word detection using Web Speech API
+   */
+  function startWakeWordDetection() {
+    // Check for Web Speech API support
+    const SpeechRecognitionAPI = window.webkitSpeechRecognition || window.SpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      console.warn('Web Speech API not supported in this browser');
+      updateWakeWordUI(false, 'Not supported');
+      return;
+    }
+
+    // Don't start if already recording or listening
+    if (state === 'listening' || wakeWordListening) {
+      return;
+    }
+
+    try {
+      speechRecognition = new SpeechRecognitionAPI();
+      speechRecognition.continuous = true;
+      speechRecognition.interimResults = true;
+      speechRecognition.lang = 'en-US';
+
+      speechRecognition.onresult = function(event) {
+        handleWakeWordResult(event);
+      };
+
+      speechRecognition.onerror = function(event) {
+        handleWakeWordError(event);
+      };
+
+      speechRecognition.onend = function() {
+        // Restart if still enabled and not in recording state
+        if (wakeWordEnabled && state !== 'listening' && state !== 'transcribing') {
+          try {
+            speechRecognition.start();
+          } catch (e) {
+            // Ignore errors when restarting
+          }
+        }
+      };
+
+      speechRecognition.start();
+      wakeWordListening = true;
+      updateWakeWordUI(true, 'Listening');
+      console.log('Wake word detection started');
+
+    } catch (error) {
+      console.error('Failed to start wake word detection:', error);
+      updateWakeWordUI(false, 'Error');
+    }
+  }
+
+  /**
+   * Stop wake word detection
+   */
+  function stopWakeWordDetection() {
+    if (speechRecognition) {
+      try {
+        speechRecognition.abort();
+      } catch (e) {
+        // Ignore errors
+      }
+      speechRecognition = null;
+    }
+    wakeWordListening = false;
+    updateWakeWordUI(false, 'Disabled');
+    console.log('Wake word detection stopped');
+  }
+
+  /**
+   * Handle wake word speech recognition results
+   */
+  function handleWakeWordResult(event) {
+    const results = event.results;
+
+    for (let i = event.resultIndex; i < results.length; i++) {
+      const result = results[i];
+      const transcript = result[0].transcript.toLowerCase().trim();
+
+      // Check for wake phrase
+      if (containsWakePhrase(transcript)) {
+        console.log('Wake word detected:', transcript);
+
+        // Temporarily stop wake word detection
+        stopWakeWordDetection();
+
+        // Show detection in UI
+        recordingStatus.textContent = '"Hey Claude" detected! Starting recording...';
+
+        // Automatically start recording
+        setTimeout(() => {
+          startRecording();
+        }, 300);
+
+        return;
+      }
+    }
+  }
+
+  /**
+   * Check if transcript contains wake phrase
+   */
+  function containsWakePhrase(transcript) {
+    const normalizedTranscript = transcript
+      .replace(/[.,!?]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Check for wake phrase variants (accounting for common misrecognitions)
+    const variants = [
+      'hey claude',
+      'hey cloud',  // Common misrecognition
+      'hey clod',
+      'a claude',
+      'hey claud',
+      'hey claud e',
+      'hay claude',
+      'hi claude'
+    ];
+
+    return variants.some(variant => normalizedTranscript.includes(variant));
+  }
+
+  /**
+   * Handle wake word detection errors
+   */
+  function handleWakeWordError(event) {
+    console.warn('Wake word recognition error:', event.error);
+
+    // Don't update UI for recoverable errors
+    if (event.error === 'no-speech' || event.error === 'aborted') {
+      return;
+    }
+
+    if (event.error === 'not-allowed') {
+      updateWakeWordUI(false, 'Denied');
+      wakeWordEnabled = false;
+      localStorage.setItem('wakeWordEnabled', 'false');
+    }
+  }
+
+  /**
+   * Update wake word UI elements
+   */
+  function updateWakeWordUI(active, statusText) {
+    // Update indicator visibility
+    if (wakeWordIndicator) {
+      if (active) {
+        wakeWordIndicator.classList.add('active');
+      } else {
+        wakeWordIndicator.classList.remove('active');
+      }
+    }
+
+    // Update status dot
+    if (wakeWordStatus) {
+      if (active) {
+        wakeWordStatus.className = 'status-dot wake-word-active';
+      } else if (statusText === 'Denied' || statusText === 'Error') {
+        wakeWordStatus.className = 'status-dot error';
+      } else if (statusText === 'Not supported') {
+        wakeWordStatus.className = 'status-dot warning';
+      } else {
+        wakeWordStatus.className = 'status-dot';
+      }
+    }
+  }
+
+  /**
+   * Toggle wake word detection
+   */
+  function toggleWakeWordDetection(enabled) {
+    wakeWordEnabled = enabled;
+    localStorage.setItem('wakeWordEnabled', enabled ? 'true' : 'false');
+
+    if (enabled) {
+      startWakeWordDetection();
+    } else {
+      stopWakeWordDetection();
+    }
+  }
+
+  /**
+   * Enable wake word detection externally
+   */
+  window.enableWakeWord = function() {
+    toggleWakeWordDetection(true);
+  };
+
+  /**
+   * Disable wake word detection externally
+   */
+  window.disableWakeWord = function() {
+    toggleWakeWordDetection(false);
+  };
+
+  /**
+   * Check if wake word detection is active
+   */
+  window.isWakeWordActive = function() {
+    return wakeWordListening;
+  };
 
   // Initialize on DOM ready
   if (document.readyState === 'loading') {
