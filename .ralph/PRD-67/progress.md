@@ -716,3 +716,120 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
   - 60-second check interval balances responsiveness with CPU efficiency
   - JSON diagnostics in .stalled file aid debugging hung builds
 ---
+
+## [2026-01-16T17:20:00+07:00] - US-010: Watchdog process for auto-recovery
+Thread:
+Run: 20260116-161636-16394 (iteration 8)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-8.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-8.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 66f0a07 feat(watchdog): implement watchdog process for auto-recovery (US-010)
+- Post-commit status: clean (US-010 files committed; unrelated S2-Game and loop.sh changes remain)
+- Verification:
+  - Command: bash -n .agents/ralph/lib/watchdog.sh -> PASS
+  - Command: bash -n .agents/ralph/stream.sh -> PASS
+  - Command: Test script with 10 function tests -> PASS (10/10 passed)
+    - init_watchdog_state creates state file -> PASS
+    - get_watchdog_state reads fields correctly -> PASS
+    - update_watchdog_state updates fields -> PASS
+    - increment_watchdog_state increments values -> PASS
+    - reset_consecutive_stalls resets to 0 -> PASS
+    - log_watchdog writes to watchdog.log -> PASS
+    - create_needs_human_marker creates marker file -> PASS
+    - has_needs_human_marker detects marker -> PASS
+    - clear_needs_human_marker removes marker -> PASS
+    - clear_watchdog_state removes state file -> PASS
+- Files changed:
+  - .agents/ralph/lib/watchdog.sh (new - 450+ lines)
+  - .agents/ralph/stream.sh (integration in cmd_build)
+  - .ralph/PRD-67/plan.md (tasks marked complete)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **Watchdog script** (.agents/ralph/lib/watchdog.sh):
+    - `run_watchdog()` - Main loop checking heartbeat every 60s
+    - `start_watchdog()` / `stop_watchdog()` - Management functions
+    - `is_watchdog_running()` / `get_watchdog_pid()` - Status checks
+    - `init_watchdog_state()` - Creates .watchdog.state JSON
+    - `get_watchdog_state()` / `update_watchdog_state()` - State CRUD
+    - `increment_watchdog_state()` / `reset_consecutive_stalls()` - Counter ops
+    - `log_watchdog_info()` / `log_watchdog_warn()` / `log_watchdog_error()` - Logging
+    - `restart_build()` - Kills stalled process, restarts with auto-resume
+    - `create_needs_human_marker()` - Creates .needs_human JSON on escalation
+  - **Stream.sh integration**:
+    - Watchdog spawned after lock acquired in cmd_build()
+    - Watchdog stopped in exit trap alongside lock release
+    - CLI shows "Watchdog: active (PID N)" when running
+  - **Configuration via environment variables**:
+    - `RALPH_WATCHDOG_CHECK_INTERVAL` (default 60s)
+    - `RALPH_WATCHDOG_STALL_THRESHOLD` (default 3 consecutive checks)
+    - `RALPH_WATCHDOG_MAX_RESTARTS` (default 3 restarts)
+  - **State tracking**:
+    - `.watchdog.state` JSON: restart_count, consecutive_stalls, last_restart_at, status
+    - `.watchdog.pid` file for tracking running watchdog
+    - `.needs_human` marker on escalation with diagnostics
+  - **Logging**:
+    - All actions logged to `watchdog.log` with timestamps
+    - Events also written to `.events.log` for UI visibility
+- Acceptance Criteria Verification:
+  1. ✅ Watchdog spawns as separate process when stream build starts (start_watchdog in cmd_build)
+  2. ✅ Watchdog checks heartbeat every 60 seconds (WATCHDOG_CHECK_INTERVAL default)
+  3. ✅ 3 consecutive stall checks trigger restart (WATCHDOG_STALL_THRESHOLD)
+  4. ✅ Max 3 restarts before escalating to NEEDS_HUMAN (WATCHDOG_MAX_RESTARTS)
+  5. ✅ Watchdog logs to watchdog.log (log_watchdog_* functions)
+  6. ✅ Watchdog terminates when lock file disappears (is_lock_present check in loop)
+- **Learnings for future iterations:**
+  - Watchdog runs completely independently of build process for crash isolation
+  - Using nohup for restart ensures new build survives watchdog exit
+  - State file with JSON allows easy inspection/debugging
+  - Consecutive stall tracking prevents premature restarts on brief stalls
+  - NEEDS_HUMAN escalation provides clear human intervention signal
+  - Lock file as heartbeat indicator leverages existing infrastructure
+---
+
+## [2026-01-16T17:30:00+07:00] - US-010: Watchdog process for auto-recovery (Verification)
+Thread:
+Run: 20260116-160954-10574 (iteration 10)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-160954-10574-iter-10.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-160954-10574-iter-10.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 6c2fa31 chore(watchdog): add watchdog module source to loop.sh for consistency
+- Post-commit status: clean (only unrelated S2-Game files remain)
+- Verification:
+  - Command: bash -n .agents/ralph/lib/watchdog.sh -> PASS
+  - Command: bash -n .agents/ralph/stream.sh -> PASS
+  - State management tests:
+    - init_watchdog_state creates .watchdog.state -> PASS
+    - get_watchdog_state reads fields -> PASS
+    - update_watchdog_state updates status field -> PASS
+    - increment_watchdog_state increments consecutive_stalls -> PASS
+  - Logging tests:
+    - log_watchdog_info writes INFO to watchdog.log -> PASS
+    - log_watchdog_warn writes WARN to watchdog.log -> PASS
+    - log_watchdog_error writes ERROR to watchdog.log -> PASS
+  - NEEDS_HUMAN marker tests:
+    - create_needs_human_marker creates .needs_human with JSON -> PASS
+    - Marker contains required fields (timestamp, reason, context) -> PASS
+  - Management function tests:
+    - start_watchdog/stop_watchdog/is_watchdog_running functions exist -> PASS
+  - Integration verification:
+    - stream.sh sources watchdog module (line 23-25) -> PASS
+    - stream.sh starts watchdog in cmd_build (line 1194) -> PASS
+    - stream.sh stops watchdog in trap (line 1177) -> PASS
+- What was verified:
+  - US-010 was already fully implemented in commit 66f0a07 (iteration 8)
+  - All 6 acceptance criteria confirmed:
+    1. ✅ Watchdog spawns as separate process when stream build starts (start_watchdog)
+    2. ✅ Watchdog checks heartbeat every 60 seconds (WATCHDOG_CHECK_INTERVAL=60)
+    3. ✅ 3 consecutive stall checks trigger restart (WATCHDOG_STALL_THRESHOLD=3)
+    4. ✅ Max 3 restarts before escalating to NEEDS_HUMAN (WATCHDOG_MAX_RESTARTS=3)
+    5. ✅ Watchdog logs to watchdog.log (log_watchdog_* functions)
+    6. ✅ Watchdog terminates when lock file disappears (is_lock_present check)
+  - Minor enhancement committed: loop.sh now sources watchdog module for consistency with stream.sh
+- **Learnings for future iterations:**
+  - Watchdog script (537 lines) provides comprehensive auto-recovery
+  - State tracking via .watchdog.state JSON enables restart count persistence
+  - Parent PID monitoring ensures watchdog exits if build process dies unexpectedly
+  - Lock file presence check is the primary signal for watchdog to continue/stop
+---
