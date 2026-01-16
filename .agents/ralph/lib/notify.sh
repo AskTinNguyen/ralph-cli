@@ -281,12 +281,101 @@ notify_webhook() {
 }
 
 # ============================================================================
+# Email Notification
+# ============================================================================
+
+# Send notification via email
+# Usage: notify_email <email> <event_type> <prd_num> <message> [details]
+notify_email() {
+  local email="$1"
+  local event_type="$2"
+  local prd_num="$3"
+  local message="$4"
+  local details="${5:-}"
+
+  if [[ -z "$email" ]]; then
+    return 0  # Graceful skip if no email
+  fi
+
+  # Determine subject based on event type
+  local subject=""
+  case "$event_type" in
+    build_start) subject="[Ralph] Build Started - PRD-$prd_num" ;;
+    build_complete) subject="[Ralph] Build Completed - PRD-$prd_num" ;;
+    build_failed) subject="[Ralph] Build Failed - PRD-$prd_num" ;;
+    stalled) subject="[Ralph] Build Stalled - PRD-$prd_num" ;;
+    needs_human) subject="[Ralph] Needs Human Intervention - PRD-$prd_num" ;;
+    story_complete) subject="[Ralph] Story Completed - PRD-$prd_num" ;;
+    *) subject="[Ralph] Notification - PRD-$prd_num" ;;
+  esac
+
+  # Build email body
+  local body
+  body=$(cat <<EOF
+Ralph Build Notification
+========================
+
+Event: $event_type
+PRD: PRD-$prd_num
+Message: $message
+
+${details:+Details: $details}
+
+Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+---
+Ralph CLI - Autonomous Coding Loop
+EOF
+)
+
+  # Try sending via mail command (most common)
+  if command -v mail &>/dev/null; then
+    if ! echo "$body" | mail -s "$subject" "$email" 2>/dev/null; then
+      # Log failure but don't block build
+      if type log_event_warn &>/dev/null; then
+        log_event_warn "" "Email notification failed (mail command)" "prd=$prd_num event=$event_type to=$email"
+      fi
+      return 1
+    fi
+    return 0
+  fi
+
+  # Try sendmail if available
+  if command -v sendmail &>/dev/null; then
+    local from_addr="${RALPH_EMAIL_FROM:-ralph-cli@localhost}"
+    local email_content
+    email_content=$(cat <<EOF
+To: $email
+From: $from_addr
+Subject: $subject
+Content-Type: text/plain; charset=UTF-8
+
+$body
+EOF
+)
+    if ! echo "$email_content" | sendmail -t 2>/dev/null; then
+      if type log_event_warn &>/dev/null; then
+        log_event_warn "" "Email notification failed (sendmail)" "prd=$prd_num event=$event_type to=$email"
+      fi
+      return 1
+    fi
+    return 0
+  fi
+
+  # No email command available
+  if type log_event_warn &>/dev/null; then
+    log_event_warn "" "Email notification skipped (no mail/sendmail)" "prd=$prd_num event=$event_type"
+  fi
+  return 1
+}
+
+# ============================================================================
 # Main Notification Function
 # ============================================================================
 
 # Send notification to all configured channels
 # Usage: send_notification <event_type> <prd_folder> <message> [details]
-# Reads configuration from environment or notify.config.js
+# Reads configuration from environment or notify.conf
 send_notification() {
   local event_type="$1"
   local prd_folder="$2"
@@ -328,6 +417,12 @@ send_notification() {
       details_json="{\"text\": \"$details\"}"
     fi
     notify_webhook "$generic_webhook" "$event_type" "$prd_num" "$message" "$details_json" &
+  fi
+
+  # 5. Email notification (if configured)
+  local email_to="${RALPH_NOTIFY_EMAIL:-}"
+  if [[ -n "$email_to" ]]; then
+    notify_email "$email_to" "$event_type" "$prd_num" "$message" "$details" &
   fi
 
   # Wait for background notifications (with timeout to prevent blocking)
@@ -487,6 +582,19 @@ notify_test() {
     fi
   else
     echo "4. Generic webhook: Not configured (set RALPH_NOTIFY_WEBHOOK)"
+  fi
+
+  # Test email
+  local email_to="${RALPH_NOTIFY_EMAIL:-}"
+  if [[ -n "$email_to" ]]; then
+    echo "5. Email notification:"
+    if notify_email "$email_to" "build_complete" "0" "Test notification from ralph notify test"; then
+      echo "   ✓ Email notification sent to $email_to"
+    else
+      echo "   ✗ Email notification failed"
+    fi
+  else
+    echo "5. Email: Not configured (set RALPH_NOTIFY_EMAIL)"
   fi
 
   echo ""

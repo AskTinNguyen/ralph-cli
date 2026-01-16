@@ -199,7 +199,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-012: Multi-channel notifications
+### [x] US-012: Multi-channel notifications
 
 **As a** developer
 **I want** notifications when builds complete or need attention
@@ -207,12 +207,12 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Notification channels: CLI, Slack, Discord, Email, Webhooks
-- [ ] Events: build_complete, build_failed, stalled, needs_human
-- [ ] Configuration file: `.agents/ralph/notify.conf`
-- [ ] Graceful failure if channel unavailable (don't block builds)
-- [ ] Notification includes: stream ID, event details, timestamp
-- [ ] Test notification command: `ralph notify test`
+- [x] Notification channels: CLI, Slack, Discord, Email, Webhooks
+- [x] Events: build_complete, build_failed, stalled, needs_human
+- [x] Configuration file: `.agents/ralph/notify.conf`
+- [x] Graceful failure if channel unavailable (don't block builds)
+- [x] Notification includes: stream ID, event details, timestamp
+- [x] Test notification command: `ralph notify test`
 
 ---
 

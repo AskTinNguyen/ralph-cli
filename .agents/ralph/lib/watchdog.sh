@@ -3,6 +3,15 @@
 # Spawns as separate process to monitor heartbeat and restart stalled builds
 # Runs independently of the build loop for crash isolation
 
+# Get script directory for sourcing other libraries
+WATCHDOG_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source notification module for stalled/needs_human notifications (US-012)
+# shellcheck source=notify.sh
+if [[ -f "$WATCHDOG_SCRIPT_DIR/notify.sh" ]]; then
+  source "$WATCHDOG_SCRIPT_DIR/notify.sh"
+fi
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -510,7 +519,16 @@ run_watchdog() {
         log_watchdog_error "$prd_folder" "Max restarts ($WATCHDOG_MAX_RESTARTS) exceeded - escalating to NEEDS_HUMAN"
         update_watchdog_state "$prd_folder" "status" "needs_human"
         create_needs_human_marker "$prd_folder" "Iteration timeout with max restarts"
+        # Send needs_human notification (US-012)
+        if type notify_needs_human &>/dev/null; then
+          notify_needs_human "$prd_folder" "Iteration timeout with max restarts ($WATCHDOG_MAX_RESTARTS)"
+        fi
         break
+      fi
+
+      # Send stalled notification for iteration timeout on first attempt (US-012)
+      if [[ "$restart_count" -eq 0 ]] && type notify_stalled &>/dev/null; then
+        notify_stalled "$prd_folder" "${iter_elapsed:-0}"
       fi
 
       log_watchdog_warn "$prd_folder" "Restarting due to iteration timeout (attempt $((restart_count + 1))/$WATCHDOG_MAX_RESTARTS)"
@@ -544,7 +562,16 @@ run_watchdog() {
           log_watchdog_error "$prd_folder" "Max restarts ($WATCHDOG_MAX_RESTARTS) exceeded - escalating to NEEDS_HUMAN"
           update_watchdog_state "$prd_folder" "status" "needs_human"
           create_needs_human_marker "$prd_folder" "Max restarts exceeded after repeated stalls"
+          # Send needs_human notification (US-012)
+          if type notify_needs_human &>/dev/null; then
+            notify_needs_human "$prd_folder" "Max restarts ($WATCHDOG_MAX_RESTARTS) exceeded after repeated stalls"
+          fi
           break
+        fi
+
+        # Send stalled notification on first restart attempt (US-012)
+        if [[ "$restart_count" -eq 0 ]] && type notify_stalled &>/dev/null; then
+          notify_stalled "$prd_folder" "${heartbeat_age:-0}"
         fi
 
         # Attempt restart

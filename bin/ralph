@@ -485,6 +485,8 @@ async function main() {
     "registry", "search", "import", "routing",
     // Error Management
     "error",
+    // Notifications (US-012)
+    "notify",
   ];
 
   if (moduleCommands.includes(actualCmd)) {

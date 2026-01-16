@@ -425,45 +425,59 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create notification system supporting CLI, Slack, Discord, Email, Webhooks for events: build_complete, build_failed, stalled, needs_human. Use `.agents/ralph/notify.conf` for config, add `ralph notify test` command.
 
-- [ ] Create notification configuration file
+- [x] Create notification configuration file
   - Scope: Define schema for `.agents/ralph/notify.conf`: channels, events, credentials (env var refs)
   - Acceptance: Config supports multiple channels with event filters
   - Verification: Create sample config, verify structure
+  - Notes: Created `.agents/ralph/notify.conf` with configuration for all channels (CLI, Slack, Discord, Email, Webhooks), event filtering, quiet hours settings. Shell-sourceable KEY=VALUE format.
 
-- [ ] Implement CLI notification (always enabled)
+- [x] Implement CLI notification (always enabled)
   - Scope: Print notification message to terminal with appropriate color/icon
   - Acceptance: CLI shows: `✓ Build completed: PRD-1 (5 iterations, $0.50, 12m 30s)`
   - Verification: Complete build, verify CLI message appears
+  - Notes: `notify_cli()` function in `.agents/ralph/lib/notify.sh` displays colored notifications with icons based on event type. Uses event-specific icons: rocket for build_start, checkmark for build_complete, X for build_failed, warning for stalled, SOS for needs_human.
 
-- [ ] Implement Slack notification
+- [x] Implement Slack notification
   - Scope: New module `lib/notify/slack.js` that posts to webhook URL from config
   - Acceptance: Slack message includes: stream ID, event type, details, timestamp
   - Verification: Configure Slack webhook, trigger notification, verify message in Slack
+  - Notes: `lib/notify/slack.js` provides full Slack integration with rich formatting (attachments, fields), quiet hours support, per-PRD channel routing, and @mentions on failure. Bash module `notify_slack()` in notify.sh provides equivalent functionality.
 
-- [ ] Implement Discord notification
+- [x] Implement Discord notification
   - Scope: New module `lib/notify/discord.js` similar to Slack (uses Discord webhook format)
   - Acceptance: Discord message formatted correctly with embeds
   - Verification: Configure Discord webhook, trigger notification, verify message
+  - Notes: `lib/notify/discord.js` provides Discord integration with rich embeds (color-coded by event type), timestamps, dashboard links. Bash module `notify_discord()` in notify.sh provides equivalent functionality.
 
-- [ ] Implement webhook notification
+- [x] Implement Email notification
+  - Scope: Email notifications via local mail/sendmail command
+  - Acceptance: Email sent with subject containing event type and PRD number
+  - Verification: Configure RALPH_NOTIFY_EMAIL, trigger notification
+  - Notes: `notify_email()` function in notify.sh sends emails via `mail` or `sendmail` commands. Includes subject line with event type, plain-text body with event details, timestamp.
+
+- [x] Implement webhook notification
   - Scope: Generic HTTP POST to configured URL with JSON payload
   - Acceptance: POST request sent with standardized payload format
   - Verification: Set up webhook.site URL, verify payload received
+  - Notes: `notify_webhook()` function sends JSON payload with event, prd_num, message, timestamp, branch, commit details. Standard HTTP POST with Content-Type: application/json.
 
-- [ ] Graceful failure handling
+- [x] Graceful failure handling
   - Scope: Notification failures don't block builds, log errors to `activity.log`
   - Acceptance: If Slack fails, build continues and logs error
   - Verification: Configure invalid webhook, verify build continues despite failure
+  - Notes: All notification functions return 0 on missing config (graceful skip). Webhooks run in background with `&`, failures logged but don't block. `wait 2>/dev/null || true` ensures build continues.
 
-- [ ] Add ralph notify test command
+- [x] Add ralph notify test command
   - Scope: New command: `ralph notify test` sends test notification to all configured channels
   - Acceptance: Command sends test message to verify config works
   - Verification: Run command, verify test notifications received
+  - Notes: `ralph notify test` command registered in bin/ralph and lib/commands/index.js. Tests CLI (always), Slack, Discord, Webhook, and Email channels. Shows success/failure status for each. `ralph notify status` shows channel configuration.
 
-- [ ] Integrate notifications into loop
+- [x] Integrate notifications into loop
   - Scope: Trigger notifications at: build start, build complete, build failed, stalled, needs_human
   - Acceptance: Notifications sent at appropriate times
   - Verification: Run full build, verify notifications at key events
+  - Notes: Integrated in loop.sh: `notify_build_start` at build start, `notify_build_complete` on success, `notify_build_failed` on failure, `notify_needs_human` on agent fallback exhaustion. Integrated in watchdog.sh: `notify_stalled` and `notify_needs_human` for stall/timeout events.
 
 ---
 
