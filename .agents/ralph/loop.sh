@@ -51,6 +51,10 @@ source "$SCRIPT_DIR/lib/cost.sh"
 # shellcheck source=lib/budget.sh
 source "$SCRIPT_DIR/lib/budget.sh"
 
+# Source heartbeat and stall detection utilities for production monitoring (US-009)
+# shellcheck source=lib/heartbeat.sh
+source "$SCRIPT_DIR/lib/heartbeat.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -416,11 +420,43 @@ cleanup_temp_files() {
   TEMP_FILES_TO_CLEANUP=""
 }
 
+# Tee with heartbeat: writes to stdout and log file while updating heartbeat (US-009)
+# Usage: cmd 2>&1 | tee_with_heartbeat <log_file> <append_mode>
+# append_mode: "append" to append to log, anything else to overwrite
+tee_with_heartbeat() {
+  local log_file="$1"
+  local append_mode="${2:-}"
+  local prd_folder="${PRD_FOLDER:-}"
+
+  if [ "$append_mode" = "append" ]; then
+    while IFS= read -r line; do
+      echo "$line"
+      echo "$line" >> "$log_file"
+      # Update heartbeat on every line of output (US-009)
+      if [ -n "$prd_folder" ]; then
+        update_heartbeat "$prd_folder"
+      fi
+    done
+  else
+    # Clear/create log file first
+    : > "$log_file"
+    while IFS= read -r line; do
+      echo "$line"
+      echo "$line" >> "$log_file"
+      # Update heartbeat on every line of output (US-009)
+      if [ -n "$prd_folder" ]; then
+        update_heartbeat "$prd_folder"
+      fi
+    done
+  fi
+}
+
 # Retry wrapper for agent execution
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
 # Sets LAST_RETRY_COUNT and LAST_RETRY_TOTAL_TIME for metrics
 # Uses global PRD_FOLDER for event logging (US-002)
+# Updates heartbeat on every line of agent output (US-009)
 run_agent_with_retry() {
   local prompt_file="$1"
   local log_file="$2"
@@ -435,17 +471,22 @@ run_agent_with_retry() {
   LAST_RETRY_COUNT=0
   LAST_RETRY_TOTAL_TIME=0
 
+  # Initialize heartbeat at start of agent execution (US-009)
+  if [ -n "${PRD_FOLDER:-}" ]; then
+    update_heartbeat "$PRD_FOLDER"
+  fi
+
   # If retry is disabled, just run once
   if [ "$NO_RETRY" = "true" ]; then
-    run_agent "$prompt_file" 2>&1 | tee "$log_file"
+    run_agent "$prompt_file" 2>&1 | tee_with_heartbeat "$log_file"
     return "${PIPESTATUS[0]}"
   fi
 
   while [ "$attempt" -le "$max_attempts" ]; do
-    # Run the agent with tee for logging
+    # Run the agent with tee for logging (US-009: includes heartbeat updates)
     if [ "$attempt" -eq 1 ]; then
       # First attempt: create/overwrite log file
-      run_agent "$prompt_file" 2>&1 | tee "$log_file"
+      run_agent "$prompt_file" 2>&1 | tee_with_heartbeat "$log_file"
       exit_status="${PIPESTATUS[0]}"
     else
       # Retry attempts: append retry header and output to log
@@ -453,8 +494,8 @@ run_agent_with_retry() {
         echo ""
         echo "=== RETRY ATTEMPT $attempt/$max_attempts ($(date '+%Y-%m-%d %H:%M:%S')) ==="
         echo ""
-      } | tee -a "$log_file"
-      run_agent "$prompt_file" 2>&1 | tee -a "$log_file"
+      } >> "$log_file"
+      run_agent "$prompt_file" 2>&1 | tee_with_heartbeat "$log_file" "append"
       exit_status="${PIPESTATUS[0]}"
     fi
 
@@ -3183,7 +3224,8 @@ stop_progress_indicator() {
 }
 
 # Ensure progress indicator is stopped and temp files cleaned on exit/interrupt (P2.1)
-trap 'stop_progress_indicator; cleanup_temp_files' EXIT INT TERM
+# Ensure cleanup on exit/interrupt: stop indicators, stall detector, and clean temp files (P2.1, US-009)
+trap 'stop_progress_indicator; stop_stall_detector; cleanup_temp_files' EXIT INT TERM
 
 # Resume mode handling
 START_ITERATION=1
@@ -3392,14 +3434,27 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Start progress indicator before agent execution (US-001)
   PRD_FOLDER="$(dirname "$PRD_PATH")"
   start_progress_indicator "$ITER_START" "$PRD_FOLDER"
+
+  # Start stall detector for production monitoring (US-009)
+  if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+    start_stall_detector "$PRD_FOLDER" "$i" "$STORY_ID" "$CURRENT_AGENT" "$ACTIVITY_LOG_PATH"
+  fi
+
   if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
   else
     # Use retry wrapper for automatic retries with exponential backoff
+    # Includes heartbeat updates on every line of output (US-009)
     run_agent_with_retry "$PROMPT_RENDERED" "$LOG_FILE" "$i"
     CMD_STATUS=$?
   fi
+
+  # Stop stall detector after agent execution (US-009)
+  stop_stall_detector
+  # Clear any stalled marker if execution completed (US-009)
+  clear_stalled_marker "$PRD_FOLDER"
+
   # Stop progress indicator after agent execution
   stop_progress_indicator
   set -e
@@ -3907,10 +3962,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
 done
 
-# Clear status file when build completes (US-001)
+# Clear status file and heartbeat when build completes (US-001, US-009)
 if [ "$MODE" = "build" ] && [ -n "${PRD_PATH:-}" ]; then
   PRD_FOLDER="$(dirname "$PRD_PATH")"
   clear_status "$PRD_FOLDER"
+  clear_heartbeat "$PRD_FOLDER"
+  clear_stalled_marker "$PRD_FOLDER"
 fi
 
 # Get final remaining count for summary

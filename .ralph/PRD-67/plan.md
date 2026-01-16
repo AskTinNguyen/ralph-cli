@@ -305,30 +305,35 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create `.heartbeat` file updated on every agent output, detect stalls after 30 minutes of no output, log to activity.log and create `.stalled` marker file with diagnostics.
 
-- [ ] Create heartbeat mechanism
+- [x] Create heartbeat mechanism
   - Scope: Modify `loop.sh` to write timestamp to `.ralph/PRD-N/.heartbeat` after every agent output line
   - Acceptance: Heartbeat file updated continuously during agent execution
   - Verification: `watch -n 1 cat .ralph/PRD-1/.heartbeat` shows timestamp updating during build
+  - Notes: Implemented in `.agents/ralph/lib/heartbeat.sh`. `update_heartbeat()` writes Unix timestamp to `.heartbeat` file atomically. Integrated into `tee_with_heartbeat()` function in loop.sh which updates heartbeat on every line of agent output.
 
-- [ ] Add stall detection logic
+- [x] Add stall detection logic
   - Scope: Background process in loop checks heartbeat timestamp every 60s, detects stall if > 30min since last update
   - Acceptance: Stall detected when heartbeat age exceeds threshold
   - Verification: Pause agent manually (kill -STOP), verify stall detected after 30min
+  - Notes: `start_stall_detector()` spawns background process that checks heartbeat age every 60 seconds. Uses `is_stalled()` function to compare heartbeat age against threshold. Background process auto-exits when parent dies (prevents orphans).
 
-- [ ] Log stall events
+- [x] Log stall events
   - Scope: When stall detected, write to `activity.log` and `.events.log` with details: iteration, story, elapsed time
   - Acceptance: Stall event logged: `STALL iteration=N story=US-XXX elapsed=45m heartbeat_age=31m`
   - Verification: Trigger stall, check logs contain stall event
+  - Notes: Stall detector logs to both activity.log (format: `[timestamp] STALL iteration=N story=US-XXX elapsed=Xs heartbeat_age=Xs`) and .events.log (format: `[timestamp] ERROR Stall detected | iteration=N story=US-XXX heartbeat_age=Xs threshold=Xs`). Also logs recovery events when heartbeat resumes.
 
-- [ ] Create .stalled marker file
+- [x] Create .stalled marker file
   - Scope: On stall detection, create `.ralph/PRD-N/.stalled` with diagnostics: timestamp, PID, story, last output
   - Acceptance: Marker file contains useful debug info for manual intervention
   - Verification: Trigger stall, verify `.stalled` created with correct data
+  - Notes: `create_stalled_marker()` creates JSON file with: timestamp, iteration, story_id, agent, elapsed_seconds, heartbeat_age_seconds, stall_threshold_seconds, pid, lock_pid, last_log_file, and last 20 lines of output. Marker is cleared when heartbeat resumes or build completes.
 
-- [ ] Make threshold configurable
+- [x] Make threshold configurable
   - Scope: Add env var `RALPH_STALL_THRESHOLD_SILENT` (default 1800s = 30min)
   - Acceptance: Threshold can be overridden via environment variable
   - Verification: Set `RALPH_STALL_THRESHOLD_SILENT=300`, verify 5min threshold works
+  - Notes: `STALL_THRESHOLD="${RALPH_STALL_THRESHOLD_SILENT:-1800}"` at top of heartbeat.sh. Also supports `RALPH_STALL_CHECK_INTERVAL` for check frequency (default 60s).
 
 ---
 

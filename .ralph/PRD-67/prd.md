@@ -150,7 +150,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ### Phase 4: Production Monitoring (Priority: P1)
 
-### [ ] US-009: Stall detection system
+### [x] US-009: Stall detection system
 
 **As a** developer running unattended builds
 **I want** Ralph to detect when builds are stuck
@@ -158,11 +158,11 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Heartbeat file (`.heartbeat`) updated every agent output
-- [ ] Stall detected after 30 minutes of no output
-- [ ] Stall logged to `activity.log` and `.events.log`
-- [ ] Stall creates `.stalled` marker file with diagnostics
-- [ ] Configurable threshold via `RALPH_STALL_THRESHOLD_SILENT`
+- [x] Heartbeat file (`.heartbeat`) updated every agent output
+- [x] Stall detected after 30 minutes of no output
+- [x] Stall logged to `activity.log` and `.events.log`
+- [x] Stall creates `.stalled` marker file with diagnostics
+- [x] Configurable threshold via `RALPH_STALL_THRESHOLD_SILENT`
 
 ---
 
