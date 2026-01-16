@@ -8082,4 +8082,376 @@ api.post('/agents/refresh', (c) => {
   return c.json(availability);
 });
 
+/**
+ * Real-Time Status API (US-003)
+ *
+ * Endpoints for live build status and events.
+ */
+
+/**
+ * GET /api/streams/:id/status
+ *
+ * Returns current build status from .status.json file.
+ * Updated every second during active builds.
+ *
+ * Returns:
+ *   - phase: 'planning' | 'executing' | 'committing' | 'verifying'
+ *   - story_id: Current story being worked on
+ *   - story_title: Title of current story
+ *   - iteration: Current iteration number
+ *   - elapsed_seconds: Seconds since build started
+ *   - updated_at: ISO timestamp of last update
+ *   - 404 if no status file exists (build not running)
+ */
+api.get('/streams/:id/status', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      { error: 'not_found', message: 'Ralph root not found' },
+      404
+    );
+  }
+
+  const statusPath = path.join(ralphRoot, `PRD-${id}`, '.status.json');
+
+  // Also check worktree path if exists
+  const worktreeStatusPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${id}`,
+    '.ralph',
+    `PRD-${id}`,
+    '.status.json'
+  );
+
+  let effectivePath = statusPath;
+  if (fs.existsSync(worktreeStatusPath)) {
+    effectivePath = worktreeStatusPath;
+  }
+
+  if (!fs.existsSync(effectivePath)) {
+    return c.json(
+      { error: 'not_found', message: 'No active build status found' },
+      404
+    );
+  }
+
+  try {
+    const content = fs.readFileSync(effectivePath, 'utf-8');
+    const status = JSON.parse(content);
+
+    return c.json({
+      phase: status.phase || 'unknown',
+      story_id: status.story_id || null,
+      story_title: status.story_title || null,
+      iteration: status.iteration || 0,
+      elapsed_seconds: status.elapsed_seconds || 0,
+      updated_at: status.updated_at || new Date().toISOString(),
+    });
+  } catch (error) {
+    return c.json(
+      { error: 'parse_error', message: 'Failed to parse status file' },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/streams/:id/events
+ *
+ * Returns recent events from .events.log file.
+ * Query params:
+ *   - limit: Number of events to return (default: 10, max: 100)
+ *
+ * Returns array of events:
+ *   - timestamp: ISO timestamp
+ *   - level: 'ERROR' | 'WARN' | 'INFO' | 'RETRY'
+ *   - message: Event message
+ *   - details: Optional key=value metadata
+ */
+api.get('/streams/:id/events', (c) => {
+  const id = c.req.param('id');
+  const limit = Math.min(parseInt(c.req.query('limit') || '10', 10), 100);
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json(
+      { error: 'not_found', message: 'Ralph root not found' },
+      404
+    );
+  }
+
+  const eventsPath = path.join(ralphRoot, `PRD-${id}`, '.events.log');
+
+  // Also check worktree path if exists
+  const worktreeEventsPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${id}`,
+    '.ralph',
+    `PRD-${id}`,
+    '.events.log'
+  );
+
+  let effectivePath = eventsPath;
+  if (fs.existsSync(worktreeEventsPath)) {
+    effectivePath = worktreeEventsPath;
+  }
+
+  if (!fs.existsSync(effectivePath)) {
+    return c.json({ events: [], count: 0 });
+  }
+
+  try {
+    const content = fs.readFileSync(effectivePath, 'utf-8');
+    const lines = content.trim().split('\n').filter(line => line.length > 0);
+
+    // Get last N lines
+    const recentLines = lines.slice(-limit);
+
+    // Parse event lines: [timestamp] LEVEL message | details
+    const events = recentLines.map(line => {
+      const match = line.match(/^\[([^\]]+)\]\s+(\w+)\s+(.+)$/);
+      if (!match) {
+        return { timestamp: new Date().toISOString(), level: 'INFO', message: line, details: null };
+      }
+
+      const [, timestamp, level, rest] = match;
+      let message = rest;
+      let details: string | null = null;
+
+      // Split on " | " for details
+      if (rest.includes(' | ')) {
+        const parts = rest.split(' | ');
+        message = parts[0];
+        details = parts.slice(1).join(' | ');
+      }
+
+      // Parse timestamp
+      let isoTimestamp: string;
+      try {
+        isoTimestamp = new Date(timestamp.replace(' ', 'T')).toISOString();
+      } catch {
+        isoTimestamp = new Date().toISOString();
+      }
+
+      return {
+        timestamp: isoTimestamp,
+        level: level.toUpperCase(),
+        message: message.trim(),
+        details,
+      };
+    });
+
+    return c.json({
+      events: events.reverse(), // Most recent first
+      count: events.length,
+      total: lines.length,
+    });
+  } catch (error) {
+    return c.json(
+      { error: 'read_error', message: 'Failed to read events log' },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/partials/live-status-widget
+ *
+ * Returns HTML partial for live status widget.
+ * Shows phase, story, elapsed time, and recent events.
+ * Auto-hides when no build is running.
+ *
+ * Query params:
+ *   - streamId: Stream to show status for
+ */
+api.get('/partials/live-status-widget', (c) => {
+  let streamId = c.req.query('streamId');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.html(`<div id="live-status-widget" class="rams-hidden"></div>`);
+  }
+
+  // If no streamId provided, auto-detect any running build
+  if (!streamId) {
+    // Check for any PRD with an active .status.json file
+    try {
+      const entries = fs.readdirSync(ralphRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.startsWith('PRD-')) {
+          const id = entry.name.replace('PRD-', '');
+          const statusPath = path.join(ralphRoot, entry.name, '.status.json');
+          if (fs.existsSync(statusPath)) {
+            // Check if file was modified in the last 30 seconds (active build)
+            const stat = fs.statSync(statusPath);
+            const age = Date.now() - stat.mtimeMs;
+            if (age < 30000) {
+              streamId = id;
+              break;
+            }
+          }
+        }
+      }
+      // Also check worktrees for running builds
+      if (!streamId) {
+        const worktreesPath = path.join(ralphRoot, 'worktrees');
+        if (fs.existsSync(worktreesPath)) {
+          const worktreeEntries = fs.readdirSync(worktreesPath, { withFileTypes: true });
+          for (const entry of worktreeEntries) {
+            if (entry.isDirectory() && entry.name.startsWith('PRD-')) {
+              const id = entry.name.replace('PRD-', '');
+              const statusPath = path.join(worktreesPath, entry.name, '.ralph', entry.name, '.status.json');
+              if (fs.existsSync(statusPath)) {
+                const stat = fs.statSync(statusPath);
+                const age = Date.now() - stat.mtimeMs;
+                if (age < 30000) {
+                  streamId = id;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Continue without auto-detection
+    }
+  }
+
+  // If still no streamId found, hide the widget
+  if (!streamId) {
+    return c.html(`<div id="live-status-widget" class="rams-hidden"></div>`);
+  }
+
+  // Check for status file
+  const statusPath = path.join(ralphRoot, `PRD-${streamId}`, '.status.json');
+  const worktreeStatusPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${streamId}`,
+    '.ralph',
+    `PRD-${streamId}`,
+    '.status.json'
+  );
+
+  let effectivePath = statusPath;
+  if (fs.existsSync(worktreeStatusPath)) {
+    effectivePath = worktreeStatusPath;
+  }
+
+  // If no status file, build is not running - return hidden widget
+  if (!fs.existsSync(effectivePath)) {
+    return c.html(`<div id="live-status-widget" class="rams-hidden"></div>`);
+  }
+
+  // Parse status
+  let status: { phase?: string; story_id?: string; story_title?: string; iteration?: number; elapsed_seconds?: number } = {};
+  try {
+    const content = fs.readFileSync(effectivePath, 'utf-8');
+    status = JSON.parse(content);
+  } catch {
+    return c.html(`<div id="live-status-widget" class="rams-hidden"></div>`);
+  }
+
+  // Load recent events
+  const eventsPath = path.join(ralphRoot, `PRD-${streamId}`, '.events.log');
+  const worktreeEventsPath = path.join(
+    ralphRoot,
+    'worktrees',
+    `PRD-${streamId}`,
+    '.ralph',
+    `PRD-${streamId}`,
+    '.events.log'
+  );
+
+  let effectiveEventsPath = eventsPath;
+  if (fs.existsSync(worktreeEventsPath)) {
+    effectiveEventsPath = worktreeEventsPath;
+  }
+
+  let recentEvents: Array<{ level: string; message: string; timestamp: string }> = [];
+  if (fs.existsSync(effectiveEventsPath)) {
+    try {
+      const content = fs.readFileSync(effectiveEventsPath, 'utf-8');
+      const lines = content.trim().split('\n').filter(line => line.length > 0);
+      const recent = lines.slice(-5); // Last 5 events
+
+      recentEvents = recent.map(line => {
+        const match = line.match(/^\[([^\]]+)\]\s+(\w+)\s+(.+)$/);
+        if (!match) return { level: 'INFO', message: line, timestamp: '' };
+        const [, timestamp, level, rest] = match;
+        const message = rest.includes(' | ') ? rest.split(' | ')[0] : rest;
+        return { level: level.toUpperCase(), message: message.trim(), timestamp };
+      }).reverse();
+    } catch {
+      // Continue without events
+    }
+  }
+
+  // Format elapsed time
+  const elapsed = status.elapsed_seconds || 0;
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const elapsedStr = `${minutes}m ${seconds}s`;
+
+  // Phase badge color
+  const phaseColors: Record<string, string> = {
+    planning: 'rams-badge-info',
+    executing: 'rams-badge-running',
+    committing: 'rams-badge-warning',
+    verifying: 'rams-badge-success',
+  };
+  const phaseClass = phaseColors[status.phase || ''] || 'rams-badge-idle';
+
+  // Event icon and color
+  const eventIcons: Record<string, { icon: string; class: string }> = {
+    ERROR: { icon: '✗', class: 'text-red' },
+    WARN: { icon: '⚠', class: 'text-yellow' },
+    INFO: { icon: 'ℹ', class: 'text-dim' },
+    RETRY: { icon: '↻', class: 'text-cyan' },
+  };
+
+  // Build events HTML
+  let eventsHtml = '';
+  if (recentEvents.length > 0) {
+    eventsHtml = `
+      <div class="live-status-events">
+        <div class="rams-label">Recent Events</div>
+        <div class="live-events-list">
+          ${recentEvents.map(evt => {
+            const { icon, class: colorClass } = eventIcons[evt.level] || eventIcons.INFO;
+            return `<div class="live-event-item ${colorClass}"><span class="live-event-icon">${icon}</span> ${evt.message}</div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  return c.html(`
+    <div id="live-status-widget" class="rams-card live-status-widget">
+      <div class="live-status-header">
+        <span class="rams-badge ${phaseClass}">
+          <span class="rams-badge-dot"></span>
+          ${status.phase || 'running'}
+        </span>
+        <span class="live-status-elapsed">⏱ ${elapsedStr}</span>
+      </div>
+      <div class="live-status-body">
+        <div class="live-status-story">
+          ${status.story_id ? `<span class="story-id">${status.story_id}</span>` : ''}
+          ${status.story_title ? `<span class="story-title">${status.story_title}</span>` : '<span class="story-title">Build in progress...</span>'}
+        </div>
+        <div class="live-status-iteration">
+          Iteration ${status.iteration || 1}
+        </div>
+      </div>
+      ${eventsHtml}
+    </div>
+  `);
+});
+
 export { api };

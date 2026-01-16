@@ -65,6 +65,8 @@ sse.get("/events", (c) => {
       "run_completed",
       "progress_updated",
       "story_updated",
+      "status_updated",
+      "events_updated",
     ];
 
     // Handler function that forwards events to the SSE stream

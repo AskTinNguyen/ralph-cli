@@ -19,7 +19,9 @@ export type FileWatcherEventType =
   | "run_started"
   | "run_completed"
   | "progress_updated"
-  | "story_updated";
+  | "story_updated"
+  | "status_updated"
+  | "events_updated";
 
 /**
  * Event data for file watcher events
@@ -296,6 +298,36 @@ class FileWatcher extends EventEmitter {
       this.emit(eventType, {
         ...baseEvent,
         type: eventType as FileWatcherEventType,
+        streamId,
+      });
+      return;
+    }
+
+    // Detect status file changes (US-003 real-time status)
+    // Pattern: PRD-N/.status.json or worktrees/PRD-N/.ralph/PRD-N/.status.json
+    const statusMatch = normalizedPath.match(/(?:PRD-(\d+)|worktrees\/PRD-(\d+)\/\.ralph\/PRD-\d+)\/\.status\.json$/i);
+
+    if (statusMatch) {
+      const streamId = statusMatch[1] || statusMatch[2];
+
+      this.emit("status_updated", {
+        ...baseEvent,
+        type: "status_updated" as FileWatcherEventType,
+        streamId,
+      });
+      return;
+    }
+
+    // Detect events log changes (US-003 real-time events)
+    // Pattern: PRD-N/.events.log or worktrees/PRD-N/.ralph/PRD-N/.events.log
+    const eventsMatch = normalizedPath.match(/(?:PRD-(\d+)|worktrees\/PRD-(\d+)\/\.ralph\/PRD-\d+)\/\.events\.log$/i);
+
+    if (eventsMatch && (changeType === "modify" || changeType === "create")) {
+      const streamId = eventsMatch[1] || eventsMatch[2];
+
+      this.emit("events_updated", {
+        ...baseEvent,
+        type: "events_updated" as FileWatcherEventType,
         streamId,
       });
     }

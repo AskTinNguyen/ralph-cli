@@ -1496,3 +1496,118 @@ body.sidebar-collapsed .rams-banner {
 .story-item.story-completed {
   border-left-color: var(--rams-success);
 }
+
+/* ========================================
+   Live Status Widget (US-003)
+   Real-time build status display
+   ======================================== */
+
+.live-status-widget {
+  position: relative;
+  margin-bottom: var(--rams-space-4);
+  border-left: 3px solid var(--rams-accent);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.live-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--rams-space-3);
+  border-bottom: 1px solid var(--rams-gray-200);
+  margin-bottom: var(--rams-space-3);
+}
+
+.live-status-elapsed {
+  font-family: var(--rams-font-mono);
+  font-size: var(--rams-text-sm);
+  color: var(--rams-gray-600);
+}
+
+.live-status-body {
+  margin-bottom: var(--rams-space-3);
+}
+
+.live-status-story {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rams-space-2);
+  margin-bottom: var(--rams-space-1);
+}
+
+.live-status-story .story-id {
+  font-family: var(--rams-font-mono);
+  font-weight: 600;
+  color: var(--rams-accent);
+  font-size: var(--rams-text-sm);
+}
+
+.live-status-story .story-title {
+  font-weight: 500;
+  color: var(--rams-gray-900);
+}
+
+.live-status-iteration {
+  font-size: var(--rams-text-xs);
+  color: var(--rams-gray-500);
+  font-family: var(--rams-font-mono);
+}
+
+.live-status-events {
+  border-top: 1px solid var(--rams-gray-200);
+  padding-top: var(--rams-space-3);
+}
+
+.live-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rams-space-1);
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.live-event-item {
+  font-size: var(--rams-text-xs);
+  font-family: var(--rams-font-mono);
+  padding: var(--rams-space-1) var(--rams-space-2);
+  background: var(--rams-gray-50);
+  border-radius: var(--rams-radius-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--rams-space-2);
+}
+
+.live-event-icon {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.live-event-item.text-red {
+  color: var(--rams-error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.live-event-item.text-yellow {
+  color: var(--rams-warning);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.live-event-item.text-cyan {
+  color: var(--rams-info);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.live-event-item.text-dim {
+  color: var(--rams-gray-600);
+}
+
+/* SSE update animation for widget */
+.live-status-widget.sse-updated {
+  box-shadow: 0 0 0 2px var(--rams-accent-lighter);
+}
