@@ -354,6 +354,115 @@ const commandOptions = {
 };
 
 // ============================================================================
+// Checkpoint Validation & Resume Helpers (US-005)
+// ============================================================================
+
+/**
+ * Validate checkpoint state before resuming
+ * Checks: git SHA match, plan.md hash unchanged
+ * @param {string} prdFolder - Path to PRD folder
+ * @param {Object} checkpoint - Loaded checkpoint data
+ * @returns {Object} { valid: boolean, error?: string, warnings?: string[] }
+ */
+async function validateCheckpointState(prdFolder, checkpoint) {
+  const crypto = require("crypto");
+  const warnings = [];
+
+  // 1. Validate git state matches checkpoint
+  if (checkpoint.git_sha) {
+    try {
+      const { execSync } = require("child_process");
+      const currentSha = execSync("git rev-parse HEAD", { encoding: "utf-8", cwd }).trim();
+      if (currentSha !== checkpoint.git_sha) {
+        // Git state has diverged - this is a warning, not an error in auto-detect mode
+        warnings.push(`Git SHA changed: checkpoint=${checkpoint.git_sha.slice(0, 8)} current=${currentSha.slice(0, 8)}`);
+      }
+    } catch {
+      warnings.push("Could not verify git state");
+    }
+  }
+
+  // 2. Validate plan.md hash unchanged
+  if (checkpoint.plan_hash) {
+    try {
+      const planPath = path.join(prdFolder, "plan.md");
+      if (exists(planPath)) {
+        const planContent = fs.readFileSync(planPath, "utf-8");
+        const currentHash = crypto.createHash("sha256").update(planContent).digest("hex");
+        if (currentHash !== checkpoint.plan_hash) {
+          return {
+            valid: false,
+            error: "plan.md has changed since checkpoint was created",
+          };
+        }
+      }
+    } catch {
+      warnings.push("Could not verify plan.md hash");
+    }
+  }
+
+  return { valid: true, warnings };
+}
+
+/**
+ * Prompt user to resume from checkpoint
+ * @param {Object} checkpoint - Loaded checkpoint data
+ * @param {string} agent - Agent name used in checkpoint
+ * @param {string[]} warnings - Validation warnings to display
+ * @returns {string} "resume" | "fresh" | "cancel"
+ */
+async function promptResumeCheckpoint(checkpoint, agent, warnings = []) {
+  try {
+    const { intro, select, isCancel } = await import("@clack/prompts");
+
+    console.log("");
+    intro(pc.cyan("Checkpoint Detected"));
+
+    // Show checkpoint details
+    console.log("");
+    console.log(pc.dim("  Last iteration: ") + pc.bold(checkpoint.iteration));
+    console.log(pc.dim("  Story ID:       ") + pc.bold(checkpoint.story_id || "unknown"));
+    console.log(pc.dim("  Agent:          ") + pc.bold(agent));
+    if (checkpoint.created_at) {
+      const date = new Date(checkpoint.created_at);
+      console.log(pc.dim("  Created:        ") + pc.bold(date.toLocaleString()));
+    }
+
+    // Show warnings if any
+    if (warnings.length > 0) {
+      console.log("");
+      console.log(pc.yellow("  Warnings:"));
+      for (const w of warnings) {
+        console.log(pc.yellow(`    • ${w}`));
+      }
+    }
+    console.log("");
+
+    const response = await select({
+      message: "Resume from checkpoint?",
+      options: [
+        { value: "resume", label: "Yes, resume from checkpoint", hint: "continue where you left off" },
+        { value: "fresh", label: "No, start fresh", hint: "clears checkpoint and starts from iteration 1" },
+        { value: "cancel", label: "Cancel", hint: "exit without building" },
+      ],
+    });
+
+    if (isCancel(response)) {
+      return "cancel";
+    }
+
+    return response;
+  } catch (err) {
+    // Fallback to simple prompt if @clack/prompts fails
+    if (err.message && err.message.includes("uv_tty_init")) {
+      // TTY not available - treat as non-interactive
+      return "resume";
+    }
+    throw err;
+  }
+}
+
+// ============================================================================
 // Command Dispatch
 // ============================================================================
 async function main() {
@@ -493,7 +602,7 @@ async function main() {
       // This would need the full parallel setup - for now delegate to loop.sh
     }
 
-    // Check for checkpoint
+    // Auto-detect checkpoint and prompt user (US-005)
     if ((cmd === "build" || !cmd) && !globalFlags.resumeMode) {
       const checkpointModule = require("../lib/checkpoint");
       const ralphDir = path.join(cwd, ".ralph");
@@ -521,10 +630,61 @@ async function main() {
       if (prdFolderToCheck && checkpointModule.hasCheckpoint(prdFolderToCheck)) {
         const result = checkpointModule.loadCheckpoint(prdFolderToCheck);
         if (result.success && result.checkpoint) {
-          console.log("");
-          info(`Checkpoint found at iteration ${pc.bold(result.checkpoint.iteration)} (story ${pc.bold(result.checkpoint.story_id || "unknown")}).`);
-          dim(`Use ${pc.cyan("--resume")} to continue from checkpoint.`);
-          console.log("");
+          const checkpoint = result.checkpoint;
+          const agent = checkpoint.loop_state?.agent || "unknown";
+
+          // Validate checkpoint before prompting (US-005)
+          const validationResult = await validateCheckpointState(prdFolderToCheck, checkpoint);
+
+          if (validationResult.valid) {
+            // Check if we're in interactive mode
+            if (process.stdin.isTTY) {
+              // Interactive mode - prompt user
+              const resumeChoice = await promptResumeCheckpoint(checkpoint, agent, validationResult.warnings);
+
+              if (resumeChoice === "resume") {
+                // User chose to resume - set resume mode
+                globalFlags.resumeMode = true;
+                env.RALPH_RESUME = "1";
+                info(`Resuming from iteration ${pc.bold(checkpoint.iteration)}...`);
+              } else if (resumeChoice === "fresh") {
+                // User chose to start fresh - clear checkpoint
+                checkpointModule.clearCheckpoint(prdFolderToCheck);
+                info("Checkpoint cleared. Starting fresh build.");
+              }
+              // If cancelled, exit gracefully
+              else if (resumeChoice === "cancel") {
+                dim("Build cancelled.");
+                process.exit(0);
+              }
+            } else {
+              // Non-interactive mode (CI/CD) - auto-resume
+              info(`Checkpoint detected at iteration ${pc.bold(checkpoint.iteration)} (story ${pc.bold(checkpoint.story_id || "unknown")}).`);
+              info(`Non-interactive mode: auto-resuming from checkpoint.`);
+              globalFlags.resumeMode = true;
+              env.RALPH_RESUME = "1";
+            }
+          } else {
+            // Checkpoint validation failed
+            console.log("");
+            error(`Checkpoint validation failed: ${validationResult.error}`);
+            if (process.stdin.isTTY) {
+              const { confirm, isCancel } = await import("@clack/prompts");
+              const startFresh = await confirm({
+                message: "Start fresh build instead?",
+                initialValue: true,
+              });
+              if (isCancel(startFresh) || !startFresh) {
+                dim("Build cancelled.");
+                process.exit(0);
+              }
+              checkpointModule.clearCheckpoint(prdFolderToCheck);
+              info("Checkpoint cleared. Starting fresh build.");
+            } else {
+              error("Cannot auto-resume: validation failed. Clear checkpoint manually or run interactively.");
+              process.exit(1);
+            }
+          }
         }
       }
     }
