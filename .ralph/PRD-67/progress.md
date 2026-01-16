@@ -833,3 +833,82 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-160954-1
   - Parent PID monitoring ensures watchdog exits if build process dies unexpectedly
   - Lock file presence check is the primary signal for watchdog to continue/stop
 ---
+
+## [2026-01-16T18:00:00+07:00] - US-011: Timeout enforcement
+Thread:
+Run: 20260116-161636-16394 (iteration 11)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-11.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-11.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0f3405e feat(timeout): add iteration timeout enforcement to watchdog (US-011)
+- Post-commit status: clean (US-011 files committed)
+- Verification:
+  - Command: bash -n .agents/ralph/lib/watchdog.sh -> PASS
+  - Command: bash -n .agents/ralph/lib/agent.sh -> PASS
+  - Command: bash -n .agents/ralph/lib/timeout.sh -> PASS
+  - Agent timeout integration:
+    - TIMEOUT_AGENT=3600 (60 min) defined in agent.sh -> PASS
+    - timeout command with --signal=TERM --kill-after=30 -> PASS
+    - Exit codes 124 (SIGTERM) and 137 (SIGKILL) handled in loop.sh -> PASS
+  - Iteration timeout integration:
+    - TIMEOUT_ITERATION=5400 (90 min) defined in watchdog.sh -> PASS
+    - set_iteration_start() called at iteration start -> PASS
+    - get_iteration_elapsed() returns elapsed time -> PASS
+    - is_iteration_timed_out() checks against threshold -> PASS
+    - Watchdog main loop checks iteration timeout -> PASS
+  - Story timeout integration:
+    - TIMEOUT_STORY=10800 (3 hours) defined in timeout.sh -> PASS
+    - update_story_time() tracks cumulative time -> PASS
+    - is_story_timed_out() checks against threshold -> PASS
+    - Story timeout check before iteration execution in loop.sh -> PASS
+    - Story time cleared on successful completion -> PASS
+  - Timeout logging:
+    - log_timeout_event() writes to .events.log -> PASS
+    - display_timeout_event() shows CLI warning -> PASS
+    - Activity log captures TIMEOUT and STORY_TIMEOUT events -> PASS
+- Files changed:
+  - .agents/ralph/lib/watchdog.sh (iteration timeout functions and main loop check)
+  - .agents/ralph/lib/agent.sh (agent timeout with GNU timeout command)
+  - .agents/ralph/lib/timeout.sh (story timeout and logging functions)
+  - .agents/ralph/loop.sh (timeout handling integration)
+  - .ralph/PRD-67/plan.md (tasks marked complete)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **Agent call timeout (60 minutes)**:
+    - Uses GNU `timeout` command with `--signal=TERM --kill-after=30`
+    - Exit code 124 = timeout (SIGTERM sent)
+    - Exit code 137 = killed (128 + 9 = SIGKILL after grace period)
+    - Configurable via `RALPH_TIMEOUT_AGENT` env var
+  - **Iteration timeout (90 minutes via watchdog)**:
+    - `set_iteration_start()` records start time to .iteration_start file
+    - `get_iteration_elapsed()` returns elapsed seconds
+    - `is_iteration_timed_out()` checks if elapsed >= TIMEOUT_ITERATION
+    - Watchdog main loop checks iteration timeout every 60 seconds
+    - On timeout: logs to events/activity, increments restart counter, triggers restart
+    - Configurable via `RALPH_TIMEOUT_ITERATION` env var
+  - **Story timeout (3 hours cumulative)**:
+    - `.story_times.json` tracks cumulative time per story
+    - `update_story_time()` adds iteration duration to story total
+    - `is_story_timed_out()` checks if cumulative time >= TIMEOUT_STORY
+    - Story timeout checked before each iteration starts
+    - On timeout: story skipped, next uncompleted story tried
+    - Time cleared on successful story completion
+    - Configurable via `RALPH_TIMEOUT_STORY` env var
+  - **Timeout logging**:
+    - `log_timeout_event()` writes JSON-structured event to .events.log
+    - `display_timeout_event()` shows color-coded CLI warning
+    - Activity log captures structured timeout records
+- Acceptance Criteria Verification:
+  1. ✅ Agent call timeout: 60 minutes (uses `timeout` command) - agent.sh line 170-172
+  2. ✅ Iteration timeout: 90 minutes (watchdog enforced) - watchdog.sh lines 470-500
+  3. ✅ Story timeout: 3 hours across multiple attempts - timeout.sh and loop.sh integration
+  4. ✅ Timeout logged with context (agent, story, duration) - log_timeout_event in timeout.sh
+  5. ✅ Configurable via env vars: `RALPH_TIMEOUT_AGENT`, `RALPH_TIMEOUT_ITERATION` - all three files
+- **Learnings for future iterations:**
+  - Three-tier timeout strategy: agent (60m) < iteration (90m) < story (3h)
+  - GNU timeout with SIGTERM first, SIGKILL fallback is robust pattern
+  - File-based iteration start tracking allows cross-process visibility (watchdog reads loop's state)
+  - Story cumulative time tracking persists across restarts via JSON file
+  - Timeout events integrate with existing events.log for UI visibility
+---
