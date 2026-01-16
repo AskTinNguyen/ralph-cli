@@ -113,6 +113,9 @@
                 <option value="codex">Codex</option>
                 <option value="droid">Droid</option>
               </select>
+              <div id="agent-warning" class="rams-form-hint rams-hidden" style="margin-top: var(--rams-space-1); color: var(--rams-warning, #f59e0b); font-size: 0.875rem;">
+                Agent not installed
+              </div>
             </div>
 
             <div class="rams-form-group">
@@ -129,6 +132,14 @@
                   📊 Progress View
                 </button>
               </div>
+              <input
+                type="text"
+                id="stream-search"
+                placeholder="Search streams..."
+                class="rams-input"
+                style="margin-bottom: var(--rams-space-1); font-size: 0.875rem;"
+                oninput="filterStreams(this.value)"
+              />
               <select
                 id="stream"
                 name="stream"
@@ -136,6 +147,8 @@
                 hx-get="/api/partials/stream-options"
                 hx-trigger="load"
                 hx-swap="innerHTML"
+                size="6"
+                style="height: auto;"
               >
                 <option value="">Default (latest)</option>
               </select>
@@ -475,6 +488,175 @@
       console.error("[HTMX Timeout] Request timed out:", path);
       lastFailedRequest = { element: event.target };
       showErrorToast("Request timed out. The server may be busy.", path);
+    });
+
+    // Agent Availability Checking
+    var agentAvailability = {};
+
+    function loadAgentAvailability() {
+      fetch('/api/agents')
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          agentAvailability = data;
+          updateAgentSelect();
+        })
+        .catch(function(error) {
+          console.warn('[Agent Check] Failed to load agent availability:', error);
+        });
+    }
+
+    function updateAgentSelect() {
+      var select = document.getElementById('agent');
+      if (!select || !agentAvailability.agents) return;
+
+      // Update each option with availability info
+      Array.from(select.options).forEach(function(option) {
+        var agentId = option.value;
+        var agent = agentAvailability.agents.find(function(a) { return a.id === agentId; });
+
+        if (agent) {
+          if (agent.available) {
+            option.textContent = agent.name + (agent.version ? ' (v' + agent.version + ')' : '');
+            option.classList.remove('rams-option-unavailable');
+            option.title = '';
+          } else {
+            option.textContent = agent.name + ' (Not Installed)';
+            option.classList.add('rams-option-unavailable');
+            option.title = agent.suggestion || 'This agent is not installed';
+          }
+        }
+      });
+
+      // Check current selection and show warning if needed
+      checkSelectedAgent();
+    }
+
+    function checkSelectedAgent() {
+      var select = document.getElementById('agent');
+      var warning = document.getElementById('agent-warning');
+      if (!select || !agentAvailability.agents) return;
+
+      var selectedId = select.value;
+      var agent = agentAvailability.agents.find(function(a) { return a.id === selectedId; });
+
+      if (warning) {
+        if (agent && !agent.available) {
+          warning.textContent = agent.name + ' is not installed. ' + (agent.suggestion || 'Install it to use this agent.');
+          warning.classList.remove('rams-hidden');
+        } else {
+          warning.classList.add('rams-hidden');
+        }
+      }
+    }
+
+    // Listen for agent selection changes
+    document.getElementById('agent').addEventListener('change', checkSelectedAgent);
+
+    // Load agent availability on page load
+    document.addEventListener('DOMContentLoaded', loadAgentAvailability);
+
+    // Stream search/filter functionality
+    var allStreamOptions = [];
+
+    function captureStreamOptions() {
+      var select = document.getElementById('stream');
+      if (!select) return;
+
+      allStreamOptions = [];
+      Array.from(select.options).forEach(function(option) {
+        allStreamOptions.push({
+          value: option.value,
+          text: option.textContent,
+          html: option.outerHTML
+        });
+      });
+
+      // Also capture optgroups
+      var optgroups = select.querySelectorAll('optgroup');
+      optgroups.forEach(function(group) {
+        var groupLabel = group.label;
+        Array.from(group.options).forEach(function(option) {
+          var idx = allStreamOptions.findIndex(function(o) { return o.value === option.value; });
+          if (idx !== -1) {
+            allStreamOptions[idx].group = groupLabel;
+          }
+        });
+      });
+    }
+
+    function filterStreams(query) {
+      var select = document.getElementById('stream');
+      if (!select) return;
+
+      // Capture options on first filter attempt if not already captured
+      if (allStreamOptions.length === 0) {
+        captureStreamOptions();
+      }
+
+      if (allStreamOptions.length === 0) return;
+
+      var lowerQuery = query.toLowerCase().trim();
+
+      // Clear current options
+      select.innerHTML = '';
+
+      // Filter and re-add matching options
+      var matchingOptions = allStreamOptions.filter(function(opt) {
+        if (!lowerQuery) return true; // Show all if no query
+        return opt.text.toLowerCase().indexOf(lowerQuery) !== -1 ||
+               opt.value.toLowerCase().indexOf(lowerQuery) !== -1;
+      });
+
+      // Group by optgroup if present
+      var groups = {};
+      var ungrouped = [];
+
+      matchingOptions.forEach(function(opt) {
+        if (opt.group) {
+          if (!groups[opt.group]) groups[opt.group] = [];
+          groups[opt.group].push(opt);
+        } else {
+          ungrouped.push(opt);
+        }
+      });
+
+      // Add ungrouped first
+      ungrouped.forEach(function(opt) {
+        var option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
+        select.appendChild(option);
+      });
+
+      // Add grouped options
+      Object.keys(groups).forEach(function(groupLabel) {
+        var optgroup = document.createElement('optgroup');
+        optgroup.label = groupLabel;
+        groups[groupLabel].forEach(function(opt) {
+          var option = document.createElement('option');
+          option.value = opt.value;
+          option.textContent = opt.text;
+          optgroup.appendChild(option);
+        });
+        select.appendChild(optgroup);
+      });
+
+      // Show count in placeholder
+      if (matchingOptions.length === 0 && lowerQuery) {
+        var noMatch = document.createElement('option');
+        noMatch.value = '';
+        noMatch.textContent = 'No streams matching "' + query + '"';
+        noMatch.disabled = true;
+        select.appendChild(noMatch);
+      }
+    }
+
+    // Capture options after HTMX loads them
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+      if (event.detail.target && event.detail.target.id === 'stream') {
+        // Delay to ensure DOM is updated
+        setTimeout(captureStreamOptions, 50);
+      }
     });
   </script>
 </body>

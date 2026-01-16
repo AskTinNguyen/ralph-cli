@@ -26,6 +26,8 @@ const { estimate } = require('../../../lib/estimate/index.js');
 // Rollback analytics (US-004)
 const { getRollbackAnalytics, getRollbackStats, loadMetrics } = require('../../../lib/estimate/metrics.js');
 import { spawn } from 'node:child_process';
+// Agent availability checking
+import { getCachedAgentAvailability, clearAgentCache } from '../services/agent-checker.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -1660,8 +1662,16 @@ api.get("/partials/activity-logs", (c) => {
     }
   }
 
-  // Parse activity logs
+  // Parse activity logs - try stream-specific first, fall back to global
   let entries = parseActivityLog(streamId);
+
+  // If no stream-specific entries found, also try global activity log
+  if (entries.length === 0 && streamId) {
+    entries = parseActivityLog(undefined);
+  }
+
+  // If stream specified but we got global entries, add note
+  // This helps users understand the source of logs
 
   // Filter by log level if specified
   if (levelFilter) {
@@ -1976,6 +1986,23 @@ api.get("/partials/streams", (c) => {
     s.completedStories === 0
   );
 
+  // Helper to format status for display
+  const formatStatus = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      'idle': 'Idle',
+      'running': 'Running',
+      'merged': 'Merged',
+      'completed': 'Completed',
+      'in_progress': 'In Progress',
+      'ready': 'Ready',
+      'error': 'Error',
+      'no_prd': 'No PRD',
+      'no_stories': 'No Stories',
+      'not_found': 'Not Found',
+    };
+    return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+  };
+
   // Helper to render a stream card
   const renderStreamCard = (stream: Stream) => {
     const completionPercentage =
@@ -1983,7 +2010,7 @@ api.get("/partials/streams", (c) => {
         ? Math.round((stream.completedStories / stream.totalStories) * 100)
         : 0;
 
-    const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+    const statusLabel = formatStatus(stream.status);
     const worktreeInitialized = hasWorktree(stream.id);
     const isCompleted = stream.status === "completed";
     const isRunning = stream.status === "running";
@@ -2056,15 +2083,19 @@ api.get("/partials/streams", (c) => {
 
     // Merge button logic:
     // - Only show when worktree exists and not running
-    // - Disabled if: already merged or not 100% complete
+    // - Disabled only if: already merged OR no progress at all
+    // - Shows warning for partial completion but allows merge
     if (worktreeInitialized && !isRunning) {
       const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
-      const mergeDisabled = isMerged || !isFullyComplete;
+      const hasAnyProgress = stream.completedStories > 0 || stream.hasProgress;
+      const mergeDisabled = isMerged || !hasAnyProgress;
       const mergeTitle = isMerged ? "Already merged to main" :
-                        !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
+                        !hasAnyProgress ? "No progress to merge yet" :
+                        !isFullyComplete ? `Merge ${stream.completedStories}/${stream.totalStories} stories to main` :
                         "Merge to main branch";
+      const mergeClass = isFullyComplete ? "rams-btn-success" : "rams-btn-warning";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-success" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+        <button class="rams-btn ${mergeClass}" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
           Merge
         </button>`;
     }
@@ -2299,13 +2330,18 @@ api.get("/partials/streams-progress", (c) => {
     }
 
     // Merge button for non-running streams with worktree
+    // - Disabled only if: already merged OR no progress at all
+    // - Shows warning for partial completion but allows merge
     if (worktreeInitialized && !isRunning) {
-      const mergeDisabled = isMerged || !isFullyComplete;
+      const hasAnyProgress = stream.completedStories > 0 || stream.hasProgress;
+      const mergeDisabled = isMerged || !hasAnyProgress;
       const mergeTitle = isMerged ? "Already merged to main" :
-                        !isFullyComplete ? `Complete all stories first (${stream.completedStories}/${stream.totalStories})` :
+                        !hasAnyProgress ? "No progress to merge yet" :
+                        !isFullyComplete ? `Merge ${stream.completedStories}/${stream.totalStories} stories to main` :
                         "Merge to main branch";
+      const mergeClass = isFullyComplete ? "rams-btn-success" : "rams-btn-warning";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-success" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+        <button class="rams-btn ${mergeClass}" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
           Merge
         </button>`;
     }
@@ -2610,10 +2646,24 @@ api.get('/partials/streams-timeline', (c) => {
     });
   };
 
+  // Helper to format status for display
+  const formatTimelineStatus = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      'idle': 'Idle',
+      'running': 'Running',
+      'merged': 'Merged',
+      'completed': 'Completed',
+      'in_progress': 'In Progress',
+      'ready': 'Ready',
+      'error': 'Error',
+    };
+    return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+  };
+
   // Build timeline rows
   const timelineRows = streamTimings
     .map((stream) => {
-      const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+      const statusLabel = formatTimelineStatus(stream.status);
 
       // Calculate position and width based on time
       let leftPercent = 0;
@@ -2718,7 +2768,17 @@ api.get("/partials/stream-detail", (c) => {
   const completionPercentage =
     stream.totalStories > 0 ? Math.round((stream.completedStories / stream.totalStories) * 100) : 0;
 
-  const statusLabel = stream.status.charAt(0).toUpperCase() + stream.status.slice(1);
+  // Format status for human-friendly display
+  const statusMap: Record<string, string> = {
+    'idle': 'Idle',
+    'running': 'Running',
+    'merged': 'Merged',
+    'completed': 'Completed',
+    'in_progress': 'In Progress',
+    'ready': 'Ready',
+    'error': 'Error',
+  };
+  const statusLabel = statusMap[stream.status] || stream.status.charAt(0).toUpperCase() + stream.status.slice(1).replace(/_/g, ' ');
 
   // Build stories list HTML
   const storiesHtml =
@@ -7856,11 +7916,20 @@ api.post("/stream/:id/generation-cancel", (c) => {
  *   - 200 with { content: string, path: string }
  *   - 404 if PRD or file not found
  */
-api.get('/api/prd/:id/content', (c) => {
+api.get('/prd/:id/content', (c) => {
   const prdId = c.req.param('id');
   const fileType = c.req.query('file') || 'prd';
 
   const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_configured',
+        message: 'Ralph root directory not found',
+      },
+      500
+    );
+  }
   const prdFolder = path.join(ralphRoot, `.ralph/PRD-${prdId}`);
 
   if (!fs.existsSync(prdFolder)) {
@@ -7916,7 +7985,7 @@ api.get('/api/prd/:id/content', (c) => {
  *   - 400 if content is missing
  *   - 404 if PRD not found
  */
-api.post('/api/prd/:id/content', async (c) => {
+api.post('/prd/:id/content', async (c) => {
   const prdId = c.req.param('id');
   const body = await c.req.json();
   const { content, file: fileType = 'prd' } = body;
@@ -7932,6 +8001,15 @@ api.post('/api/prd/:id/content', async (c) => {
   }
 
   const ralphRoot = getRalphRoot();
+  if (!ralphRoot) {
+    return c.json(
+      {
+        error: 'not_configured',
+        message: 'Ralph root directory not found',
+      },
+      500
+    );
+  }
   const prdFolder = path.join(ralphRoot, `.ralph/PRD-${prdId}`);
 
   if (!fs.existsSync(prdFolder)) {
@@ -7971,6 +8049,37 @@ api.post('/api/prd/:id/content', async (c) => {
       500
     );
   }
+});
+
+/**
+ * GET /api/agents
+ *
+ * Get availability status of coding agents (Claude, Codex, Droid).
+ * Results are cached for 60 seconds.
+ *
+ * Returns:
+ *   - agents: Array of { name, id, available, version, path, suggestion }
+ *   - default: ID of the default/recommended agent
+ *   - availableCount: Number of available agents
+ */
+api.get('/agents', (c) => {
+  const availability = getCachedAgentAvailability();
+  return c.json(availability);
+});
+
+/**
+ * POST /api/agents/refresh
+ *
+ * Force refresh of agent availability cache.
+ * Useful after installing a new agent.
+ *
+ * Returns:
+ *   - Fresh agent availability status
+ */
+api.post('/agents/refresh', (c) => {
+  clearAgentCache();
+  const availability = getCachedAgentAvailability();
+  return c.json(availability);
 });
 
 export { api };

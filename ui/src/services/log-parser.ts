@@ -99,14 +99,17 @@ function parseActivityLogLine(line: string): LogEntry | null {
 
 /**
  * Parse a run summary line from activity log.
- * Format: - YYYY-MM-DD HH:MM:SS | run=... | iter=... | mode=... | story=... | duration=... | status=...
+ * Formats:
+ * - Build mode: - YYYY-MM-DD HH:MM:SS | run=... | iter=... | mode=build | story=... | duration=... | status=...
+ * - Plan mode:  - YYYY-MM-DD HH:MM:SS | run=... | iter=... | mode=plan | duration=... | status=...
  */
 function parseRunSummaryLine(line: string): LogEntry | null {
   const trimmed = line.trim();
 
-  // Match run summary format
+  // Match run summary format with optional story field
+  // Pattern: - DATETIME | run=X | iter=N | mode=M | [story=S |] duration=Ds | status=ST
   const match = trimmed.match(
-    /^-\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*\|\s*run=(\S+)\s*\|\s*iter=(\d+)\s*\|\s*mode=(\w+)\s*\|\s*story=(\S+)\s*\|\s*duration=(\d+)s\s*\|\s*status=(\w+)/
+    /^-\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*\|\s*run=(\S+)\s*\|\s*iter=(\d+)\s*\|\s*mode=(\w+)\s*(?:\|\s*story=(\S+)\s*)?\|\s*duration=(\d+)s\s*\|\s*status=(\w+)/
   );
 
   if (match) {
@@ -125,9 +128,13 @@ function parseRunSummaryLine(line: string): LogEntry | null {
         parseInt(second, 10)
       );
 
-      const message = `Run ${runId} iteration ${iteration} (${mode}) for ${story}: ${status} (${duration}s)`;
+      // Build message based on whether story is present
+      const message = story
+        ? `Run ${runId} iteration ${iteration} (${mode}) for ${story}: ${status} (${duration}s)`
+        : `Run ${runId} iteration ${iteration} (${mode}): ${status} (${duration}s)`;
+
       const level: LogLevel =
-        status === "success" ? "info" : status === "fail" ? "error" : "warning";
+        status === "success" ? "info" : status === "fail" || status === "error" ? "error" : "warning";
 
       return {
         timestamp,

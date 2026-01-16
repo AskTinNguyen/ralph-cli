@@ -26,7 +26,12 @@ const pc = require("picocolors");
 // ============================================================================
 // Configuration
 // ============================================================================
-const cwd = process.cwd();
+// Import path utilities for finding project root
+const { getEffectiveCwd } = require("../lib/cli/paths");
+
+// Use effective cwd that walks up to find .ralph directory
+// This ensures commands work correctly from subdirectories (e.g., ui/)
+const cwd = getEffectiveCwd(process.cwd());
 const repoRoot = path.resolve(__dirname, "..");
 const globalDir = path.join(repoRoot, ".agents", "ralph");
 const localDir = path.join(cwd, ".agents", "ralph");

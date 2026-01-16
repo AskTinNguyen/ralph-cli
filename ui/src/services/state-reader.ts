@@ -387,23 +387,46 @@ function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): 
     return "running";
   }
 
-  // Check for merged (worktree workflow)
-  if (isStreamMerged(ralphRoot, streamId)) {
-    return "merged";
+  // Get story counts for validation
+  let totalStories = 0;
+  let completedStories = 0;
+
+  if (fs.existsSync(prdPath)) {
+    try {
+      const content = fs.readFileSync(prdPath, "utf-8");
+      const counts = countStories(content);
+      totalStories = counts.total;
+      completedStories = counts.completed;
+    } catch {
+      // Continue with 0 counts
+    }
   }
 
-  // NEW: Check for completed (direct-to-main workflow)
-  // This catches PRDs with git evidence but no .merged marker
+  // Check for merged (worktree workflow) - validate stories are complete
+  if (isStreamMerged(ralphRoot, streamId)) {
+    // Only return "merged" if all stories are actually completed
+    if (totalStories > 0 && completedStories < totalStories) {
+      // False completion: has merge marker but incomplete stories
+      // Fall through to check other indicators
+    } else {
+      return "merged";
+    }
+  }
+
+  // Check for completed (direct-to-main workflow) - validate stories are complete
   if (isStreamCompleted(ralphRoot, streamId)) {
-    return "completed";
+    // Only return "completed" if all stories are actually completed
+    if (totalStories > 0 && completedStories < totalStories) {
+      // False completion: has completion marker but incomplete stories
+      // Fall through to check other indicators
+    } else {
+      return "completed";
+    }
   }
 
   // Check PRD for other status indicators
   if (fs.existsSync(prdPath)) {
     try {
-      const content = fs.readFileSync(prdPath, "utf-8");
-      const { total, completed } = countStories(content);
-
       // Prefer progress.md existence as indicator of in-progress work
       const progressPath = path.join(path.dirname(prdPath), 'progress.md');
       if (fs.existsSync(progressPath)) {
@@ -416,11 +439,11 @@ function getStreamStatus(ralphRoot: string, streamId: string, prdPath: string): 
         return "ready";
       }
 
-      if (total > 0 && completed === total) {
+      if (totalStories > 0 && completedStories === totalStories) {
         return "ready";
       }
 
-      if (total === 0) {
+      if (totalStories === 0) {
         return "ready";
       }
     } catch {
