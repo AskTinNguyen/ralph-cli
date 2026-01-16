@@ -132,6 +132,7 @@ display_event() {
 # Display new events from .events.log since a given line number
 # Usage: display_new_events <events_file> <last_line_shown>
 # Returns: new line count
+# Note: Also handles inline error context lines (indented with spaces)
 display_new_events() {
   local events_file="$1"
   local last_line="${2:-0}"
@@ -150,12 +151,28 @@ display_new_events() {
     return
   fi
 
+  # Get colors for context display
+  local c_dim="${C_DIM:-\033[2m}"
+  local c_reset="${C_RESET:-\033[0m}"
+
   # Display new events
   local new_events
   new_events=$(tail -n "+$((last_line + 1))" "$events_file" 2>/dev/null)
 
   while IFS= read -r line; do
     if [[ -z "$line" ]]; then
+      continue
+    fi
+
+    # Check if this is a context line (US-004 inline error context)
+    # Context lines start with "  [context]" or "    " (4+ spaces for content)
+    if [[ "$line" == "  [context]" ]]; then
+      # Display context header
+      printf "%b  Error context:%b\n" "$c_dim" "$c_reset"
+      continue
+    elif [[ "$line" =~ ^[[:space:]]{4} ]]; then
+      # Display context content line (indented)
+      printf "%b%s%b\n" "$c_dim" "$line" "$c_reset"
       continue
     fi
 
