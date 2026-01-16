@@ -988,9 +988,14 @@ cmd_build() {
   shift || true
 
   # Parse flags
+  local no_worktree=false
   local force_build=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --no-worktree)
+        no_worktree=true
+        shift
+        ;;
       --force)
         force_build=true
         shift
@@ -1019,41 +1024,43 @@ cmd_build() {
   fi
 
   # ============================================================================
-  # Safeguard: REQUIRE worktree for ALL builds (prevents contamination)
+  # Safeguard: Block build on main/master without worktree
   # ============================================================================
   if ! worktree_exists "$stream_id"; then
     local current_branch
     current_branch=$(get_current_branch)
 
-    # MANDATORY: All stream builds must use worktrees to prevent contamination
-    # This ensures isolated environments and prevents nested .ralph issues
-    if [[ "$force_build" == "true" ]]; then
-      # User explicitly forced it with --force (use with extreme caution)
-      msg_warn "⚠️  FORCED: Building without worktree on branch '$current_branch'"
-      msg_warn "This bypasses contamination prevention - commits go directly to $current_branch"
-      echo ""
+    if is_on_protected_branch; then
+      # On main/master without worktree - block by default
+      if [[ "$no_worktree" == "true" || "$force_build" == "true" ]]; then
+        # User explicitly allowed it
+        msg_warn "Building without worktree on branch '$current_branch'"
+        msg_dim "Commits will go directly to $current_branch"
+        echo ""
+      else
+        # Block with helpful error message
+        msg_error "SAFEGUARD: No worktree initialized for $stream_id"
+        echo ""
+        printf "You're currently on branch '${C_BOLD}%s${C_RESET}'.\n" "$current_branch"
+        printf "Running 'ralph stream build' without a worktree will commit directly to %s!\n" "$current_branch"
+        echo ""
+        printf "${C_BOLD}Recommended actions:${C_RESET}\n"
+        printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
+        numbered_step 1 "Initialize a worktree first (recommended):"
+        printf "   ${C_DIM}ralph stream init %s${C_RESET}\n" "${input}"
+        printf "   Then: ${C_DIM}ralph stream build %s %s${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        numbered_step 2 "Or explicitly allow building without worktree:"
+        printf "   ${C_DIM}ralph stream build %s %s --no-worktree${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        numbered_step 3 "Or force build on $current_branch (use with caution):"
+        printf "   ${C_DIM}ralph stream build %s %s --force${C_RESET}\n" "${input}" "${iterations}"
+        echo ""
+        return 1
+      fi
     else
-      # Block all builds without worktree
-      msg_error "SAFEGUARD: Worktree required for $stream_id"
-      echo ""
-      printf "Stream builds MUST use worktrees to prevent context contamination.\n"
-      printf "Current branch: ${C_BOLD}%s${C_RESET}\n" "$current_branch"
-      echo ""
-      printf "${C_BOLD}Required action:${C_RESET}\n"
-      printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
-      numbered_step 1 "Initialize a worktree first:"
-      printf "   ${C_DIM}ralph stream init %s${C_RESET}\n" "${input}"
-      echo ""
-      numbered_step 2 "Then run your build:"
-      printf "   ${C_DIM}ralph stream build %s %s${C_RESET}\n" "${input}" "${iterations}"
-      echo ""
-      printf "${C_DIM}Why? Worktrees provide isolated environments and prevent agents\n"
-      printf "from discovering multiple PRDs, which causes contamination.${C_RESET}\n"
-      echo ""
-      printf "${C_YELLOW}Advanced:${C_RESET} To bypass (NOT recommended):\n"
-      printf "   ${C_DIM}ralph stream build %s %s --force${C_RESET}\n" "${input}" "${iterations}"
-      echo ""
-      return 1
+      # On a feature branch without worktree - just inform, don't block
+      msg_dim "No worktree for $stream_id - building in current directory on branch '$current_branch'"
     fi
   fi
 
@@ -1067,19 +1074,14 @@ cmd_build() {
 
   local stream_dir
   stream_dir="$(get_stream_dir "$stream_id")"
-  local work_dir
+  local work_dir="$ROOT_DIR"
 
-  # Worktree is REQUIRED - this should always be true unless --force was used
+  # If worktree exists, use it
   if worktree_exists "$stream_id"; then
     work_dir="$WORKTREES_DIR/$stream_id"
     # IMPORTANT: Always use main RALPH_DIR, never create nested .ralph in worktree
     # This prevents context contamination where agents discover multiple PRDs
     stream_dir="$RALPH_DIR/$stream_id"
-  else
-    # This path only taken if --force was used (NOT RECOMMENDED)
-    # Falls back to ROOT_DIR - may cause contamination
-    work_dir="$ROOT_DIR"
-    msg_warn "Building in main directory without worktree - contamination risk!"
   fi
 
   section_header "Running build for $stream_id"
@@ -2011,8 +2013,7 @@ case "$cmd" in
     ;;
   build)
     if [[ -z "${1:-}" ]]; then
-      echo "Usage: ralph stream build <N> [iterations] [--force]" >&2
-      echo "Note: Worktree required. Run 'ralph stream init <N>' first." >&2
+      echo "Usage: ralph stream build <N> [iterations] [--no-worktree|--force]" >&2
       exit 1
     fi
     cmd_build "$@"
@@ -2082,8 +2083,8 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream init ${C_YELLOW}<N>${C_RESET}         Initialize worktree for parallel execution\n"
     printf "  ${C_GREEN}ralph stream build ${C_YELLOW}<N>${C_RESET} ${C_DIM}[n] [options]${C_RESET}\n"
     printf "                              Run n build iterations in stream\n"
-    printf "                              ${C_DIM}Note: Worktree required (run 'ralph stream init <N>' first)${C_RESET}\n"
-    printf "                              ${C_DIM}--force: bypass worktree requirement (NOT recommended)${C_RESET}\n"
+    printf "                              ${C_DIM}--no-worktree: allow build without worktree${C_RESET}\n"
+    printf "                              ${C_DIM}--force: force build on main/master${C_RESET}\n"
     printf "  ${C_GREEN}ralph stream merge ${C_YELLOW}<N>${C_RESET} ${C_DIM}[options]${C_RESET}\n"
     printf "                              Merge completed stream\n"
     printf "                              ${C_DIM}--rebase: rebase onto main first${C_RESET}\n"
