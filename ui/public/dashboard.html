@@ -224,6 +224,19 @@
         </div>
       </section>
 
+      <!-- Cost Display Section (US-007) -->
+      <section class="rams-section" id="cost-section">
+        <div
+          id="cost-container"
+          hx-get="/api/partials/cost-display"
+          hx-trigger="load, every 10s, sse:run_completed, sse:file_changed"
+          hx-swap="innerHTML transition:true"
+          class="sse-updatable"
+        >
+          <!-- Cost display appears when .cost.json exists -->
+        </div>
+      </section>
+
       <!-- Live Status Widget Section (US-003) -->
       <section class="rams-section" id="live-status-section">
         <div
@@ -392,26 +405,31 @@
       var storiesContainer = document.getElementById("stories-container");
       var liveStatusContainer = document.getElementById("live-status-container");
       var checkpointContainer = document.getElementById("checkpoint-container");
+      var costContainer = document.getElementById("cost-container");
 
       var progressUrl = "/api/partials/progress" + (streamId ? "?streamId=" + streamId : "");
       var storiesUrl = "/api/partials/stories" + (streamId ? "?streamId=" + streamId : "");
       var liveStatusUrl = "/api/partials/live-status-widget" + (streamId ? "?streamId=" + streamId : "");
       var checkpointUrl = "/api/partials/checkpoint-banner" + (streamId ? "?streamId=" + streamId : "");
+      var costUrl = "/api/partials/cost-display" + (streamId ? "?streamId=" + streamId : "");
 
       progressContainer.setAttribute("hx-get", progressUrl);
       storiesContainer.setAttribute("hx-get", storiesUrl);
       liveStatusContainer.setAttribute("hx-get", liveStatusUrl);
       checkpointContainer.setAttribute("hx-get", checkpointUrl);
+      costContainer.setAttribute("hx-get", costUrl);
 
       htmx.process(progressContainer);
       htmx.process(storiesContainer);
       htmx.process(liveStatusContainer);
       htmx.process(checkpointContainer);
+      htmx.process(costContainer);
 
       htmx.trigger(progressContainer, "load");
       htmx.trigger(storiesContainer, "load");
       htmx.trigger(liveStatusContainer, "load");
       htmx.trigger(checkpointContainer, "load");
+      htmx.trigger(costContainer, "load");
     });
 
     // Stream View Toggle

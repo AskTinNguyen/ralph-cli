@@ -8624,6 +8624,144 @@ api.post('/streams/:id/checkpoint/clear', (c) => {
 });
 
 /**
+ * GET /api/streams/:id/cost
+ *
+ * Returns cost tracking data for a stream (US-007).
+ * Reads from .cost.json in the PRD folder.
+ *
+ * Response:
+ *   - total_cost: Total accumulated cost in dollars
+ *   - total_input_tokens: Total input tokens used
+ *   - total_output_tokens: Total output tokens used
+ *   - iterations: Array of per-iteration cost data
+ *   - has_data: Whether cost tracking data exists
+ */
+api.get('/streams/:id/cost', (c) => {
+  const id = c.req.param('id');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot) {
+    return c.json({ error: 'Ralph root not found' }, 500);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const costPath = path.join(prdFolder, '.cost.json');
+
+  if (!fs.existsSync(costPath)) {
+    return c.json({
+      has_data: false,
+      total_cost: 0,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      iterations: [],
+    });
+  }
+
+  try {
+    const content = fs.readFileSync(costPath, 'utf-8');
+    const costData = JSON.parse(content);
+    return c.json({
+      has_data: true,
+      ...costData,
+    });
+  } catch (err) {
+    return c.json({ error: `Failed to read cost data: ${(err as Error).message}` }, 500);
+  }
+});
+
+/**
+ * GET /api/partials/cost-display
+ *
+ * Returns HTML partial for cost display (US-007).
+ * Shows running cost and token usage.
+ *
+ * Query params:
+ *   - streamId: Stream to show cost for
+ */
+api.get('/partials/cost-display', (c) => {
+  const streamId = c.req.query('streamId');
+  const ralphRoot = getRalphRoot();
+
+  if (!ralphRoot || !streamId) {
+    return c.html(`<div id="cost-display" class="rams-hidden"></div>`);
+  }
+
+  // Determine PRD folder path
+  let prdFolder = path.join(ralphRoot, `PRD-${streamId}`);
+  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${streamId}`, '.ralph', `PRD-${streamId}`);
+
+  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
+    prdFolder = worktreePath;
+  }
+
+  const costPath = path.join(prdFolder, '.cost.json');
+
+  if (!fs.existsSync(costPath)) {
+    return c.html(`<div id="cost-display" class="rams-hidden"></div>`);
+  }
+
+  try {
+    const content = fs.readFileSync(costPath, 'utf-8');
+    const costData = JSON.parse(content);
+
+    const totalCost = costData.total_cost || 0;
+    const inputTokens = costData.total_input_tokens || 0;
+    const outputTokens = costData.total_output_tokens || 0;
+    const iterationCount = costData.iterations?.length || 0;
+
+    // Format cost
+    const formattedCost = totalCost < 0.01
+      ? `$${totalCost.toFixed(4)}`
+      : `$${totalCost.toFixed(2)}`;
+
+    // Format tokens (K for thousands, M for millions)
+    const formatTokens = (count: number): string => {
+      if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+      if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+      return count.toString();
+    };
+
+    return c.html(`
+      <div id="cost-display" class="cost-display" data-stream-id="${streamId}">
+        <div class="cost-display-header">
+          <span class="cost-display-icon">💰</span>
+          <span class="cost-display-title">Build Cost</span>
+        </div>
+        <div class="cost-display-content">
+          <div class="cost-display-total">
+            <span class="cost-value">${formattedCost}</span>
+            <span class="cost-label">total</span>
+          </div>
+          <div class="cost-display-details">
+            <div class="cost-detail">
+              <span class="cost-detail-value">${formatTokens(inputTokens)}</span>
+              <span class="cost-detail-label">input</span>
+            </div>
+            <div class="cost-detail">
+              <span class="cost-detail-value">${formatTokens(outputTokens)}</span>
+              <span class="cost-detail-label">output</span>
+            </div>
+            <div class="cost-detail">
+              <span class="cost-detail-value">${iterationCount}</span>
+              <span class="cost-detail-label">iters</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+  } catch (err) {
+    return c.html(`<div id="cost-display" class="rams-hidden"></div>`);
+  }
+});
+
+/**
  * GET /api/partials/checkpoint-banner
  *
  * Returns HTML partial for checkpoint banner.

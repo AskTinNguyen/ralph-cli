@@ -233,25 +233,29 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Integrate token estimator into loop.sh to calculate running cost after each agent call, emit to `.cost.json`, display in CLI and UI.
 
-- [ ] Create cost tracking in loop
+- [x] Create cost tracking in loop
   - Scope: After each agent call in `loop.sh`, call existing token estimator (`lib/tokens/estimator-cli.js`) and append cost to `.ralph/PRD-N/.cost.json`
   - Acceptance: `.cost.json` contains running total: `{ "total_cost": 0.0234, "iterations": [ { "iteration": 1, "cost": 0.0050, "tokens": { "input": 1000, "output": 500 } } ] }`
   - Verification: Run build, check `.cost.json` created and updated
+  - Notes: Created `.agents/ralph/lib/cost.sh` with functions: `init_cost_tracking()`, `extract_tokens_from_log()`, `calculate_cost()`, `update_cost()`, `get_total_cost()`, `format_cost()`. Integrated into loop.sh with `init_cost_tracking` before iteration loop and `update_cost` after token extraction.
 
-- [ ] Display running cost in CLI
+- [x] Display running cost in CLI
   - Scope: Update CLI status display to show cost next to elapsed time: `⏱ [2m 15s] $0.0234`
   - Acceptance: Cost displayed with 4 decimal precision, updates after each iteration
   - Verification: Run build, observe cost incrementing in CLI
+  - Notes: Added cost display after each iteration in loop.sh: `💰 Cost: $X.XXXX (iteration) | $X.XXXX (total)`. Also added cost field to run_summary logs. Cost stored in run metadata JSON (iteration_cost, total_cost fields).
 
-- [ ] Add cost persistence across checkpoint/resume
+- [x] Add cost persistence across checkpoint/resume
   - Scope: Include `total_cost` in checkpoint data, restore on resume
   - Acceptance: Resumed build continues from previous cost total
   - Verification: Build 3 iterations, interrupt, resume, verify cost continues from last value
+  - Notes: Cost persists via `.cost.json` file (separate from checkpoint). `init_cost_tracking()` only creates file if missing, preserving existing totals. Also added `total_cost` to checkpoint.json loop_state for redundancy.
 
-- [ ] Create UI cost display in dashboard
+- [x] Create UI cost display in dashboard
   - Scope: Add cost badge to stream cards showing total cost with 4 decimal precision
   - Acceptance: Cost displayed and updates via polling/SSE
   - Verification: Open dashboard during build, cost updates in real-time
+  - Notes: Created API endpoints `GET /api/streams/:id/cost` and `GET /api/partials/cost-display`. Added cost display section to dashboard.html with HTMX auto-refresh (10s intervals + SSE triggers). Styled with green accent color showing total cost, input/output tokens, and iteration count.
 
 ---
 

@@ -43,6 +43,10 @@ source "$SCRIPT_DIR/lib/status.sh"
 # shellcheck source=lib/events.sh
 source "$SCRIPT_DIR/lib/events.sh"
 
+# Source cost tracking utilities for real-time cost accumulation (US-007)
+# shellcheck source=lib/cost.sh
+source "$SCRIPT_DIR/lib/cost.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -1276,7 +1280,7 @@ log_error() {
 }
 
 # Save checkpoint before story execution for resumable builds
-# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent]
+# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent] [total-cost]
 save_checkpoint() {
   local prd_folder="$1"
   local prd_id="$2"
@@ -1284,6 +1288,7 @@ save_checkpoint() {
   local story_id="$4"
   local git_sha="$5"
   local agent="${6:-codex}"
+  local total_cost="${7:-0}"
 
   local checkpoint_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
@@ -1298,10 +1303,10 @@ save_checkpoint() {
     return 0
   fi
 
-  # Build JSON data
+  # Build JSON data with cost tracking (US-007)
   local json_data
-  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s"}}' \
-    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent")
+  json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s","total_cost":%s}}' \
+    "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent" "${total_cost:-0}")
 
   # Save checkpoint via CLI
   if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
@@ -3220,6 +3225,11 @@ fi
 # Track overall build start time for status emission (US-001)
 BUILD_START=$(date +%s)
 
+# Initialize cost tracking for real-time cost accumulation (US-007)
+PRD_FOLDER_FOR_COST="$(dirname "$PRD_PATH")"
+init_cost_tracking "$PRD_FOLDER_FOR_COST"
+TOTAL_BUILD_COST=0
+
 for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   echo ""
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
@@ -3364,7 +3374,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Save checkpoint before story execution (build mode only)
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME"
+    save_checkpoint "$PRD_FOLDER" "$ACTIVE_PRD_NUMBER" "$i" "$STORY_ID" "$HEAD_BEFORE" "$DEFAULT_AGENT_NAME" "${TOTAL_BUILD_COST:-0}"
   fi
 
   # Emit status: entering executing phase (US-001)
@@ -3482,6 +3492,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
 
+  # Update cost tracking with this iteration's tokens (US-007)
+  ITERATION_COST="$(update_cost "$PRD_FOLDER_FOR_COST" "$i" "${STORY_ID:-plan}" "$LOG_FILE" "${TOKEN_MODEL:-sonnet}")"
+  TOTAL_BUILD_COST="$(get_total_cost "$PRD_FOLDER_FOR_COST")"
+
   # Build JSON object for run metadata
   RUN_META_JSON=$(python3 -c "import json, sys; print(json.dumps({
     'mode': '$MODE',
@@ -3513,7 +3527,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     'switch_count': '$LAST_SWITCH_COUNT',
     'switch_from': '$LAST_SWITCH_FROM',
     'switch_to': '$LAST_SWITCH_TO',
-    'switch_reason': '$LAST_SWITCH_REASON'
+    'switch_reason': '$LAST_SWITCH_REASON',
+    'iteration_cost': '$ITERATION_COST',
+    'total_cost': '$TOTAL_BUILD_COST'
   }))" 2>/dev/null || echo '{}')
 
   write_run_meta "$RUN_META" "$RUN_META_JSON"
@@ -3529,10 +3545,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   # Note: append_metrics is called after rollback logic to capture both rollback and switch data
   # See the metrics call below the rollback section
 
+  # Display iteration cost in CLI (US-007)
+  if [ -n "$ITERATION_COST" ] && [ "$ITERATION_COST" != "0" ]; then
+    FORMATTED_ITER_COST="$(format_cost "$ITERATION_COST")"
+    FORMATTED_TOTAL_COST="$(format_cost "$TOTAL_BUILD_COST")"
+    printf "${C_DIM}  💰 Cost: %s (iteration) | %s (total)${C_RESET}\n" "$FORMATTED_ITER_COST" "$FORMATTED_TOTAL_COST"
+  fi
+
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
-    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
+    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | story=$STORY_ID | duration=${ITER_DURATION}s | status=$STATUS_LABEL | cost=${ITERATION_COST:-0}"
   else
-    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | duration=${ITER_DURATION}s | status=$STATUS_LABEL"
+    append_run_summary "$(date '+%Y-%m-%d %H:%M:%S') | run=$RUN_TAG | iter=$i | mode=$MODE | duration=${ITER_DURATION}s | status=$STATUS_LABEL | cost=${ITERATION_COST:-0}"
   fi
 
   if [ "$MODE" = "build" ]; then

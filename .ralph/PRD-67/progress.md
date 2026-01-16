@@ -462,3 +462,31 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161719-1
   - Checkpoint banner is server-rendered HTMX partial for optimal performance
   - SSE events (run_started, run_completed, file_changed) trigger automatic banner refresh
 ---
+
+## [2026-01-16T17:15:00+07:00] - US-006: UI checkpoint banner with resume button (Iteration 5 Verification)
+Thread:
+Run: 20260116-160954-10574 (iteration 5)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-5.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (US-006 already completed in commit 8aa9069)
+- Post-commit status: N/A (story already complete)
+- Verification:
+  - Command: cd ui && npx tsc --noEmit -> PASS
+  - Command: curl http://localhost:3000/api/streams/67/checkpoint -> PASS (returns JSON with iteration, story_id, time_ago)
+  - Command: curl "http://localhost:3000/api/partials/checkpoint-banner?streamId=67" -> PASS (returns HTML banner)
+  - Command: curl -X POST "http://localhost:3000/api/streams/67/resume" -> PASS (returns {"success":true,"message":"Resuming build...","pid":...})
+  - Command: curl -X POST "http://localhost:3000/api/streams/67/checkpoint/clear" -> PASS (returns {"success":true})
+  - Browser test with agent-browser:
+    - Navigate to dashboard, select PRD-67 -> checkpoint banner appears
+    - Banner shows: "Build interrupted - Iteration N • Story US-XXX • Agent: claude"
+    - Resume button (ref=e23) and Clear button (ref=e24) visible
+    - Click Clear button -> banner disappears, checkpoint.json deleted
+    - Screenshot saved to /tmp/dashboard-checkpoint-final.png
+- What was verified:
+  - All 5 acceptance criteria confirmed working
+  - PRD and plan already marked complete in previous iterations
+  - No new code changes needed
+- **Note**: This iteration performed redundant verification - US-006 was already fully implemented and committed in previous iterations.
+---
