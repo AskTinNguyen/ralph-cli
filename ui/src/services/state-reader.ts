@@ -18,10 +18,12 @@ let cachedRalphRoot: string | null = null;
  *
  * Configuration priority:
  * 1. RALPH_ROOT environment variable (if set and exists)
- * 2. Walk up from current directory
+ * 2. Parent directory's .ralph (when running from ui/ subdirectory) - PRODUCTION DEFAULT
+ * 3. Current directory's .ralph (test mode)
+ * 4. Walk up from current directory
  *
- * Use RALPH_ROOT to explicitly point to production .ralph directory when running
- * server from subdirectories (e.g., ui/.ralph for tests vs ../.ralph for production)
+ * Use RALPH_ROOT to explicitly point to a specific .ralph directory.
+ * By default, when running from ui/, prefer parent's .ralph for production data.
  */
 export function getRalphRoot(): string | null {
   // Check if RALPH_ROOT is explicitly configured
@@ -42,16 +44,30 @@ export function getRalphRoot(): string | null {
     cachedRalphRoot = null;
   }
 
-  let currentDir = process.cwd();
+  const currentDir = process.cwd();
+
+  // Special case: If running from ui/ subdirectory, prefer parent's .ralph for production
+  // This ensures the UI shows production data by default unless RALPH_ROOT is explicitly set
+  const currentDirName = path.basename(currentDir);
+  if (currentDirName === 'ui') {
+    const parentRalphPath = path.join(path.dirname(currentDir), '.ralph');
+    if (fs.existsSync(parentRalphPath) && fs.statSync(parentRalphPath).isDirectory()) {
+      cachedRalphRoot = parentRalphPath;
+      return parentRalphPath;
+    }
+  }
+
+  // Walk up from current directory
+  let searchDir = currentDir;
   const root = path.parse(currentDir).root;
 
-  while (currentDir !== root) {
-    const ralphPath = path.join(currentDir, ".ralph");
+  while (searchDir !== root) {
+    const ralphPath = path.join(searchDir, ".ralph");
     if (fs.existsSync(ralphPath) && fs.statSync(ralphPath).isDirectory()) {
       cachedRalphRoot = ralphPath;
       return ralphPath;
     }
-    currentDir = path.dirname(currentDir);
+    searchDir = path.dirname(searchDir);
   }
 
   // Check root directory too

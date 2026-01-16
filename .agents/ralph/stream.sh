@@ -11,14 +11,24 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${RALPH_ROOT:-$(pwd)}" && pwd)"
-RALPH_DIR="$ROOT_DIR/.ralph"
-WORKTREES_DIR="$RALPH_DIR/worktrees"
-LOCKS_DIR="$RALPH_DIR/locks"
+
+# Source path utilities for smart ralph root discovery
+# shellcheck source=lib/path-utils.sh
+source "$SCRIPT_DIR/lib/path-utils.sh"
 
 # Source shared output utilities (colors, msg_* functions, visual helpers)
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
+
+# Find ralph root using smart discovery (prefers parent .ralph when in ui/)
+RALPH_DIR="$(find_ralph_root || echo "")"
+if [[ -z "$RALPH_DIR" ]]; then
+  msg_error "Cannot find .ralph directory. Run 'ralph install' first."
+  exit 1
+fi
+ROOT_DIR="$(dirname "$RALPH_DIR")"
+WORKTREES_DIR="$RALPH_DIR/worktrees"
+LOCKS_DIR="$RALPH_DIR/locks"
 
 # ============================================================================
 # Helpers
