@@ -16,6 +16,8 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 | **Run build iterations** | `ralph build 5`                                                                                |
 | **Build specific PRD**   | `ralph build 5 --prd=1`                                                                        |
 | **Dry run (no commit)**  | `ralph build 1 --no-commit`                                                                    |
+| **Factory run**          | `ralph factory run my-factory`                                                                 |
+| **Factory status**       | `ralph factory status my-factory`                                                              |
 
 ## Stream Commands (Parallel Execution)
 
@@ -29,6 +31,28 @@ Autonomous coding loop for Claude Code. PRD-based workflow with bash implementat
 | **Build (force)**       | `ralph stream build 1 5 --force`                |
 | **Run parallel**        | `ralph stream build 1 & ralph stream build 2 &` |
 | **Merge stream**        | `ralph stream merge 1`                          |
+
+## Factory Mode (Meta-Orchestration)
+
+Factory Mode enables declarative, multi-stage agent workflows with verification gates. Use it for complex pipelines, recursive workflows, and production-grade automation.
+
+| Use Case | Command |
+|----------|---------|
+| **Create factory** | `ralph factory init my-factory` |
+| **Run factory** | `ralph factory run my-factory` |
+| **Check status** | `ralph factory status my-factory` |
+| **Resume failed** | `ralph factory resume my-factory` |
+| **List factories** | `ralph factory list` |
+
+**Key Features:**
+- **Chained workflows**: PRD → Plan → Build pipelines
+- **Conditional branching**: Execute different paths based on results
+- **Recursive loops**: Auto-retry failed stages with context
+- **Verification gates**: Tamper-resistant checks (tests, git, builds)
+
+**Verification gates prevent gaming** - agents cannot claim success by outputting "All tests pass!" - the verification system actually runs tests and checks results.
+
+> **Full documentation**: See [`skills/factory/SKILL.md`](skills/factory/SKILL.md) for complete reference including YAML schema, verification types, examples, and best practices.
 
 ## Workflow
 
@@ -80,9 +104,16 @@ project/
     │   └── runs/
     ├── guardrails.md             # Shared lessons learned
     ├── locks/                    # Stream locks (prevent concurrent runs)
-    └── worktrees/                # Git worktrees for parallel execution
-        ├── PRD-1/                # Isolated working directory
-        └── PRD-2/
+    ├── worktrees/                # Git worktrees for parallel execution
+    │   ├── PRD-1/                # Isolated working directory
+    │   └── PRD-2/
+    └── factory/                  # Factory mode (meta-orchestration)
+        ├── my-factory.yaml       # Factory definitions
+        ├── learnings.json        # Project-wide learnings
+        └── runs/                 # Execution history
+            └── run-TIMESTAMP/
+                ├── state.json    # Checkpoint state
+                └── stages/       # Per-stage results
 ```
 
 **Key principle**: Plans are NEVER stored in a centralized location. Each `ralph plan` auto-increments to the next available PRD-N folder.
@@ -117,15 +148,104 @@ Stories are marked `[x]` when complete.
 Set in `.agents/ralph/config.sh` or via CLI flag:
 
 ```bash
-# Use Claude (default)
+# Use Claude (default - recommended)
 ralph build 1 --agent=claude
 
-# Use Codex
+# Use Codex (OpenAI - no Claude model routing)
 ralph build 1 --agent=codex
 
-# Use Droid
+# Use Droid (Factory.ai - no Claude model routing)
 ralph build 1 --agent=droid
 ```
+
+**Agent/Model Compatibility:**
+- **Claude agent**: Full support for model routing (haiku, sonnet, opus)
+- **Codex/Droid**: Model routing auto-disabled; uses provider's default model
+
+If you try to use a non-Claude agent with model routing enabled, Ralph will:
+1. Display a warning message
+2. Auto-disable model routing for that session
+3. Suggest using `--agent=claude` or disabling routing
+
+## Model Routing Configuration
+
+Ralph can automatically select the optimal Claude model based on task complexity. Configure in `.agents/ralph/config.sh` or via `ralph init`.
+
+### Complexity Tiers
+
+| Tier | Score | Default Model | Use Case |
+|------|-------|---------------|----------|
+| **Low** | 1-3 | Haiku | Simple fixes, docs, typos |
+| **Medium** | 4-7 | Sonnet | Features, refactoring |
+| **High** | 8-10 | Opus | Architecture, complex changes |
+
+### Configuration Variables
+
+```bash
+# Enable/disable complexity-based model routing
+RALPH_ROUTING_ENABLED=true
+
+# Model for LOW complexity tasks (score 1-3)
+RALPH_LOW_COMPLEXITY_MODEL=haiku
+
+# Model for MEDIUM complexity tasks (score 4-7)
+RALPH_MEDIUM_COMPLEXITY_MODEL=sonnet
+
+# Model for HIGH complexity tasks (score 8-10)
+RALPH_HIGH_COMPLEXITY_MODEL=opus
+
+# Default model when routing is disabled
+RALPH_DEFAULT_MODEL=sonnet
+
+# Customize complexity thresholds (advanced)
+RALPH_HAIKU_MAX_COMPLEXITY=3    # Scores 1-3 use LOW model
+RALPH_SONNET_MAX_COMPLEXITY=7   # Scores 4-7 use MEDIUM model
+```
+
+### CLI Override
+
+```bash
+# Force a specific model for one build
+ralph build 5 --model=opus
+
+# Force model for stream build
+ralph stream build 1 5 --model=haiku
+```
+
+### Example: All Opus Configuration
+
+To use Opus for all tasks regardless of complexity:
+
+```bash
+# Option 1: Disable routing, set default
+RALPH_ROUTING_ENABLED=false
+RALPH_DEFAULT_MODEL=opus
+
+# Option 2: Set all tiers to Opus
+RALPH_ROUTING_ENABLED=true
+RALPH_LOW_COMPLEXITY_MODEL=opus
+RALPH_MEDIUM_COMPLEXITY_MODEL=opus
+RALPH_HIGH_COMPLEXITY_MODEL=opus
+```
+
+### Interactive Setup
+
+Run `ralph init` to configure model routing interactively:
+
+```
+? Enable complexity-based model routing? Yes
+? Model for LOW complexity tasks (1-3)? Haiku (recommended)
+? Model for MEDIUM complexity tasks (4-7)? Sonnet (recommended)
+? Model for HIGH complexity tasks (8-10)? Opus (recommended)
+
+┌ Model Routing Configuration ─────────────────┐
+│ Low (1-3) → haiku                            │
+│ Medium (4-7) → sonnet                        │
+│ High (8-10) → opus                           │
+└──────────────────────────────────────────────┘
+```
+
+**Note:** Model routing configuration is only shown for Claude agent. Non-Claude agents (Codex, Droid) skip this step.
 
 ## PRD Command Modes
 
