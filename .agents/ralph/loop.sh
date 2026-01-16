@@ -3597,6 +3597,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   printf "${C_DIM}  Started: $(date '+%Y-%m-%d %H:%M:%S')${C_RESET}\n"
   printf "${C_CYAN}═══════════════════════════════════════════════════════${C_RESET}\n"
 
+  # Emit progress keywords for UI tracking (plan mode)
+  if [ "$MODE" = "plan" ]; then
+    echo "[PROGRESS] Analyzing PRD requirements..."
+  fi
+
   STORY_META=""
   STORY_BLOCK=""
   ITER_START=$(date +%s)
@@ -3800,6 +3805,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     start_stall_detector "$PRD_FOLDER" "$i" "$STORY_ID" "$CURRENT_AGENT" "$ACTIVITY_LOG_PATH"
   fi
 
+  # Emit progress keywords for UI tracking (plan mode)
+  if [ "$MODE" = "plan" ]; then
+    echo "[PROGRESS] Generating implementation plan..."
+  fi
+
   if [ "${RALPH_DRY_RUN:-}" = "1" ]; then
     echo "[RALPH_DRY_RUN] Skipping agent execution." | tee "$LOG_FILE"
     CMD_STATUS=0
@@ -3885,8 +3895,17 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   STATUS_LABEL="success"
   if [ "$CMD_STATUS" -ne 0 ]; then
     STATUS_LABEL="error"
+    # Emit error progress for UI tracking (plan mode)
+    if [ "$MODE" = "plan" ]; then
+      echo "[PROGRESS] Error: Plan generation failed"
+    fi
   else
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    # Emit progress keywords for UI tracking (plan mode)
+    if [ "$MODE" = "plan" ]; then
+      echo "[PROGRESS] Writing plan.md file..."
+      echo "[PROGRESS] Plan generation complete!"
+    fi
     # Log iteration success as info event (US-002)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       PRD_FOLDER="$(dirname "$PRD_PATH")"
@@ -3921,6 +3940,15 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   TOKEN_OUTPUT="$(parse_token_field "$TOKEN_JSON" "outputTokens")"
   TOKEN_MODEL="$(parse_token_field "$TOKEN_JSON" "model")"
   TOKEN_ESTIMATED="$(parse_token_field "$TOKEN_JSON" "estimated")"
+
+  # Enhanced logging: Extract and save API metadata (Phase 3.1)
+  METADATA_FILE="${LOG_FILE%.log}.metadata.json"
+  extract_log_metadata "$LOG_FILE" "$METADATA_FILE" 2>/dev/null || true
+
+  # Real-time validation: Warn if extraction seems incomplete (Phase 3.2)
+  if [[ "$TOKEN_INPUT" -gt 0 ]] || [[ "$TOKEN_OUTPUT" -gt 0 ]]; then
+    validate_token_extraction "$TOKEN_INPUT" "$TOKEN_OUTPUT" "$LOG_FILE" || true
+  fi
 
   # Update cost tracking with this iteration's tokens (US-007)
   ITERATION_COST="$(update_cost "$PRD_FOLDER_FOR_COST" "$i" "${STORY_ID:-plan}" "$LOG_FILE" "${TOKEN_MODEL:-sonnet}")"

@@ -283,6 +283,52 @@ export interface StoryTokenSummary {
 }
 
 /**
+ * Cache token metrics (Phase 4.1)
+ */
+export interface CacheTokenMetrics {
+  totalCacheCreation: number;
+  totalCacheRead: number;
+  estimatedSavings: number;
+}
+
+/**
+ * Data quality metrics (Phase 4.1)
+ */
+export interface DataQualityMetrics {
+  qualityScore: number;
+  highConfidenceRuns: number;
+  mediumConfidenceRuns: number;
+  lowConfidenceRuns: number;
+  totalRuns: number;
+  highConfidencePercentage: number;
+  mediumConfidencePercentage: number;
+  lowConfidencePercentage: number;
+}
+
+/**
+ * Model attribution percentages (Phase 4.1)
+ */
+export interface ModelAttributionMetrics {
+  opus: { runs: number; percentage: number; cost: number };
+  sonnet: { runs: number; percentage: number; cost: number };
+  haiku: { runs: number; percentage: number; cost: number };
+  unknown: { runs: number; percentage: number; cost: number };
+}
+
+/**
+ * Subscription billing breakdown (Phase 4.3)
+ */
+export interface SubscriptionBilling {
+  period: string;
+  subscriptionCost: number;
+  apiOverageCost: number;
+  totalCost: number;
+  trackedApiCost: number;
+  trackingAccuracy: number | null;
+  trackingMessage: string | null;
+}
+
+/**
  * Overall token summary across all streams
  */
 export interface TokenSummary {
@@ -293,6 +339,11 @@ export interface TokenSummary {
   avgCostPerRun: number;
   byStream: StreamTokenSummary[];
   byModel: Record<string, TokenMetrics>;
+  // Phase 4.1 enhancements
+  cacheTokens?: CacheTokenMetrics;
+  dataQuality?: DataQualityMetrics;
+  modelAttribution?: ModelAttributionMetrics;
+  subscription?: SubscriptionBilling;
 }
 
 /**

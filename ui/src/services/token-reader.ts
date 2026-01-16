@@ -74,6 +74,12 @@ interface TokenCache {
     cost: number;
     inputCost: number;
     outputCost: number;
+    // Phase 4.1: Cache token support
+    cacheCreationInputTokens?: number;
+    cacheReadInputTokens?: number;
+    // Phase 3.3: Confidence scoring
+    confidence?: "high" | "medium" | "low" | "none";
+    confidenceReason?: string;
   }>;
 }
 
@@ -103,6 +109,64 @@ function roundCost(cost: number): number {
 }
 
 /**
+ * Load subscription configuration (Phase 4.3)
+ */
+function loadSubscriptionConfig(ralphDir: string): {
+  subscriptionType: string;
+  monthlyCost: number;
+  billingPeriodStart: string;
+  billingPeriods: Array<{
+    period: string;
+    subscriptionCost: number;
+    apiOverageCost: number;
+    totalCost: number;
+  }>;
+} | null {
+  const configPath = path.join(ralphDir, ".subscription.json");
+
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(configPath, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get current billing period breakdown (Phase 4.3)
+ */
+function getCurrentBillingBreakdown(ralphDir: string): {
+  period: string;
+  subscriptionCost: number;
+  apiOverageCost: number;
+  totalCost: number;
+} | null {
+  const config = loadSubscriptionConfig(ralphDir);
+
+  if (!config) {
+    return null;
+  }
+
+  const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const periodEntry = config.billingPeriods.find((p) => p.period === currentPeriod);
+
+  if (!periodEntry) {
+    return {
+      period: currentPeriod,
+      subscriptionCost: config.monthlyCost || 0,
+      apiOverageCost: 0,
+      totalCost: config.monthlyCost || 0,
+    };
+  }
+
+  return periodEntry;
+}
+
+/**
  * Get overall token/cost summary across all streams
  */
 export function getTokenSummary(): TokenSummary {
@@ -128,6 +192,15 @@ export function getTokenSummary(): TokenSummary {
   let totalStories = 0;
   const byStream: StreamTokenSummary[] = [];
   const byModel: Record<string, TokenMetrics> = {};
+
+  // Phase 4.1: Track cache tokens, data quality, and model attribution
+  let totalCacheCreation = 0;
+  let totalCacheRead = 0;
+  let highConfidenceRuns = 0;
+  let mediumConfidenceRuns = 0;
+  let lowConfidenceRuns = 0;
+  const modelRuns: Record<string, number> = { opus: 0, sonnet: 0, haiku: 0, unknown: 0 };
+  const modelCosts: Record<string, number> = { opus: 0, sonnet: 0, haiku: 0, unknown: 0 };
 
   for (const stream of streams) {
     const cache = loadTokenCache(stream.path);
@@ -170,6 +243,42 @@ export function getTokenSummary(): TokenSummary {
       avgCostPerStory: storyCount > 0 ? roundCost(streamCost / storyCount) : 0,
     });
 
+    // Phase 4.1: Aggregate cache tokens, data quality, and model attribution
+    if (cache.runs) {
+      for (const run of cache.runs) {
+        // Cache tokens
+        if (run.cacheCreationInputTokens) {
+          totalCacheCreation += run.cacheCreationInputTokens;
+        }
+        if (run.cacheReadInputTokens) {
+          totalCacheRead += run.cacheReadInputTokens;
+        }
+
+        // Data quality (confidence levels)
+        if (run.estimated) {
+          lowConfidenceRuns++;
+        } else if (run.confidence === "high") {
+          highConfidenceRuns++;
+        } else if (run.confidence === "medium") {
+          mediumConfidenceRuns++;
+        } else if (run.model && run.model !== "null" && run.model !== "unknown") {
+          highConfidenceRuns++; // Has valid model = high confidence
+        } else {
+          mediumConfidenceRuns++; // No confidence field but not estimated
+        }
+
+        // Model attribution
+        const model = run.model && run.model !== "null" ? run.model : "unknown";
+        if (modelRuns[model] !== undefined) {
+          modelRuns[model]++;
+          modelCosts[model] += run.cost || 0;
+        } else if (model === "unknown") {
+          modelRuns.unknown++;
+          modelCosts.unknown += run.cost || 0;
+        }
+      }
+    }
+
     // Aggregate by model
     if (cache.byModel) {
       for (const [model, metrics] of Object.entries(cache.byModel)) {
@@ -195,6 +304,65 @@ export function getTokenSummary(): TokenSummary {
     }
   }
 
+  // Phase 4.1: Calculate cache token savings (cache read is 10% of input cost)
+  const avgInputPrice = 3; // Sonnet input price (most common model)
+  const fullCost = (totalCacheRead / 1_000_000) * avgInputPrice;
+  const cacheCost = (totalCacheRead / 1_000_000) * (avgInputPrice * 0.1);
+  const cacheTokenSavings = roundCost(fullCost - cacheCost);
+
+  // Phase 4.1: Calculate data quality score
+  const totalConfidenceRuns = highConfidenceRuns + mediumConfidenceRuns;
+  const dataQualityScore = totalRuns > 0 ? Math.round((totalConfidenceRuns / totalRuns) * 100) : 0;
+
+  // Phase 4.1: Calculate model attribution percentages
+  const totalModelRuns = modelRuns.opus + modelRuns.sonnet + modelRuns.haiku + modelRuns.unknown;
+  const modelAttribution = {
+    opus: {
+      runs: modelRuns.opus,
+      percentage: totalModelRuns > 0 ? Math.round((modelRuns.opus / totalModelRuns) * 100) : 0,
+      cost: roundCost(modelCosts.opus),
+    },
+    sonnet: {
+      runs: modelRuns.sonnet,
+      percentage: totalModelRuns > 0 ? Math.round((modelRuns.sonnet / totalModelRuns) * 100) : 0,
+      cost: roundCost(modelCosts.sonnet),
+    },
+    haiku: {
+      runs: modelRuns.haiku,
+      percentage: totalModelRuns > 0 ? Math.round((modelRuns.haiku / totalModelRuns) * 100) : 0,
+      cost: roundCost(modelCosts.haiku),
+    },
+    unknown: {
+      runs: modelRuns.unknown,
+      percentage: totalModelRuns > 0 ? Math.round((modelRuns.unknown / totalModelRuns) * 100) : 0,
+      cost: roundCost(modelCosts.unknown),
+    },
+  };
+
+  // Phase 4.3: Get subscription billing breakdown
+  const billingBreakdown = getCurrentBillingBreakdown(ralphRoot);
+  const subscription = billingBreakdown
+    ? {
+        period: billingBreakdown.period,
+        subscriptionCost: billingBreakdown.subscriptionCost,
+        apiOverageCost: billingBreakdown.apiOverageCost,
+        totalCost: billingBreakdown.totalCost,
+        trackedApiCost: roundCost(totalCost),
+        trackingAccuracy:
+          billingBreakdown.apiOverageCost > 0
+            ? Math.round((totalCost / billingBreakdown.apiOverageCost) * 100)
+            : null,
+        trackingMessage:
+          billingBreakdown.apiOverageCost > 0
+            ? totalCost / billingBreakdown.apiOverageCost >= 0.8
+              ? "Good tracking accuracy"
+              : totalCost / billingBreakdown.apiOverageCost >= 0.5
+                ? "Moderate tracking accuracy"
+                : "Low tracking accuracy"
+            : null,
+      }
+    : undefined;
+
   return {
     totalInputTokens,
     totalOutputTokens,
@@ -203,6 +371,25 @@ export function getTokenSummary(): TokenSummary {
     avgCostPerRun: totalRuns > 0 ? roundCost(totalCost / totalRuns) : 0,
     byStream,
     byModel,
+    // Phase 4.1 enhancements
+    cacheTokens: {
+      totalCacheCreation,
+      totalCacheRead,
+      estimatedSavings: cacheTokenSavings,
+    },
+    dataQuality: {
+      qualityScore: dataQualityScore,
+      highConfidenceRuns,
+      mediumConfidenceRuns,
+      lowConfidenceRuns,
+      totalRuns,
+      highConfidencePercentage: totalRuns > 0 ? Math.round((highConfidenceRuns / totalRuns) * 100) : 0,
+      mediumConfidencePercentage:
+        totalRuns > 0 ? Math.round((mediumConfidenceRuns / totalRuns) * 100) : 0,
+      lowConfidencePercentage: totalRuns > 0 ? Math.round((lowConfidenceRuns / totalRuns) * 100) : 0,
+    },
+    modelAttribution,
+    subscription,
   };
 }
 

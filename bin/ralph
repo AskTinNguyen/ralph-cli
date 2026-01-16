@@ -479,6 +479,8 @@ async function main() {
     "ui", "stats", "checkpoint", "eval", "estimate", "improve",
     // Budget Management (US-008)
     "budget",
+    // Cost Audit (Token Cost Analysis)
+    "audit",
     // Diagnostics & Experimentation
     "diagnose", "experiment", "watch", "optimize",
     // Project & Knowledge Management
