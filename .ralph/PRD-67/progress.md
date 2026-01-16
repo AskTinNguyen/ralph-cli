@@ -1167,3 +1167,62 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-it
   - CLI --build mode useful for testing without writing files
   - Same CLI interface (prd-folder json-data) ensures drop-in replacement
 ---
+
+## [2026-01-16 17:50] - US-015: Extract story selection to TypeScript
+Thread: 
+Run: 20260116-160954-10574 (iteration 15)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-15.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-15.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 4205933 feat(story): extract story selection to TypeScript (US-015)
+- Post-commit status: `clean`
+- Verification:
+  - Command: node tests/test-story.js -> PASS (41/41 tests)
+  - Command: node lib/story/cli.js --help -> PASS
+  - Command: node lib/story/cli.js select .ralph/PRD-67/prd.md -> PASS (returns US-015)
+  - Command: bash -n .agents/ralph/loop.sh -> PASS (syntax check)
+- Files changed:
+  - lib/story/parser.js (new, 238 lines)
+  - lib/story/index.js (new, 381 lines)
+  - lib/story/cli.js (new, 261 lines)
+  - tests/test-story.js (new, 604 lines)
+  - .agents/ralph/loop.sh (modified, +127 lines)
+- What was implemented:
+  - **Story Parser** (lib/story/parser.js):
+    - `parseStories()` and `parseStoriesFromFile()` functions
+    - Parses plan.md/prd.md into structured Story objects
+    - Handles checkbox status ([ ], [x], [X]) and stories without checkbox
+    - Exports StoryStatus enum, STORY_PATTERN regex
+  - **Story Selection Module** (lib/story/index.js):
+    - `selectNextStory()` returns first uncompleted story
+    - Atomic locking via `acquireLock()`, `releaseLock()`, `checkStaleLock()`
+    - `selectAndLock()` performs atomic lock+parse+select+release
+    - Stale lock detection using PID file and process check
+    - Configurable timeout (30s default) and poll interval (100ms)
+    - Helper functions: isCompleted, isPending, getRemaining, getCompleted, findById, getSummary
+  - **CLI Wrapper** (lib/story/cli.js):
+    - `select-and-lock <prd_path> [meta_out] [block_out]` - atomic selection for parallel builds
+    - `select <prd_path> [meta_out] [block_out]` - non-locking selection
+    - `list <prd_path>` - list all stories with status
+    - `remaining <prd_path>` - count of remaining stories
+    - `field <meta_file> <field_name>` - extract field from metadata JSON
+    - Supports file output for bash integration
+  - **Unit Tests** (tests/test-story.js):
+    - 41 tests covering parsing, selection, locking, utilities
+    - Race condition tests with 5-10 concurrent selections
+    - Stale lock detection tests
+    - All tests pass
+  - **Loop Integration** (.agents/ralph/loop.sh):
+    - Updated select_story() to prefer TypeScript CLI when available
+    - Updated remaining_stories() with TypeScript/jq/Python fallback chain
+    - Updated story_field() with TypeScript/jq/Python fallback chain
+    - Updated select_story_locked() to use atomic select-and-lock
+    - Backward compatible - falls back to Python if Node.js not available
+- **Learnings for future iterations:**
+  - mkdir is atomic on POSIX systems - good for cross-platform locking
+  - PID file in lock directory enables stale lock detection
+  - jq fallback is faster than Python for simple field extraction
+  - Existing test-story.js was already comprehensive - no need to duplicate tests
+  - TypeScript/JavaScript CLI provides better error handling than inline Python in bash
+---
