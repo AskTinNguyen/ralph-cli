@@ -514,10 +514,12 @@ run_agent_with_retry() {
       # All retries exhausted - log final failure
       log_activity "RETRY_EXHAUSTED iteration=$iteration total_attempts=$max_attempts final_exit_code=$exit_status total_retry_time=${total_retry_time}s"
 
-      # Log retry exhausted as error event (US-002)
+      # Log retry exhausted as error event with context (US-002 + US-004)
       if [ -n "${PRD_FOLDER:-}" ]; then
-        log_event_error "$PRD_FOLDER" "All retries exhausted" "iteration=$iteration attempts=$max_attempts exit_code=$exit_status"
-        display_event "ERROR" "All retries exhausted" "iteration=$iteration attempts=$max_attempts"
+        local retry_error_context
+        retry_error_context=$(extract_error_context "$log_file")
+        log_event_error_with_context "$PRD_FOLDER" "All retries exhausted" "exit_code=$exit_status" "$log_file" "$iteration" "${STORY_ID:-}" "${CURRENT_AGENT:-}"
+        display_error_with_context "All retries exhausted" "iteration=$iteration attempts=$max_attempts exit_code=$exit_status" "$retry_error_context"
       fi
 
       {
@@ -3403,10 +3405,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
 
-    # Log error event to .events.log (US-002)
+    # Log error event with context to .events.log (US-002 + US-004)
     PRD_FOLDER="$(dirname "$PRD_PATH")"
-    log_event_error "$PRD_FOLDER" "Iteration failed" "iteration=$i story=${STORY_ID:-plan} exit_code=$CMD_STATUS"
-    display_event "ERROR" "Iteration $i failed" "story=${STORY_ID:-plan} exit_code=$CMD_STATUS"
+    local error_context
+    error_context=$(extract_error_context "$LOG_FILE")
+    log_event_error_with_context "$PRD_FOLDER" "Iteration failed" "exit_code=$CMD_STATUS" "$LOG_FILE" "$i" "${STORY_ID:-plan}" "$CURRENT_AGENT"
+    display_error_with_context "Iteration $i failed" "story=${STORY_ID:-plan} exit_code=$CMD_STATUS agent=$CURRENT_AGENT" "$error_context"
 
     # Track failure for agent switching (US-001)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
@@ -3418,9 +3422,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           # Fix P0.5: Agent fallback chain exhausted - all agents failed
           msg_error "Agent fallback chain exhausted - all agents failed for story $STORY_ID"
           log_error "CHAIN_EXHAUSTED story=$STORY_ID - manual intervention required"
-          # Log chain exhausted as error event (US-002)
-          log_event_error "$PRD_FOLDER" "Agent fallback chain exhausted" "story=$STORY_ID"
-          display_event "ERROR" "Agent fallback chain exhausted" "story=$STORY_ID"
+          # Log chain exhausted as error event with context (US-002 + US-004)
+          local chain_error_context
+          chain_error_context=$(extract_error_context "$LOG_FILE")
+          log_event_error_with_context "$PRD_FOLDER" "Agent fallback chain exhausted" "" "$LOG_FILE" "$i" "$STORY_ID" "$CURRENT_AGENT"
+          display_error_with_context "Agent fallback chain exhausted" "story=$STORY_ID iteration=$i" "$chain_error_context"
           # Continue to next iteration rather than infinite loop
           # Story remains unchecked and can be retried manually later
         else
@@ -3727,10 +3733,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
               log_activity "MAX_RETRIES_EXHAUSTED story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
               log_error "MAX_RETRIES_EXHAUSTED story=$STORY_ID - manual intervention required"
-              # Log max retries exhausted as error event (US-002)
+              # Log max retries exhausted as error event with context (US-002 + US-004)
               PRD_FOLDER="$(dirname "$PRD_PATH")"
-              log_event_error "$PRD_FOLDER" "Max retries exhausted" "story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
-              display_event "ERROR" "Max retries exhausted" "story=$STORY_ID attempts=$CURRENT_RETRY_COUNT"
+              local max_retry_error_context
+              max_retry_error_context=$(extract_error_context "${FAILURE_CONTEXT_FILE:-$LOG_FILE}")
+              log_event_error_with_context "$PRD_FOLDER" "Max retries exhausted" "attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX" "${FAILURE_CONTEXT_FILE:-$LOG_FILE}" "$i" "$STORY_ID" "$CURRENT_AGENT"
+              display_error_with_context "Max retries exhausted" "story=$STORY_ID attempts=$CURRENT_RETRY_COUNT agent=$CURRENT_AGENT" "$max_retry_error_context"
               # Log max retries exhausted for history tracking (US-004)
               log_rollback "${STORY_ID:-unknown}" "max_retries_exhausted" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "false" "$FAILURE_CONTEXT_FILE"
 
@@ -3746,10 +3754,12 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         else
           log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
           msg_error "Rollback failed - manual intervention may be required"
-          # Log rollback failure as error event (US-002)
+          # Log rollback failure as error event with context (US-002 + US-004)
           PRD_FOLDER="$(dirname "$PRD_PATH")"
-          log_event_error "$PRD_FOLDER" "Rollback failed" "story=${STORY_ID:-unknown} trigger=${ROLLBACK_TRIGGER:-test-fail}"
-          display_event "ERROR" "Rollback failed" "story=${STORY_ID:-unknown}"
+          local rollback_error_context
+          rollback_error_context=$(extract_error_context "${FAILURE_CONTEXT_FILE:-$LOG_FILE}")
+          log_event_error_with_context "$PRD_FOLDER" "Rollback failed" "trigger=${ROLLBACK_TRIGGER:-test-fail}" "${FAILURE_CONTEXT_FILE:-$LOG_FILE}" "$i" "${STORY_ID:-unknown}" "$CURRENT_AGENT"
+          display_error_with_context "Rollback failed" "story=${STORY_ID:-unknown} trigger=${ROLLBACK_TRIGGER:-test-fail} agent=$CURRENT_AGENT" "$rollback_error_context"
           # Log failed rollback for history tracking (US-004)
           log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "false" "${FAILURE_CONTEXT_FILE:-}"
 
