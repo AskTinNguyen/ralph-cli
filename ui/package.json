@@ -26,6 +26,7 @@
   "license": "MIT",
   "dependencies": {
     "@hono/node-server": "^1.19.7",
+    "chart.js": "^4.5.1",
     "hono": "^4.11.1",
     "marked": "^15.0.0"
   },

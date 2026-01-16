@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/css/rams-ui.css">
   <script src="/js/htmx.min.js"></script>
   <script src="/js/htmx-ext-sse.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body class="rams-page" hx-ext="sse" sse-connect="/api/events">
 
@@ -77,6 +78,7 @@
           hx-get="/api/partials/status-indicator"
           hx-trigger="load, every 5s, sse:run_started, sse:run_completed"
           hx-swap="innerHTML"
+          hx-timeout="5000"
         ></div>
       </div>
     </div>
@@ -84,243 +86,220 @@
     <!-- Content Area -->
     <article class="rams-content">
 
-      <!-- Command Center Section -->
+      <!-- Critical Alerts Banner -->
+      <section class="rams-section">
+        <div
+          id="critical-alerts-container"
+          hx-get="/api/partials/critical-alerts"
+          hx-trigger="load, every 60s, sse:run_completed, sse:budget_exceeded, sse:file_changed"
+          hx-swap="innerHTML transition:true"
+          hx-timeout="10000"
+          class="sse-updatable"
+        >
+          <!-- Critical alerts appear when issues require attention -->
+        </div>
+      </section>
+
+      <!-- Dashboard Overview Header -->
       <section class="rams-section">
         <div class="rams-section-header">
-          <h2 class="rams-h2">Command Center</h2>
+          <h1 class="rams-h1">Dashboard Overview</h1>
+          <div class="rams-topbar-actions">
+            <a href="/streams.html?new=true" class="rams-btn rams-btn-primary">
+              + New Stream
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aggregate Metrics Cards -->
+      <section class="rams-section">
+        <div class="dashboard-metrics-grid">
+          <!-- Total Cost Card -->
+          <div
+            id="cost-summary-card"
+            hx-get="/api/partials/cost-summary-card"
+            hx-trigger="load, every 60s, sse:cost_updated, sse:run_completed"
+            hx-swap="innerHTML transition:true swap:0.2s"
+            hx-timeout="10000"
+            class="sse-updatable"
+            style="position: relative;"
+          >
+            <!-- Skeleton Loader -->
+            <div class="rams-card skeleton-card skeleton-metric-card">
+              <div class="skeleton skeleton-metric-label"></div>
+              <div class="skeleton skeleton-metric-value"></div>
+              <div class="skeleton skeleton-progress-bar"></div>
+              <div class="skeleton skeleton-text" style="width: 80%;"></div>
+              <div class="skeleton skeleton-text" style="width: 60%;"></div>
+            </div>
+          </div>
+
+          <!-- Success Rate Card -->
+          <div
+            id="success-rate-card"
+            hx-get="/api/partials/success-rate-card"
+            hx-trigger="load, every 60s, sse:run_completed"
+            hx-swap="innerHTML transition:true swap:0.2s"
+            hx-timeout="10000"
+            class="sse-updatable"
+            style="position: relative;"
+          >
+            <!-- Skeleton Loader -->
+            <div class="rams-card skeleton-card skeleton-metric-card">
+              <div class="skeleton skeleton-metric-label"></div>
+              <div class="skeleton skeleton-metric-value"></div>
+              <div class="skeleton skeleton-text" style="width: 70%;"></div>
+            </div>
+          </div>
+
+          <!-- Active Streams Card -->
+          <div
+            id="active-streams-card"
+            hx-get="/api/partials/active-streams-card"
+            hx-trigger="load, every 10s, sse:run_started, sse:run_completed, sse:stream_updated"
+            hx-swap="innerHTML transition:true swap:0.2s"
+            hx-timeout="10000"
+            class="sse-updatable"
+            style="position: relative;"
+          >
+            <!-- Skeleton Loader -->
+            <div class="rams-card skeleton-card skeleton-metric-card">
+              <div class="skeleton skeleton-metric-label"></div>
+              <div class="skeleton skeleton-metric-value"></div>
+              <div class="skeleton skeleton-text" style="width: 65%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Streams Grid -->
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">Active Streams</h2>
+          <div style="display: flex; gap: var(--rams-space-2);">
+            <button
+              class="rams-btn rams-btn-secondary rams-btn-sm"
+              onclick="filterStreamGrid('all')"
+            >
+              All
+            </button>
+            <button
+              class="rams-btn rams-btn-secondary rams-btn-sm"
+              onclick="filterStreamGrid('running')"
+            >
+              Running
+            </button>
+            <button
+              class="rams-btn rams-btn-secondary rams-btn-sm"
+              onclick="filterStreamGrid('ready')"
+            >
+              Ready
+            </button>
+            <button
+              class="rams-btn rams-btn-secondary rams-btn-sm"
+              onclick="filterStreamGrid('completed')"
+            >
+              Completed
+            </button>
+          </div>
         </div>
 
-        <div class="rams-card">
-          <!-- Build Controls -->
-          <div class="rams-form-grid">
-            <div class="rams-form-group">
-              <label for="iterations" class="rams-form-label">Iterations</label>
-              <input
-                type="number"
-                id="iterations"
-                name="iterations"
-                value="5"
-                min="1"
-                max="100"
-                class="rams-input"
-              />
+        <div
+          id="streams-grid-container"
+          hx-get="/api/partials/streams-grid"
+          hx-trigger="load, every 10s, sse:run_started, sse:run_completed, sse:stream_updated"
+          hx-swap="innerHTML transition:true swap:0.2s"
+          hx-timeout="15000"
+          class="sse-updatable"
+          style="position: relative;"
+        >
+          <!-- Skeleton Loaders for Stream Cards -->
+          <div class="dashboard-streams-grid">
+            <div class="rams-card skeleton-card skeleton-stream-card">
+              <div class="skeleton skeleton-title"></div>
+              <div class="skeleton skeleton-progress-bar"></div>
+              <div class="skeleton skeleton-text"></div>
+              <div class="skeleton skeleton-text" style="width: 80%;"></div>
             </div>
+            <div class="rams-card skeleton-card skeleton-stream-card">
+              <div class="skeleton skeleton-title"></div>
+              <div class="skeleton skeleton-progress-bar"></div>
+              <div class="skeleton skeleton-text"></div>
+              <div class="skeleton skeleton-text" style="width: 80%;"></div>
+            </div>
+            <div class="rams-card skeleton-card skeleton-stream-card">
+              <div class="skeleton skeleton-title"></div>
+              <div class="skeleton skeleton-progress-bar"></div>
+              <div class="skeleton skeleton-text"></div>
+              <div class="skeleton skeleton-text" style="width: 80%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <div class="rams-form-group">
-              <label for="agent" class="rams-form-label">Agent</label>
-              <select id="agent" name="agent" class="rams-select">
-                <option value="claude" selected>Claude</option>
-                <option value="codex">Codex</option>
-                <option value="droid">Droid</option>
-              </select>
-              <div id="agent-warning" class="rams-form-hint rams-hidden" style="margin-top: var(--rams-space-1); color: var(--rams-warning, #f59e0b); font-size: 0.875rem;">
-                Agent not installed
+      <!-- Trends Section -->
+      <section class="rams-section">
+        <div class="rams-section-header">
+          <h2 class="rams-h2">Trends</h2>
+          <a href="/trends.html" class="rams-btn rams-btn-secondary rams-btn-sm">
+            View Full →
+          </a>
+        </div>
+
+        <div class="dashboard-trends-grid">
+          <!-- Cost Trend Chart -->
+          <div class="rams-card">
+            <div class="chart-controls">
+              <div class="chart-title">Cost Trend</div>
+              <div class="chart-period-selector">
+                <button class="chart-period-btn active" data-chart="cost" data-period="7d">7d</button>
+                <button class="chart-period-btn" data-chart="cost" data-period="30d">30d</button>
               </div>
             </div>
-
-            <div class="rams-form-group">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--rams-space-1);">
-                <label for="stream" class="rams-form-label" style="margin-bottom: 0;">Stream</label>
-                <button
-                  type="button"
-                  id="stream-view-toggle"
-                  class="rams-btn rams-btn-secondary"
-                  onclick="toggleStreamView()"
-                  style="padding: var(--rams-space-1) var(--rams-space-2); font-size: 0.75rem; height: auto;"
-                  title="Toggle between Current View and Completion Progress View"
-                >
-                  📊 Progress View
-                </button>
+            <div class="chart-container" style="position: relative;">
+              <canvas id="cost-chart" class="chart-canvas"></canvas>
+              <!-- Skeleton loader shown until chart initializes -->
+              <div class="chart-skeleton" id="cost-chart-skeleton">
+                <div class="skeleton skeleton-chart"></div>
               </div>
-              <input
-                type="text"
-                id="stream-search"
-                placeholder="Search streams..."
-                class="rams-input"
-                style="margin-bottom: var(--rams-space-1); font-size: 0.875rem;"
-                oninput="filterStreams(this.value)"
-              />
-              <select
-                id="stream"
-                name="stream"
-                class="rams-select"
-                hx-get="/api/partials/stream-options"
-                hx-trigger="load"
-                hx-swap="innerHTML"
-                size="6"
-                style="height: auto;"
-              >
-                <option value="">Default (latest)</option>
-              </select>
-            </div>
-
-            <div class="rams-form-group rams-form-group-flex-end">
-              <label class="rams-checkbox-label">
-                <input type="checkbox" id="no-commit" name="noCommit" class="rams-checkbox" />
-                <span class="rams-text-sm">Dry run (no commit)</span>
-              </label>
             </div>
           </div>
 
-          <!-- Action Buttons -->
-          <div class="rams-action-group">
-            <button
-              type="button"
-              id="start-build-btn"
-              class="rams-btn rams-btn-primary"
-              hx-post="/api/build/start"
-              hx-vals="js:{iterations: parseInt(document.getElementById('iterations').value), agent: document.getElementById('agent').value, stream: document.getElementById('stream').value || undefined, noCommit: document.getElementById('no-commit').checked}"
-              hx-target="#build-status-container"
-              hx-swap="innerHTML"
-              hx-indicator="#build-indicator"
-            >
-              <span class="btn-text">Start Build</span>
-              <span class="htmx-indicator" id="build-indicator">
-                <span class="rams-spinner"></span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              id="stop-build-btn"
-              class="rams-btn rams-btn-danger"
-              disabled
-              hx-post="/api/build/stop"
-              hx-target="#build-status-container"
-              hx-swap="innerHTML"
-            >
-              Stop Build
-            </button>
-          </div>
-
-          <!-- Build Status -->
-          <div class="rams-status-box">
-            <div class="rams-label">Build Status</div>
-            <div
-              id="build-status-container"
-              hx-get="/api/partials/build-status"
-              hx-trigger="load, every 3s, sse:run_started, sse:run_completed"
-              hx-swap="innerHTML"
-            >
-              <span class="rams-badge rams-badge-idle">
-                <span class="rams-badge-dot"></span>
-                Idle
-              </span>
+          <!-- Velocity Trend Chart -->
+          <div class="rams-card">
+            <div class="chart-controls">
+              <div class="chart-title">Velocity</div>
+              <div class="chart-period-selector">
+                <button class="chart-period-btn active" data-chart="velocity" data-period="7d">7d</button>
+                <button class="chart-period-btn" data-chart="velocity" data-period="30d">30d</button>
+              </div>
+            </div>
+            <div class="chart-container" style="position: relative;">
+              <canvas id="velocity-chart" class="chart-canvas"></canvas>
+              <!-- Skeleton loader shown until chart initializes -->
+              <div class="chart-skeleton" id="velocity-chart-skeleton">
+                <div class="skeleton skeleton-chart"></div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- Checkpoint Banner Section (US-006) -->
-      <section class="rams-section" id="checkpoint-section">
-        <div
-          id="checkpoint-container"
-          hx-get="/api/partials/checkpoint-banner"
-          hx-trigger="load, every 10s, sse:run_started, sse:run_completed, sse:file_changed"
-          hx-swap="innerHTML transition:true"
-          class="sse-updatable"
-        >
-          <!-- Checkpoint banner appears when .checkpoint.json exists -->
-        </div>
-      </section>
-
-      <!-- Cost Display Section (US-007) -->
-      <section class="rams-section" id="cost-section">
-        <div
-          id="cost-container"
-          hx-get="/api/partials/cost-display"
-          hx-trigger="load, every 10s, sse:run_completed, sse:file_changed"
-          hx-swap="innerHTML transition:true"
-          class="sse-updatable"
-        >
-          <!-- Cost display appears when .cost.json exists -->
-        </div>
-      </section>
-
-      <!-- Budget Display Section (US-008) -->
-      <section class="rams-section" id="budget-section">
-        <div
-          id="budget-container"
-          hx-get="/api/partials/budget-display"
-          hx-trigger="load, every 10s, sse:run_completed, sse:file_changed"
-          hx-swap="innerHTML transition:true"
-          class="sse-updatable"
-        >
-          <!-- Budget display appears when .budget.json exists -->
-        </div>
-      </section>
-
-      <!-- Live Status Widget Section (US-003) -->
-      <section class="rams-section" id="live-status-section">
-        <div
-          id="live-status-container"
-          hx-get="/api/partials/live-status-widget"
-          hx-trigger="load, every 2s, sse:status_updated, sse:events_updated, sse:run_started, sse:run_completed"
-          hx-swap="innerHTML transition:true"
-          class="sse-updatable"
-        >
-          <!-- Widget appears/hides based on build state -->
-        </div>
-      </section>
-
-      <!-- Progress Section -->
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">
-            Overall Progress
-            <span class="htmx-indicator" id="progress-indicator">
-              <span class="rams-spinner"></span>
-            </span>
-          </h2>
-        </div>
-        <div
-          id="progress-container"
-          hx-get="/api/partials/progress"
-          hx-trigger="load, every 5s, sse:progress_updated, sse:file_changed, sse:run_completed"
-          hx-swap="innerHTML transition:true"
-          hx-indicator="#progress-indicator"
-          class="sse-updatable"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading progress...
-          </div>
-        </div>
-      </section>
-
-      <!-- User Stories Section -->
-      <section class="rams-section">
-        <div class="rams-section-header">
-          <h2 class="rams-h2">
-            User Stories
-            <span class="htmx-indicator" id="stories-indicator">
-              <span class="rams-spinner"></span>
-            </span>
-          </h2>
-        </div>
-        <div
-          id="stories-container"
-          hx-get="/api/partials/stories"
-          hx-trigger="load, every 5s, sse:progress_updated, sse:file_changed, sse:story_updated"
-          hx-swap="innerHTML transition:true"
-          hx-indicator="#stories-indicator"
-          class="sse-updatable"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading stories...
-          </div>
-        </div>
-      </section>
-
-      <!-- Accuracy Metrics Section -->
-      <section class="rams-section">
-        <div
-          id="accuracy-container"
-          hx-get="/api/partials/accuracy-widget"
-          hx-trigger="load, every 60s, sse:run_completed"
-          hx-swap="innerHTML transition:true"
-        >
-          <div class="rams-loading">
-            <span class="rams-spinner"></span> Loading accuracy metrics...
+          <!-- Success Rate Trend Chart -->
+          <div class="rams-card">
+            <div class="chart-controls">
+              <div class="chart-title">Success Rate</div>
+              <div class="chart-period-selector">
+                <button class="chart-period-btn active" data-chart="success" data-period="7d">7d</button>
+                <button class="chart-period-btn" data-chart="success" data-period="30d">30d</button>
+              </div>
+            </div>
+            <div class="chart-container" style="position: relative;">
+              <canvas id="success-chart" class="chart-canvas"></canvas>
+              <!-- Skeleton loader shown until chart initializes -->
+              <div class="chart-skeleton" id="success-chart-skeleton">
+                <div class="skeleton skeleton-chart"></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -374,131 +353,30 @@
     document.body.addEventListener("htmx:sseOpen", function (event) {
       console.log("[SSE] Connected to event stream");
       var banner = document.getElementById("connection-banner");
-      banner.classList.add("rams-hidden");
+      if (banner) banner.classList.add("rams-hidden");
     });
 
     document.body.addEventListener("htmx:sseError", function (event) {
       console.warn("[SSE] Connection error, will retry...");
       var banner = document.getElementById("connection-banner");
-      banner.classList.remove("rams-hidden");
+      if (banner) banner.classList.remove("rams-hidden");
     });
 
-    // Build Button State Management
-    function updateBuildButtons(isRunning) {
-      var startBtn = document.getElementById("start-build-btn");
-      var stopBtn = document.getElementById("stop-build-btn");
-      var inputs = document.querySelectorAll(".rams-input, .rams-select, .rams-checkbox");
+    // Stream Grid Filtering
+    function filterStreamGrid(filter) {
+      var container = document.getElementById('streams-grid-container');
+      if (!container) return;
 
-      if (isRunning) {
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        inputs.forEach(function (input) {
-          input.disabled = true;
-        });
-      } else {
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        inputs.forEach(function (input) {
-          input.disabled = false;
-        });
+      var url = '/api/partials/streams-grid';
+      if (filter && filter !== 'all') {
+        url += '?filter=' + filter;
       }
+
+      container.setAttribute('hx-get', url);
+      htmx.process(container);
+      htmx.trigger(container, 'load');
     }
 
-    document.body.addEventListener("htmx:afterSwap", function (event) {
-      if (event.detail.target && event.detail.target.id === "build-status-container") {
-        var statusEl = event.detail.target.querySelector(".rams-badge-running");
-        updateBuildButtons(!!statusEl);
-      }
-    });
-
-    // Stream Selector Integration
-    document.getElementById("stream").addEventListener("change", function (e) {
-      var streamId = e.target.value;
-      var progressContainer = document.getElementById("progress-container");
-      var storiesContainer = document.getElementById("stories-container");
-      var liveStatusContainer = document.getElementById("live-status-container");
-      var checkpointContainer = document.getElementById("checkpoint-container");
-      var costContainer = document.getElementById("cost-container");
-      var budgetContainer = document.getElementById("budget-container");
-
-      var progressUrl = "/api/partials/progress" + (streamId ? "?streamId=" + streamId : "");
-      var storiesUrl = "/api/partials/stories" + (streamId ? "?streamId=" + streamId : "");
-      var liveStatusUrl = "/api/partials/live-status-widget" + (streamId ? "?streamId=" + streamId : "");
-      var checkpointUrl = "/api/partials/checkpoint-banner" + (streamId ? "?streamId=" + streamId : "");
-      var costUrl = "/api/partials/cost-display" + (streamId ? "?streamId=" + streamId : "");
-      var budgetUrl = "/api/partials/budget-display" + (streamId ? "?streamId=" + streamId : "");
-
-      progressContainer.setAttribute("hx-get", progressUrl);
-      storiesContainer.setAttribute("hx-get", storiesUrl);
-      liveStatusContainer.setAttribute("hx-get", liveStatusUrl);
-      checkpointContainer.setAttribute("hx-get", checkpointUrl);
-      costContainer.setAttribute("hx-get", costUrl);
-      budgetContainer.setAttribute("hx-get", budgetUrl);
-
-      htmx.process(progressContainer);
-      htmx.process(storiesContainer);
-      htmx.process(liveStatusContainer);
-      htmx.process(checkpointContainer);
-      htmx.process(costContainer);
-      htmx.process(budgetContainer);
-
-      htmx.trigger(progressContainer, "load");
-      htmx.trigger(storiesContainer, "load");
-      htmx.trigger(liveStatusContainer, "load");
-      htmx.trigger(checkpointContainer, "load");
-      htmx.trigger(costContainer, "load");
-      htmx.trigger(budgetContainer, "load");
-    });
-
-    // Stream View Toggle
-    var streamViewMode = localStorage.getItem("streamViewMode") || "current";
-
-    function toggleStreamView() {
-      var toggleBtn = document.getElementById("stream-view-toggle");
-      var streamSelect = document.getElementById("stream");
-      var currentSelection = streamSelect.value;
-
-      // Toggle the view mode
-      streamViewMode = streamViewMode === "current" ? "progress" : "current";
-      localStorage.setItem("streamViewMode", streamViewMode);
-
-      // Update button text and appearance
-      if (streamViewMode === "progress") {
-        toggleBtn.innerHTML = "📋 Current View";
-        toggleBtn.title = "Switch to Current View";
-      } else {
-        toggleBtn.innerHTML = "📊 Progress View";
-        toggleBtn.title = "Switch to Completion Progress View";
-      }
-
-      // Reload the stream options with the new view
-      var newUrl = "/api/partials/stream-options?view=" + streamViewMode;
-      streamSelect.setAttribute("hx-get", newUrl);
-      htmx.process(streamSelect);
-      htmx.trigger(streamSelect, "load");
-
-      // Restore the selection after options are loaded
-      setTimeout(function() {
-        if (currentSelection) {
-          streamSelect.value = currentSelection;
-        }
-      }, 100);
-    }
-
-    // Initialize view on page load
-    document.addEventListener("DOMContentLoaded", function() {
-      var toggleBtn = document.getElementById("stream-view-toggle");
-      var streamSelect = document.getElementById("stream");
-
-      if (streamViewMode === "progress") {
-        toggleBtn.innerHTML = "📋 Current View";
-        toggleBtn.title = "Switch to Current View";
-        streamSelect.setAttribute("hx-get", "/api/partials/stream-options?view=progress");
-      } else {
-        toggleBtn.innerHTML = "📊 Progress View";
-        toggleBtn.title = "Switch to Completion Progress View";
-      }
-    });
 
     // Error Toast Management
     var lastFailedRequest = null;
@@ -562,174 +440,9 @@
       showErrorToast("Request timed out. The server may be busy.", path);
     });
 
-    // Agent Availability Checking
-    var agentAvailability = {};
-
-    function loadAgentAvailability() {
-      fetch('/api/agents')
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-          agentAvailability = data;
-          updateAgentSelect();
-        })
-        .catch(function(error) {
-          console.warn('[Agent Check] Failed to load agent availability:', error);
-        });
-    }
-
-    function updateAgentSelect() {
-      var select = document.getElementById('agent');
-      if (!select || !agentAvailability.agents) return;
-
-      // Update each option with availability info
-      Array.from(select.options).forEach(function(option) {
-        var agentId = option.value;
-        var agent = agentAvailability.agents.find(function(a) { return a.id === agentId; });
-
-        if (agent) {
-          if (agent.available) {
-            option.textContent = agent.name + (agent.version ? ' (v' + agent.version + ')' : '');
-            option.classList.remove('rams-option-unavailable');
-            option.title = '';
-          } else {
-            option.textContent = agent.name + ' (Not Installed)';
-            option.classList.add('rams-option-unavailable');
-            option.title = agent.suggestion || 'This agent is not installed';
-          }
-        }
-      });
-
-      // Check current selection and show warning if needed
-      checkSelectedAgent();
-    }
-
-    function checkSelectedAgent() {
-      var select = document.getElementById('agent');
-      var warning = document.getElementById('agent-warning');
-      if (!select || !agentAvailability.agents) return;
-
-      var selectedId = select.value;
-      var agent = agentAvailability.agents.find(function(a) { return a.id === selectedId; });
-
-      if (warning) {
-        if (agent && !agent.available) {
-          warning.textContent = agent.name + ' is not installed. ' + (agent.suggestion || 'Install it to use this agent.');
-          warning.classList.remove('rams-hidden');
-        } else {
-          warning.classList.add('rams-hidden');
-        }
-      }
-    }
-
-    // Listen for agent selection changes
-    document.getElementById('agent').addEventListener('change', checkSelectedAgent);
-
-    // Load agent availability on page load
-    document.addEventListener('DOMContentLoaded', loadAgentAvailability);
-
-    // Stream search/filter functionality
-    var allStreamOptions = [];
-
-    function captureStreamOptions() {
-      var select = document.getElementById('stream');
-      if (!select) return;
-
-      allStreamOptions = [];
-      Array.from(select.options).forEach(function(option) {
-        allStreamOptions.push({
-          value: option.value,
-          text: option.textContent,
-          html: option.outerHTML
-        });
-      });
-
-      // Also capture optgroups
-      var optgroups = select.querySelectorAll('optgroup');
-      optgroups.forEach(function(group) {
-        var groupLabel = group.label;
-        Array.from(group.options).forEach(function(option) {
-          var idx = allStreamOptions.findIndex(function(o) { return o.value === option.value; });
-          if (idx !== -1) {
-            allStreamOptions[idx].group = groupLabel;
-          }
-        });
-      });
-    }
-
-    function filterStreams(query) {
-      var select = document.getElementById('stream');
-      if (!select) return;
-
-      // Capture options on first filter attempt if not already captured
-      if (allStreamOptions.length === 0) {
-        captureStreamOptions();
-      }
-
-      if (allStreamOptions.length === 0) return;
-
-      var lowerQuery = query.toLowerCase().trim();
-
-      // Clear current options
-      select.innerHTML = '';
-
-      // Filter and re-add matching options
-      var matchingOptions = allStreamOptions.filter(function(opt) {
-        if (!lowerQuery) return true; // Show all if no query
-        return opt.text.toLowerCase().indexOf(lowerQuery) !== -1 ||
-               opt.value.toLowerCase().indexOf(lowerQuery) !== -1;
-      });
-
-      // Group by optgroup if present
-      var groups = {};
-      var ungrouped = [];
-
-      matchingOptions.forEach(function(opt) {
-        if (opt.group) {
-          if (!groups[opt.group]) groups[opt.group] = [];
-          groups[opt.group].push(opt);
-        } else {
-          ungrouped.push(opt);
-        }
-      });
-
-      // Add ungrouped first
-      ungrouped.forEach(function(opt) {
-        var option = document.createElement('option');
-        option.value = opt.value;
-        option.textContent = opt.text;
-        select.appendChild(option);
-      });
-
-      // Add grouped options
-      Object.keys(groups).forEach(function(groupLabel) {
-        var optgroup = document.createElement('optgroup');
-        optgroup.label = groupLabel;
-        groups[groupLabel].forEach(function(opt) {
-          var option = document.createElement('option');
-          option.value = opt.value;
-          option.textContent = opt.text;
-          optgroup.appendChild(option);
-        });
-        select.appendChild(optgroup);
-      });
-
-      // Show count in placeholder
-      if (matchingOptions.length === 0 && lowerQuery) {
-        var noMatch = document.createElement('option');
-        noMatch.value = '';
-        noMatch.textContent = 'No streams matching "' + query + '"';
-        noMatch.disabled = true;
-        select.appendChild(noMatch);
-      }
-    }
-
-    // Capture options after HTMX loads them
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-      if (event.detail.target && event.detail.target.id === 'stream') {
-        // Delay to ensure DOM is updated
-        setTimeout(captureStreamOptions, 50);
-      }
-    });
   </script>
+
+  <!-- Dashboard Charts -->
+  <script src="/js/dashboard-charts.js"></script>
 </body>
 </html>

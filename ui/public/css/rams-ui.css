@@ -2415,6 +2415,28 @@ body.sidebar-collapsed .rams-banner {
   width: 100%;
 }
 
+/* Chart Skeleton Loader */
+.chart-skeleton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--rams-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity var(--rams-transition-normal);
+}
+
+.chart-skeleton.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Loading Overlay - Doesn't Block Navigation */
 .loading-overlay {
   position: absolute;

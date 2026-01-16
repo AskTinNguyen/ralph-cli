@@ -16,6 +16,7 @@ import { getStreamEstimate } from '../services/estimate-reader.js';
 import { processManager } from '../services/process-manager.js';
 import { wizardProcessManager, type WizardOutputEvent } from '../services/wizard-process-manager.js';
 import { getSuccessRateTrends, getWeekOverWeek, getFilterOptions, formatForChart, getCostTrends, getCostTrendsWithBudget, getCostFilterOptions, formatCostForChart, formatModelBreakdownForChart, getVelocityTrends, getBurndown, getStreamVelocityComparison, formatVelocityForChart, formatBurndownForChart, formatStreamComparisonForChart, getExportData, exportToCsv } from '../services/trends.js';
+import { getCriticalAlerts } from '../services/alerts-reader.js';
 import type { ExportOptions } from '../services/trends.js';
 import { createRequire } from 'node:module';
 
@@ -2029,6 +2030,9 @@ api.get("/partials/streams", (c) => {
 
     // Build action buttons based on stream state
     let actionButtonsHtml = "";
+    let menuItemsHtml = "";
+
+    const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
     if (isRunning) {
       // Show Pause/Cancel buttons for running streams
@@ -2040,70 +2044,128 @@ api.get("/partials/streams", (c) => {
           Cancel
         </button>`;
     } else {
-      // Show Init/Build buttons for non-running streams
-      // Init button logic:
-      // - Show if worktree not initialized
-      // - Disabled if merged or completed (direct-to-main)
-      if (!worktreeInitialized) {
-        const initDisabled = isMerged || isCompleted;
-        const initTitle = isMerged ? "Already merged to main" :
-                         isCompleted ? "Already completed" :
-                         "Initialize git worktree for parallel building";
-        actionButtonsHtml += `
-          <button class="rams-btn rams-btn-secondary" onclick="initStream('${stream.id}', event)" title="${initTitle}" ${initDisabled ? "disabled" : ""}>
-            Init
-          </button>`;
-      }
+      // Check if plan is being generated
+      const isGeneratingPlan = wizardProcessManager.isGenerating(stream.id);
 
-      // Build button logic:
-      // - Disabled if: merged, completed (no worktree), or no worktree initialized (must init first)
-      // - Also disabled if 100% complete (all stories done)
-      const buildDisabled = isMerged || (isCompleted && !worktreeInitialized) ||
-                           (!worktreeInitialized) || isFullyComplete;
-      const buildTitle = isMerged ? "Already merged to main" :
-                        (isCompleted && !worktreeInitialized) ? "Already completed" :
-                        isFullyComplete ? "All stories completed" :
-                        !worktreeInitialized ? "Initialize worktree first (click Init)" :
-                        "Start build iterations";
-      actionButtonsHtml += `
-        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
-          Build
+      if (isGeneratingPlan) {
+        // Show generating state with auto-connect to SSE and View Details link
+        actionButtonsHtml += `
+          <button id="plan-btn-${stream.id}" class="rams-btn rams-btn-primary" disabled>
+            <span class="rams-spinner"></span> 0%
+          </button>
+          <a id="plan-details-link-${stream.id}" href="#" class="rams-text-sm"
+             style="margin-left: 8px; color: var(--rams-accent); text-decoration: underline; cursor: pointer;"
+             onclick="event.preventDefault(); event.stopPropagation(); showPlanProgress('${stream.id}', event);">
+            View Details →
+          </a>
+          <script>
+            (function() {
+              var btn = document.getElementById('plan-btn-${stream.id}');
+              if (btn && typeof connectToPlanSSE === 'function') {
+                connectToPlanSSE('${stream.id}', btn);
+              }
+            })();
+          </script>`;
+      } else {
+        // Build button logic:
+        // - Disabled if: no plan, merged, completed (no worktree), or no worktree initialized (must init first)
+        // - Also disabled if 100% complete (all stories done)
+        const buildDisabled = !stream.hasPlan || isMerged || (isCompleted && !worktreeInitialized) ||
+                             (!worktreeInitialized) || isFullyComplete;
+        const buildTitle = !stream.hasPlan ? "Generate plan first (use menu)" :
+                          isMerged ? "Already merged to main" :
+                          (isCompleted && !worktreeInitialized) ? "Already completed" :
+                          isFullyComplete ? "All stories completed" :
+                          !worktreeInitialized ? "Initialize worktree first (use menu)" :
+                          "Start build iterations";
+        actionButtonsHtml += `
+          <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
+            Build
+          </button>`;
+
+        // Merge button logic:
+        // - Only show when worktree exists and not running
+        // - Disabled only if: already merged OR no progress at all
+        // - Shows warning for partial completion but allows merge
+        if (worktreeInitialized) {
+          const hasAnyProgress = stream.completedStories > 0 || stream.hasProgress;
+          const mergeDisabled = isMerged || !hasAnyProgress;
+          const mergeTitle = isMerged ? "Already merged to main" :
+                            !hasAnyProgress ? "No progress to merge yet" :
+                            !isFullyComplete ? `Merge ${stream.completedStories}/${stream.totalStories} stories to main` :
+                            "Merge to main branch";
+          const mergeClass = isFullyComplete ? "rams-btn-success" : "rams-btn-warning";
+          actionButtonsHtml += `
+            <button class="rams-btn ${mergeClass}" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
+              Merge
+            </button>`;
+        }
+      }
+    }
+
+    // Build ThreeDots menu items
+    // View Estimate
+    if (stream.hasPlan) {
+      const estimateDisabled = isMerged || (isCompleted && !worktreeInitialized);
+      menuItemsHtml += `
+        <button class="threedots-menu-item"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
+                ${estimateDisabled ? "disabled" : ""}>
+          📊 View Estimate
         </button>`;
     }
 
-    // Estimate button - show if plan exists
-    // Disabled if merged or completed (direct-to-main)
-    if (stream.hasPlan) {
-      const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
-      const estimateDisabled = isMerged || (isCompleted && !worktreeInitialized);
-      const estimateTitle = isMerged ? "Already merged to main" :
-                           (isCompleted && !worktreeInitialized) ? "Already completed" :
-                           "View estimates for this PRD";
-      actionButtonsHtml += `
-      <button class="rams-btn rams-btn-secondary"
-              onclick="event.stopPropagation(); showStreamDetailAndEstimate('${stream.id}', '${escapedName}');"
-              title="${estimateTitle}"
-              ${estimateDisabled ? "disabled" : ""}>
-        Estimate
-      </button>`;
+    // View PRD (always available if PRD exists)
+    if (stream.hasPrd) {
+      menuItemsHtml += `
+        <button class="threedots-menu-item"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); window.open('/editor.html?file=.ralph/PRD-${stream.id}/prd.md', '_blank');">
+          📄 View PRD
+        </button>`;
     }
 
-    // Merge button logic:
-    // - Only show when worktree exists and not running
-    // - Disabled only if: already merged OR no progress at all
-    // - Shows warning for partial completion but allows merge
-    if (worktreeInitialized && !isRunning) {
-      const escapedName = escapeHtml(stream.name).replace(/'/g, "\\'").replace(/"/g, "&quot;");
-      const hasAnyProgress = stream.completedStories > 0 || stream.hasProgress;
-      const mergeDisabled = isMerged || !hasAnyProgress;
-      const mergeTitle = isMerged ? "Already merged to main" :
-                        !hasAnyProgress ? "No progress to merge yet" :
-                        !isFullyComplete ? `Merge ${stream.completedStories}/${stream.totalStories} stories to main` :
-                        "Merge to main branch";
-      const mergeClass = isFullyComplete ? "rams-btn-success" : "rams-btn-warning";
-      actionButtonsHtml += `
-        <button class="rams-btn ${mergeClass}" onclick="mergeStream('${stream.id}', '${escapedName}', event)" title="${mergeTitle}" ${mergeDisabled ? "disabled" : ""}>
-          Merge
+    // View Plan (if plan exists)
+    if (stream.hasPlan) {
+      menuItemsHtml += `
+        <button class="threedots-menu-item"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); window.open('/editor.html?file=.ralph/PRD-${stream.id}/plan.md', '_blank');">
+          📋 View Plan
+        </button>`;
+    }
+
+    // Generate Plan (if plan doesn't exist)
+    if (!stream.hasPlan && stream.hasPrd && !wizardProcessManager.isGenerating(stream.id)) {
+      const planDisabled = isMerged || isCompleted;
+      menuItemsHtml += `
+        <button class="threedots-menu-item"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); triggerPlanGeneration('${stream.id}', event);"
+                ${planDisabled ? "disabled" : ""}>
+          📋 Generate Plan
+        </button>`;
+    }
+
+    // Init Worktree (if not initialized)
+    if (!worktreeInitialized && !isRunning) {
+      const initDisabled = isMerged || isCompleted;
+      menuItemsHtml += `
+        <button class="threedots-menu-item"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); initStream('${stream.id}', event);"
+                ${initDisabled ? "disabled" : ""}>
+          🔄 Init Worktree
+        </button>`;
+    }
+
+    // Divider before danger zone
+    if (menuItemsHtml) {
+      menuItemsHtml += `<div class="threedots-menu-divider"></div>`;
+    }
+
+    // Close/Archive Stream
+    if (!stream.closed) {
+      menuItemsHtml += `
+        <button class="threedots-menu-item danger"
+                onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}'); closeStream('${stream.id}', event);">
+          🗑️ Close Stream
         </button>`;
     }
 
@@ -2138,20 +2200,8 @@ api.get("/partials/streams", (c) => {
     const clickableBadgeStyle = 'cursor: pointer; transition: opacity 0.2s;';
     const clickableBadgeHover = 'onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1"';
 
-    // Show close button for 0% streams (not started)
-    const showCloseButton = completionPercentage === 0 && !isRunning && !isMerged && !isCompleted;
-    const closeButtonHtml = showCloseButton ? `
-      <button class="rams-btn rams-btn-danger rams-btn-sm"
-              onclick="closeStream('${stream.id}', event)"
-              style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; font-size: 12px;"
-              title="Close this PRD (hide from list)">
-        ✕
-      </button>
-    ` : '';
-
     return `
 <div class="rams-card" style="${cardStyle} position: relative;" onclick="showStreamDetail('${stream.id}', '${escapeHtml(stream.name).replace(/'/g, "\\'")}')">
-  ${closeButtonHtml}
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
     <span class="rams-label">PRD-${stream.id}</span>
     <div style="display: flex; gap: var(--rams-space-2);">
@@ -2173,12 +2223,22 @@ api.get("/partials/streams", (c) => {
     }
     ${stream.hasPlan
       ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=plan${editableParam}';" title="View Plan${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
-      : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+      : `<span class="rams-badge rams-badge-needs-plan" ${stream.hasPrd ? `onclick="event.stopPropagation(); triggerPlanGeneration('${stream.id}', event);" title="Click to generate plan"` : ''}><span class="rams-badge-dot"></span>⚡ ${planBadgeLabel}</span>`
     }
     ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ""}
   </div>
-  <div style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
+  <div class="stream-actions-wrapper" style="display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
     ${actionButtonsHtml}
+    ${menuItemsHtml ? `
+    <div class="threedots-menu-container">
+      <button class="threedots-btn" onclick="event.stopPropagation(); toggleThreeDotsMenu('${stream.id}');" title="More actions">
+        ⋮
+      </button>
+      <div class="threedots-menu" id="threedots-menu-${stream.id}">
+        ${menuItemsHtml}
+      </div>
+    </div>
+    ` : ''}
   </div>
   ${buildFormHtml}
 </div>
@@ -2330,6 +2390,41 @@ api.get("/partials/streams-progress", (c) => {
           Cancel
         </button>`;
     } else {
+      // Show Plan button if plan doesn't exist (before Init/Build)
+      if (!stream.hasPlan && stream.hasPrd) {
+        const planDisabled = isMerged || isCompleted;
+        const isGeneratingPlan = wizardProcessManager.isGenerating(stream.id);
+
+        if (isGeneratingPlan) {
+          // Show generating state with auto-connect to SSE and View Details link
+          actionButtonsHtml += `
+            <button id="plan-btn-${stream.id}" class="rams-btn rams-btn-primary" disabled>
+              <span class="rams-spinner"></span> 0%
+            </button>
+            <a id="plan-details-link-${stream.id}" href="#" class="rams-text-sm"
+               style="margin-left: 8px; color: var(--rams-accent); text-decoration: underline; cursor: pointer;"
+               onclick="event.preventDefault(); event.stopPropagation(); showPlanProgress('${stream.id}', event);">
+              View Details →
+            </a>
+            <script>
+              (function() {
+                var btn = document.getElementById('plan-btn-${stream.id}');
+                if (btn && typeof connectToPlanSSE === 'function') {
+                  connectToPlanSSE('${stream.id}', btn);
+                }
+              })();
+            </script>`;
+        } else {
+          // Show normal Plan button
+          const planTitle = planDisabled ? "Cannot generate plan for completed PRD" :
+                           "Generate implementation plan from PRD";
+          actionButtonsHtml += `
+            <button class="rams-btn rams-btn-primary" onclick="triggerPlanGeneration('${stream.id}', event)" title="${planTitle}" ${planDisabled ? "disabled" : ""}>
+              📋 Plan
+            </button>`;
+        }
+      }
+
       // Show Init/Build buttons for non-running streams
       if (!worktreeInitialized) {
         const initDisabled = isMerged || isCompleted;
@@ -2342,15 +2437,16 @@ api.get("/partials/streams-progress", (c) => {
           </button>`;
       }
 
-      const buildDisabled = isMerged || (isCompleted && !worktreeInitialized) ||
+      const buildDisabled = !stream.hasPlan || isMerged || (isCompleted && !worktreeInitialized) ||
                            (!worktreeInitialized) || isFullyComplete;
-      const buildTitle = isMerged ? "Already merged to main" :
+      const buildTitle = !stream.hasPlan ? "Generate plan first (click Plan button)" :
+                        isMerged ? "Already merged to main" :
                         (isCompleted && !worktreeInitialized) ? "Already completed" :
                         isFullyComplete ? "All stories completed" :
                         !worktreeInitialized ? "Initialize worktree first (click Init)" :
                         "Start build iterations";
       actionButtonsHtml += `
-        <button class="rams-btn rams-btn-primary" onclick="toggleBuildForm('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
+        <button class="rams-btn rams-btn-primary" onclick="toggleBuildFormProgress('${stream.id}', event)" title="${buildTitle}" ${buildDisabled ? "disabled" : ""}>
           Build
         </button>`;
     }
@@ -2486,7 +2582,7 @@ api.get("/partials/streams-progress", (c) => {
             }
             ${stream.hasPlan
               ? `<span class="rams-badge rams-badge-success" style="${clickableBadgeStyle}" ${clickableBadgeHover} onclick="event.stopPropagation(); window.location.href='/editor.html?prd=${stream.id}&file=plan${editableParam}';" title="View Plan${isNotStarted ? ' (editable)' : ''}"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
-              : `<span class="rams-badge rams-badge-muted"><span class="rams-badge-dot"></span>${planBadgeLabel}</span>`
+              : `<span class="rams-badge rams-badge-needs-plan" ${stream.hasPrd ? `onclick="event.stopPropagation(); triggerPlanGeneration('${stream.id}', event);" title="Click to generate plan"` : ''}><span class="rams-badge-dot"></span>⚡ ${planBadgeLabel}</span>`
             }
             ${worktreeInitialized ? '<span class="rams-badge rams-badge-info"><span class="rams-badge-dot"></span>Worktree</span>' : ''}
           </div>
@@ -9162,6 +9258,333 @@ api.get('/partials/checkpoint-banner', (c) => {
   } catch {
     return c.html(`<div id="checkpoint-banner" class="rams-hidden"></div>`);
   }
+});
+
+/**
+ * GET /api/partials/critical-alerts
+ *
+ * Returns HTML fragment for critical alerts banner (budget, stalled, failures, checkpoints).
+ * Shows at top of dashboard when issues require attention.
+ */
+api.get("/partials/critical-alerts", (c) => {
+  const { getCriticalAlerts } = require('../services/alerts-reader.js');
+  const alerts = getCriticalAlerts();
+
+  if (alerts.length === 0) {
+    return c.html('');
+  }
+
+  const alertItems = alerts.map((alert) => {
+    const icon = alert.type === 'budget' ? '💰' :
+                 alert.type === 'stalled' ? '⏸️' :
+                 alert.type === 'failures' ? '❌' :
+                 '⚠️';
+
+    return `
+      <div class="critical-alert-item ${alert.type}">
+        <div class="critical-alert-icon">${icon}</div>
+        <div class="critical-alert-content">
+          <div class="critical-alert-message">${escapeHtml(alert.message)}</div>
+          ${alert.action ? `<p class="critical-alert-action">${escapeHtml(alert.action)}</p>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return c.html(`
+    <div class="critical-alerts-banner">
+      ${alertItems}
+    </div>
+  `);
+});
+
+/**
+ * GET /api/partials/cost-summary-card
+ *
+ * Returns HTML fragment for the total cost metric card.
+ * Shows aggregate cost across all streams with budget progress.
+ */
+api.get("/partials/cost-summary-card", (c) => {
+  const summary = getTokenSummary();
+  const budget = getBudgetStatus();
+
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) return `$${cost.toFixed(2)}`;
+    if (cost >= 0.01) return `$${cost.toFixed(3)}`;
+    if (cost > 0) return `$${cost.toFixed(4)}`;
+    return "$0.00";
+  };
+
+  // Determine budget status
+  const budgetPercentage = budget.daily.hasLimit
+    ? budget.daily.percentage
+    : 0;
+
+  const progressClass = budgetPercentage >= 100
+    ? 'budget-critical'
+    : budgetPercentage >= 90
+    ? 'budget-warning'
+    : 'budget-ok';
+
+  const budgetText = budget.daily.hasLimit
+    ? `${budgetPercentage}% of daily budget`
+    : 'No daily budget set';
+
+  return c.html(`
+    <div class="rams-card">
+      <div class="metric-summary-label">Total Cost Today</div>
+      <div class="metric-summary-value">${formatCurrency(budget.daily.spent)}</div>
+      ${budget.daily.hasLimit ? `
+        <div class="metric-summary-progress">
+          <div class="metric-summary-progress-bar ${progressClass}" style="width: ${Math.min(budgetPercentage, 100)}%"></div>
+        </div>
+      ` : ''}
+      <div class="metric-summary-subtext">${budgetText}</div>
+      <div class="metric-summary-subtext" style="margin-top: 4px;">
+        ${summary.byStream.reduce((sum, s) => sum + s.runCount, 0)} runs across ${summary.byStream.length} PRDs
+      </div>
+    </div>
+  `);
+});
+
+/**
+ * GET /api/partials/success-rate-card
+ *
+ * Returns HTML fragment for the success rate metric card.
+ * Shows 7-day success rate with delta from previous period.
+ */
+api.get("/partials/success-rate-card", (c) => {
+  const trends = getSuccessRateTrends('7d');
+  const weekOverWeek = getWeekOverWeek('7d');
+
+  const successRate = trends.averageRate?.toFixed(1) || '0.0';
+  const delta = weekOverWeek.successRateDelta || 0;
+  const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : '';
+  const deltaText = delta > 0 ? `▲ +${delta.toFixed(1)}%` : delta < 0 ? `▼ ${delta.toFixed(1)}%` : '—';
+
+  return c.html(`
+    <div class="rams-card">
+      <div class="metric-summary-label">Success Rate (7d)</div>
+      <div class="metric-summary-value">
+        ${successRate}%
+        ${delta !== 0 ? `<span class="metric-summary-delta ${deltaClass}">${deltaText} from last week</span>` : ''}
+      </div>
+      <div class="metric-summary-subtext">
+        ${trends.totalCompleted || 0} passed / ${trends.totalAttempted || 0} total
+      </div>
+    </div>
+  `);
+});
+
+/**
+ * GET /api/partials/active-streams-card
+ *
+ * Returns HTML fragment for the active streams metric card.
+ * Shows count of running streams with status breakdown.
+ */
+api.get("/partials/active-streams-card", (c) => {
+  const streams = getStreams();
+
+  const runningCount = streams.filter(s => s.status === 'running').length;
+  const readyCount = streams.filter(s => s.status === 'ready' || s.status === 'in_progress').length;
+  const completedCount = streams.filter(s => s.status === 'completed' || s.status === 'merged').length;
+
+  const runningBadges = streams
+    .filter(s => s.status === 'running')
+    .slice(0, 5)
+    .map(s => `<span class="rams-badge rams-badge-success">PRD-${s.id}</span>`)
+    .join('');
+
+  return c.html(`
+    <div class="rams-card">
+      <div class="metric-summary-label">Active Streams</div>
+      <div class="metric-summary-value">${runningCount} running</div>
+      <div class="metric-summary-subtext">
+        ${readyCount} ready, ${completedCount} completed
+      </div>
+      ${runningBadges ? `
+        <div style="margin-top: var(--rams-space-3); display: flex; gap: var(--rams-space-2); flex-wrap: wrap;">
+          ${runningBadges}
+        </div>
+      ` : ''}
+    </div>
+  `);
+});
+
+/**
+ * GET /api/trends/cost
+ *
+ * Returns JSON data for cost trend chart.
+ */
+api.get("/api/trends/cost", (c) => {
+  const period = c.req.query('period') || '7d';
+  const trend = getCostTrends(period as '7d' | '30d' | '90d' | 'all');
+
+  // Format for Chart.js
+  const labels: string[] = [];
+  const values: number[] = [];
+
+  for (const point of trend.dataPoints) {
+    labels.push(point.date);
+    values.push(point.totalCost);
+  }
+
+  return c.json({ labels, values, period });
+});
+
+/**
+ * GET /api/trends/velocity
+ *
+ * Returns JSON data for velocity trend chart.
+ */
+api.get("/api/trends/velocity", (c) => {
+  const period = c.req.query('period') || '7d';
+  const trend = getVelocityTrends(period as '7d' | '30d' | '90d' | 'all');
+
+  // Format for Chart.js
+  const labels: string[] = [];
+  const values: number[] = [];
+
+  for (const point of trend.dataPoints) {
+    labels.push(point.date);
+    values.push(point.storiesCompleted);
+  }
+
+  return c.json({ labels, values, period });
+});
+
+/**
+ * GET /api/trends/success-rate
+ *
+ * Returns JSON data for success rate trend chart.
+ */
+api.get("/api/trends/success-rate", (c) => {
+  const period = c.req.query('period') || '7d';
+  const trend = getSuccessRateTrends(period as '7d' | '30d' | '90d' | 'all');
+
+  // Format for Chart.js
+  const labels: string[] = [];
+  const values: number[] = [];
+
+  for (const point of trend.dataPoints) {
+    labels.push(point.date);
+    values.push(point.successRate);
+  }
+
+  return c.json({ labels, values, period });
+});
+
+/**
+ * GET /api/partials/streams-grid
+ *
+ * Returns HTML fragment for the streams grid with inline metrics.
+ * Shows all streams as expandable cards with quick actions.
+ */
+api.get("/partials/streams-grid", (c) => {
+  const filterParam = c.req.query('filter');
+  let streams = getStreams();
+
+  // Apply filter
+  if (filterParam === 'running') {
+    streams = streams.filter(s => s.status === 'running');
+  } else if (filterParam === 'ready') {
+    streams = streams.filter(s => s.status === 'ready' || s.status === 'in_progress');
+  } else if (filterParam === 'completed') {
+    streams = streams.filter(s => s.status === 'completed' || s.status === 'merged');
+  }
+
+  if (streams.length === 0) {
+    return c.html(`
+      <div class="rams-card" style="text-align: center; padding: var(--rams-space-8);">
+        <p class="rams-text-muted">No streams found.</p>
+      </div>
+    `);
+  }
+
+  const formatCurrency = (cost: number): string => {
+    if (cost >= 1) return `$${cost.toFixed(2)}`;
+    if (cost >= 0.01) return `$${cost.toFixed(3)}`;
+    return `$${cost.toFixed(4)}`;
+  };
+
+  const streamCards = streams.map(stream => {
+    const streamTokens = getStreamTokens(stream.id);
+    const cost = streamTokens?.totalCost || 0;
+    const runCount = streamTokens?.runCount || 0;
+
+    // Calculate success rate from runs
+    const successfulRuns = stream.runs?.filter(r => r.status === 'completed').length || 0;
+    const totalRuns = stream.runs?.length || runCount;
+    const successRate = totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
+
+    const progress = stream.totalStories > 0
+      ? Math.round((stream.completedStories / stream.totalStories) * 100)
+      : 0;
+
+    const statusBadge = stream.status === 'running'
+      ? '<span class="rams-badge rams-badge-success stream-item-active">🔄 RUNNING</span>'
+      : stream.status === 'completed'
+      ? '<span class="rams-badge rams-badge-info">✅ DONE</span>'
+      : stream.status === 'merged'
+      ? '<span class="rams-badge rams-badge-info">✅ MERGED</span>'
+      : stream.status === 'ready'
+      ? '<span class="rams-badge">📋 READY</span>'
+      : '<span class="rams-badge rams-badge-muted">⏸️ IDLE</span>';
+
+    return `
+      <div class="rams-card ${stream.status === 'running' ? 'stream-item-active' : ''}">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--rams-space-3);">
+          <h3 class="rams-h3" style="margin: 0;">PRD-${stream.id}: ${escapeHtml(stream.name)}</h3>
+          ${statusBadge}
+        </div>
+
+        ${progress > 0 ? `
+          <div class="rams-progress" style="margin-bottom: var(--rams-space-3);">
+            <div class="rams-progress-bar" style="width: ${progress}%"></div>
+          </div>
+        ` : ''}
+
+        <div class="stream-card-inline-metrics">
+          <div class="stream-metric-item">
+            <span class="stream-metric-label">Stories:</span>
+            <span class="stream-metric-value">${stream.completedStories}/${stream.totalStories}</span>
+          </div>
+          <div class="stream-metric-item">
+            <span class="stream-metric-label">Cost:</span>
+            <span class="stream-metric-value cost">${formatCurrency(cost)}</span>
+          </div>
+          ${totalRuns > 0 ? `
+            <div class="stream-metric-item">
+              <span class="stream-metric-label">Success:</span>
+              <span class="stream-metric-value success">${successRate}%</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="stream-card-actions">
+          <a href="/streams.html?stream=${stream.id}" class="stream-card-action-btn">
+            📊 Details
+          </a>
+          ${stream.status !== 'running' && stream.status !== 'completed' && stream.status !== 'merged' ? `
+            <button
+              class="stream-card-action-btn primary"
+              hx-post="/api/stream/${stream.id}/build"
+              hx-vals='{"iterations": 5}'
+              hx-swap="none"
+            >
+              🔨 Build
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return c.html(`
+    <div class="dashboard-streams-grid">
+      ${streamCards}
+    </div>
+  `);
 });
 
 export { api };
