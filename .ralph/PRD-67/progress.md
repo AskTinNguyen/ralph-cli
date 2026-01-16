@@ -986,3 +986,69 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
   - lib/notify/slack.js, lib/notify/discord.js - JS notification modules
 - **Note**: This iteration was assigned US-012 but the story was already completed in previous iterations. No new commits needed.
 ---
+
+## [2026-01-16T17:32:00+07:00] - US-013: Extract failure detection to TypeScript
+Thread:
+Run: 20260116-161636-16394 (iteration 13)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-13.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-13.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: fa7a5b0 feat(failure-detection): extract failure detection to TypeScript (US-013)
+- Post-commit status: clean (only unrelated S2-Game files remain)
+- Verification:
+  - Command: node lib/failure-detection/cli.js --stats -> PASS (shows 68 patterns)
+  - Command: npm test tests/test-failure-detection.js -> PASS (95 tests passed)
+  - Command: npm run coverage -- tests/test-failure-detection.js -> PASS (99.48% statements, 87.3% branches)
+  - Command: bash -n .agents/ralph/loop.sh -> PASS
+  - Command: source loop.sh functions detect_failure_ts, classify_failure_ts exist -> PASS
+- Files changed:
+  - lib/failure-detection/patterns.js (NEW - 68 regex patterns across 6 categories)
+  - lib/failure-detection/index.js (NEW - detection functions)
+  - lib/failure-detection/cli.js (NEW - CLI wrapper for bash integration)
+  - tests/test-failure-detection.js (NEW - 95 unit tests)
+  - .agents/ralph/loop.sh (added detect_failure_ts and classify_failure_ts functions)
+  - .ralph/PRD-67/plan.md (tasks marked complete)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **Pattern module** (lib/failure-detection/patterns.js):
+    - 68 total patterns (exceeds 40+ requirement)
+    - TEST_PATTERNS (15): Jest, Mocha, Pytest, Go, npm test, Vitest, etc.
+    - LINT_PATTERNS (14): ESLint, Prettier, Biome, pyflakes, etc.
+    - TYPE_PATTERNS (11): TypeScript, mypy, pyright, Rust type errors
+    - BUILD_PATTERNS (8): npm, make, cargo, webpack, esbuild, etc.
+    - RUNTIME_PATTERNS (14): Node.js, Python, fatal errors, assertions
+    - GIT_PATTERNS (6): merge conflicts, dirty state, failed push/pull
+  - **Detection module** (lib/failure-detection/index.js):
+    - `detectFailure()` - main detection with options (categories, minSeverity, contextLines)
+    - `detectTestFailure()`, `detectLintFailure()`, `detectTypeFailure()`, `detectBuildFailure()` - specialized detectors
+    - `classifyFailureType()` - returns most severe category with priority-based tie-breaking
+    - `extractErrorContext()` - extracts relevant error lines for context
+    - `formatResult()` - formats detection result for CLI with ANSI colors
+  - **CLI wrapper** (lib/failure-detection/cli.js):
+    - `--categories=test,lint` - filter by category
+    - `--min-severity=N` - filter by severity (1-4)
+    - `--format=json|text` - output format
+    - `--classify` - only output failure type classification
+    - `--has-failure` - exit 0 if failures found, 1 otherwise (for bash conditionals)
+    - `--stats` - show pattern counts
+  - **Test suite** (tests/test-failure-detection.js):
+    - 95 tests across 30 test groups
+    - Tests for all major frameworks: Jest, Mocha, Pytest, Go, npm, ESLint, TypeScript, etc.
+    - Coverage: 99.48% statements, 87.3% branches (exceeds 80% requirement)
+  - **Loop integration** (.agents/ralph/loop.sh):
+    - `detect_failure_ts()` - Node.js detection with bash fallback
+    - `classify_failure_ts()` - Node.js classification with bash fallback
+- Acceptance Criteria Verification:
+  1. ✅ Module: `lib/failure-detection/index.js` (392 lines)
+  2. ✅ 68 patterns extracted (exceeds 40+ requirement)
+  3. ✅ Unit tests for each pattern (95 tests covering all 68 patterns)
+  4. ✅ Bash integration: `node lib/failure-detection/cli.js "$log_file"` with JSON output
+  5. ✅ Test coverage: 99.48% statements, 87.3% branches (exceeds 80% requirement)
+- **Learnings for future iterations:**
+  - Pattern priority matters for classification - git patterns need higher priority than generic runtime "fatal"
+  - ESLint column:line format requires specific pattern (\\d+:\\d+\\s+error)
+  - mypy/pyright line number format (`:10: error:`) needs dedicated pattern
+  - Severity levels enable flexible filtering: 1=info, 2=warning, 3=error, 4=critical
+  - Bash fallback ensures backward compatibility when Node.js unavailable
+---
