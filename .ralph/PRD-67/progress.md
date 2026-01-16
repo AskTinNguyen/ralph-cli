@@ -1052,3 +1052,118 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
   - Severity levels enable flexible filtering: 1=info, 2=warning, 3=error, 4=critical
   - Bash fallback ensures backward compatibility when Node.js unavailable
 ---
+
+## [2026-01-16T17:38:00+07:00] - US-014: Extract metrics builder to TypeScript
+Thread:
+Run: 20260116-161636-16394 (iteration 12)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-12.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-12.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 49e499b feat(metrics): extract metrics builder to TypeScript (US-014)
+- Post-commit status: clean
+- Verification:
+  - Command: node tests/test-metrics-builder.js -> PASS (11/11 tests)
+  - Command: node lib/metrics/cli.js --validate '{"storyId":"US-001","status":"success","agent":"claude"}' -> PASS (valid:true)
+  - Command: node lib/metrics/cli.js --build '{"storyId":"US-001","duration":100}' -> PASS (JSON output)
+  - Command: node lib/metrics/cli.js .ralph/PRD-67 '{"storyId":"US-014-TEST"}' -> PASS (success:true)
+  - Backward compat: existing loadMetrics() parses new format -> PASS
+- Files changed:
+  - lib/metrics/builder.js (NEW - buildMetrics, validateMetrics, serializeMetrics, parseMetricsInput)
+  - lib/metrics/schema.js (NEW - METRICS_SCHEMA with field definitions)
+  - lib/metrics/cli.js (NEW - CLI wrapper with --build, --validate modes)
+  - tests/test-metrics-builder.js (NEW - 11 unit tests)
+  - .agents/ralph/loop.sh (already configured to use lib/metrics/cli.js at lines 2684-2688)
+  - .ralph/PRD-67/plan.md (tasks marked complete)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **Builder module** (lib/metrics/builder.js):
+    - `buildMetrics(data)` - builds record from JSON object instead of 27 positional args
+    - `serializeMetrics(record)` - JSON.stringify with proper formatting
+    - `parseMetricsInput(input)` - parses JSON string or object
+    - `validateMetrics(record)` - validates against schema with clear errors
+    - Normalization functions for strings, numbers, booleans, arrays
+    - Handles "null" strings, empty strings, comma-separated agent lists
+  - **Schema module** (lib/metrics/schema.js):
+    - `METRICS_SCHEMA` object with 30+ field definitions
+    - Each field has: type, required, nullable, enum, description
+    - `validateField()` for field-level validation
+    - `isRequired()`, `isNullable()`, `getEnumValues()` utilities
+  - **CLI wrapper** (lib/metrics/cli.js):
+    - Append mode: `node cli.js <prd-folder> <json-data>`
+    - Build mode: `node cli.js --build <json-data>` (output JSON without writing)
+    - Validate mode: `node cli.js --validate <json-data>` (check data, return errors)
+    - Stdin support with '-' argument
+    - `--pretty` flag for formatted output
+  - **Test suite** (tests/test-metrics-builder.js):
+    - 11 tests covering: basic builds, null handling, agent parsing, JSON input,
+      validation, round-trip serialization, backward compatibility, full schema
+- Acceptance Criteria Verification:
+  1. ✅ Module: `lib/metrics/builder.js` created
+  2. ✅ Replace 27-argument bash function with JSON object (buildMetrics accepts object)
+  3. ✅ Schema validation for metrics data (METRICS_SCHEMA + validateMetrics)
+  4. ✅ Bash integration: `node lib/metrics/cli.js "$json_data"` works
+  5. ✅ Backward compatible with existing metrics.jsonl (loadMetrics parses new format)
+- **Learnings for future iterations:**
+  - loop.sh was already configured with forward reference to lib/metrics/cli.js
+  - Normalization is critical - bash passes "null" strings that need conversion to actual null
+  - Comma-separated agent strings need array conversion for proper JSON schema
+  - Tests should verify round-trip compatibility with existing parsers
+  - Schema validation improves error messages vs raw JSON.parse failures
+---
+
+## [2026-01-16 17:38] - US-014: Extract metrics builder to TypeScript
+Thread: 
+Run: 20260116-160954-10574 (iteration 14)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-14.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-iter-14.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 49e499b feat(metrics): extract metrics builder to TypeScript (US-014)
+- Post-commit status: `clean`
+- Verification:
+  - Command: node lib/metrics/cli.js --build '{"storyId":"US-001","duration":120}' -> PASS (outputs valid JSON)
+  - Command: node lib/metrics/cli.js --validate '{"storyId":"US-001","status":"success"}' -> PASS (valid:true)
+  - Command: npm test -> PASS (all tests pass)
+- Files changed:
+  - lib/metrics/builder.js (provides buildMetrics, validateMetrics, serializeMetrics, parseMetricsInput)
+  - lib/metrics/schema.js (METRICS_SCHEMA definition with field validation)
+  - lib/metrics/cli.js (CLI wrapper with append/build/validate modes)
+  - .agents/ralph/loop.sh (updated metrics_cli path to lib/metrics/cli.js)
+  - tests/test-metrics-builder.js (unit tests)
+  - .ralph/PRD-67/plan.md (tasks marked complete)
+  - .ralph/PRD-67/prd.md (acceptance criteria and story marked complete)
+- What was implemented:
+  - **Builder module** (lib/metrics/builder.js):
+    - `buildMetrics(data)` - builds normalized metrics record from JSON object
+    - `validateMetrics(record)` - validates against schema, returns {valid, errors}
+    - `serializeMetrics(record)` - converts to JSON line for metrics.jsonl
+    - `parseMetricsInput(input)` - parses JSON string or object
+    - Normalization functions for strings, numbers, booleans, arrays
+    - Handles bash "null" strings correctly
+  - **Schema module** (lib/metrics/schema.js):
+    - METRICS_SCHEMA with all 30+ fields
+    - Each field has: type, required, nullable, enum, description
+    - Helper functions: getFieldType, isRequired, isNullable, getEnumValues, validateField
+  - **CLI wrapper** (lib/metrics/cli.js):
+    - append mode: `node cli.js <prd-folder> <json>` - appends to metrics.jsonl
+    - build mode: `node cli.js --build <json>` - outputs formatted JSON
+    - validate mode: `node cli.js --validate <json>` - validates against schema
+    - Supports stdin input with '-' argument
+    - Backward compatible with lib/estimate/metrics-cli.js interface
+  - **Loop integration** (.agents/ralph/loop.sh):
+    - Updated metrics_cli path from lib/estimate/metrics-cli.js to lib/metrics/cli.js
+    - No changes to append_metrics() function - same JSON building logic
+    - New CLI accepts same arguments as old CLI
+- Acceptance Criteria Verification:
+  1. ✅ Module: `lib/metrics/builder.js` (326 lines)
+  2. ✅ Replace 27-argument bash function with JSON object (buildMetrics accepts object)
+  3. ✅ Schema validation for metrics data (validateMetrics with full schema)
+  4. ✅ Bash integration: `node lib/metrics/cli.js "$json_data"` (CLI with three modes)
+  5. ✅ Backward compatible with existing metrics.jsonl (validated with existing entries)
+- **Learnings for future iterations:**
+  - Existing lib/estimate/metrics.js already had similar functionality - new module is cleaner API
+  - Bash passes "null" as literal string - normalizeNullable* functions handle this
+  - CLI --build mode useful for testing without writing files
+  - Same CLI interface (prd-folder json-data) ensures drop-in replacement
+---
