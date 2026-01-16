@@ -111,13 +111,7 @@ export class MacOSTTSEngine implements TTSEngine {
       this.currentProcess = null;
     }
     this.speaking = false;
-
-    // Also kill any orphaned say processes (just in case)
-    try {
-      spawn("pkill", ["-9", "-f", "^say "], { stdio: "ignore" });
-    } catch {
-      // Ignore errors
-    }
+    // Note: Removed aggressive pkill which was killing newly spawned processes
   }
 
   /**
