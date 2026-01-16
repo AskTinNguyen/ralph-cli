@@ -397,14 +397,14 @@ send_notification() {
   notify_cli "$event_type" "$message" "$details"
 
   # 2. Slack notification (if configured)
-  local slack_webhook="${SLACK_WEBHOOK:-$SLACK_WEBHOOK_URL:-}"
+  local slack_webhook="${SLACK_WEBHOOK:-${SLACK_WEBHOOK_URL:-}}"
   local slack_channel="${SLACK_CHANNEL:-}"
   if [[ -n "$slack_webhook" ]]; then
     notify_slack "$slack_webhook" "$event_type" "$prd_num" "$message" "$slack_channel" "$details" &
   fi
 
   # 3. Discord notification (if configured)
-  local discord_webhook="${DISCORD_WEBHOOK:-$DISCORD_WEBHOOK_URL:-}"
+  local discord_webhook="${DISCORD_WEBHOOK:-${DISCORD_WEBHOOK_URL:-}}"
   if [[ -n "$discord_webhook" ]]; then
     notify_discord "$discord_webhook" "$event_type" "$prd_num" "$message" "$details" &
   fi
@@ -546,7 +546,7 @@ notify_test() {
   notify_cli "build_complete" "Test notification from ralph notify test" "This is a test message"
 
   # Test Slack
-  local slack_webhook="${SLACK_WEBHOOK:-$SLACK_WEBHOOK_URL:-}"
+  local slack_webhook="${SLACK_WEBHOOK:-${SLACK_WEBHOOK_URL:-}}"
   if [[ -n "$slack_webhook" ]]; then
     echo "2. Slack notification:"
     if notify_slack "$slack_webhook" "build_complete" "0" "Test notification from ralph notify test"; then
@@ -559,7 +559,7 @@ notify_test() {
   fi
 
   # Test Discord
-  local discord_webhook="${DISCORD_WEBHOOK:-$DISCORD_WEBHOOK_URL:-}"
+  local discord_webhook="${DISCORD_WEBHOOK:-${DISCORD_WEBHOOK_URL:-}}"
   if [[ -n "$discord_webhook" ]]; then
     echo "3. Discord notification:"
     if notify_discord "$discord_webhook" "build_complete" "0" "Test notification from ralph notify test"; then

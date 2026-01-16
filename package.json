@@ -11,7 +11,7 @@
   },
   "scripts": {
     "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs",
-    "test:integration": "node tests/integration.mjs",
+    "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
     "test:coverage": "c8 --reporter=lcov --reporter=text npm test",
     "test:real": "node tests/real-agents.mjs",
     "test:ping": "node tests/agent-ping.mjs",
@@ -28,14 +28,14 @@
     "test:scope": "node tests/test-scope-validation.mjs",
     "test:marker": "node tests/test-active-prd-marker.mjs",
     "test:lock": "node tests/test-lock-mechanism.mjs",
-    "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
     "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write ."
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
-    "minimatch": "^10.1.1"
+    "minimatch": "^10.1.1",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "c8": "^10.1.3",

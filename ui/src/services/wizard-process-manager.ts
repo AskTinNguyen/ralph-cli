@@ -242,10 +242,14 @@ class WizardProcessManager {
     const args = ["plan", `--prd=${streamId}`];
 
     try {
-      // Spawn the ralph plan process
+      // Spawn the ralph plan process with headless mode
       const childProcess = spawn("ralph", args, {
         cwd: projectRoot,
-        env: { ...process.env },
+        env: {
+          ...process.env,
+          RALPH_HEADLESS: "1",  // Enable headless mode for non-interactive execution
+          CI: "true",           // Signal non-interactive environment
+        },
         shell: false,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -287,6 +291,12 @@ class WizardProcessManager {
       console.log(
         `[WizardProcessManager] Started plan generation for stream ${streamId} (PID: ${childProcess.pid})`
       );
+      console.log(
+        `[WizardProcessManager] Command: ralph plan --prd=${streamId}`
+      );
+      console.log(
+        `[WizardProcessManager] Working directory: ${projectRoot}`
+      );
 
       return {
         success: true,
@@ -322,10 +332,13 @@ class WizardProcessManager {
     key: string,
     eventEmitter: EventEmitter
   ): void {
+    console.log(`[WizardProcessManager] Setting up output handlers for ${processState.streamId} (${processState.type})`);
+
     // Handle stdout
     if (childProcess.stdout) {
       childProcess.stdout.on("data", (data: Buffer) => {
         const text = data.toString();
+        console.log(`[WizardProcessManager] STDOUT (${processState.streamId}): ${text.substring(0, 300).replace(/\n/g, '\\n')}`);
         const lines = text.split("\n").filter((line) => line.trim());
 
         for (const line of lines) {
@@ -631,7 +644,26 @@ class WizardProcessManager {
   private parseOutputForPhase(line: string): { phase?: GenerationPhase; progress?: number } {
     const lowerLine = line.toLowerCase();
 
-    // Detect common phase patterns
+    // Detect [PROGRESS] prefixed lines from loop.sh (highest priority)
+    if (line.includes("[PROGRESS]")) {
+      if (lowerLine.includes("analyzing")) {
+        return { phase: "analyzing", progress: 20 };
+      }
+      if (lowerLine.includes("generating")) {
+        return { phase: "generating", progress: 50 };
+      }
+      if (lowerLine.includes("writing")) {
+        return { phase: "writing", progress: 80 };
+      }
+      if (lowerLine.includes("complete")) {
+        return { phase: "complete", progress: 100 };
+      }
+      if (lowerLine.includes("error") || lowerLine.includes("failed")) {
+        return { phase: "error" };
+      }
+    }
+
+    // Detect common phase patterns (fallback for other output)
     if (lowerLine.includes("analyzing") || lowerLine.includes("reading")) {
       return { phase: "analyzing", progress: 20 };
     }
