@@ -615,3 +615,37 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-it
   - Non-interactive mode auto-stops at budget limit for safety
   - getEffectiveCwd() walks up to find .ralph, may need RALPH_ROOT in some scenarios
 ---
+
+## [2026-01-16T16:52:00+07:00] - US-008: Budget warnings and enforcement (Iteration 6 Verification)
+Thread:
+Run: 20260116-161636-16394 (iteration 6)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-6.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-6.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 644617a docs(PRD-67): add verification log for US-008 budget warnings (iteration 6)
+- Post-commit status: N/A (story already complete)
+- Verification:
+  - Command: source .agents/ralph/lib/budget.sh && calculate_budget_percentage 3.80 5.00 -> PASS (returns 76%)
+  - Command: source .agents/ralph/lib/budget.sh && calculate_budget_percentage 4.55 5.00 -> PASS (returns 91%)
+  - Command: source .agents/ralph/lib/budget.sh && calculate_budget_percentage 5.50 5.00 -> PASS (returns 110%)
+  - Command: check_budget_threshold at 60% -> PASS (returns "none")
+  - Command: check_budget_threshold at 76% -> PASS (returns "warning_75")
+  - Command: check_budget_threshold at 91% -> PASS (returns "warning_90")
+  - Command: check_budget_threshold at 102% -> PASS (returns "exceeded")
+  - Command: get_budget_limit -> PASS (returns 5.00)
+  - Command: is_budget_enforced -> PASS (returns 0/true)
+  - Command: budget module direct test -> PASS (lib/commands/budget.js works correctly)
+- What was verified:
+  - US-008 was already fully implemented in commit 7a6512b (2026-01-16 16:49:03)
+  - All 6 acceptance criteria are met:
+    1. ✅ Budget config file: `.ralph/PRD-N/.budget.json` created by `ralph budget set`
+    2. ✅ Warning at 75% of budget (yellow) - display_budget_warning() with event logging
+    3. ✅ Warning at 90% of budget (orange) - display_budget_warning() with event logging
+    4. ✅ Error at 100% of budget (red, build pauses) - check_and_enforce_budget() + prompt_budget_continue()
+    5. ✅ Warnings visible in both CLI and UI - CLI via budget.sh, UI via budget-display partial
+    6. ✅ Budget config command: `ralph budget set <amount>` - lib/commands/budget.js
+  - Budget bash functions tested with comprehensive test suite (8/8 tests passed)
+  - Event logging added to budget.sh for warnings at 75%, 90%, and 100% thresholds
+- **Note**: This iteration was assigned US-008 but the story was already completed in a previous iteration. No new commits needed.
+---
