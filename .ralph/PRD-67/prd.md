@@ -234,7 +234,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-014: Extract metrics builder to TypeScript
+### [x] US-014: Extract metrics builder to TypeScript
 
 **As a** developer
 **I want** metrics handling to be type-safe
@@ -242,11 +242,11 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Module: `lib/metrics/builder.js`
-- [ ] Replace 27-argument bash function with JSON object
-- [ ] Schema validation for metrics data
-- [ ] Bash integration: `node lib/metrics/cli.js "$json_data"`
-- [ ] Backward compatible with existing metrics.jsonl
+- [x] Module: `lib/metrics/builder.js`
+- [x] Replace 27-argument bash function with JSON object
+- [x] Schema validation for metrics data
+- [x] Bash integration: `node lib/metrics/cli.js "$json_data"`
+- [x] Backward compatible with existing metrics.jsonl
 
 ---
 

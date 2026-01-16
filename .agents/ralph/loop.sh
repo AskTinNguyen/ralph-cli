@@ -2681,9 +2681,11 @@ append_metrics() {
 
   local metrics_cli
   if [[ -n "${RALPH_ROOT:-}" ]]; then
-    metrics_cli="$RALPH_ROOT/lib/estimate/metrics-cli.js"
+    # US-014: Use new type-safe metrics builder
+    metrics_cli="$RALPH_ROOT/lib/metrics/cli.js"
   else
-    metrics_cli="$SCRIPT_DIR/../../lib/estimate/metrics-cli.js"
+    # US-014: Use new type-safe metrics builder
+    metrics_cli="$SCRIPT_DIR/../../lib/metrics/cli.js"
   fi
 
   # Check if metrics CLI exists and Node.js is available

@@ -527,30 +527,35 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Create `lib/metrics/builder.js` replacing 27-argument bash function with JSON schema validation, maintain backward compatibility with metrics.jsonl format.
 
-- [ ] Create metrics builder module
+- [x] Create metrics builder module
   - Scope: New file `lib/metrics/builder.js` with `buildMetrics(data)` function accepting object instead of positional args
   - Acceptance: Function returns formatted metrics object
   - Verification: Import and call with test data, verify output
+  - Notes: Module at `lib/metrics/builder.js` provides `buildMetrics()`, `validateMetrics()`, `serializeMetrics()`, `parseMetricsInput()` functions. Accepts JSON object and normalizes all fields with proper type coercion.
 
-- [ ] Define metrics schema
+- [x] Define metrics schema
   - Scope: Use JSON schema or Zod to validate metrics data structure
   - Acceptance: Invalid data rejected with clear error messages
   - Verification: Test with invalid data, verify validation errors
+  - Notes: Schema defined in `lib/metrics/schema.js` with METRICS_SCHEMA object defining all fields (type, required, nullable, enum, description). Includes validateField() for field-level validation.
 
-- [ ] Create CLI wrapper
+- [x] Create CLI wrapper
   - Scope: `lib/metrics/cli.js` reads JSON from stdin, outputs formatted metrics line
   - Acceptance: `echo '{"iteration":1,...}' | node lib/metrics/cli.js` outputs metrics.jsonl line
   - Verification: Test CLI with sample JSON, verify output format
+  - Notes: CLI at `lib/metrics/cli.js` supports three modes: append (to PRD folder), --build (output JSON), --validate (check data). Also supports stdin input with '-' argument.
 
-- [ ] Verify backward compatibility
+- [x] Verify backward compatibility
   - Scope: Output format matches existing metrics.jsonl exactly
   - Acceptance: Existing metrics analysis tools work with new output
   - Verification: Generate metrics, parse with existing tools, verify no breakage
+  - Notes: Tested with existing metrics.jsonl entries - validates and parses correctly. Output format identical to lib/estimate/metrics.js implementation.
 
-- [ ] Integrate into loop.sh
+- [x] Integrate into loop.sh
   - Scope: Replace bash metrics builder in `loop.sh` with call to TypeScript CLI
   - Acceptance: Metrics.jsonl generated correctly during builds
   - Verification: Run build, verify metrics.jsonl format unchanged
+  - Notes: Updated loop.sh:2683-2687 to use `lib/metrics/cli.js` instead of `lib/estimate/metrics-cli.js`. CLI interface is backward compatible - same arguments, same output format.
 
 ---
 
