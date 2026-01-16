@@ -1079,7 +1079,9 @@ cmd_build() {
   # If worktree exists, use it
   if worktree_exists "$stream_id"; then
     work_dir="$WORKTREES_DIR/$stream_id"
-    stream_dir="$work_dir/.ralph/$stream_id"
+    # IMPORTANT: Always use main RALPH_DIR, never create nested .ralph in worktree
+    # This prevents context contamination where agents discover multiple PRDs
+    stream_dir="$RALPH_DIR/$stream_id"
   fi
 
   section_header "Running build for $stream_id"
@@ -1095,6 +1097,8 @@ cmd_build() {
   ERRORS_LOG_PATH="$stream_dir/errors.log" \
   ACTIVITY_LOG_PATH="$stream_dir/activity.log" \
   RUNS_DIR="$stream_dir/runs" \
+  RALPH_DIR="$RALPH_DIR" \
+  ACTIVE_PRD_NUMBER="$stream_id" \
     "$SCRIPT_DIR/loop.sh" build "$iterations"
 }
 
