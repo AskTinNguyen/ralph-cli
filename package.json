@@ -25,8 +25,11 @@
     "test:watch": "node tests/integration-watch.mjs",
     "test:ui-api": "node tests/integration-ui-api.mjs",
     "test:e2e": "node tests/e2e-workflow.mjs",
-    "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e",
-    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e",
+    "test:scope": "node tests/test-scope-validation.mjs",
+    "test:marker": "node tests/test-active-prd-marker.mjs",
+    "test:lock": "node tests/test-lock-mechanism.mjs",
+    "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
+    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write ."
   },
