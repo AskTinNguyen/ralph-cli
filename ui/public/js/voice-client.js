@@ -67,6 +67,8 @@
   let serverWakeWordRecorder = null;
   const wakeWordIndicator = document.getElementById('wake-word-indicator');
   const wakeWordStatus = document.getElementById('wake-word-status');
+  const wakeWordToggle = document.getElementById('wake-word-enabled');
+  const privacyIndicator = document.getElementById('privacy-indicator');
 
   /**
    * Initialize the voice client
@@ -105,6 +107,15 @@
 
     // Load wake word preference from localStorage
     wakeWordEnabled = localStorage.getItem('wakeWordEnabled') === 'true';
+
+    // Set up wake word toggle event listener
+    if (wakeWordToggle) {
+      wakeWordToggle.checked = wakeWordEnabled;
+      wakeWordToggle.addEventListener('change', handleWakeWordToggle);
+    }
+
+    // Update privacy indicator initial state
+    updatePrivacyIndicator(wakeWordEnabled);
 
     // Check if server-side wake word detection is available
     await checkServerWakeWordAvailability();
@@ -1458,6 +1469,30 @@
         wakeWordStatus.className = 'status-dot';
       }
     }
+
+    // Update privacy indicator
+    updatePrivacyIndicator(active);
+  }
+
+  /**
+   * Update privacy indicator visibility
+   */
+  function updatePrivacyIndicator(active) {
+    if (privacyIndicator) {
+      if (active) {
+        privacyIndicator.classList.add('active');
+      } else {
+        privacyIndicator.classList.remove('active');
+      }
+    }
+  }
+
+  /**
+   * Handle wake word toggle change
+   */
+  function handleWakeWordToggle(event) {
+    const enabled = event.target.checked;
+    toggleWakeWordDetection(enabled);
   }
 
   /**
@@ -1466,6 +1501,14 @@
   function toggleWakeWordDetection(enabled) {
     wakeWordEnabled = enabled;
     localStorage.setItem('wakeWordEnabled', enabled ? 'true' : 'false');
+
+    // Update checkbox state if called programmatically
+    if (wakeWordToggle && wakeWordToggle.checked !== enabled) {
+      wakeWordToggle.checked = enabled;
+    }
+
+    // Update privacy indicator
+    updatePrivacyIndicator(enabled);
 
     if (enabled) {
       startWakeWordDetection();

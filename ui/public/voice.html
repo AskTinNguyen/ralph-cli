@@ -271,7 +271,65 @@
     .action-badge.file_operation { background: #f59e0b; color: white; }
     .action-badge.unknown { background: var(--rams-gray-400); color: white; }
 
-    /* TTS Controls */
+    /* Voice Controls Panel */
+    .voice-controls {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-3);
+      padding: var(--rams-space-3);
+      background: var(--rams-gray-50);
+      border-radius: var(--rams-radius-md);
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .voice-controls-row {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-4);
+      flex-wrap: wrap;
+    }
+
+    .voice-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+    }
+
+    .voice-toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+
+    .voice-toggle label {
+      font-size: var(--rams-text-sm);
+      cursor: pointer;
+    }
+
+    /* Privacy Indicator */
+    .privacy-indicator {
+      display: none;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-1) var(--rams-space-3);
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-radius: 999px;
+      font-size: var(--rams-text-xs);
+      color: #92400e;
+    }
+
+    .privacy-indicator.active {
+      display: inline-flex;
+    }
+
+    .privacy-indicator .icon {
+      font-size: var(--rams-text-sm);
+    }
+
+    .privacy-indicator .text {
+      font-weight: 500;
+    }
+
+    /* TTS Controls (legacy compatibility) */
     .tts-controls {
       display: flex;
       align-items: center;
@@ -593,14 +651,30 @@
           </div>
         </div>
 
-        <!-- TTS Controls -->
-        <div class="tts-controls">
-          <div class="tts-toggle">
-            <input type="checkbox" id="tts-enabled" checked>
-            <label for="tts-enabled">TTS Enabled</label>
+        <!-- Voice Controls Panel -->
+        <div class="voice-controls">
+          <div class="voice-controls-row">
+            <!-- Wake Word Toggle -->
+            <div class="voice-toggle">
+              <input type="checkbox" id="wake-word-enabled">
+              <label for="wake-word-enabled">Wake Word Detection</label>
+            </div>
+
+            <!-- Privacy Indicator -->
+            <div class="privacy-indicator" id="privacy-indicator">
+              <span class="icon">🎙️</span>
+              <span class="text">Always listening</span>
+            </div>
+
+            <!-- TTS Toggle -->
+            <div class="voice-toggle">
+              <input type="checkbox" id="tts-enabled" checked>
+              <label for="tts-enabled">TTS Enabled</label>
+            </div>
+
+            <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop Speaking</button>
+            <span class="tts-status" id="tts-status">Ready</span>
           </div>
-          <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop Speaking</button>
-          <span class="tts-status" id="tts-status">Ready</span>
         </div>
 
         <!-- Output Toggle -->
