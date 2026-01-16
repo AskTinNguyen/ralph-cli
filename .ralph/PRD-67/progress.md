@@ -546,3 +546,33 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/runs/run-20260116-160954-10574-it
   - Checkpoint integration stores total_cost in loop_state for redundancy
   - bc command provides high precision floating point; awk fallback for systems without bc
 ---
+
+## [2026-01-16T16:45:00+07:00] - US-007: Real-time cost accumulation (Verification)
+Thread:
+Run: 20260116-161636-16394 (iteration 5)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-5.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-5.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: none (US-007 already completed in commit 0515424)
+- Post-commit status: N/A (story already complete; uncommitted changes are for US-008 budget tracking)
+- Verification:
+  - Command: source .agents/ralph/lib/cost.sh && format_cost "0.0234" -> PASS (returns $0.0234)
+  - Command: source .agents/ralph/lib/cost.sh && calculate_cost 10000 5000 sonnet -> PASS (returns .105000)
+  - Command: init_cost_tracking /tmp/test-cost-prd -> PASS (creates .cost.json with correct structure)
+  - Command: Verify init preserves existing costs -> PASS (existing .cost.json not overwritten)
+  - Command: get_total_cost /tmp/test-cost-prd -> PASS (returns 0.1234 from existing file)
+  - API verification: GET /api/streams/:id/cost endpoint implemented (api.ts lines 8639-8676)
+  - API verification: GET /api/partials/cost-display endpoint implemented (api.ts lines 8688-8762)
+  - UI verification: dashboard.html includes cost-section with HTMX triggers (lines 227-238, 414-432)
+  - CSS verification: .cost-display styles defined (rams-ui.css lines 1704-1793)
+- What was verified:
+  - US-007 was already fully implemented in commit 0515424 (2026-01-16)
+  - All 5 acceptance criteria are met:
+    1. ✅ `.cost.json` file updated after each agent call (update_cost() called in loop.sh)
+    2. ✅ Running total calculated using existing estimator (calculate_cost() with model pricing)
+    3. ✅ Cost displayed in CLI: `$0.0234` next to status (format_cost with 4 decimal precision)
+    4. ✅ UI dashboard shows cost with 4 decimal precision (cost-display partial with formatTokens)
+    5. ✅ Cost persists across checkpoint/resume (init_cost_tracking preserves existing .cost.json)
+- **Note**: This iteration was assigned US-007 but the story was already completed in a previous iteration. No new commits needed.
+---
