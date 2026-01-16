@@ -55,6 +55,10 @@ source "$SCRIPT_DIR/lib/budget.sh"
 # shellcheck source=lib/heartbeat.sh
 source "$SCRIPT_DIR/lib/heartbeat.sh"
 
+# Source watchdog utilities for auto-recovery (US-010)
+# shellcheck source=lib/watchdog.sh
+source "$SCRIPT_DIR/lib/watchdog.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
