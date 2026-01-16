@@ -126,6 +126,50 @@
         </div>
       </section>
 
+      <!-- Critical Merge Policy -->
+      <section class="rams-section">
+        <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid rgba(239, 68, 68, 0.5); border-radius: 4px; padding: 10px 12px; border-left: 4px solid rgba(239, 68, 68, 1); margin-bottom: 16px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1); color: #B91C1C;">
+          <strong style="font-size: 13px; color: rgba(239, 68, 68, 1); display: block; margin-bottom: 8px;">🚨 CRITICAL: Manual Merge Policy</strong>
+          <div style="margin-top: 6px; font-size: 11px; line-height: 1.6; color: #B91C1C;">
+            <strong style="display: block; margin-bottom: 4px; color: #B91C1C;">Ralph NEVER auto-merges builds to main. This is a core safety guarantee.</strong>
+
+            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid rgba(239, 68, 68, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #B91C1C;">
+              <strong style="color: rgba(239, 68, 68, 1);">❌ NEVER DO (Prohibited):</strong>
+              <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #B91C1C;">
+                <li>Run <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph stream merge</code> commands</li>
+                <li>Create pull requests automatically</li>
+                <li>Push branches to remote automatically</li>
+                <li>Attempt any form of automatic merge</li>
+                <li>Suggest that you will merge on completion</li>
+              </ul>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid rgba(16, 185, 129, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #047857;">
+              <strong style="color: rgba(16, 185, 129, 1);">✅ CORRECT AGENT WORKFLOW:</strong>
+              <ol style="margin: 4px 0 0 0; padding-left: 18px; color: #047857;">
+                <li>Execute the assigned stories</li>
+                <li>Output <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">&lt;promise&gt;COMPLETE&lt;/promise&gt;</code> signal</li>
+                <li>Exit - let the human handle merge/PR creation</li>
+              </ol>
+            </div>
+
+            <div style="background: rgba(59, 130, 246, 0.1); border-left: 3px solid rgba(59, 130, 246, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #1E40AF;">
+              <strong style="color: rgba(59, 130, 246, 1);">ℹ️ USER WORKFLOW (What Happens Next):</strong>
+              <ol style="margin: 4px 0 0 0; padding-left: 18px; color: #1E40AF; font-size: 10px;">
+                <li>User reviews commits: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">git log</code>, <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">git diff</code></li>
+                <li>User validates build: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">npm test</code>, <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">npm run build</code></li>
+                <li>User manually triggers merge: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph stream merge N</code></li>
+                <li>User confirms merge at interactive prompt (or uses <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">--yes</code> flag)</li>
+              </ol>
+            </div>
+
+            <div style="margin-top: 8px; padding: 6px 8px; background: rgba(0,0,0,0.03); border-radius: 2px; font-size: 10px; color: #6B7280;">
+              <strong>Why this matters:</strong> Merging requires explicit human validation. Build completion does NOT imply merge approval. This separation ensures code quality and prevents unreviewed changes from reaching main.
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Quick Decision Tree -->
       <section class="rams-section">
         <h2 class="rams-h2">Decision Tree</h2>

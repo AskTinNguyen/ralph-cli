@@ -45,6 +45,27 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 - If No-commit is true, do NOT commit or push changes.
 - All changes made during the run must be committed (including updates to PRD/plan/progress/logs).
 
+## Critical Merge Policy (NEVER VIOLATE)
+
+**YOU MUST NOT**:
+- Run `ralph stream merge` or any merge commands
+- Create pull requests automatically
+- Push branches to remote automatically
+- Suggest or attempt to merge worktree branches
+- Trigger any form of automatic merge on build completion
+
+**WHY**: Merging requires explicit human validation. Build completion does NOT imply merge approval. Ralph is designed to NEVER auto-merge - this is a core safety guarantee.
+
+**YOUR ROLE**: Execute the assigned story. When complete, output the `<promise>COMPLETE</promise>` signal. The human will handle merge/PR creation after reviewing your work.
+
+**WHAT HAPPENS NEXT**: When the build completes, the human will:
+1. Review all commits and changes
+2. Run tests and validations
+3. Manually trigger merge via `ralph stream merge N` command
+4. Approve the merge confirmation prompt
+
+This separation of execution and approval is intentional and critical for code quality and safety.
+
 ## Your Task (Do this in order)
 
 1. Read {{GUARDRAILS_PATH}} before any code changes.

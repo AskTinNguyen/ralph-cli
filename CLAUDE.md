@@ -37,6 +37,9 @@ Each `ralph plan` creates a new isolated folder (PRD-1, PRD-2, ...) to prevent p
 1. **PRD** → Define requirements: `ralph prd` (creates `.ralph/PRD-N/prd.md`)
 2. **Plan** → Break into stories: `ralph plan` (uses latest PRD) or `ralph plan --prd=1` (specific PRD)
 3. **Build** → Execute stories: `ralph build N` or `ralph build N --prd=1`
+4. **Merge** → **MANUAL STEP** (worktree only): Review changes, then `ralph stream merge N`
+
+**Merge Safety**: Builds NEVER auto-merge. When using worktrees, you must explicitly run `ralph stream merge N` after reviewing changes. Direct-to-main builds don't require merging.
 
 ## Parallel Workflow
 
@@ -44,7 +47,14 @@ Each `ralph plan` creates a new isolated folder (PRD-1, PRD-2, ...) to prevent p
 2. **Edit PRDs**: `.ralph/PRD-N/prd.md`
 3. **Init worktrees** (optional): `ralph stream init N`
 4. **Run in parallel**: `ralph stream build 1 & ralph stream build 2 &`
-5. **Merge completed**: `ralph stream merge N`
+5. **Wait for completion**: Monitor build progress via `ralph stream status`
+6. **Review changes**: `git log main..ralph/PRD-N`, run tests, validate output
+7. **Merge completed**: `ralph stream merge N` (requires human confirmation)
+
+**Merge Safety**: Ralph NEVER auto-merges worktree branches. Each merge requires:
+- Explicit human command: `ralph stream merge N`
+- Interactive confirmation prompt (or `--yes` flag for automation)
+- All merges are auditable and reversible
 
 ## File Structure
 
