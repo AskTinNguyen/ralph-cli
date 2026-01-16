@@ -166,7 +166,7 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 ---
 
-### [ ] US-010: Watchdog process for auto-recovery
+### [x] US-010: Watchdog process for auto-recovery
 
 **As a** developer
 **I want** external monitoring to restart failed/stalled builds
@@ -174,12 +174,12 @@ Improve Ralph CLI's core developer experience to enable true "Ship While You Sle
 
 #### Acceptance Criteria
 
-- [ ] Watchdog spawns as separate process when stream build starts
-- [ ] Watchdog checks heartbeat every 60 seconds
-- [ ] 3 consecutive stall checks trigger restart
-- [ ] Max 3 restarts before escalating to NEEDS_HUMAN
-- [ ] Watchdog logs to `watchdog.log`
-- [ ] Watchdog terminates when lock file disappears
+- [x] Watchdog spawns as separate process when stream build starts
+- [x] Watchdog checks heartbeat every 60 seconds
+- [x] 3 consecutive stall checks trigger restart
+- [x] Max 3 restarts before escalating to NEEDS_HUMAN
+- [x] Watchdog logs to `watchdog.log`
+- [x] Watchdog terminates when lock file disappears
 
 ---
 

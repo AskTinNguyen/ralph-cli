@@ -20,6 +20,10 @@ source "$SCRIPT_DIR/lib/path-utils.sh"
 # shellcheck source=lib/output.sh
 source "$SCRIPT_DIR/lib/output.sh"
 
+# Source watchdog module for auto-recovery (US-010)
+# shellcheck source=lib/watchdog.sh
+source "$SCRIPT_DIR/lib/watchdog.sh"
+
 # Find ralph root using smart discovery (prefers parent .ralph when in ui/)
 RALPH_DIR="$(find_ralph_root || echo "")"
 if [[ -z "$RALPH_DIR" ]]; then
@@ -1166,11 +1170,12 @@ cmd_build() {
   # Set active PRD marker (for sequential mode tracking)
   set_active_prd "$stream_id"
 
-  # Set up cleanup on exit
-  trap "release_lock '$stream_id'; clear_active_prd" EXIT
-
   local stream_dir
   stream_dir="$(get_stream_dir "$stream_id")"
+
+  # Set up cleanup on exit (includes watchdog stop)
+  trap "release_lock '$stream_id'; clear_active_prd; stop_watchdog '$stream_dir'" EXIT
+
   local work_dir="$ROOT_DIR"
 
   # If worktree exists, use it
@@ -1184,6 +1189,16 @@ cmd_build() {
   section_header "Running build for $stream_id"
   bullet "Work dir: $(path_display "$work_dir")"
   bullet "Iterations: ${C_BOLD}$iterations${C_RESET}"
+
+  # Start watchdog process for auto-recovery (US-010)
+  start_watchdog "$stream_dir"
+  if is_watchdog_running "$stream_dir"; then
+    local watchdog_pid
+    watchdog_pid=$(get_watchdog_pid "$stream_dir")
+    bullet "Watchdog: ${C_GREEN}active${C_RESET} (PID $watchdog_pid)"
+  else
+    bullet "Watchdog: ${C_DIM}disabled${C_RESET}"
+  fi
   echo ""
 
   # Run loop.sh with stream-specific paths

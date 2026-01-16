@@ -341,40 +341,47 @@ This PRD focuses on transforming Ralph CLI from a "blind batch processor" to a p
 
 **Scope**: Spawn separate watchdog process when stream build starts, monitor heartbeat, restart build after 3 consecutive stalls (max 3 restarts), escalate to NEEDS_HUMAN status, log to watchdog.log.
 
-- [ ] Create watchdog script
+- [x] Create watchdog script
   - Scope: New file `.agents/ralph/lib/watchdog.sh` that runs as background daemon, monitors `.heartbeat` file
   - Acceptance: Watchdog runs independently, checks heartbeat every 60s
   - Verification: Launch watchdog manually, verify it runs and checks heartbeat
+  - Notes: Created `.agents/ralph/lib/watchdog.sh` with full implementation. Functions: `run_watchdog()`, `start_watchdog()`, `stop_watchdog()`, `is_watchdog_running()`, `get_watchdog_pid()`.
 
-- [ ] Spawn watchdog on build start
+- [x] Spawn watchdog on build start
   - Scope: In `loop.sh` or stream.sh, spawn watchdog in background at build start, pass PRD path and PID
   - Acceptance: Watchdog starts with build, PID written to `.ralph/PRD-N/.watchdog.pid`
   - Verification: Start build, verify watchdog process running
+  - Notes: Integrated into `cmd_build()` in stream.sh. Watchdog started after lock acquired, stopped in exit trap. CLI shows "Watchdog: active (PID N)" when running.
 
-- [ ] Implement stall detection in watchdog
+- [x] Implement stall detection in watchdog
   - Scope: Check heartbeat age every 60s, count consecutive stalls (3 checks = 1 stall)
   - Acceptance: 3 consecutive stall checks (180s total) trigger restart
   - Verification: Stall build, verify restart triggered after ~3min
+  - Notes: `is_stalled()` function checks heartbeat age against `STALL_THRESHOLD`. Main loop calls `increment_watchdog_state "consecutive_stalls"` on each stall detection, resets on recovery.
 
-- [ ] Implement automatic restart logic
+- [x] Implement automatic restart logic
   - Scope: On stall, kill current build process and re-run `ralph build` (uses auto-resume from US-005)
   - Acceptance: Build restarts automatically from last checkpoint
   - Verification: Stall build, verify restart happens and resumes correctly
+  - Notes: `restart_build()` function kills stalled process (SIGTERM then SIGKILL), removes lock, restarts with `nohup ralph stream build N --force`. Auto-resume from checkpoint works via US-005 integration.
 
-- [ ] Add restart limit (max 3)
+- [x] Add restart limit (max 3)
   - Scope: Track restart count in `.ralph/PRD-N/.watchdog.state`, stop after 3 restarts
   - Acceptance: After 3 restarts, watchdog stops and escalates to NEEDS_HUMAN status
   - Verification: Force 3 stalls, verify watchdog gives up after 3rd restart
+  - Notes: `.watchdog.state` JSON file tracks: `restart_count`, `consecutive_stalls`, `last_restart_at`, `status`. At max restarts, creates `.needs_human` marker with JSON diagnostics and logs ERROR event.
 
-- [ ] Watchdog logging
+- [x] Watchdog logging
   - Scope: Write all watchdog actions to `.ralph/PRD-N/watchdog.log`: heartbeat checks, stalls, restarts, termination
   - Acceptance: Log contains full watchdog activity history
   - Verification: Check `watchdog.log` during/after build with stalls
+  - Notes: `log_watchdog()` function with levels INFO/WARN/ERROR. Logs: startup, config, stall detection, heartbeat recovery, restart attempts, NEEDS_HUMAN escalation, termination.
 
-- [ ] Watchdog termination on build completion
+- [x] Watchdog termination on build completion
   - Scope: Watchdog exits when lock file disappears (build completed)
   - Acceptance: Watchdog cleans up on normal build completion
   - Verification: Complete build successfully, verify watchdog exits
+  - Notes: Main watchdog loop checks `is_lock_present()` on each iteration, exits cleanly when lock disappears. Also exits if build process dies but lock remains (cleans up stale lock). PID file removed on exit.
 
 ---
 
