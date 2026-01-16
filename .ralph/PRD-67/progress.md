@@ -649,3 +649,70 @@ Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-1
   - Event logging added to budget.sh for warnings at 75%, 90%, and 100% thresholds
 - **Note**: This iteration was assigned US-008 but the story was already completed in a previous iteration. No new commits needed.
 ---
+
+## [2026-01-16T16:56:00+07:00] - US-009: Stall detection system
+Thread:
+Run: 20260116-161636-16394 (iteration 7)
+Run log: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-7.log
+Run summary: /Users/tinnguyen/ralph-cli/.ralph/PRD-67/runs/run-20260116-161636-16394-iter-7.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: f6b9d7e feat(stall-detection): implement heartbeat and stall detection (US-009)
+- Post-commit status: clean (only unrelated S2-Game files remain)
+- Verification:
+  - Command: Test 1 - update_heartbeat -> PASS (heartbeat file created with timestamp)
+  - Command: Test 2 - get_heartbeat -> PASS (reads timestamp from .heartbeat)
+  - Command: Test 3 - get_heartbeat_age -> PASS (returns age in seconds)
+  - Command: Test 4 - is_stalled fresh -> PASS (correctly detects not stalled)
+  - Command: Test 5 - is_stalled old -> PASS (correctly detects stall)
+  - Command: Test 6 - create_stalled_marker -> PASS (creates JSON with diagnostics)
+  - Command: Test 7 - RALPH_STALL_THRESHOLD_SILENT -> PASS (threshold configurable)
+  - Loop integration verified: heartbeat updated in tee_with_heartbeat() (lines 437, 448)
+  - Stall detector started before agent execution (line 3439)
+  - Stall detector stopped after agent execution (line 3453)
+  - Heartbeat/stalled marker cleared on build completion (lines 3969-3970)
+- Files changed:
+  - .agents/ralph/lib/heartbeat.sh (new - heartbeat and stall detection module)
+  - .agents/ralph/loop.sh (integrated heartbeat and stall detector)
+  - .ralph/PRD-67/plan.md (marked US-009 tasks complete)
+  - .ralph/PRD-67/prd.md (marked US-009 acceptance criteria and story complete)
+- What was implemented:
+  - **Heartbeat mechanism** (.agents/ralph/lib/heartbeat.sh):
+    - `update_heartbeat()` - writes Unix timestamp to .heartbeat file atomically
+    - `get_heartbeat()` - reads last heartbeat timestamp
+    - `get_heartbeat_age()` - calculates age in seconds
+    - `clear_heartbeat()` - removes heartbeat file on build completion
+  - **Stall detection**:
+    - `is_stalled()` - checks if heartbeat age exceeds threshold
+    - `start_stall_detector()` - spawns background process checking every 60s
+    - `stop_stall_detector()` - terminates background detector
+    - Background process auto-exits when parent dies (prevents orphans)
+  - **Stall logging**:
+    - Logs to activity.log: `[timestamp] STALL iteration=N story=US-XXX elapsed=Xs heartbeat_age=Xs`
+    - Logs to .events.log: `[timestamp] ERROR Stall detected | iteration=N story=US-XXX heartbeat_age=Xs threshold=Xs`
+    - Also logs recovery events when heartbeat resumes
+  - **.stalled marker file**:
+    - `create_stalled_marker()` - creates JSON with diagnostics
+    - Contains: timestamp, iteration, story_id, agent, elapsed_seconds, heartbeat_age_seconds, stall_threshold_seconds, pid, lock_pid, last_log_file, last_output_lines
+    - `clear_stalled_marker()` - removes marker on recovery/completion
+  - **Configuration**:
+    - `RALPH_STALL_THRESHOLD_SILENT` env var (default 1800s = 30 minutes)
+    - `RALPH_STALL_CHECK_INTERVAL` env var (default 60s)
+  - **Loop integration**:
+    - Heartbeat updated via `tee_with_heartbeat()` on every line of agent output
+    - Stall detector started before agent execution
+    - Stall detector stopped after agent execution
+    - Heartbeat and stalled marker cleared on build completion
+- Acceptance Criteria Verification:
+  1. ✅ Heartbeat file (`.heartbeat`) updated every agent output (tee_with_heartbeat calls update_heartbeat)
+  2. ✅ Stall detected after 30 minutes of no output (is_stalled with 1800s threshold)
+  3. ✅ Stall logged to `activity.log` and `.events.log` (start_stall_detector logs to both)
+  4. ✅ Stall creates `.stalled` marker file with diagnostics (create_stalled_marker with JSON)
+  5. ✅ Configurable threshold via `RALPH_STALL_THRESHOLD_SILENT` (line 11 of heartbeat.sh)
+- **Learnings for future iterations:**
+  - Background stall detector uses parent PID check to auto-exit when build terminates
+  - Heartbeat file uses atomic write (tmp file + mv) to prevent partial reads
+  - Stall recovery is tracked - marker cleared and recovery logged when heartbeat resumes
+  - 60-second check interval balances responsiveness with CPU efficiency
+  - JSON diagnostics in .stalled file aid debugging hung builds
+---
