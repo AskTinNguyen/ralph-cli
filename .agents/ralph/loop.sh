@@ -39,6 +39,10 @@ source "$SCRIPT_DIR/lib/telemetry.sh"
 # shellcheck source=lib/status.sh
 source "$SCRIPT_DIR/lib/status.sh"
 
+# Source event logging utilities for errors, warnings, retries (US-002)
+# shellcheck source=lib/events.sh
+source "$SCRIPT_DIR/lib/events.sh"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency availability checks for graceful degradation (P2.5)
 # These flags allow features to degrade gracefully when deps are missing
@@ -408,6 +412,7 @@ cleanup_temp_files() {
 # Usage: run_agent_with_retry <prompt_file> <log_file> <iteration> -> exit_status
 # Handles tee internally and manages retry output to log file
 # Sets LAST_RETRY_COUNT and LAST_RETRY_TOTAL_TIME for metrics
+# Uses global PRD_FOLDER for event logging (US-002)
 run_agent_with_retry() {
   local prompt_file="$1"
   local log_file="$2"
@@ -449,6 +454,10 @@ run_agent_with_retry() {
     if [ "$exit_status" -eq 0 ]; then
       if [ "$retry_count" -gt 0 ]; then
         log_activity "RETRY_SUCCESS iteration=$iteration succeeded_after=$retry_count retries total_retry_time=${total_retry_time}s"
+        # Log retry success event (US-002)
+        if [ -n "${PRD_FOLDER:-}" ]; then
+          log_event_info "$PRD_FOLDER" "Retry succeeded" "iteration=$iteration retries=$retry_count total_wait=${total_retry_time}s"
+        fi
         printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
         printf "${C_GREEN}  Succeeded after %d retries (total retry wait: %ds)${C_RESET}\n" "$retry_count" "$total_retry_time"
         printf "${C_GREEN}───────────────────────────────────────────────────────${C_RESET}\n"
@@ -483,6 +492,13 @@ run_agent_with_retry() {
       # Log retry to activity log with cumulative stats
       log_activity "RETRY iteration=$iteration attempt=$next_attempt/$max_attempts delay=${delay}s exit_code=$exit_status cumulative_retry_time=${total_retry_time}s"
 
+      # Log retry event to .events.log (US-002)
+      if [ -n "${PRD_FOLDER:-}" ]; then
+        log_event_retry "$PRD_FOLDER" "$next_attempt" "$max_attempts" "${delay}s" "exit_code=$exit_status"
+        # Also display the event in CLI (US-002)
+        display_event "RETRY" "Retry $next_attempt/$max_attempts (delay: ${delay}s)" "exit_code=$exit_status"
+      fi
+
       # Append retry info to run log
       {
         echo ""
@@ -497,6 +513,13 @@ run_agent_with_retry() {
     else
       # All retries exhausted - log final failure
       log_activity "RETRY_EXHAUSTED iteration=$iteration total_attempts=$max_attempts final_exit_code=$exit_status total_retry_time=${total_retry_time}s"
+
+      # Log retry exhausted as error event (US-002)
+      if [ -n "${PRD_FOLDER:-}" ]; then
+        log_event_error "$PRD_FOLDER" "All retries exhausted" "iteration=$iteration attempts=$max_attempts exit_code=$exit_status"
+        display_event "ERROR" "All retries exhausted" "iteration=$iteration attempts=$max_attempts"
+      fi
+
       {
         echo ""
         echo "[RETRY] All $max_attempts attempts exhausted. Final exit code: $exit_status"
@@ -3329,6 +3352,9 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
     log_activity "ITERATION $i start (mode=$MODE story=$STORY_ID)"
+    # Log iteration start as info event (US-002)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    log_event_info "$PRD_FOLDER" "Iteration started" "iteration=$i story=$STORY_ID mode=$MODE"
   else
     log_activity "ITERATION $i start (mode=$MODE)"
   fi
@@ -3376,10 +3402,15 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     # Track failed iteration details for summary
     FAILED_COUNT=$((FAILED_COUNT + 1))
     FAILED_ITERATIONS="${FAILED_ITERATIONS}${FAILED_ITERATIONS:+,}$i:${STORY_ID:-plan}:$LOG_FILE"
+
+    # Log error event to .events.log (US-002)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    log_event_error "$PRD_FOLDER" "Iteration failed" "iteration=$i story=${STORY_ID:-plan} exit_code=$CMD_STATUS"
+    display_event "ERROR" "Iteration $i failed" "story=${STORY_ID:-plan} exit_code=$CMD_STATUS"
+
     # Track failure for agent switching (US-001)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       track_failure "$CMD_STATUS" "$LOG_FILE" "$STORY_ID"
-      PRD_FOLDER="$(dirname "$PRD_PATH")"
       save_switch_state "$PRD_FOLDER"
       # Check if we should switch agents (US-002)
       if switch_threshold_reached; then
@@ -3387,12 +3418,18 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
           # Fix P0.5: Agent fallback chain exhausted - all agents failed
           msg_error "Agent fallback chain exhausted - all agents failed for story $STORY_ID"
           log_error "CHAIN_EXHAUSTED story=$STORY_ID - manual intervention required"
+          # Log chain exhausted as error event (US-002)
+          log_event_error "$PRD_FOLDER" "Agent fallback chain exhausted" "story=$STORY_ID"
+          display_event "ERROR" "Agent fallback chain exhausted" "story=$STORY_ID"
           # Continue to next iteration rather than infinite loop
           # Story remains unchecked and can be retried manually later
         else
           # Reset failure count after successful switch
           CONSECUTIVE_FAILURES=0
           save_switch_state "$PRD_FOLDER"
+          # Log agent switch as warning event (US-002)
+          log_event_warn "$PRD_FOLDER" "Switching agent" "from=$LAST_SWITCH_FROM to=$CURRENT_AGENT story=$STORY_ID"
+          display_event "WARN" "Switching agent to $CURRENT_AGENT" "story=$STORY_ID"
           msg_info "Will retry story $STORY_ID with agent $CURRENT_AGENT in next iteration"
         fi
       fi
@@ -3406,6 +3443,11 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
     STATUS_LABEL="error"
   else
     SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    # Log iteration success as info event (US-002)
+    if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
+      PRD_FOLDER="$(dirname "$PRD_PATH")"
+      log_event_info "$PRD_FOLDER" "Iteration completed" "iteration=$i story=$STORY_ID duration=${ITER_DURATION}s"
+    fi
     # Reset failure tracking on success (US-001)
     if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then
       reset_failure_tracking
@@ -3421,6 +3463,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   if [ "$MODE" = "build" ] && [ "$NO_COMMIT" = "false" ] && [ -n "$DIRTY_FILES" ]; then
     msg_warn "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
     log_error "ITERATION $i left uncommitted changes; review run summary at $RUN_META"
+    # Log uncommitted changes as warning event (US-002)
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    log_event_warn "$PRD_FOLDER" "Uncommitted changes" "iteration=$i story=${STORY_ID:-plan}"
+    display_event "WARN" "Uncommitted changes after iteration $i" "story=${STORY_ID:-plan}"
   fi
 
   # Extract token metrics from log file
@@ -3681,6 +3727,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
 
               log_activity "MAX_RETRIES_EXHAUSTED story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
               log_error "MAX_RETRIES_EXHAUSTED story=$STORY_ID - manual intervention required"
+              # Log max retries exhausted as error event (US-002)
+              PRD_FOLDER="$(dirname "$PRD_PATH")"
+              log_event_error "$PRD_FOLDER" "Max retries exhausted" "story=$STORY_ID attempts=$CURRENT_RETRY_COUNT max=$ROLLBACK_MAX"
+              display_event "ERROR" "Max retries exhausted" "story=$STORY_ID attempts=$CURRENT_RETRY_COUNT"
               # Log max retries exhausted for history tracking (US-004)
               log_rollback "${STORY_ID:-unknown}" "max_retries_exhausted" "$(git_head)" "$HEAD_BEFORE" "$CURRENT_RETRY_COUNT" "false" "$FAILURE_CONTEXT_FILE"
 
@@ -3696,6 +3746,10 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         else
           log_error "ROLLBACK_FAILED story=${STORY_ID:-unknown}"
           msg_error "Rollback failed - manual intervention may be required"
+          # Log rollback failure as error event (US-002)
+          PRD_FOLDER="$(dirname "$PRD_PATH")"
+          log_event_error "$PRD_FOLDER" "Rollback failed" "story=${STORY_ID:-unknown} trigger=${ROLLBACK_TRIGGER:-test-fail}"
+          display_event "ERROR" "Rollback failed" "story=${STORY_ID:-unknown}"
           # Log failed rollback for history tracking (US-004)
           log_rollback "${STORY_ID:-unknown}" "${ROLLBACK_TRIGGER:-test-fail}" "$(git_head)" "$HEAD_BEFORE" "1" "false" "${FAILURE_CONTEXT_FILE:-}"
 

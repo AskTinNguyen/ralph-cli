@@ -288,62 +288,12 @@ Ralph agents have access to MCP (Model Context Protocol) servers for external in
 | **Slack**      | Team notifications, context search | Auto-start           | `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` |
 | **GitHub**     | Issues, PRs, code search           | Auto-start           | `GITHUB_TOKEN`                     |
 | **Miro**       | Visual diagrams, boards            | Auto-start           | `MIRO_API_TOKEN`                   |
-| **Playwright** | Browser automation, UI testing     | On-demand (disabled) | None                               |
 
 ### Setup
 
 1. Set required environment variables in your shell or `.env`
-2. MCP servers auto-start when Claude Code runs (except Playwright)
+2. MCP servers auto-start when Claude Code runs
 3. Tools are available as `mcp__<server>__<action>`
-
-### Playwright On-Demand Configuration
-
-**Why disabled by default?** Playwright spawns browser windows for each Claude Code session, which can cause multiple empty browser windows to appear.
-
-**Enable when needed:**
-```bash
-# Enable for UI testing session
-.agents/ralph/enable-playwright.sh
-
-# Restart Claude Code
-claude
-
-# Disable when done
-.agents/ralph/disable-playwright.sh
-```
-
-**Or manually edit `.mcp.json`:**
-```json
-"playwright": {
-  "disabled": false  // Change true to false
-}
-```
-
-### Playwright/ChromeMCP Troubleshooting
-
-Playwright and ChromeMCP can sometimes leave orphan browser processes or get stuck. Use these scripts:
-
-| Script                   | Purpose                                      |
-| ------------------------ | -------------------------------------------- |
-| `cleanup-playwright.sh`  | Kill stuck Playwright MCP processes          |
-| `disable-playwright.sh`  | Disable Playwright in `.mcp.json`            |
-| `enable-playwright.sh`   | Enable Playwright in `.mcp.json`             |
-
-```bash
-# Clean up stuck browser windows and processes
-.agents/ralph/cleanup-playwright.sh
-
-# Disable Playwright (prevents browser spawning)
-.agents/ralph/disable-playwright.sh
-
-# Enable Playwright for UI testing
-.agents/ralph/enable-playwright.sh
-```
-
-**Common fixes:**
-- **Multiple browser windows spawning**: `cleanup-playwright.sh` then `disable-playwright.sh`
-- **Browser stuck/unresponsive**: `cleanup-playwright.sh` and restart Claude Code
-- **Need UI testing**: `enable-playwright.sh`, restart Claude Code, test, then `disable-playwright.sh`
 
 ### Orphaned Ralph Process Cleanup
 
@@ -395,9 +345,9 @@ See `.agents/ralph/MCP_TOOLS.md` for full documentation.
 
 ## UI Testing
 
-**IMPORTANT**: All UI-related testing uses browser automation. We have two options:
+**IMPORTANT**: All UI-related testing uses browser automation with agent-browser.
 
-### Option 1: agent-browser CLI (Recommended)
+### agent-browser CLI
 
 **Vercel's agent-browser** - Fast Rust-based CLI for browser automation, optimized for AI agents.
 
@@ -465,23 +415,6 @@ agent-browser is visible <selector|@ref>
 agent-browser console
 agent-browser errors
 agent-browser network requests
-```
-
-### Option 2: Playwright MCP (Disabled by default)
-
-The `chromemcp` MCP server is available but disabled due to reliability issues. Enable only if needed:
-
-```bash
-# Enable Playwright MCP
-.agents/ralph/enable-playwright.sh
-
-# Use MCP tools (after enabling):
-# - mcp__plugin_playwright_playwright__browser_navigate(url)
-# - mcp__plugin_playwright_playwright__browser_snapshot()
-# - mcp__plugin_playwright_playwright__browser_click(element, ref)
-
-# Disable when done
-.agents/ralph/disable-playwright.sh
 ```
 
 ### Testing Checklist

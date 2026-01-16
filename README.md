@@ -362,13 +362,13 @@ npm run test:all
 
 ### UI Testing
 
-For web interface testing, Ralph uses **Playwright with MCP** for browser automation. This allows agents to:
+For web interface testing, Ralph uses **agent-browser** for browser automation. This allows agents to:
 - Navigate and interact with the UI
 - Verify rendered elements and layouts
 - Take screenshots for visual validation
 - Simulate user workflows
 
-See [CLAUDE.md](CLAUDE.md) for UI testing best practices with Playwright MCP.
+See [CLAUDE.md](CLAUDE.md) for UI testing best practices with agent-browser.
 
 ## Integrations (MCP Servers)
 
@@ -380,7 +380,6 @@ Ralph agents have access to **MCP (Model Context Protocol) servers** for externa
 | Slack    | Team notifications, context search | `SLACK_BOT_TOKEN`            |
 | GitHub   | Issues, PRs, code search           | `GITHUB_TOKEN`               |
 | Miro     | Visual diagrams, boards            | `MIRO_API_TOKEN`             |
-| Playwright | Browser automation, UI testing     | Auto-enabled                 |
 
 Set environment variables and Ralph agents automatically gain access to these tools during runs.
 
