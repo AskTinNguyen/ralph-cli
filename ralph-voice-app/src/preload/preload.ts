@@ -124,6 +124,30 @@ const voiceAPI = {
     ipcRenderer.invoke('voice:get-voices'),
 
   /**
+   * Get detailed TTS voice information
+   */
+  getVoiceDetails: (): Promise<Array<{
+    id: string;
+    filename: string;
+    language: string;
+    name: string;
+    quality: string;
+    installed: boolean;
+  }>> => ipcRenderer.invoke('voice:get-voice-details'),
+
+  /**
+   * Set the active TTS voice
+   */
+  setVoice: (voice: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('voice:set-voice', voice),
+
+  /**
+   * Get the current TTS voice
+   */
+  getCurrentVoice: (): Promise<string> =>
+    ipcRenderer.invoke('voice:get-current-voice'),
+
+  /**
    * Get conversation summary
    */
   getConversationSummary: (): Promise<{

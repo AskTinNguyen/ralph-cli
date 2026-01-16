@@ -39,6 +39,7 @@ const copyButton = document.getElementById('copyButton') as HTMLButtonElement;
 const ttsEnabledCheckbox = document.getElementById('ttsEnabled') as HTMLInputElement;
 const ttsStopBtn = document.getElementById('ttsStopBtn') as HTMLButtonElement;
 const ttsStatusEl = document.getElementById('ttsStatus') as HTMLElement;
+const voiceSelect = document.getElementById('voiceSelect') as HTMLSelectElement;
 const outputToggle = document.getElementById('outputToggle') as HTMLElement;
 const toggleFilteredBtn = document.getElementById('toggleFiltered') as HTMLButtonElement;
 const toggleFullBtn = document.getElementById('toggleFull') as HTMLButtonElement;
@@ -51,6 +52,9 @@ async function init(): Promise<void> {
   // Check services health
   await checkHealth();
 
+  // Load available voices
+  await loadVoices();
+
   // Set up event listeners
   micButton.addEventListener('click', toggleRecording);
   copyButton?.addEventListener('click', copyOutput);
@@ -58,6 +62,7 @@ async function init(): Promise<void> {
   // Set up TTS event listeners
   ttsEnabledCheckbox?.addEventListener('change', handleTTSToggle);
   ttsStopBtn?.addEventListener('click', stopTTS);
+  voiceSelect?.addEventListener('change', handleVoiceChange);
   toggleFilteredBtn?.addEventListener('click', () => setOutputView('filtered'));
   toggleFullBtn?.addEventListener('click', () => setOutputView('full'));
 

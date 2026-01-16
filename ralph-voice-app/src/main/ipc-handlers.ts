@@ -158,6 +158,30 @@ export function setupIpcHandlers(sttService: STTService): void {
     return actionRouter.getTTSVoices();
   });
 
+  // Get TTS voice details handler (includes metadata)
+  ipcMain.handle('voice:get-voice-details', async () => {
+    if (!actionRouter) {
+      return [];
+    }
+    return actionRouter.getTTSVoiceDetails();
+  });
+
+  // Set TTS voice handler
+  ipcMain.handle('voice:set-voice', async (_event, voice: string) => {
+    if (actionRouter) {
+      actionRouter.setTTSVoice(voice);
+    }
+    return { success: true };
+  });
+
+  // Get current TTS voice handler
+  ipcMain.handle('voice:get-current-voice', async () => {
+    if (!actionRouter) {
+      return 'alba';
+    }
+    return actionRouter.getTTSVoice();
+  });
+
   // Get conversation summary
   ipcMain.handle('voice:conversation-summary', async () => {
     if (!actionRouter) {
@@ -231,6 +255,9 @@ export function cleanupIpcHandlers(): void {
   ipcMain.removeHandler('voice:speak');
   ipcMain.removeHandler('voice:stop-tts');
   ipcMain.removeHandler('voice:get-voices');
+  ipcMain.removeHandler('voice:get-voice-details');
+  ipcMain.removeHandler('voice:set-voice');
+  ipcMain.removeHandler('voice:get-current-voice');
   ipcMain.removeHandler('voice:conversation-summary');
   ipcMain.removeHandler('voice:clear-context');
   ipcMain.removeHandler('voice:ralph-status');

@@ -865,6 +865,47 @@ export class ActionRouter {
   }
 
   /**
+   * Get detailed voice information for UI display
+   */
+  getTTSVoiceDetails(): Array<{
+    id: string;
+    filename: string;
+    language: string;
+    name: string;
+    quality: string;
+    installed: boolean;
+  }> {
+    if (!this.ttsEngine) {
+      return [];
+    }
+    // Check if the engine has getVoiceDetails method (Piper TTS has it)
+    if ('getVoiceDetails' in this.ttsEngine && typeof this.ttsEngine.getVoiceDetails === 'function') {
+      return (this.ttsEngine as any).getVoiceDetails();
+    }
+    // Fallback for other TTS engines - return basic info
+    return [];
+  }
+
+  /**
+   * Set the active TTS voice
+   */
+  setTTSVoice(voice: string): void {
+    if (this.ttsEngine) {
+      this.ttsEngine.updateConfig({ voice });
+    }
+  }
+
+  /**
+   * Get the current TTS voice
+   */
+  getTTSVoice(): string {
+    if (!this.ttsEngine) {
+      return 'alba';
+    }
+    return this.ttsEngine.getConfig().voice;
+  }
+
+  /**
    * Get Claude Code executor for direct access
    */
   getClaudeCodeExecutor(): ClaudeCodeExecutor {

@@ -426,6 +426,57 @@ kbd {
   cursor: pointer;
 }
 
+/* Voice Selection */
+.voice-select-container {
+  position: relative;
+}
+
+.voice-select {
+  appearance: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 24px 4px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 100px;
+  max-width: 140px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.voice-select:hover {
+  border-color: var(--accent-blue);
+  background: rgba(58, 58, 60, 0.9);
+}
+
+.voice-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
+}
+
+.voice-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 8px;
+}
+
+.voice-select-container::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-tertiary);
+  pointer-events: none;
+}
+
 .tts-stop-btn {
   padding: 4px 10px;
   background: var(--accent-red);

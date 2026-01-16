@@ -9,7 +9,7 @@ import { spawn, type ChildProcess, execSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine";
+import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine.js";
 
 /** Piper voice directory */
 const PIPER_VOICE_DIR = join(homedir(), ".local", "share", "piper-voices");

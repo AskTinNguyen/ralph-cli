@@ -2,19 +2,19 @@
  * TTS Engine Interface
  *
  * Abstract interface for text-to-speech engines.
- * Implementations can use macOS `say`, espeak, or cloud providers.
+ * Implementations can use Piper, macOS `say`, espeak, or cloud providers.
  */
 
 /**
  * TTS provider types
  */
-export type TTSProvider = "macos" | "espeak" | "system";
+export type TTSProvider = "piper" | "macos" | "espeak" | "system";
 
 /**
  * TTS configuration
  */
 export interface TTSConfig {
-  /** Voice name (e.g., "Samantha", "Daniel") */
+  /** Voice name (e.g., "alba", "jenny", "Samantha") */
   voice: string;
 
   /** Speech rate (words per minute, typically 150-250) */
@@ -29,11 +29,12 @@ export interface TTSConfig {
 
 /**
  * Default TTS configuration
+ * Uses Piper with Alba (Scottish) voice for natural-sounding speech
  */
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
-  voice: "Samantha",
+  voice: "alba",
   rate: 200,
-  provider: "macos",
+  provider: "piper",
   volume: 1.0,
 };
 
@@ -104,6 +105,18 @@ export async function createTTSEngine(
 
   // Import the appropriate engine based on provider
   switch (fullConfig.provider) {
+    case "piper": {
+      const { PiperTTSEngine } = await import("./piper-tts.js");
+      const engine = new PiperTTSEngine(fullConfig);
+      // Check if Piper is available, fall back to macOS if not
+      const available = await engine.checkAvailable();
+      if (available.available) {
+        return engine;
+      }
+      console.warn("Piper TTS not available, falling back to macOS:", available.error);
+      const { MacOSTTSEngine } = await import("./macos-tts.js");
+      return new MacOSTTSEngine({ ...fullConfig, provider: "macos", voice: "Samantha" });
+    }
     case "macos": {
       const { MacOSTTSEngine } = await import("./macos-tts.js");
       return new MacOSTTSEngine(fullConfig);
