@@ -71,10 +71,16 @@ User: "close safari"
 {"appName": "Safari", "action": "close"}
 
 User: "play music"
-{"appName": "Music", "action": "play"}
+{"appName": "Spotify", "action": "play"}
+
+User: "play a song"
+{"appName": "Spotify", "action": "play"}
 
 User: "pause spotify"
 {"appName": "Spotify", "action": "pause"}
+
+User: "next track"
+{"appName": "Spotify", "action": "next"}
 
 User: "quit visual studio code"
 {"appName": "Visual Studio Code", "action": "quit"}`,
@@ -144,7 +150,7 @@ Extract ONLY the application name and action from the user's command.
 IMPORTANT RULES:
 1. Extract ONLY the app name - ignore everything after "and", "then", or punctuation
 2. Normalize common app names (chrome → Google Chrome, vscode → Visual Studio Code)
-3. For media commands (play, pause, stop), default to "Music" app if no app specified
+3. For media commands (play, pause, stop, next, previous) WITHOUT a specified app, default to "Spotify"
 4. Action should be one of: open, close, quit, play, pause, stop, next, previous, hide, minimize
 
 Respond with ONLY a JSON object. No explanation.`,

@@ -23,8 +23,22 @@ const colors = {
 function detectIntentType(text) {
   const lowerText = text.toLowerCase().trim();
 
-  // App control
+  // App control - open/close apps
   if (lowerText.match(/^(open|launch|start|close|quit)\s+(.+)/)) {
+    return "app_control";
+  }
+
+  // App control - media commands (play, pause, stop, etc.)
+  if (lowerText.match(/^(play|pause|stop|resume)\s*(music|spotify|song)?$/)) {
+    return "app_control";
+  }
+
+  if (lowerText.match(/^(next|skip|previous|back)\s*(track|song)?$/)) {
+    return "app_control";
+  }
+
+  // App control - window/system commands
+  if (lowerText.match(/^(hide|minimize|switch\s+to)\s+(.+)/)) {
     return "app_control";
   }
 
@@ -61,12 +75,16 @@ function detectIntentType(text) {
 async function extractEntities(text, intentType) {
   const prompts = {
     app_control: `Extract the app name and action from this command.
+For media commands (play, pause, stop) without a specified app, default to "Spotify".
 Respond ONLY with JSON: {"action": "open/close/quit/play/pause", "appName": "App Name"}
 
 Examples:
 "open chrome" → {"action": "open", "appName": "Google Chrome"}
 "close slack" → {"action": "quit", "appName": "Slack"}
-"play music" → {"action": "play", "appName": "Music"}
+"play music" → {"action": "play", "appName": "Spotify"}
+"play a song" → {"action": "play", "appName": "Spotify"}
+"pause" → {"action": "pause", "appName": "Spotify"}
+"next track" → {"action": "next", "appName": "Spotify"}
 
 User command: "${text}"`,
 
