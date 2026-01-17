@@ -578,6 +578,11 @@ export function getStreams(): Stream[] {
         // Get startedAt for running builds
         const startedAt = status === "running" ? getLockStartedAt(ralphRoot, streamId) : undefined;
 
+        // Get most recent run for hover overlay data
+        const effectiveRunsPath = getEffectiveRunsPath(ralphRoot, streamId, path.join(streamPath, "runs"));
+        const runs = parseRuns(effectiveRunsPath, streamId);
+        const lastRun = runs.length > 0 ? runs[0] : undefined;
+
         streams.push({
           id: streamId,
           name,
@@ -591,7 +596,8 @@ export function getStreams(): Stream[] {
           stories: [], // Populated by getStreamDetails
           totalStories,
           completedStories,
-          runs: [], // Populated by getStreamDetails
+          runs: [], // Full runs populated by getStreamDetails
+          lastRun, // Most recent run for hover overlay
           startedAt,
         });
       }

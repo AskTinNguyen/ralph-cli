@@ -160,28 +160,79 @@ function renderCard(stream: ReturnType<typeof getStreams>[0]): string {
 
   // Build hover overlay content
   let overlayContent = "";
-  if (isRunning) {
-    overlayContent = `
-      <div class="kanban-card-overlay">
-        <div class="kanban-card-overlay-text">
-          <strong>Status:</strong> Active build in progress
+
+  // For running builds or in-progress work, show iteration details
+  if (isRunning || stream.status === "in_progress") {
+    const lastRun = stream.lastRun;
+
+    if (lastRun) {
+      // Format: "Iteration 7 • US-003: Add validation • 1m 22s elapsed"
+      const iterationNum = lastRun.iteration || "?";
+      const storyInfo = lastRun.storyId && lastRun.storyTitle
+        ? `${lastRun.storyId}: ${lastRun.storyTitle}`
+        : lastRun.storyId || "Working...";
+
+      let timeInfo = "";
+      if (isRunning && stream.startedAt) {
+        const elapsed = formatElapsedTime(stream.startedAt);
+        timeInfo = ` • ${elapsed} elapsed`;
+      }
+
+      overlayContent = `
+        <div class="kanban-card-overlay">
+          <div class="kanban-card-overlay-text">
+            Iteration ${iterationNum} • ${storyInfo}${timeInfo}
+          </div>
+          <div class="kanban-card-overlay-text" style="margin-top: var(--rams-space-2); font-size: var(--rams-text-xs); color: var(--rams-gray-600);">
+            ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+          </div>
         </div>
-        <div class="kanban-card-overlay-text">
-          <strong>Progress:</strong> ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+      `;
+    } else {
+      // Fallback if no run data available
+      overlayContent = `
+        <div class="kanban-card-overlay">
+          <div class="kanban-card-overlay-text">
+            <strong>Status:</strong> ${isRunning ? "Active build in progress" : "In progress"}
+          </div>
+          <div class="kanban-card-overlay-text">
+            <strong>Progress:</strong> ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   } else if (completionPct > 0 && completionPct < 100) {
-    overlayContent = `
-      <div class="kanban-card-overlay">
-        <div class="kanban-card-overlay-text">
-          <strong>Status:</strong> Paused
+    // Show last known iteration for paused/ready builds
+    const lastRun = stream.lastRun;
+
+    if (lastRun && lastRun.storyId) {
+      const iterationNum = lastRun.iteration || "?";
+      const storyInfo = lastRun.storyTitle
+        ? `${lastRun.storyId}: ${lastRun.storyTitle}`
+        : lastRun.storyId;
+
+      overlayContent = `
+        <div class="kanban-card-overlay">
+          <div class="kanban-card-overlay-text">
+            Last: Iteration ${iterationNum} • ${storyInfo}
+          </div>
+          <div class="kanban-card-overlay-text" style="margin-top: var(--rams-space-2); font-size: var(--rams-text-xs); color: var(--rams-gray-600);">
+            ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+          </div>
         </div>
-        <div class="kanban-card-overlay-text">
-          <strong>Progress:</strong> ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+      `;
+    } else {
+      overlayContent = `
+        <div class="kanban-card-overlay">
+          <div class="kanban-card-overlay-text">
+            <strong>Status:</strong> Paused
+          </div>
+          <div class="kanban-card-overlay-text">
+            <strong>Progress:</strong> ${completionPct}% complete (${stream.completedStories}/${stream.totalStories} stories)
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   }
 
   return `
