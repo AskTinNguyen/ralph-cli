@@ -377,22 +377,21 @@ export class ClaudeCodeExecutor {
       });
     }
 
-    // Handle exit
+    // Handle exit - use LLM for natural TTS summary
     child.on("exit", (code, signal) => {
       clearTimeout(timeoutId);
 
-      // Generate final TTS summary
-      const ttsText = this.outputFilter.generateTTSSummary(
-        fullOutput,
-        intent.originalText || ""
-      );
-
-      eventEmitter.emit("exit", {
-        type: "exit",
-        data: JSON.stringify({ code, signal }),
-        filteredForTTS: ttsText,
-        timestamp: new Date(),
-      } as ClaudeCodeEvent);
+      // Use LLM summarizer for natural speech, fallback to regex
+      this.ttsSummarizer.summarize(fullOutput, intent.originalText)
+        .catch(() => this.outputFilter.generateTTSSummary(fullOutput, intent.originalText || ""))
+        .then((ttsText) => {
+          eventEmitter.emit("exit", {
+            type: "exit",
+            data: JSON.stringify({ code, signal }),
+            filteredForTTS: ttsText,
+            timestamp: new Date(),
+          } as ClaudeCodeEvent);
+        });
     });
 
     // Handle error
