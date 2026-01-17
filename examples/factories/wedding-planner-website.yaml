@@ -1,0 +1,509 @@
+# Wedding Planner Website - Comprehensive Factory Pipeline
+#
+# This factory demonstrates end-to-end PRD→Plan→Build workflow for a complete web application.
+#
+# Components:
+# - Database schema (guest list, vendors, timeline, budget tracking)
+# - Backend API (Node.js/Express with authentication)
+# - Frontend UI (React-based wedding planning dashboard)
+# - Testing & Quality Gates
+# - Deployment configuration
+#
+# Features Demonstrated:
+# - Sequential PRD generation with dependencies
+# - Conditional branching (complexity-based routing)
+# - Verification gates (tests, builds, git commits)
+# - Self-correcting loops (test failures trigger fixes)
+# - Parallel execution (frontend + backend builds)
+
+version: "1"
+name: "wedding-planner-website"
+
+# Variables available to all stages
+variables:
+  project_name: "wedding-planner"
+  max_budget: 50.00
+  max_recursion: 2
+  min_test_coverage: 70
+  default_iterations: 8
+
+# Agent configuration
+agents:
+  default: claude
+  planning: claude
+  implementation: claude
+
+# Pipeline stages
+stages:
+  # ==========================================
+  # STAGE 1: PROJECT SETUP PRD
+  # ==========================================
+  - id: setup_project
+    type: prd
+    input:
+      request: |
+        Create a wedding planner web application project structure.
+
+        Requirements:
+        - Modern full-stack architecture (React frontend + Node.js backend)
+        - Database schema for: guests, vendors, timeline, budget, todos
+        - User authentication and authorization
+        - RESTful API design
+        - Responsive UI for desktop and mobile
+        - Testing infrastructure (Jest for backend, React Testing Library for frontend)
+
+        Set up:
+        - package.json with all dependencies
+        - ESLint and Prettier configuration
+        - TypeScript configuration
+        - Basic folder structure (frontend/, backend/, shared/)
+        - Environment variable templates
+        - README with setup instructions
+
+        Do NOT implement features yet, just project scaffolding.
+
+  # ==========================================
+  # STAGE 2: PLAN PROJECT SETUP
+  # ==========================================
+  - id: plan_setup
+    type: plan
+    depends_on: [setup_project]
+
+  # ==========================================
+  # STAGE 3: BUILD PROJECT SETUP
+  # ==========================================
+  - id: build_setup
+    type: build
+    depends_on: [plan_setup]
+    config:
+      iterations: 8
+
+    # Verification: Project structure must exist
+    verify:
+      - type: file_exists
+        files:
+          - "package.json"
+          - "frontend/package.json"
+          - "backend/package.json"
+          - "README.md"
+
+      - type: build_success
+        command: "npm install && npm run typecheck"
+
+  # ==========================================
+  # STAGE 4: DATABASE SCHEMA PRD
+  # ==========================================
+  - id: generate_database_prd
+    type: prd
+    depends_on: [build_setup]
+    input:
+      request: |
+        Design and implement the database schema for the wedding planner application.
+
+        Tables/Collections needed:
+        1. Users (couples planning wedding) - auth, profile, wedding date
+        2. Guests - name, contact, RSVP status, meal preference, plus-ones
+        3. Vendors - name, type (venue/catering/photography), contact, cost, status
+        4. Timeline - events, dates, times, locations, assignees
+        5. Budget - categories, planned amount, actual amount, payments
+        6. Todos - tasks, deadlines, priority, status, assignees
+
+        Implementation:
+        - Use PostgreSQL or MongoDB (choose based on data model)
+        - Database migration scripts
+        - Seed data for testing
+        - Database access layer (ORM or query builder)
+        - Connection pooling configuration
+
+        Include schema diagrams in documentation.
+
+  # ==========================================
+  # STAGE 5: PLAN DATABASE
+  # ==========================================
+  - id: plan_database
+    type: plan
+    depends_on: [generate_database_prd]
+
+  # ==========================================
+  # STAGE 6: BUILD DATABASE
+  # ==========================================
+  - id: build_database
+    type: build
+    depends_on: [plan_database]
+    config:
+      iterations: 10
+
+    verify:
+      - type: file_exists
+        files:
+          - "backend/db/schema.sql"
+          - "backend/db/migrations"
+
+      - type: git_commits
+        min_commits: 1
+        pattern: "PRD-.*database"
+
+  # ==========================================
+  # STAGE 7: BACKEND API PRD
+  # ==========================================
+  - id: generate_backend_prd
+    type: prd
+    depends_on: [build_database]
+    input:
+      request: |
+        Build the backend API for the wedding planner application.
+
+        API Endpoints Required:
+
+        Auth:
+        - POST /api/auth/register - Create new user account
+        - POST /api/auth/login - Authenticate user
+        - POST /api/auth/logout - End session
+        - GET /api/auth/me - Get current user
+
+        Guests:
+        - GET /api/guests - List all guests (with pagination, search, filters)
+        - POST /api/guests - Add new guest
+        - PUT /api/guests/:id - Update guest
+        - DELETE /api/guests/:id - Remove guest
+        - POST /api/guests/:id/rsvp - Record RSVP
+
+        Vendors:
+        - GET /api/vendors - List vendors
+        - POST /api/vendors - Add vendor
+        - PUT /api/vendors/:id - Update vendor
+        - DELETE /api/vendors/:id - Remove vendor
+
+        Timeline:
+        - GET /api/timeline - Get all events
+        - POST /api/timeline - Add event
+        - PUT /api/timeline/:id - Update event
+        - DELETE /api/timeline/:id - Remove event
+
+        Budget:
+        - GET /api/budget - Get budget overview
+        - POST /api/budget/categories - Add category
+        - PUT /api/budget/categories/:id - Update category
+        - POST /api/budget/expenses - Record expense
+
+        Implementation:
+        - Express.js server
+        - JWT authentication
+        - Input validation (Joi or Zod)
+        - Error handling middleware
+        - Request logging
+        - Rate limiting
+        - CORS configuration
+        - API tests (Jest + Supertest)
+        - API documentation (Swagger/OpenAPI)
+
+  # ==========================================
+  # STAGE 8: PLAN BACKEND
+  # ==========================================
+  - id: plan_backend
+    type: plan
+    depends_on: [generate_backend_prd]
+
+  # ==========================================
+  # STAGE 9: BUILD BACKEND
+  # ==========================================
+  - id: build_backend
+    type: build
+    depends_on: [plan_backend]
+    config:
+      iterations: 15
+
+    verify:
+      - type: file_exists
+        files:
+          - "backend/src/server.js"
+          - "backend/src/routes"
+          - "backend/src/middleware/auth.js"
+
+      - type: test_suite
+        command: "cd backend && npm test"
+        min_passing: 10
+        max_failing: 0
+
+      - type: build_success
+        command: "cd backend && npm run build"
+
+  # ==========================================
+  # STAGE 10: FRONTEND UI PRD
+  # ==========================================
+  - id: generate_frontend_prd
+    type: prd
+    depends_on: [build_backend]
+    input:
+      request: |
+        Build the frontend UI for the wedding planner application.
+
+        Pages/Views Required:
+
+        1. Landing Page
+           - Hero section with wedding photo upload
+           - Feature highlights
+           - Login/Register buttons
+
+        2. Dashboard
+           - Countdown to wedding day
+           - Quick stats (guests RSVP'd, budget spent, tasks remaining)
+           - Recent activity feed
+           - Quick action buttons
+
+        3. Guest Management
+           - Guest list table with search and filters
+           - Add/edit guest modal
+           - Bulk import from CSV
+           - RSVP tracking
+           - Seating chart visualization
+
+        4. Vendor Management
+           - Vendor cards with contact info
+           - Filter by category
+           - Cost tracking
+           - Contract upload
+
+        5. Timeline/Calendar
+           - Calendar view of events
+           - Timeline view with milestones
+           - Drag-and-drop event scheduling
+
+        6. Budget Tracker
+           - Budget vs actual spending chart
+           - Category breakdown
+           - Payment tracking
+           - Export to CSV
+
+        7. Todo List
+           - Kanban board view
+           - Filter by priority/status
+           - Assign tasks to users
+
+        Implementation:
+        - React 18+ with TypeScript
+        - React Router for navigation
+        - Context API or Redux for state management
+        - Axios for API calls
+        - Form validation (React Hook Form + Yup)
+        - UI components (Material-UI, Chakra UI, or Tailwind CSS)
+        - Charts (Recharts or Chart.js)
+        - Date picker (react-datepicker)
+        - Component tests (React Testing Library)
+        - Responsive design (mobile-first)
+
+  # ==========================================
+  # STAGE 11: PLAN FRONTEND
+  # ==========================================
+  - id: plan_frontend
+    type: plan
+    depends_on: [generate_frontend_prd]
+
+  # ==========================================
+  # STAGE 12: BUILD FRONTEND
+  # ==========================================
+  - id: build_frontend
+    type: build
+    depends_on: [plan_frontend]
+    config:
+      iterations: 20
+
+    verify:
+      - type: file_exists
+        files:
+          - "frontend/src/App.tsx"
+          - "frontend/src/pages"
+          - "frontend/src/components"
+
+      - type: build_success
+        command: "cd frontend && npm run build"
+
+      - type: lint_pass
+        command: "cd frontend && npm run lint"
+        max_errors: 0
+        max_warnings: 10
+
+  # ==========================================
+  # STAGE 13: INTEGRATION TESTS
+  # ==========================================
+  - id: run_integration_tests
+    type: custom
+    depends_on: [build_backend, build_frontend]
+    command: |
+      echo "Running integration tests..."
+
+      # Start backend server in background
+      cd backend && npm start &
+      BACKEND_PID=$!
+
+      # Wait for server to be ready
+      sleep 5
+
+      # Run frontend tests against backend
+      cd ../frontend && npm run test:integration
+      TEST_EXIT=$?
+
+      # Clean up
+      kill $BACKEND_PID
+
+      exit $TEST_EXIT
+
+    verify:
+      - type: test_suite
+        command: "cd frontend && npm run test:integration"
+        min_passing: 5
+        max_failing: 0
+
+  # ==========================================
+  # STAGE 14: FIX FAILURES (CONDITIONAL LOOP)
+  # ==========================================
+  - id: fix_test_failures
+    type: prd
+    depends_on: [run_integration_tests]
+    condition: "{{ stages.run_integration_tests.failed && recursion_count < max_recursion }}"
+    input:
+      request: |
+        Fix the integration test failures in the wedding planner application.
+
+        Failed tests summary: {{ stages.run_integration_tests.error_summary }}
+
+        Analyze the failures and create fixes for:
+        - API endpoint issues
+        - Frontend-backend integration problems
+        - Data validation errors
+        - Authentication/authorization bugs
+
+        Focus on the specific failing tests and ensure they pass.
+
+    # Loop back to rebuild after creating fix PRD
+    loop_to: plan_backend
+    max_loops: 2
+
+  # ==========================================
+  # STAGE 15: DEPLOYMENT CONFIG PRD
+  # ==========================================
+  - id: generate_deployment_prd
+    type: prd
+    depends_on: [run_integration_tests]
+    condition: "{{ stages.run_integration_tests.passed }}"
+    input:
+      request: |
+        Create deployment configuration for the wedding planner application.
+
+        Requirements:
+        - Docker configuration (Dockerfile for frontend and backend)
+        - Docker Compose for local development
+        - Environment variable management (.env.example)
+        - Database backup scripts
+        - CI/CD pipeline configuration (GitHub Actions or similar)
+        - Deployment guide for popular platforms:
+          * Vercel/Netlify (frontend)
+          * Heroku/Railway/Render (backend)
+          * Supabase/PlanetScale (database)
+        - Health check endpoints
+        - Logging configuration
+        - Monitoring setup (optional)
+
+  # ==========================================
+  # STAGE 16: PLAN DEPLOYMENT
+  # ==========================================
+  - id: plan_deployment
+    type: plan
+    depends_on: [generate_deployment_prd]
+
+  # ==========================================
+  # STAGE 17: BUILD DEPLOYMENT
+  # ==========================================
+  - id: build_deployment
+    type: build
+    depends_on: [plan_deployment]
+    config:
+      iterations: 8
+
+    verify:
+      - type: file_exists
+        files:
+          - "Dockerfile"
+          - "docker-compose.yml"
+          - ".env.example"
+          - "DEPLOYMENT.md"
+
+      - type: custom
+        command: "docker compose config"
+        success_pattern: "services:"
+
+  # ==========================================
+  # STAGE 18: GENERATE DOCUMENTATION
+  # ==========================================
+  - id: generate_docs_prd
+    type: prd
+    depends_on: [build_deployment]
+    input:
+      request: |
+        Create comprehensive documentation for the wedding planner application.
+
+        Documentation needed:
+
+        1. README.md
+           - Project overview
+           - Features list
+           - Screenshots (placeholder descriptions)
+           - Tech stack
+           - Quick start guide
+           - Development setup
+
+        2. API.md
+           - API endpoint reference
+           - Authentication flow
+           - Request/response examples
+           - Error codes
+
+        3. ARCHITECTURE.md
+           - System architecture diagram
+           - Database schema
+           - Frontend architecture
+           - Backend architecture
+           - Security considerations
+
+        4. USER_GUIDE.md
+           - How to use each feature
+           - Common workflows
+           - Tips and best practices
+
+        5. CONTRIBUTING.md
+           - Development workflow
+           - Code style guide
+           - Testing requirements
+           - Pull request process
+
+  # ==========================================
+  # STAGE 19: PLAN DOCS
+  # ==========================================
+  - id: plan_docs
+    type: plan
+    depends_on: [generate_docs_prd]
+
+  # ==========================================
+  # STAGE 20: BUILD DOCS
+  # ==========================================
+  - id: build_docs
+    type: build
+    depends_on: [plan_docs]
+    config:
+      iterations: 5
+
+    verify:
+      - type: file_exists
+        files:
+          - "README.md"
+          - "API.md"
+          - "ARCHITECTURE.md"
+          - "USER_GUIDE.md"
+
+      - type: file_contains
+        file: "README.md"
+        pattern: "wedding planner"
+
+      - type: git_commits
+        min_commits: 1
+        pattern: "PRD-.*docs"

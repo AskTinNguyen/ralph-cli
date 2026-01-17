@@ -1,0 +1,118 @@
+# Parallel Features Factory Template
+#
+# Demonstrates parallel PRD execution and merge points.
+# Builds multiple independent features concurrently, then integrates.
+#
+# Pattern: [PRD1, PRD2, PRD3] → [Build1, Build2, Build3] → Integration → Test
+
+version: "1"
+name: "parallel-features"
+
+variables:
+  feature_1: "User authentication system"
+  feature_2: "Payment processing integration"
+  feature_3: "Email notification service"
+  max_iterations: 12
+
+agents:
+  default: claude
+
+stages:
+  # ==========================================
+  # PARALLEL PRD GENERATION
+  # ==========================================
+  - id: prd_auth
+    type: prd
+    input:
+      request: "{{ variables.feature_1 }}"
+
+  - id: prd_payment
+    type: prd
+    input:
+      request: "{{ variables.feature_2 }}"
+
+  - id: prd_email
+    type: prd
+    input:
+      request: "{{ variables.feature_3 }}"
+
+  # ==========================================
+  # PARALLEL PLANNING
+  # ==========================================
+  - id: plan_auth
+    type: plan
+    depends_on: [prd_auth]
+
+  - id: plan_payment
+    type: plan
+    depends_on: [prd_payment]
+
+  - id: plan_email
+    type: plan
+    depends_on: [prd_email]
+
+  # ==========================================
+  # PARALLEL BUILDS (can run concurrently)
+  # ==========================================
+  - id: build_auth
+    type: build
+    depends_on: [plan_auth]
+    config:
+      iterations: 12
+      use_worktree: true
+
+  - id: build_payment
+    type: build
+    depends_on: [plan_payment]
+    config:
+      iterations: 12
+      use_worktree: true
+
+  - id: build_email
+    type: build
+    depends_on: [plan_email]
+    config:
+      iterations: 12
+      use_worktree: true
+
+  # ==========================================
+  # MERGE POINT - Integration
+  # ==========================================
+  - id: integration_prd
+    type: prd
+    depends_on: [build_auth, build_payment, build_email]
+    input:
+      request: |
+        Integrate the three completed features:
+        - {{ variables.feature_1 }}
+        - {{ variables.feature_2 }}
+        - {{ variables.feature_3 }}
+
+        Create integration points and ensure all features work together seamlessly.
+
+  - id: plan_integration
+    type: plan
+    depends_on: [integration_prd]
+
+  - id: build_integration
+    type: build
+    depends_on: [plan_integration]
+    config:
+      iterations: 8
+
+  # ==========================================
+  # VERIFICATION
+  # ==========================================
+  - id: integration_tests
+    type: custom
+    depends_on: [build_integration]
+    command: "npm run test:integration"
+
+    verify:
+      - type: test_suite
+        command: "npm run test:integration"
+        min_passing: 15
+        max_failing: 0
+
+      - type: build_success
+        command: "npm run build"

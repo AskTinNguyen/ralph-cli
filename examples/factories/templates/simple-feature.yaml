@@ -1,0 +1,70 @@
+# Simple Feature Factory Template
+#
+# Use this template for straightforward feature implementation.
+# Pattern: PRD → Plan → Build → Test → Deploy
+#
+# To use:
+# 1. Copy this file to .ralph/factory/<your-feature-name>.yaml
+# 2. Update the feature_request variable
+# 3. Run: ralph factory run <your-feature-name>
+
+version: "1"
+name: "simple-feature"
+
+variables:
+  feature_request: "Add user authentication to my application"
+  max_iterations: 10
+  max_budget: 25.00
+
+agents:
+  default: claude
+
+stages:
+  # Step 1: Generate PRD
+  - id: generate_prd
+    type: prd
+    input:
+      request: "{{ variables.feature_request }}"
+
+  # Step 2: Create implementation plan
+  - id: create_plan
+    type: plan
+    depends_on: [generate_prd]
+
+  # Step 3: Build the feature
+  - id: build_feature
+    type: build
+    depends_on: [create_plan]
+    config:
+      iterations: 10
+
+    # Verification gates
+    verify:
+      # Ensure code was committed
+      - type: git_commits
+        min_commits: 1
+        pattern: "PRD-"
+
+      # Ensure build succeeds
+      - type: build_success
+        command: "npm run build"
+
+  # Step 4: Run tests
+  - id: run_tests
+    type: custom
+    depends_on: [build_feature]
+    command: "npm test"
+
+    verify:
+      - type: test_suite
+        command: "npm test"
+        min_passing: 1
+        max_failing: 0
+
+  # Step 5: Generate deployment docs
+  - id: generate_docs
+    type: prd
+    depends_on: [run_tests]
+    condition: "{{ stages.run_tests.passed }}"
+    input:
+      request: "Generate deployment documentation for {{ variables.feature_request }}"

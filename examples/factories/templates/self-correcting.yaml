@@ -1,0 +1,79 @@
+# Self-Correcting Factory Template
+#
+# Demonstrates automated test-fix-retry loops.
+# If tests fail, generates a fix PRD and retries (max 3 times).
+#
+# Pattern: PRD → Plan → Build → Test → [Fix Loop] → Deploy
+
+version: "1"
+name: "self-correcting"
+
+variables:
+  feature_request: "Build a REST API with full test coverage"
+  max_recursion: 3
+  max_iterations: 15
+
+agents:
+  default: claude
+
+stages:
+  # Initial implementation
+  - id: generate_prd
+    type: prd
+    input:
+      request: "{{ variables.feature_request }}"
+
+  - id: create_plan
+    type: plan
+    depends_on: [generate_prd]
+
+  - id: build_implementation
+    type: build
+    depends_on: [create_plan]
+    config:
+      iterations: 15
+
+  # Verification stage
+  - id: run_tests
+    type: custom
+    depends_on: [build_implementation]
+    command: "npm test -- --coverage"
+
+    verify:
+      - type: test_suite
+        command: "npm test"
+        min_passing: 10
+        max_failing: 0
+
+      - type: test_coverage
+        command: "npm test -- --coverage"
+        min_coverage: 80
+
+  # Self-correction loop
+  - id: fix_issues
+    type: prd
+    depends_on: [run_tests]
+    condition: "{{ stages.run_tests.failed && recursion_count < max_recursion }}"
+    input:
+      request: |
+        Fix the test failures and improve coverage.
+
+        Failed tests: {{ stages.run_tests.error_summary }}
+        Current coverage: {{ stages.run_tests.coverage }}
+
+        Focus on:
+        1. Making all tests pass
+        2. Increasing test coverage to > 80%
+        3. Fixing any edge cases
+
+    # Loop back to planning
+    loop_to: create_plan
+    max_loops: 3
+
+  # Success path
+  - id: generate_docs
+    type: prd
+    depends_on: [run_tests]
+    condition: "{{ stages.run_tests.passed }}"
+    input:
+      request: "Generate API documentation and deployment guide for the implemented feature"
