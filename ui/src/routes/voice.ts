@@ -927,9 +927,26 @@ voice.post("/tts/disable", (c) => {
 
 /**
  * GET /voice/tts/voices
- * Get available TTS voices
+ * Get available TTS voices for current or specified provider
+ * Query params:
+ *   provider - Optional provider to fetch voices for (macos, elevenlabs, openai)
  */
 voice.get("/tts/voices", async (c) => {
+  const requestedProvider = c.req.query("provider");
+
+  if (requestedProvider) {
+    // Fetch voices for a specific provider without changing the active provider
+    const voices = await actionRouter.getVoicesForProvider(requestedProvider);
+    const currentVoice = actionRouter.getTTSVoice();
+    return c.json({
+      success: true,
+      voices,
+      currentVoice,
+      provider: requestedProvider,
+    });
+  }
+
+  // Default: return voices for current provider
   const voices = await actionRouter.getTTSVoices();
   const currentVoice = actionRouter.getTTSVoice();
   return c.json({

@@ -965,6 +965,22 @@ export class ActionRouter {
   }
 
   /**
+   * Get voices for a specific provider without changing the active provider
+   * Creates a temporary engine to fetch voices
+   */
+  async getVoicesForProvider(provider: string): Promise<string[]> {
+    try {
+      // Create a temporary engine for the requested provider
+      const tempEngine = await createTTSEngine({ provider: provider as TTSProvider });
+      const voices = await tempEngine.getVoices();
+      return voices;
+    } catch (error) {
+      console.warn(`[TTS] Failed to get voices for provider ${provider}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Get current TTS voice
    */
   getTTSVoice(): string {

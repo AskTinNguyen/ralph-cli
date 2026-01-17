@@ -700,6 +700,33 @@
       to { transform: translateY(-50%) rotate(360deg); }
     }
 
+    /* Voice dropdown error state */
+    .settings-dropdown.error {
+      border-color: #ef4444;
+      background: linear-gradient(180deg, #2a1a1a 0%, #1e1414 100%);
+    }
+
+    .settings-dropdown.error:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+    }
+
+    .voice-error-message {
+      display: none;
+      color: #ef4444;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: var(--rams-radius-sm);
+      border-left: 2px solid #ef4444;
+    }
+
+    .voice-error-message.show {
+      display: block;
+    }
+
     /* Filtered Output Toggle */
     .output-toggle {
       display: flex;
@@ -1062,6 +1089,7 @@
                   </select>
                   <div class="voice-loading-indicator" id="voice-loading-indicator"></div>
                 </div>
+                <div class="voice-error-message" id="voice-error-message">Failed to load voices</div>
               </div>
 
               <!-- Speech Rate Slider -->

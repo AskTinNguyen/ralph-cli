@@ -1810,9 +1810,15 @@
   async function loadVoicesForProvider(provider) {
     if (!voiceSelectSettings) return;
 
-    // Show loading indicator
+    const voiceErrorMessage = document.getElementById('voice-error-message');
+
+    // Show loading indicator and clear error state
     if (voiceLoadingIndicator) {
       voiceLoadingIndicator.classList.add('show');
+    }
+    voiceSelectSettings.classList.remove('error');
+    if (voiceErrorMessage) {
+      voiceErrorMessage.classList.remove('show');
     }
 
     try {
@@ -1882,11 +1888,25 @@
           voiceSelectSettings.value = result.voices[0];
           currentVoice = result.voices[0];
         }
+
+        // Clear any error state on success
+        voiceSelectSettings.classList.remove('error');
+        if (voiceErrorMessage) {
+          voiceErrorMessage.classList.remove('show');
+        }
+      } else {
+        // Handle server error response
+        throw new Error(result.error || 'No voices returned');
       }
     } catch (error) {
       console.error('Failed to load voices for provider:', error);
-      // Show error option
+      // Show error option and error styling
       voiceSelectSettings.innerHTML = '<option value="">Error loading voices</option>';
+      voiceSelectSettings.classList.add('error');
+      if (voiceErrorMessage) {
+        voiceErrorMessage.textContent = error.message || 'Failed to load voices';
+        voiceErrorMessage.classList.add('show');
+      }
     } finally {
       if (voiceLoadingIndicator) {
         voiceLoadingIndicator.classList.remove('show');
