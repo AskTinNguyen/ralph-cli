@@ -491,9 +491,8 @@
       await updateSessionState('listening');
 
     } catch (error) {
-      console.error('Failed to start recording:', error);
-      recordingStatus.textContent = 'Microphone access denied';
-      updateState('error');
+      // Handle specific audio recording errors
+      showAudioRecordingError(error);
     }
   }
 
@@ -1180,6 +1179,106 @@
     }
 
     console.log(`[Timeout] ${message}`);
+  }
+
+  /**
+   * Show audio recording error with specific messages for different error types
+   * @param {Error} error - The error from getUserMedia or MediaRecorder
+   */
+  function showAudioRecordingError(error) {
+    console.error('Audio recording error:', error);
+
+    // Determine the specific error message based on error type
+    let title = 'Microphone Error';
+    let description = 'Unable to access microphone';
+
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      title = 'Microphone access denied';
+      description = 'Please allow microphone access in your browser settings and try again.';
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      title = 'No microphone detected';
+      description = 'Please connect a microphone and try again.';
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      title = 'Microphone in use by another app';
+      description = 'Please close other applications that may be using your microphone and try again.';
+    } else if (error.name === 'OverconstrainedError') {
+      title = 'Microphone configuration error';
+      description = 'The requested audio settings are not supported by your microphone.';
+    } else if (error.name === 'AbortError') {
+      title = 'Recording aborted';
+      description = 'The audio recording was cancelled. Please try again.';
+    } else if (error.name === 'SecurityError') {
+      title = 'Security error';
+      description = 'Microphone access is blocked due to security settings.';
+    }
+
+    // Update UI state to error
+    updateState('error');
+    recordingStatus.textContent = title;
+
+    // Ensure button state is reset
+    micButton.classList.remove('recording');
+    micButton.disabled = false;
+
+    // Create error display with helpful message
+    const errorHtml = `
+      <div style="color: #ff6b6b; margin-bottom: 12px;">
+        <strong>🎤 ${title}</strong>
+      </div>
+      <div style="margin-bottom: 16px; line-height: 1.5;">
+        ${description}
+      </div>
+      <div style="font-size: 0.85em; color: #888; margin-bottom: 16px;">
+        Error code: ${error.name}
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="audio-error-dismiss-btn" style="
+          padding: 8px 20px;
+          background: #444;
+          color: #fff;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">
+          Dismiss
+        </button>
+      </div>
+    `;
+
+    outputDisplay.innerHTML = errorHtml;
+    outputDisplay.style.background = '#3d1f1f';  // Dark red for errors
+
+    // Attach dismiss handler
+    const dismissBtn = document.getElementById('audio-error-dismiss-btn');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        outputDisplay.style.background = '';
+        outputDisplay.textContent = '';
+        updateState('idle');
+        recordingStatus.textContent = 'Click the microphone to start recording';
+      });
+
+      // Hover effect
+      dismissBtn.addEventListener('mouseenter', () => {
+        dismissBtn.style.background = '#555';
+      });
+      dismissBtn.addEventListener('mouseleave', () => {
+        dismissBtn.style.background = '#444';
+      });
+    }
+
+    // Auto-dismiss after 10 seconds to idle state
+    setTimeout(() => {
+      if (state === 'error') {
+        outputDisplay.style.background = '';
+        outputDisplay.textContent = '';
+        updateState('idle');
+        recordingStatus.textContent = 'Click the microphone to start recording';
+      }
+    }, 10000);
+
+    console.log(`[Audio Error] ${title}: ${error.name}`);
   }
 
   /**
