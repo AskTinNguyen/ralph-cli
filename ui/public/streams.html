@@ -804,7 +804,7 @@
       <div id="monitor-tab" class="rams-tab-content active">
 
         <!-- Streams Overview Section -->
-        <section class="rams-section">
+        <section id="streams-overview" class="rams-section">
           <div class="rams-section-header">
             <h2 class="rams-h2">
               Streams Overview
@@ -827,7 +827,7 @@
         </section>
 
         <!-- Streams List Section -->
-        <section class="rams-section">
+        <section id="streams-list-section" class="rams-section">
           <div class="rams-section-header">
             <h2 class="rams-h2">
               All Streams
@@ -3406,6 +3406,32 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
       } else if (showClosed) {
         // Also set the grid view endpoint with showClosed if needed
         container.setAttribute("hx-get", "/api/partials/streams?showClosed=true");
+      }
+
+      // Handle ?prd=X query parameter from Kanban card clicks
+      const urlParams = new URLSearchParams(window.location.search);
+      const prdId = urlParams.get('prd');
+      if (prdId) {
+        // Fetch stream info and show detail view after page fully loads
+        fetch('/api/streams')
+          .then(response => response.json())
+          .then(data => {
+            const stream = data.streams.find(s => s.id === prdId);
+            const streamName = stream ? stream.name : 'PRD-' + prdId;
+            // Wait for HTMX to finish loading, then show detail
+            setTimeout(() => {
+              showStreamDetail(prdId, streamName);
+              // Update URL to remove query param (clean history)
+              window.history.replaceState({}, '', '/streams.html');
+            }, 500);
+          })
+          .catch(() => {
+            // Fallback: show detail with default name
+            setTimeout(() => {
+              showStreamDetail(prdId, 'PRD-' + prdId);
+              window.history.replaceState({}, '', '/streams.html');
+            }, 500);
+          });
       }
     });
   </script>

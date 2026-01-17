@@ -246,9 +246,9 @@ function renderCard(stream: ReturnType<typeof getStreams>[0]): string {
       <img src="/ralph-logo-bw.png" alt="Rover" class="kanban-card-rover-icon ${roverClass}" />
       <div class="kanban-card-title">${title}</div>
       <div class="kanban-card-progress">
-        <div class="progress-bar-container">
+        <div class="progress-bar-container ${isRunning ? 'active-loading' : ''}">
           <div
-            class="progress-bar-fill"
+            class="progress-bar-fill ${isRunning ? 'active-loading' : ''}"
             data-tier="${tier}"
             style="width: ${completionPct}%"
           ></div>
