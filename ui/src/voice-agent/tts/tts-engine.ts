@@ -8,7 +8,7 @@
 /**
  * TTS provider types
  */
-export type TTSProvider = "piper" | "macos" | "espeak" | "system" | "elevenlabs";
+export type TTSProvider = "piper" | "macos" | "espeak" | "system" | "elevenlabs" | "openai";
 
 /**
  * TTS configuration
@@ -156,6 +156,19 @@ export async function createTTSEngine(
       }
       const { ElevenLabsTTSEngine } = await import("./elevenlabs-tts.js");
       return new ElevenLabsTTSEngine(fullConfig);
+    }
+    case "openai": {
+      // Check if API key is available
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        console.warn(
+          "[TTS Factory] OPENAI_API_KEY not set, falling back to macOS TTS"
+        );
+        const { MacOSTTSEngine } = await import("./macos-tts.js");
+        return new MacOSTTSEngine({ ...fullConfig, provider: "macos" });
+      }
+      const { OpenAITTSEngine } = await import("./openai-tts.js");
+      return new OpenAITTSEngine(fullConfig);
     }
     case "espeak":
     case "system":

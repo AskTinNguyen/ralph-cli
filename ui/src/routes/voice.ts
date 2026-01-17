@@ -974,3 +974,51 @@ voice.post("/tts/voice", async (c) => {
     }, 500);
   }
 });
+
+/**
+ * GET /voice/tts/provider
+ * Get current TTS provider
+ */
+voice.get("/tts/provider", (c) => {
+  return c.json({
+    success: true,
+    provider: actionRouter.getTTSProvider(),
+  });
+});
+
+/**
+ * POST /voice/tts/provider
+ * Set TTS provider (macos, elevenlabs, openai, piper)
+ * Falls back to macOS if the provider's API key is missing
+ */
+voice.post("/tts/provider", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { provider } = body;
+
+    if (!provider) {
+      return c.json({ success: false, error: "Provider is required" }, 400);
+    }
+
+    const validProviders = ["macos", "elevenlabs", "openai", "piper", "espeak", "system"];
+    if (!validProviders.includes(provider)) {
+      return c.json({
+        success: false,
+        error: `Invalid provider. Must be one of: ${validProviders.join(", ")}`,
+      }, 400);
+    }
+
+    const result = await actionRouter.setTTSProvider(provider);
+
+    return c.json({
+      success: result.success,
+      provider: result.provider,
+      error: result.error,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to set provider",
+    }, 500);
+  }
+});
