@@ -117,10 +117,11 @@ main() {
   kill_existing_watcher
 
   # Also stop any existing progress timer
-  "${RALPH_ROOT}/.agents/ralph/progress-timer.sh" stop 2>/dev/null || true
+  "${SCRIPT_DIR}/progress-timer.sh" stop 2>/dev/null || true
 
   # Start transcript watcher in background (detached from terminal)
-  nohup node "${RALPH_ROOT}/.agents/ralph/transcript-watcher.mjs" \
+  # Use SCRIPT_DIR which points to .agents/ralph/, not RALPH_ROOT which points to .ralph/
+  nohup node "${SCRIPT_DIR}/transcript-watcher.mjs" \
     "$transcript_path" >> "$LOG_FILE" 2>&1 &
 
   local watcher_pid=$!

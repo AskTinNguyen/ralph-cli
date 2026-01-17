@@ -156,14 +156,15 @@ ${response.substring(0, 2000)}
 
 Create a brief spoken summary (1-2 sentences) that directly answers the user's question.
 
-Rules:
+CRITICAL RULES:
 - Focus on answering what the user asked
-- Remove ALL code, markdown, file paths, and technical formatting
-- Use natural conversational language
-- If it's a simple answer, just give the answer
-- If it's a task completion, say what was done
-- Never include symbols like *, #, \`, |
-- Never say "the assistant said" or "according to" - just state the information
+- Use ONLY plain conversational English - no technical terms
+- NEVER mention file names, paths, or extensions (e.g., .sh, .js, .agents)
+- NEVER include symbols: @ * # \` | < > { } [ ] / .
+- NEVER say "the file" or "the script" - describe what was DONE
+- If it's about code changes, say what changed in plain language
+- Keep it under 20 words
+- Just state the key outcome or answer
 
 Spoken summary:`;
   } else {
@@ -172,11 +173,12 @@ Spoken summary:`;
 
 ${response.substring(0, 2000)}
 
-Rules:
-- Extract ONLY the key information
-- Remove ALL code, markdown, file paths
-- Use natural conversational language
-- Keep it under 2 sentences
+CRITICAL RULES:
+- Extract ONLY the key outcome or action
+- NEVER mention file names, paths, or extensions
+- NEVER include symbols: @ * # \` | < > { } [ ] / .
+- Use plain conversational English
+- Keep it under 20 words
 
 Spoken summary:`;
   }
@@ -236,6 +238,29 @@ function cleanSummary(text) {
   // Remove bullet points
   result = result.replace(/^[\s]*[-*+]\s+/gm, "");
   result = result.replace(/^[\s]*\d+\.\s+/gm, "");
+
+  // Remove @ symbols (markdown mentions)
+  result = result.replace(/@/g, "");
+
+  // Remove file paths and extensions
+  // Matches: path/to/file.ext, .agents/ralph/script.sh, etc.
+  result = result.replace(/[\w\-./]+\.(sh|js|mjs|ts|tsx|jsx|json|md|txt|py|yaml|yml)/gi, "");
+
+  // Remove remaining path-like patterns (e.g., .agents/ralph/lib/)
+  result = result.replace(/\.[\w\-/]+\//g, "");
+
+  // Remove URLs
+  result = result.replace(/https?:\/\/[^\s]+/g, "");
+
+  // Remove XML/HTML-like tags
+  result = result.replace(/<[^>]+>/g, "");
+
+  // Remove special characters that TTS struggles with
+  result = result.replace(/[|<>{}[\]]/g, "");
+
+  // Remove extra punctuation (multiple periods, etc.)
+  result = result.replace(/\.{2,}/g, ".");
+  result = result.replace(/,{2,}/g, ",");
 
   // Normalize whitespace
   result = result.replace(/\s+/g, " ");

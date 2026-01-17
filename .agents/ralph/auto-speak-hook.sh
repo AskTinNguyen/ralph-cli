@@ -142,7 +142,7 @@ cleanup_acknowledgment_processes() {
   log "Stopping acknowledgment processes..."
 
   # Stop progress timer
-  "${RALPH_ROOT}/.agents/ralph/progress-timer.sh" stop 2>/dev/null || true
+  "${SCRIPT_DIR}/progress-timer.sh" stop 2>/dev/null || true
 
   # Kill any running transcript watcher
   pkill -f "transcript-watcher.mjs" 2>/dev/null || true
@@ -196,7 +196,8 @@ main() {
   fi
 
   # Use Node.js script to extract, filter, and summarize with Qwen
-  local summarizer_script="${RALPH_ROOT}/.agents/ralph/summarize-for-tts.mjs"
+  # Use SCRIPT_DIR which points to .agents/ralph/, not RALPH_ROOT which points to .ralph/
+  local summarizer_script="${SCRIPT_DIR}/summarize-for-tts.mjs"
 
   if [[ ! -f "$summarizer_script" ]]; then
     log "ERROR: Summarizer script not found: $summarizer_script"
