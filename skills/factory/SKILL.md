@@ -8,6 +8,8 @@ version: 1.0.0
 
 Meta-orchestration layer for Ralph CLI that enables declarative, multi-stage agent workflows with tamper-resistant verification gates.
 
+> **🤖 For AI Agents**: See the concise [Agent Guide](AGENT_GUIDE.md) for quick patterns and decision trees.
+
 ---
 
 ## Overview

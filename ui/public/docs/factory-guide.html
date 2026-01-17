@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Factory Mode Guide - Ralph CLI</title>
+  <meta name="description" content="Guide for AI agents using Ralph CLI Factory Mode for complex workflows.">
+  <link rel="stylesheet" href="/docs/rams-design-system.css">
+  <style>
+    /* Compact agent-focused layout */
+    .rams-main { padding: 12px 24px; }
+    .rams-header { padding: 8px 0; margin-bottom: 12px; }
+    .rams-h1 { font-size: 22px; margin-bottom: 4px; }
+    .rams-lead { font-size: 13px; margin-bottom: 0; }
+    .rams-section { margin-bottom: 16px; }
+    .rams-h2 { font-size: 17px; margin-bottom: 8px; }
+    .rams-h3 { font-size: 14px; margin-bottom: 6px; margin-top: 12px; }
+    .rams-text { font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
+    .rams-text-sm { font-size: 12px; line-height: 1.3; }
+    .rams-code-block { margin-bottom: 8px; }
+    .rams-code-content { padding: 6px 10px; }
+    .rams-code-content pre { font-size: 11px; line-height: 1.4; }
+    .rams-info-box, .rams-warning-box { padding: 8px 10px; margin-bottom: 8px; }
+    ul, ol { margin-top: 3px; margin-bottom: 6px; }
+    li { margin-bottom: 1px; }
+    pre { margin: 0; }
+    table { margin-bottom: 8px; width: 100%; }
+    th, td { padding: 5px 8px; text-align: left; }
+    th { font-weight: 600; }
+  </style>
+</head>
+<body class="rams-page">
+
+  <script src="/js/sidebar.js"></script>
+
+  <!-- Persistent Sidebar (Desktop) -->
+  <aside class="rams-sidebar" id="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <div class="rams-nav-section" style="border-bottom: 1px solid var(--rams-gray-200); margin-bottom: var(--rams-space-4); padding-bottom: var(--rams-space-4);">
+      <ul class="rams-nav-items">
+        <li><a href="/dashboard.html" class="rams-nav-link">← Back to Dashboard</a></li>
+      </ul>
+    </div>
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Getting Started</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/" class="rams-nav-link">Home</a></li>
+          <li><a href="/docs/tutorial.html" class="rams-nav-link">Tutorial</a></li>
+          <li><a href="/docs/commands.html" class="rams-nav-link">Commands</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Resources</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/examples.html" class="rams-nav-link">Examples</a></li>
+          <li><a href="/docs/tips.html" class="rams-nav-link">Best Practices</a></li>
+          <li><a href="/docs/troubleshooting.html" class="rams-nav-link">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/integration.html" class="rams-nav-link">Integrations</a></li>
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+          <li><a href="/docs/factory-guide.html" class="rams-nav-link active">Factory Mode</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <a href="/docs/" class="rams-breadcrumb-link">Documentation</a>
+        <span class="rams-breadcrumb-sep">/</span>
+        <span class="rams-breadcrumb-current">Factory Mode Guide</span>
+      </div>
+    </div>
+
+    <!-- Page Header -->
+    <header class="rams-header">
+      <h1 class="rams-h1">Factory Mode - Agent Guide</h1>
+      <p class="rams-lead">Declarative multi-stage workflows with tamper-resistant verification gates.</p>
+    </header>
+
+    <!-- What is Factory Mode -->
+    <section class="rams-section">
+      <h2 class="rams-h2">What is Factory Mode?</h2>
+      <p class="rams-text">Factory Mode is a meta-orchestration layer that chains multiple Ralph commands (PRD → Plan → Build) into declarative pipelines.</p>
+
+      <div class="rams-info-box">
+        <strong>Key Features:</strong>
+        <ul>
+          <li><strong>Tamper-resistant verification</strong> - Checks actual artifacts, not text output</li>
+          <li><strong>Conditional branching</strong> - Different paths based on results</li>
+          <li><strong>Self-correcting loops</strong> - Auto-retry failed stages with context</li>
+          <li><strong>Parallel execution</strong> - Run independent stages concurrently</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- When to Use -->
+    <section class="rams-section">
+      <h2 class="rams-h2">When to Use Factory Mode</h2>
+
+      <h3 class="rams-h3">✅ Use Factory Mode For:</h3>
+      <ul class="rams-text">
+        <li><strong>Multi-stage workflows</strong> - PRD → Plan → Build → Test → Deploy chains</li>
+        <li><strong>Quality gates required</strong> - Must verify tests pass, builds succeed, commits exist</li>
+        <li><strong>Branching logic needed</strong> - Different paths based on complexity, test results</li>
+        <li><strong>Self-correction needed</strong> - Auto-retry failed builds with accumulated context</li>
+        <li><strong>Parallel execution</strong> - Build frontend + backend simultaneously</li>
+      </ul>
+
+      <h3 class="rams-h3">❌ Don't Use Factory Mode For:</h3>
+      <ul class="rams-text">
+        <li>Simple single PRD workflows - use <code>ralph prd</code>, <code>ralph plan</code>, <code>ralph build</code></li>
+        <li>Manual workflows where user wants control over each step</li>
+        <li>Exploratory work with unclear requirements</li>
+        <li>One-off tasks without need for verification or loops</li>
+      </ul>
+    </section>
+
+    <!-- Quick Commands -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Quick Commands</h2>
+
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre># Create new factory
+ralph factory init my-factory
+
+# Run factory pipeline
+ralph factory run my-factory
+
+# Check execution status
+ralph factory status my-factory
+
+# Resume from checkpoint
+ralph factory resume my-factory
+
+# List all factories
+ralph factory list
+
+# Stop running factory
+ralph factory stop my-factory</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stage Types -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Stage Types</h2>
+
+      <table class="rams-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Purpose</th>
+            <th>Example Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>prd</code></td>
+            <td>Generate PRD</td>
+            <td>Create requirements document</td>
+          </tr>
+          <tr>
+            <td><code>plan</code></td>
+            <td>Create plan from PRD</td>
+            <td>Break PRD into stories</td>
+          </tr>
+          <tr>
+            <td><code>build</code></td>
+            <td>Execute stories</td>
+            <td>Implement features</td>
+          </tr>
+          <tr>
+            <td><code>custom</code></td>
+            <td>Run shell command</td>
+            <td>Run tests, deploy, scripts</td>
+          </tr>
+          <tr>
+            <td><code>factory</code></td>
+            <td>Nested factory</td>
+            <td>Recursive workflows</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Verification Gates -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Verification Gates (CRITICAL)</h2>
+
+      <div class="rams-warning-box">
+        <strong>Why Verification Matters:</strong><br>
+        Agents can claim success without doing work. Verification gates check actual artifacts (git commits, test results, files) - not agent output text.
+      </div>
+
+      <h3 class="rams-h3">Verifier Types</h3>
+      <table class="rams-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Checks</th>
+            <th>Use When</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>test_suite</code></td>
+            <td>Runs tests, counts pass/fail</td>
+            <td>Validating implementation</td>
+          </tr>
+          <tr>
+            <td><code>build_success</code></td>
+            <td>Runs build, checks exit code</td>
+            <td>Ensuring code compiles</td>
+          </tr>
+          <tr>
+            <td><code>git_commits</code></td>
+            <td>Checks git log for commits</td>
+            <td>Ensuring work committed</td>
+          </tr>
+          <tr>
+            <td><code>git_files_changed</code></td>
+            <td>Checks git diff for changes</td>
+            <td>Verifying files modified</td>
+          </tr>
+          <tr>
+            <td><code>file_exists</code></td>
+            <td>Checks filesystem for files</td>
+            <td>Ensuring files created</td>
+          </tr>
+          <tr>
+            <td><code>file_contains</code></td>
+            <td>Reads file, matches pattern</td>
+            <td>Validating file content</td>
+          </tr>
+          <tr>
+            <td><code>lint_pass</code></td>
+            <td>Runs linter, checks errors</td>
+            <td>Code quality</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 class="rams-h3">Example: Test Suite Verification</h3>
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>- id: implement_feature
+  type: build
+  config:
+    iterations: 10
+  verify:
+    - type: test_suite
+      command: "npm test"
+      min_passing: 21    # MUST have 21 passing tests
+      max_failing: 0     # ZERO failures allowed</pre>
+        </div>
+      </div>
+      <p class="rams-text-sm"><strong>Why this works:</strong> Factory actually runs <code>npm test</code> and parses output. Agent cannot fake this.</p>
+    </section>
+
+    <!-- Conditional Execution -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Conditional Execution & Branching</h2>
+
+      <h3 class="rams-h3">Available Context Variables</h3>
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>{{ stages.STAGE_ID.passed }}      # Boolean: stage completed successfully
+{{ stages.STAGE_ID.failed }}      # Boolean: stage failed
+{{ stages.STAGE_ID.output }}      # Object: stage output data
+{{ variables.VAR_NAME }}          # Factory variable
+{{ learnings }}                   # Accumulated learnings
+{{ recursion_count }}             # Current loop iteration</pre>
+        </div>
+      </div>
+
+      <h3 class="rams-h3">Example: Branching Based on Test Results</h3>
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>stages:
+  - id: run_tests
+    type: custom
+    command: "npm test"
+
+  # Only runs if tests FAILED
+  - id: fix_failures
+    type: prd
+    depends_on: [run_tests]
+    condition: "{{ stages.run_tests.failed }}"
+    input:
+      request: "Fix test failures"
+
+  # Only runs if tests PASSED
+  - id: deploy
+    type: custom
+    depends_on: [run_tests]
+    condition: "{{ stages.run_tests.passed }}"
+    command: "npm run deploy"</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Self-Correcting Loops -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Self-Correcting Loops</h2>
+
+      <p class="rams-text">Automatically retry failed stages with accumulated context (max attempts limit).</p>
+
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>stages:
+  - id: implement
+    type: build
+    config:
+      iterations: 10
+
+  - id: verify_tests
+    type: custom
+    depends_on: [implement]
+    command: "npm test"
+    verify:
+      - type: test_suite
+        command: "npm test"
+        min_passing: 20
+
+  # Loop back if tests fail (max 3 attempts)
+  - id: fix_failures
+    type: prd
+    depends_on: [verify_tests]
+    condition: "{{ stages.verify_tests.failed && recursion_count < 3 }}"
+    input:
+      request: "Fix: {{ stages.verify_tests.verification.failures }}"
+    loop_to: implement       # Go back to implement stage
+    max_loops: 3             # Safety limit</pre>
+        </div>
+      </div>
+
+      <p class="rams-text-sm"><strong>Flow:</strong> implement → verify_tests → (if failed) fix_failures → loop back to implement</p>
+      <div class="rams-warning-box">
+        <strong>Safety:</strong> Always set <code>max_loops</code> to prevent infinite loops!
+      </div>
+    </section>
+
+    <!-- Common Patterns -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Common Patterns</h2>
+
+      <h3 class="rams-h3">Pattern 1: Simple Pipeline</h3>
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>version: "1"
+name: "feature-pipeline"
+
+stages:
+  - id: generate_prd
+    type: prd
+    input:
+      request: "Add user authentication"
+
+  - id: create_plan
+    type: plan
+    depends_on: [generate_prd]
+
+  - id: build_feature
+    type: build
+    depends_on: [create_plan]
+    config:
+      iterations: 10
+    verify:
+      - type: test_suite
+        command: "npm test"
+        min_passing: 5</pre>
+        </div>
+      </div>
+
+      <h3 class="rams-h3">Pattern 2: Parallel Execution</h3>
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre>stages:
+  - id: setup
+    type: custom
+    command: "npm install"
+
+  # Run in PARALLEL
+  - id: build_frontend
+    type: build
+    depends_on: [setup]
+
+  - id: build_backend
+    type: build
+    depends_on: [setup]
+
+  # Merge point - waits for BOTH
+  - id: integration_test
+    type: custom
+    depends_on: [build_frontend, build_backend]
+    command: "npm run test:integration"</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Critical Rules -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Critical Rules for Agents</h2>
+
+      <h3 class="rams-h3">✅ DO:</h3>
+      <ul class="rams-text">
+        <li><strong>Always add verification gates</strong> to critical stages</li>
+        <li><strong>Use test_suite verifier</strong> for test validation (not custom)</li>
+        <li><strong>Set max_loops</strong> on recursive stages</li>
+        <li><strong>Use depends_on</strong> to enforce proper ordering</li>
+        <li><strong>Check actual artifacts</strong> - git commits, test results, files</li>
+        <li><strong>Set reasonable timeouts</strong> for long-running stages</li>
+      </ul>
+
+      <h3 class="rams-h3">❌ DON'T:</h3>
+      <ul class="rams-text">
+        <li>Trust agent output text - always verify with gates</li>
+        <li>Skip verification on build/test stages</li>
+        <li>Create infinite loops - always set max_loops</li>
+        <li>Use exit code alone - use test_suite verifier</li>
+        <li>Forget dependencies - stages run in parallel without depends_on</li>
+        <li>Hardcode values - use variables for flexibility</li>
+      </ul>
+    </section>
+
+    <!-- Debugging -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Debugging</h2>
+
+      <div class="rams-code-block">
+        <div class="rams-code-content">
+          <pre># Check execution status
+ralph factory status my-factory
+
+# View full log
+cat .ralph/factory/runs/run-TIMESTAMP/execution.log
+
+# Check specific stage result
+cat .ralph/factory/runs/run-TIMESTAMP/stages/stage_id/result.json</pre>
+        </div>
+      </div>
+
+      <h3 class="rams-h3">Common Issues</h3>
+      <table class="rams-table">
+        <thead>
+          <tr>
+            <th>Issue</th>
+            <th>Cause</th>
+            <th>Fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Stage skipped</td>
+            <td>Condition evaluated to false</td>
+            <td>Check condition expression syntax</td>
+          </tr>
+          <tr>
+            <td>Verification failed</td>
+            <td>Actual results don't match requirements</td>
+            <td>Check verify config, run command manually</td>
+          </tr>
+          <tr>
+            <td>Infinite loop</td>
+            <td>No exit condition</td>
+            <td>Add max_loops or proper condition</td>
+          </tr>
+          <tr>
+            <td>Wrong execution order</td>
+            <td>Missing depends_on</td>
+            <td>Add proper dependencies</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Checklist -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Pre-Flight Checklist</h2>
+      <ul class="rams-text">
+        <li>☐ Each stage has unique <code>id</code></li>
+        <li>☐ Dependencies specified with <code>depends_on</code></li>
+        <li>☐ <strong>Critical stages have <code>verify</code> blocks</strong></li>
+        <li>☐ Verification thresholds match actual test counts</li>
+        <li>☐ Conditions use correct syntax: <code>{{ expression }}</code></li>
+        <li>☐ Loops have <code>max_loops</code></li>
+        <li>☐ Variables defined before use</li>
+        <li>☐ Commands properly escaped in YAML</li>
+      </ul>
+    </section>
+
+    <!-- Related Docs -->
+    <section class="rams-section">
+      <h2 class="rams-h2">Related Documentation</h2>
+      <ul class="rams-text">
+        <li><a href="/docs/agent-guide.html">Agent Guide</a> - Main Ralph CLI agent guide</li>
+        <li><strong>SKILL.md</strong> - Complete factory reference (<code>skills/factory/SKILL.md</code>)</li>
+        <li><strong>CLAUDE.md</strong> - Main Ralph CLI documentation</li>
+        <li><strong>Examples</strong> - Real factory examples (<code>.ralph/factory/*.yaml</code>)</li>
+      </ul>
+    </section>
+
+    <!-- Summary -->
+    <section class="rams-section">
+      <div class="rams-info-box">
+        <h3 class="rams-h3" style="margin-top: 0;">Summary</h3>
+        <p class="rams-text"><strong>Factory Mode = Declarative Pipelines + Tamper-Proof Verification</strong></p>
+        <p class="rams-text">Key takeaway: Verification gates check actual artifacts (git commits, test results, files) - not agent output text. This makes Factory Mode powerful and trustworthy.</p>
+      </div>
+    </section>
+
+  </main>
+
+</body>
+</html>

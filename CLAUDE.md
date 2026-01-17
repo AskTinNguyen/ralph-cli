@@ -52,7 +52,10 @@ Factory Mode enables declarative, multi-stage agent workflows with verification 
 
 **Verification gates prevent gaming** - agents cannot claim success by outputting "All tests pass!" - the verification system actually runs tests and checks results.
 
-> **Full documentation**: See [`skills/factory/SKILL.md`](skills/factory/SKILL.md) for complete reference including YAML schema, verification types, examples, and best practices.
+> **Documentation**:
+> - **For AI Agents**: [`skills/factory/AGENT_GUIDE.md`](skills/factory/AGENT_GUIDE.md) - Concise guide with patterns and decision trees
+> - **Full Reference**: [`skills/factory/SKILL.md`](skills/factory/SKILL.md) - Complete YAML schema, verification types, examples
+> - **UI Guide**: http://localhost:3000/docs/factory-guide.html (when UI server running)
 
 ## Workflow
 
