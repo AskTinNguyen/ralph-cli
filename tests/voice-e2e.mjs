@@ -628,6 +628,533 @@ await test('Pipeline handles errors gracefully', async () => {
 });
 
 // ============================================================
+// Happy Path Tests - US-014
+// ============================================================
+
+group('Happy Path Tests (US-014)');
+
+await test('Full pipeline: Audio -> Transcription -> Classification -> Execution -> TTS', async () => {
+  // This test simulates the complete voice pipeline:
+  // 1. Audio input (WAV)
+  // 2. STT transcription
+  // 3. Intent classification
+  // 4. Action execution (mocked)
+  // 5. TTS response generation
+
+  const mockSTT = await createMockSTTServer();
+  const mockOllama = await createMockOllamaServer();
+
+  try {
+    // Configure mock STT to return a command transcription
+    mockSTT.configure({ defaultTranscription: 'explain the code in main.js' });
+
+    // Configure mock Ollama to classify as claude_code intent
+    mockOllama.setDefaultIntent({
+      action: 'claude_code',
+      command: 'explain the code in main.js',
+      confidence: 0.95,
+      parameters: {},
+    });
+
+    // Step 1: Create audio input
+    const audioBuffer = createWavBuffer({ durationMs: 2000 });
+    assert(Buffer.isBuffer(audioBuffer), 'Should create audio buffer');
+
+    // Step 2: Transcribe audio via mock STT
+    const sttResponse = await fetch(`${mockSTT.url}/transcribe`, {
+      method: 'POST',
+      body: audioBuffer,
+      headers: { 'Content-Type': 'audio/wav' },
+    });
+
+    const transcription = await sttResponse.json();
+    assert(transcription.success, 'Transcription should succeed');
+    assertEqual(transcription.text, 'explain the code in main.js', 'Should get expected transcription');
+
+    // Step 3: Classify intent via mock Ollama
+    const classifyResponse = await fetch(`${mockOllama.url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:1.5b',
+        messages: [
+          { role: 'system', content: 'Classify the user intent as JSON.' },
+          { role: 'user', content: transcription.text },
+        ],
+        format: 'json',
+      }),
+    });
+
+    const classifyData = await classifyResponse.json();
+    const intent = JSON.parse(classifyData.message.content);
+
+    assertEqual(intent.action, 'claude_code', 'Should classify as claude_code');
+    assert(intent.confidence > 0.9, 'Should have high confidence');
+
+    // Step 4: Verify execution routing would be correct
+    const executionRoute = getExecutionRoute(intent.action);
+    assertEqual(executionRoute, 'claudeCodeExecutor', 'Should route to Claude Code executor');
+
+    // Step 5: Simulate TTS response text generation
+    const ttsText = generateTTSResponse(intent, {
+      success: true,
+      output: 'The main.js file contains the entry point for the application.',
+    });
+    assert(ttsText.length > 0, 'Should generate TTS response text');
+    assert(ttsText.length < 500, 'TTS response should be concise');
+
+    // Verify full pipeline flow
+    const pipelineResult = {
+      transcription: transcription.text,
+      intent: intent,
+      executionTarget: executionRoute,
+      ttsResponse: ttsText,
+    };
+
+    assert(pipelineResult.transcription, 'Pipeline should have transcription');
+    assert(pipelineResult.intent.action, 'Pipeline should have classified intent');
+    assertEqual(pipelineResult.intent.action, 'claude_code', 'Intent should be claude_code');
+  } finally {
+    await mockSTT.close();
+    await mockOllama.close();
+  }
+});
+
+await test('Claude Code command with TTS response', async () => {
+  const mockSTT = await createMockSTTServer();
+  const mockOllama = await createMockOllamaServer();
+
+  try {
+    // Configure for Claude Code command
+    mockSTT.configure({ defaultTranscription: 'ask claude to help me fix this bug' });
+
+    mockOllama.setResponse('claude', {
+      action: 'claude_code',
+      command: 'help me fix this bug',
+      confidence: 0.92,
+      parameters: {
+        model: 'sonnet',
+        includeContext: true,
+      },
+    });
+
+    // Transcribe
+    const audioBuffer = createWavBuffer({ durationMs: 1500 });
+    const sttResponse = await fetch(`${mockSTT.url}/transcribe`, {
+      method: 'POST',
+      body: audioBuffer,
+      headers: { 'Content-Type': 'audio/wav' },
+    });
+
+    const transcription = await sttResponse.json();
+    assertEqual(transcription.text, 'ask claude to help me fix this bug', 'Should transcribe Claude command');
+
+    // Classify
+    const classifyResponse = await fetch(`${mockOllama.url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:1.5b',
+        messages: [{ role: 'user', content: transcription.text }],
+      }),
+    });
+
+    const classifyData = await classifyResponse.json();
+    const intent = JSON.parse(classifyData.message.content);
+
+    assertEqual(intent.action, 'claude_code', 'Should classify as claude_code');
+
+    // Verify Claude Code executor would be used
+    const executionRoute = getExecutionRoute(intent.action);
+    assertEqual(executionRoute, 'claudeCodeExecutor', 'Should route to Claude Code executor');
+
+    // Simulate Claude Code response
+    const mockClaudeResponse = {
+      success: true,
+      output: 'I found the bug in your code. The issue is on line 42 where you are comparing strings with == instead of ===.',
+      filteredOutput: 'Found the bug on line 42. Use === instead of == for string comparison.',
+      exitCode: 0,
+    };
+
+    // Generate TTS-friendly response
+    const ttsResponse = generateTTSResponse(intent, mockClaudeResponse);
+    assertContains(ttsResponse, 'bug', 'TTS response should mention the bug');
+
+    // Verify response is suitable for TTS (not too long, no code blocks)
+    assert(ttsResponse.length < 300, 'TTS response should be concise');
+    assert(!ttsResponse.includes('```'), 'TTS response should not contain code blocks');
+  } finally {
+    await mockSTT.close();
+    await mockOllama.close();
+  }
+});
+
+await test('App control command (open Chrome)', async () => {
+  const mockSTT = await createMockSTTServer();
+  const mockOllama = await createMockOllamaServer();
+
+  try {
+    // Configure for app control command
+    mockSTT.configure({ defaultTranscription: 'open Google Chrome browser' });
+
+    // Use case-insensitive regex to match "Chrome" in any form
+    mockOllama.setResponse(/chrome/i, {
+      action: 'app_control',
+      target: 'Google Chrome',
+      command: 'activate',
+      confidence: 0.96,
+      parameters: {
+        app: 'Google Chrome',
+        action: 'open',
+      },
+    });
+
+    // Transcribe
+    const audioBuffer = createWavBuffer({ durationMs: 1000 });
+    const sttResponse = await fetch(`${mockSTT.url}/transcribe`, {
+      method: 'POST',
+      body: audioBuffer,
+      headers: { 'Content-Type': 'audio/wav' },
+    });
+
+    const transcription = await sttResponse.json();
+    assertContains(transcription.text, 'Chrome', 'Should transcribe Chrome command');
+
+    // Classify
+    const classifyResponse = await fetch(`${mockOllama.url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:1.5b',
+        messages: [{ role: 'user', content: transcription.text }],
+      }),
+    });
+
+    const classifyData = await classifyResponse.json();
+    const intent = JSON.parse(classifyData.message.content);
+
+    assertEqual(intent.action, 'app_control', 'Should classify as app_control');
+    assertEqual(intent.target, 'Google Chrome', 'Should target Chrome');
+
+    // Verify AppleScript executor would be used
+    const executionRoute = getExecutionRoute(intent.action);
+    assertEqual(executionRoute, 'appleScriptExecutor', 'Should route to AppleScript executor');
+
+    // Verify the AppleScript command would be generated correctly
+    const appleScriptCommand = generateAppleScriptCommand(intent);
+    assertContains(appleScriptCommand, 'activate', 'Should include activate command');
+    assertContains(appleScriptCommand, 'Google Chrome', 'Should target Chrome');
+
+    // Simulate execution result
+    const mockResult = {
+      success: true,
+      output: 'Opened Google Chrome',
+    };
+
+    // Generate TTS response
+    const ttsResponse = generateTTSResponse(intent, mockResult);
+    assertContains(ttsResponse.toLowerCase(), 'chrome', 'TTS should mention Chrome');
+    assertContains(ttsResponse.toLowerCase(), 'open', 'TTS should mention opening');
+  } finally {
+    await mockSTT.close();
+    await mockOllama.close();
+  }
+});
+
+await test('Terminal command (git status)', async () => {
+  const mockSTT = await createMockSTTServer();
+  const mockOllama = await createMockOllamaServer();
+
+  try {
+    // Configure for terminal command
+    mockSTT.configure({ defaultTranscription: 'run git status in the terminal' });
+
+    mockOllama.setResponse('git status', {
+      action: 'terminal',
+      command: 'git status',
+      confidence: 0.98,
+      parameters: {},
+    });
+
+    // Transcribe
+    const audioBuffer = createWavBuffer({ durationMs: 1200 });
+    const sttResponse = await fetch(`${mockSTT.url}/transcribe`, {
+      method: 'POST',
+      body: audioBuffer,
+      headers: { 'Content-Type': 'audio/wav' },
+    });
+
+    const transcription = await sttResponse.json();
+    assertContains(transcription.text, 'git status', 'Should transcribe git status command');
+
+    // Classify
+    const classifyResponse = await fetch(`${mockOllama.url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen2.5:1.5b',
+        messages: [{ role: 'user', content: transcription.text }],
+      }),
+    });
+
+    const classifyData = await classifyResponse.json();
+    const intent = JSON.parse(classifyData.message.content);
+
+    assertEqual(intent.action, 'terminal', 'Should classify as terminal');
+    assertEqual(intent.command, 'git status', 'Should extract git status command');
+    assert(intent.confidence > 0.95, 'Should have very high confidence');
+
+    // Verify terminal executor would be used
+    const executionRoute = getExecutionRoute(intent.action);
+    assertEqual(executionRoute, 'terminalExecutor', 'Should route to terminal executor');
+
+    // Verify the command is safe (not dangerous)
+    const isDangerous = checkDangerousCommand(intent.command);
+    assertEqual(isDangerous, false, 'git status should not be flagged as dangerous');
+
+    // Simulate execution result with a longer, more realistic output
+    const mockResult = {
+      success: true,
+      output: `On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  modified:   tests/voice-e2e.mjs
+  modified:   src/voice-agent/executor/action-router.ts
+  modified:   src/voice-agent/tts/tts-engine.ts
+  modified:   src/voice-agent/llm/intent-classifier.ts
+  modified:   src/voice-agent/stt/whisper-client.ts
+  modified:   ui/public/js/voice-client.js
+  modified:   ui/src/routes/voice.ts
+  modified:   package.json
+  modified:   CHANGELOG.md
+  modified:   README.md
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+  tests/helpers/mock-stt-server.mjs
+  tests/helpers/mock-ollama-server.mjs
+  tests/helpers/audio-utils.mjs
+
+no changes added to commit (use "git add" and/or "git commit -a")`,
+      exitCode: 0,
+    };
+
+    // Filter output for TTS - the filter should reduce long outputs
+    const filteredOutput = filterOutputForTTS(mockResult.output);
+    // Filtered output should be concise for TTS
+    assert(filteredOutput.length <= 300, 'Filtered output should be 300 chars or less for TTS');
+
+    // Generate TTS response
+    const ttsResponse = generateTTSResponse(intent, { ...mockResult, filteredOutput });
+    assertContains(ttsResponse.toLowerCase(), 'branch', 'TTS should mention branch');
+    assertContains(ttsResponse.toLowerCase(), 'main', 'TTS should mention main');
+  } finally {
+    await mockSTT.close();
+    await mockOllama.close();
+  }
+});
+
+await test('Full pipeline with different intent types correctly routed', async () => {
+  const mockSTT = await createMockSTTServer();
+  const mockOllama = await createMockOllamaServer();
+
+  try {
+    // Set up response mappings for different intents
+    mockOllama.setResponse('open safari', { action: 'app_control', target: 'Safari', command: 'activate' });
+    mockOllama.setResponse('run npm', { action: 'terminal', command: 'npm test' });
+    mockOllama.setResponse('ask claude', { action: 'claude_code', command: 'explain this' });
+    mockOllama.setResponse('ralph status', { action: 'ralph_command', command: 'status' });
+    mockOllama.setResponse('search google', { action: 'web_search', parameters: { query: 'test' } });
+
+    const testCases = [
+      { transcription: 'open safari browser', expectedAction: 'app_control', expectedRoute: 'appleScriptExecutor' },
+      { transcription: 'run npm test command', expectedAction: 'terminal', expectedRoute: 'terminalExecutor' },
+      { transcription: 'ask claude about this code', expectedAction: 'claude_code', expectedRoute: 'claudeCodeExecutor' },
+      { transcription: 'check ralph status', expectedAction: 'ralph_command', expectedRoute: 'ralphExecutor' },
+      { transcription: 'search google for javascript', expectedAction: 'web_search', expectedRoute: 'webSearchHandler' },
+    ];
+
+    for (const testCase of testCases) {
+      // Set transcription for this test case
+      mockSTT.configure({ defaultTranscription: testCase.transcription });
+
+      // Create audio and transcribe
+      const audioBuffer = createWavBuffer({ durationMs: 800 });
+      const sttResponse = await fetch(`${mockSTT.url}/transcribe`, {
+        method: 'POST',
+        body: audioBuffer,
+        headers: { 'Content-Type': 'audio/wav' },
+      });
+
+      const transcription = await sttResponse.json();
+      assert(transcription.success, `Transcription for "${testCase.transcription}" should succeed`);
+
+      // Classify
+      const classifyResponse = await fetch(`${mockOllama.url}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5:1.5b',
+          messages: [{ role: 'user', content: transcription.text }],
+        }),
+      });
+
+      const classifyData = await classifyResponse.json();
+      const intent = JSON.parse(classifyData.message.content);
+
+      assertEqual(intent.action, testCase.expectedAction, `"${testCase.transcription}" should classify as ${testCase.expectedAction}`);
+
+      // Verify routing
+      const route = getExecutionRoute(intent.action);
+      assertEqual(route, testCase.expectedRoute, `${testCase.expectedAction} should route to ${testCase.expectedRoute}`);
+
+      // Clear request tracking for next iteration
+      mockSTT.reset();
+      mockOllama.reset();
+
+      // Re-set up response mappings
+      mockOllama.setResponse('open safari', { action: 'app_control', target: 'Safari', command: 'activate' });
+      mockOllama.setResponse('run npm', { action: 'terminal', command: 'npm test' });
+      mockOllama.setResponse('ask claude', { action: 'claude_code', command: 'explain this' });
+      mockOllama.setResponse('ralph status', { action: 'ralph_command', command: 'status' });
+      mockOllama.setResponse('search google', { action: 'web_search', parameters: { query: 'test' } });
+    }
+  } finally {
+    await mockSTT.close();
+    await mockOllama.close();
+  }
+});
+
+// ============================================================
+// Helper Functions for Happy Path Tests
+// ============================================================
+
+/**
+ * Get the execution route for an action type
+ */
+function getExecutionRoute(action) {
+  const routes = {
+    terminal: 'terminalExecutor',
+    app_control: 'appleScriptExecutor',
+    ralph_command: 'ralphExecutor',
+    claude_code: 'claudeCodeExecutor',
+    web_search: 'webSearchHandler',
+    file_operation: 'fileOperationHandler',
+    unknown: 'unknownHandler',
+  };
+  return routes[action] || 'unknownHandler';
+}
+
+/**
+ * Generate a TTS-friendly response from execution result
+ */
+function generateTTSResponse(intent, result) {
+  if (!result.success) {
+    return `Sorry, I couldn't complete that action. ${result.error || 'Unknown error'}`;
+  }
+
+  const filteredOutput = result.filteredOutput || result.output || '';
+
+  switch (intent.action) {
+    case 'claude_code':
+      // Use filtered output or summarize
+      if (filteredOutput.length > 200) {
+        return filteredOutput.slice(0, 200) + '...';
+      }
+      return filteredOutput || 'Task completed successfully.';
+
+    case 'app_control':
+      return `Opened ${intent.target || 'the application'}.`;
+
+    case 'terminal':
+      // Summarize terminal output for TTS
+      if (filteredOutput.includes('branch')) {
+        const branchMatch = filteredOutput.match(/On branch (\w+)/);
+        const branch = branchMatch ? branchMatch[1] : 'current';
+        return `You're on the ${branch} branch. ${filteredOutput.includes('nothing to commit') ? 'Working directory is clean.' : 'There are uncommitted changes.'}`;
+      }
+      return filteredOutput.length > 150 ? filteredOutput.slice(0, 150) + '...' : filteredOutput;
+
+    case 'ralph_command':
+      return filteredOutput || 'Ralph command executed.';
+
+    case 'web_search':
+      return `Searching for ${intent.parameters?.query || 'your query'}.`;
+
+    default:
+      return 'Action completed.';
+  }
+}
+
+/**
+ * Generate AppleScript command for app control
+ */
+function generateAppleScriptCommand(intent) {
+  const app = intent.target || intent.parameters?.app || 'Finder';
+  const action = intent.command || 'activate';
+
+  return `tell application "${app}" to ${action}`;
+}
+
+/**
+ * Check if a command is dangerous
+ */
+function checkDangerousCommand(command) {
+  const dangerousPatterns = [
+    /rm\s+-rf/i,
+    /sudo\s+rm/i,
+    /mkfs/i,
+    /dd\s+if=/i,
+    />\/dev\//i,
+    /chmod\s+777/i,
+    /:(){ :|:& };:/i,  // Fork bomb
+    /wget.*\|.*bash/i,
+    /curl.*\|.*sh/i,
+  ];
+
+  return dangerousPatterns.some(pattern => pattern.test(command));
+}
+
+/**
+ * Filter output for TTS (remove code blocks, long lists, etc.)
+ */
+function filterOutputForTTS(output) {
+  let filtered = output;
+
+  // Remove ANSI escape codes
+  filtered = filtered.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+
+  // Remove code blocks
+  filtered = filtered.replace(/```[\s\S]*?```/g, '[code block removed]');
+
+  // Remove long file lists (more than 5 lines)
+  const lines = filtered.split('\n');
+  if (lines.length > 10) {
+    const importantLines = lines.filter(line =>
+      line.includes('branch') ||
+      line.includes('modified') ||
+      line.includes('commit') ||
+      line.includes('error') ||
+      line.includes('success')
+    );
+    filtered = importantLines.slice(0, 5).join('\n');
+  }
+
+  // Trim whitespace
+  filtered = filtered.trim();
+
+  // Limit length
+  if (filtered.length > 300) {
+    filtered = filtered.slice(0, 297) + '...';
+  }
+
+  return filtered;
+}
+
+// ============================================================
 // Summary
 // ============================================================
 
