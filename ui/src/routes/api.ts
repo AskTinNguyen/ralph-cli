@@ -27,12 +27,18 @@ const { estimate } = require('../../../lib/estimate/index.js');
 // Rollback analytics (US-004)
 const { getRollbackAnalytics, getRollbackStats, loadMetrics } = require('../../../lib/estimate/metrics.js');
 import { spawn } from 'node:child_process';
-// Agent availability checking
-import { getCachedAgentAvailability, clearAgentCache } from '../services/agent-checker.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Sub-routers for modular API organization
+import { agents } from './api/agents.js';
+import { checkpoint } from './api/checkpoint.js';
+
 const api = new Hono();
+
+// Mount sub-routers for modular API organization
+api.route('/agents', agents);
+api.route('/', checkpoint);
 
 /**
  * Parse AUTO_FIX entries from an activity.log file
@@ -8551,36 +8557,7 @@ api.post('/prd/:id/content', async (c) => {
   }
 });
 
-/**
- * GET /api/agents
- *
- * Get availability status of coding agents (Claude, Codex, Droid).
- * Results are cached for 60 seconds.
- *
- * Returns:
- *   - agents: Array of { name, id, available, version, path, suggestion }
- *   - default: ID of the default/recommended agent
- *   - availableCount: Number of available agents
- */
-api.get('/agents', (c) => {
-  const availability = getCachedAgentAvailability();
-  return c.json(availability);
-});
-
-/**
- * POST /api/agents/refresh
- *
- * Force refresh of agent availability cache.
- * Useful after installing a new agent.
- *
- * Returns:
- *   - Fresh agent availability status
- */
-api.post('/agents/refresh', (c) => {
-  clearAgentCache();
-  const availability = getCachedAgentAvailability();
-  return c.json(availability);
-});
+// Agent endpoints moved to ./api/agents.ts
 
 /**
  * Real-Time Status API (US-003)
@@ -8955,173 +8932,7 @@ api.get('/partials/live-status-widget', (c) => {
 });
 
 // ============================================================================
-// US-006: Checkpoint endpoints
-// ============================================================================
-
-/**
- * GET /api/streams/:id/checkpoint
- *
- * Returns checkpoint data for a stream if one exists.
- * Includes iteration, story, agent, git SHA, and creation time.
- *
- * Returns 404 if no checkpoint exists.
- */
-api.get('/streams/:id/checkpoint', (c) => {
-  const id = c.req.param('id');
-  const ralphRoot = getRalphRoot();
-
-  if (!ralphRoot) {
-    return c.json({ error: 'Ralph root not found' }, 500);
-  }
-
-  // Determine PRD folder path (check both PRD folder and worktree)
-  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
-  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
-
-  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
-    prdFolder = worktreePath;
-  }
-
-  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
-
-  if (!fs.existsSync(checkpointPath)) {
-    return c.json({ error: 'No checkpoint found', notFound: true }, 404);
-  }
-
-  try {
-    const content = fs.readFileSync(checkpointPath, 'utf-8');
-    const checkpoint = JSON.parse(content);
-
-    // Add formatted time ago
-    let timeAgo = 'unknown';
-    if (checkpoint.created_at) {
-      const created = new Date(checkpoint.created_at);
-      const diffMs = Date.now() - created.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-
-      if (diffMins < 1) timeAgo = 'just now';
-      else if (diffMins < 60) timeAgo = `${diffMins}m ago`;
-      else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
-      else timeAgo = `${diffDays}d ago`;
-    }
-
-    return c.json({
-      ...checkpoint,
-      time_ago: timeAgo,
-      prd_folder: prdFolder,
-    });
-  } catch (err) {
-    return c.json({ error: `Failed to read checkpoint: ${(err as Error).message}` }, 500);
-  }
-});
-
-/**
- * POST /api/streams/:id/resume
- *
- * Triggers a build resume for the specified stream.
- * Uses the checkpoint to resume from the last saved state.
- *
- * Query params:
- *   - iterations: Number of iterations to run (default: 1)
- */
-api.post('/streams/:id/resume', async (c) => {
-  const id = c.req.param('id');
-  const ralphRoot = getRalphRoot();
-
-  if (!ralphRoot) {
-    return c.json({ error: 'Ralph root not found' }, 500);
-  }
-
-  // Determine PRD folder path
-  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
-  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
-
-  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
-    prdFolder = worktreePath;
-  }
-
-  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
-
-  if (!fs.existsSync(checkpointPath)) {
-    return c.json({ error: 'No checkpoint found to resume from' }, 404);
-  }
-
-  // Parse body for iterations
-  let iterations = 1;
-  try {
-    const body = await c.req.json().catch(() => ({}));
-    if (body.iterations && typeof body.iterations === 'number') {
-      iterations = Math.min(Math.max(1, body.iterations), 100);
-    }
-  } catch {
-    // Use default
-  }
-
-  try {
-    // Spawn ralph build with --resume flag
-    const cwd = path.dirname(path.dirname(ralphRoot)); // Get project root
-    const child = spawn('ralph', ['build', String(iterations), `--prd=${id}`, '--resume'], {
-      cwd,
-      detached: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        RALPH_RESUME: '1',
-      },
-    });
-
-    child.unref();
-
-    return c.json({
-      success: true,
-      message: `Resuming build for PRD-${id} with ${iterations} iteration(s)`,
-      pid: child.pid,
-    });
-  } catch (err) {
-    return c.json({ error: `Failed to start build: ${(err as Error).message}` }, 500);
-  }
-});
-
-/**
- * POST /api/streams/:id/checkpoint/clear
- *
- * Clears (deletes) the checkpoint for a stream.
- * This allows starting a fresh build.
- */
-api.post('/streams/:id/checkpoint/clear', (c) => {
-  const id = c.req.param('id');
-  const ralphRoot = getRalphRoot();
-
-  if (!ralphRoot) {
-    return c.json({ error: 'Ralph root not found' }, 500);
-  }
-
-  // Determine PRD folder path
-  let prdFolder = path.join(ralphRoot, `PRD-${id}`);
-  const worktreePath = path.join(ralphRoot, 'worktrees', `PRD-${id}`, '.ralph', `PRD-${id}`);
-
-  if (!fs.existsSync(prdFolder) && fs.existsSync(worktreePath)) {
-    prdFolder = worktreePath;
-  }
-
-  const checkpointPath = path.join(prdFolder, 'checkpoint.json');
-
-  if (!fs.existsSync(checkpointPath)) {
-    return c.json({ error: 'No checkpoint found to clear', notFound: true }, 404);
-  }
-
-  try {
-    fs.unlinkSync(checkpointPath);
-    return c.json({
-      success: true,
-      message: `Checkpoint cleared for PRD-${id}`,
-    });
-  } catch (err) {
-    return c.json({ error: `Failed to clear checkpoint: ${(err as Error).message}` }, 500);
-  }
-});
+// US-006: Checkpoint endpoints moved to ./api/checkpoint.ts
 
 /**
  * GET /api/streams/:id/cost

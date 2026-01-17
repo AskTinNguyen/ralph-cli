@@ -839,6 +839,52 @@ voice.post("/context/prd", async (c) => {
   });
 });
 
+/**
+ * POST /voice/session/restore-context
+ * Restore conversation context from a saved session
+ * Called on page load when restoring a previous session
+ */
+voice.post("/session/restore-context", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { sessionId, context } = body;
+
+    if (!context) {
+      return c.json({
+        success: false,
+        error: "Context is required",
+      }, 400);
+    }
+
+    // Restore PRD context if available
+    if (context.currentPrd) {
+      actionRouter.setCurrentPrd(context.currentPrd.toString());
+    }
+
+    // Note: Full conversation turn history is not restored server-side
+    // as it would require more complex state management. The client
+    // maintains the UI history, and the PRD context is the key piece
+    // needed for multi-turn conversations.
+
+    console.log(`[Session] Restored context for session ${sessionId}:`, {
+      currentPrd: context.currentPrd,
+      lastCommand: context.lastCommand,
+    });
+
+    return c.json({
+      success: true,
+      message: "Conversation context restored",
+      context: actionRouter.getConversationSummary(),
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return c.json({
+      success: false,
+      error: `Failed to restore context: ${errorMessage}`,
+    }, 500);
+  }
+});
+
 // ============================================
 // TTS (Text-to-Speech) Endpoints
 // ============================================

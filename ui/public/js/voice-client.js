@@ -78,6 +78,12 @@
   let currentRate = 175;
   let currentVolume = 80;
 
+  // Session persistence constants
+  const SESSION_STORAGE_KEY = 'ralph-voice-session';
+  const SESSION_INDEX_KEY = 'ralph-voice-session-index';
+  const SESSION_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour for restore
+  const SESSION_CLEANUP_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours for cleanup
+
   // Wake word state
   let wakeWordEnabled = false;
   let wakeWordListening = false;
@@ -97,11 +103,20 @@
   async function init() {
     recordingStatus.textContent = 'Checking services...';
 
+    // Attempt to restore previous session from localStorage
+    const sessionRestored = await attemptSessionRestore();
+    if (sessionRestored) {
+      recordingStatus.textContent = 'Session restored, checking services...';
+    }
+
     // Check service health
     await checkHealth();
 
     // Create session
     await createSession();
+
+    // Complete session restore (restore conversation context to ActionRouter)
+    await completeSessionRestore();
 
     // Set up event listeners
     micButton.addEventListener('click', toggleRecording);
@@ -963,7 +978,13 @@
     history.unshift(item);
     history = history.slice(0, 10); // Keep last 10
 
+    // Track last command for conversation context
+    window.__lastCommand = intent.action;
+
     renderHistory();
+
+    // Save session to localStorage for persistence
+    saveSessionToStorage();
   }
 
   /**
@@ -2145,6 +2166,289 @@
       }
     } catch (error) {
       console.error('Volume update error:', error);
+    }
+  }
+
+  // ==================== Session Persistence Functions ====================
+
+  /**
+   * Save current session to localStorage
+   * Called after each command execution to persist state
+   */
+  function saveSessionToStorage() {
+    if (!sessionId) return;
+
+    try {
+      const sessionData = {
+        id: sessionId,
+        state: state,
+        startedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        history: history.map(item => ({
+          intent: item.intent,
+          success: item.success,
+          timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
+        })),
+        conversationContext: {
+          currentPrd: window.__currentPrd || null,
+          lastCommand: window.__lastCommand || null
+        }
+      };
+
+      const storageKey = `${SESSION_STORAGE_KEY}-${sessionId}`;
+      localStorage.setItem(storageKey, JSON.stringify(sessionData));
+
+      // Update session index
+      updateSessionIndex(sessionId, sessionData.lastActivity);
+
+      console.log('[Session] Saved session to localStorage:', sessionId);
+    } catch (error) {
+      console.error('[Session] Failed to save session:', error);
+    }
+  }
+
+  /**
+   * Update the session index with current session
+   */
+  function updateSessionIndex(sessionId, lastActivity) {
+    try {
+      const indexData = localStorage.getItem(SESSION_INDEX_KEY);
+      const index = indexData ? JSON.parse(indexData) : { sessions: {} };
+
+      index.sessions[sessionId] = {
+        lastActivity: lastActivity
+      };
+
+      localStorage.setItem(SESSION_INDEX_KEY, JSON.stringify(index));
+    } catch (error) {
+      console.error('[Session] Failed to update index:', error);
+    }
+  }
+
+  /**
+   * Get the most recent session ID from localStorage
+   */
+  function getMostRecentSessionId() {
+    try {
+      const indexData = localStorage.getItem(SESSION_INDEX_KEY);
+      if (!indexData) return null;
+
+      const index = JSON.parse(indexData);
+      const entries = Object.entries(index.sessions || {});
+
+      if (entries.length === 0) return null;
+
+      // Sort by lastActivity descending
+      entries.sort((a, b) =>
+        new Date(b[1].lastActivity).getTime() - new Date(a[1].lastActivity).getTime()
+      );
+
+      return entries[0][0];
+    } catch (error) {
+      console.error('[Session] Failed to get recent session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Load session from localStorage
+   * Returns null if session not found or expired (> 1 hour)
+   */
+  function loadSessionFromStorage(targetSessionId) {
+    try {
+      const storageKey = `${SESSION_STORAGE_KEY}-${targetSessionId}`;
+      const serialized = localStorage.getItem(storageKey);
+
+      if (!serialized) {
+        console.log('[Session] No session found in storage for:', targetSessionId);
+        return null;
+      }
+
+      const sessionData = JSON.parse(serialized);
+
+      // Check if session is too old (> 1 hour for restore)
+      const lastActivity = new Date(sessionData.lastActivity);
+      const age = Date.now() - lastActivity.getTime();
+
+      if (age > SESSION_MAX_AGE_MS) {
+        console.log('[Session] Session expired (age:', Math.round(age / 60000), 'minutes)');
+        removeSessionFromStorage(targetSessionId);
+        return null;
+      }
+
+      console.log('[Session] Loaded valid session (age:', Math.round(age / 60000), 'minutes)');
+      return sessionData;
+    } catch (error) {
+      console.error('[Session] Failed to load session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove a session from localStorage
+   */
+  function removeSessionFromStorage(targetSessionId) {
+    try {
+      const storageKey = `${SESSION_STORAGE_KEY}-${targetSessionId}`;
+      localStorage.removeItem(storageKey);
+
+      // Update index
+      const indexData = localStorage.getItem(SESSION_INDEX_KEY);
+      if (indexData) {
+        const index = JSON.parse(indexData);
+        delete index.sessions[targetSessionId];
+        localStorage.setItem(SESSION_INDEX_KEY, JSON.stringify(index));
+      }
+
+      console.log('[Session] Removed session from storage:', targetSessionId);
+    } catch (error) {
+      console.error('[Session] Failed to remove session:', error);
+    }
+  }
+
+  /**
+   * Cleanup stale sessions (> 24 hours old)
+   */
+  function cleanupStaleSessions() {
+    try {
+      const indexData = localStorage.getItem(SESSION_INDEX_KEY);
+      if (!indexData) return;
+
+      const index = JSON.parse(indexData);
+      const now = Date.now();
+      let removedCount = 0;
+
+      for (const [sessionId, metadata] of Object.entries(index.sessions || {})) {
+        const age = now - new Date(metadata.lastActivity).getTime();
+
+        if (age > SESSION_CLEANUP_AGE_MS) {
+          removeSessionFromStorage(sessionId);
+          removedCount++;
+        }
+      }
+
+      if (removedCount > 0) {
+        console.log('[Session] Cleaned up', removedCount, 'stale sessions');
+      }
+    } catch (error) {
+      console.error('[Session] Failed to cleanup sessions:', error);
+    }
+  }
+
+  /**
+   * Restore command history to UI from saved session
+   */
+  function restoreHistoryToUI(savedHistory) {
+    if (!savedHistory || savedHistory.length === 0) {
+      console.log('[Session] No history to restore');
+      return;
+    }
+
+    // Convert serialized history back to proper format
+    history = savedHistory.map(item => ({
+      intent: item.intent,
+      success: item.success,
+      timestamp: new Date(item.timestamp)
+    }));
+
+    // Re-render the history list
+    renderHistory();
+
+    console.log('[Session] Restored', history.length, 'history items to UI');
+  }
+
+  /**
+   * Restore conversation context to server (ActionRouter)
+   * Sends the saved context to the backend to restore state
+   */
+  async function restoreConversationContext(conversationContext) {
+    if (!conversationContext) {
+      console.log('[Session] No conversation context to restore');
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/session/restore-context`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          context: conversationContext
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Store in window for tracking
+        if (conversationContext.currentPrd) {
+          window.__currentPrd = conversationContext.currentPrd;
+        }
+        if (conversationContext.lastCommand) {
+          window.__lastCommand = conversationContext.lastCommand;
+        }
+        console.log('[Session] Restored conversation context to ActionRouter');
+        return true;
+      } else {
+        console.warn('[Session] Failed to restore context:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('[Session] Error restoring context:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Attempt to restore session on page load
+   * Checks localStorage for existing valid session (< 1 hour old)
+   */
+  async function attemptSessionRestore() {
+    // Cleanup old sessions first
+    cleanupStaleSessions();
+
+    // Get most recent session ID
+    const recentSessionId = getMostRecentSessionId();
+
+    if (!recentSessionId) {
+      console.log('[Session] No previous session found');
+      return false;
+    }
+
+    // Load the session
+    const savedSession = loadSessionFromStorage(recentSessionId);
+
+    if (!savedSession) {
+      console.log('[Session] Previous session invalid or expired');
+      return false;
+    }
+
+    console.log('[Session] Found valid session to restore:', recentSessionId);
+
+    // Restore command history to UI
+    restoreHistoryToUI(savedSession.history);
+
+    // Restore conversation context to ActionRouter (async, after session creation)
+    if (savedSession.conversationContext) {
+      // Store context to restore after session is created
+      window.__pendingContextRestore = savedSession.conversationContext;
+    }
+
+    // Update session status indicator
+    sessionStatus.className = 'status-dot healthy';
+    sessionStatus.title = 'Session restored';
+
+    return true;
+  }
+
+  /**
+   * Complete session restore after session is created
+   * Called after createSession() to restore conversation context
+   */
+  async function completeSessionRestore() {
+    if (window.__pendingContextRestore) {
+      await restoreConversationContext(window.__pendingContextRestore);
+      delete window.__pendingContextRestore;
     }
   }
 
