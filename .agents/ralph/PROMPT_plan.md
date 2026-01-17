@@ -43,6 +43,85 @@ You are an autonomous coding agent. Your task is to create or update an implemen
 8. Create or update {{PLAN_PATH}} with a prioritized task list, grouped by story.
 9. **For frontend PRDs**: Add a "Skill Routing" section to the plan specifying that the `frontend-design` skill must be invoked (see Skill Routing section below).
 
+## Code Patterns (Agent Task - Do This Before Planning)
+
+Before creating tasks, inspect the codebase to identify existing patterns. Include 2-3 concrete examples showing project conventions.
+
+**Read these files to understand patterns:**
+- Error handling (how are errors caught/logged/returned?)
+- Data validation (where/how is input validated?)
+- Testing patterns (what test structure does the project use?)
+- File organization (where do similar features live?)
+
+**Example Pattern Documentation:**
+
+### Error Handling Pattern
+```
+[Language-specific code showing project's error handling]
+// Found in: src/services/example.js
+// Pattern: Try-catch with logger.error and custom error types
+```
+
+### Data Validation Pattern
+```
+[Language-specific code showing validation]
+// Found in: src/validators/example.py
+// Pattern: Pydantic models for input validation
+```
+
+### Testing Pattern
+```
+[Language-specific test example]
+// Found in: tests/test_example.rs
+// Pattern: Unit tests with #[test] attribute, integration tests in tests/
+```
+
+**Note**: Copy patterns from the actual codebase. Don't invent generic examples. This section should appear in your plan output.
+
+## Plan Structure Guidance
+
+**Simple PRDs (< 5 stories)**: Use flat task list (standard format below)
+
+**Complex PRDs (> 5 stories)**: Add phases with progressive detail to reduce context overload
+
+### Example Complex Plan Structure:
+
+```markdown
+# Implementation Plan
+
+## Summary
+[Brief overview]
+
+## Quick Start (First 3 Tasks)
+1. [Most critical task]
+2. [Second priority task]
+3. [Third priority task]
+
+## Code Patterns
+[Pattern examples as shown above]
+
+## Implementation Phases
+
+### Phase 1: Foundation (US-001 to US-003)
+High-level: Set up core infrastructure
+
+<details>
+<summary>Detailed Tasks (Click to expand)</summary>
+
+#### US-001: Database Schema
+- [ ] Task with scope, acceptance, verification
+...
+</details>
+
+### Phase 2: Features (US-004 to US-007)
+High-level: Build main functionality
+
+<details>
+<summary>Detailed Tasks</summary>
+...
+</details>
+```
+
 ## Implementation Plan Format (Required)
 
 Use a simple markdown structure with self-contained tasks grouped by story:

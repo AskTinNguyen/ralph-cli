@@ -66,9 +66,37 @@ Each story must follow this format exactly:
 - Specify canonical form for URLs/IDs/links
 - UI stories MUST include browser verification
 
-### 4. Non-Goals
+### 4. Boundaries (Three-Tier System)
 
-What this feature will NOT include. Critical for scope management.
+**Agent Task**: Define clear decision boundaries for what the agent can do autonomously, what requires approval, and what's prohibited.
+
+#### ✅ Always Do (No Permission)
+Actions the agent can take without asking:
+- Modify files in the feature directory
+- Add tests for new functionality
+- Run test/lint/build commands
+- Create commits with standard format
+- [Add 2-3 project-specific items]
+
+#### ⚠️ Ask First (Requires Approval)
+Actions requiring user confirmation:
+- Modify shared utility files
+- Change database schema or migrations
+- Add external dependencies
+- Modify CI/CD configuration
+- [Add 2-3 project-specific items]
+
+#### 🚫 Never Do (Prohibited)
+Actions that are forbidden:
+- Commit secrets, API keys, or credentials
+- Delete tests without replacement
+- Skip type checking or linting
+- Push directly to main/master branch
+- Modify core framework files without justification
+
+#### Non-Goals (Out of Scope)
+Features and functionality explicitly NOT included in this PRD:
+- [List features that are out of scope]
 
 ### 5. Technical Considerations
 
@@ -76,15 +104,85 @@ What this feature will NOT include. Critical for scope management.
 - Integration points with existing systems
 - Existing code patterns to follow
 
-### 6. Success Metrics
+### 6. Project Structure (Optional but Recommended)
+
+**Agent Task**: Document which files and directories will be created or modified for this feature. Use the project's existing structure as a guide.
+
+**Files to create:**
+```
+[List new files/directories]
+# Example: src/features/auth/, tests/auth_test.py, etc.
+```
+
+**Files to modify:**
+```
+[List files that need changes]
+# Example: main entry point, route definitions, etc.
+```
+
+**Dependencies (if applicable):**
+```bash
+# New dependencies to add
+# Example: Library installations, package additions
+```
+
+**Note**: Inspect the project structure first. Follow existing organization patterns (e.g., if features live in `src/features/`, put new feature there).
+
+### 7. Commands Reference (Auto-Generated)
+
+**Agent Task**: Read the project files (package.json, Cargo.toml, Makefile, go.mod, requirements.txt, etc.) to detect the tech stack, then document the relevant commands for this feature.
+
+**Setup Commands:**
+```bash
+# Commands to install dependencies or set up the feature
+# Example: npm install <package>, cargo add <crate>, pip install <package>, go get
+```
+
+**Test Commands:**
+```bash
+# Commands to run tests for this feature
+# Example: npm test, cargo test, pytest, go test ./..., mvn test
+```
+
+**Build Commands:**
+```bash
+# Commands to build/compile (if applicable)
+# Example: npm run build, cargo build, make, go build, mvn package
+```
+
+**Run Commands:**
+```bash
+# Commands to run the feature in dev/prod
+# Example: npm run dev, cargo run, python main.py, go run .
+```
+
+**Verification Commands:**
+```bash
+# Commands to verify the feature works as expected
+# Example: curl <endpoint>, ./test-script.sh, browser checks
+```
+
+**Note**: Use the project's existing command patterns. Check package.json scripts, Makefile targets, or README for command conventions.
+
+### 8. Standards & Conventions
+
+**Agent Task**: Check if `.ralph/standards.md` exists. If it does, read it and ensure this PRD follows project conventions for git workflow, code quality, and boundaries.
+
+If `.ralph/standards.md` does not exist, use these defaults:
+- Branch: `feature/PRD-N-US-XXX-description`
+- Commit: `type(scope): description [PRD-N US-XXX]`
+- Always run tests before committing
+- Never commit secrets
+
+### 9. Success Metrics
 
 How will success be measured? Concrete, measurable outcomes.
 
-### 7. Open Questions
+### 10. Open Questions
 
 Remaining questions or areas needing clarification.
 
-### 8. Context
+### 11. Context
 
 Document the decision trail:
 
@@ -106,15 +204,47 @@ Only include if there are system-level constraints that span multiple stories:
 
 Do NOT duplicate what's already in user stories.
 
-## Quality Checklist
+## Quality Checklist (Mandatory)
 
 Before saving, verify:
+
+### Structure
+- [ ] Boundaries section has all three tiers (✅ Always/⚠️ Ask/🚫 Never)
+- [ ] Commands section present with project-appropriate commands
+- [ ] Project structure documented (if files created/modified)
+- [ ] Standards reference checked (.ralph/standards.md if exists)
+
+### Story Quality
 - [ ] All stories have 3-5 acceptance criteria
 - [ ] Each criterion is verifiable (not vague)
-- [ ] Examples/negative cases included
-- [ ] UI stories have browser verification
-- [ ] Non-goals section is present
-- [ ] Context section documents assumptions
+- [ ] Concrete examples with input/output included
+- [ ] UI stories have browser verification method
+- [ ] Each story sized appropriately (single concern, ~100-200 LOC)
+
+### Concreteness
+- [ ] No vague terms ("properly", "correctly", "as expected", "should work")
+- [ ] Commands are copy-paste executable (not placeholders like "<package>")
+- [ ] File paths are specific, not generic ("src/auth.py" not "the auth file")
+
+### Tech-Agnostic Quality
+- [ ] No assumptions about tech stack (unless detected from project)
+- [ ] Commands match project's build system
+- [ ] Examples are project-specific, not generic
+
+### Self-Verification Commands (Universal)
+```bash
+# Check for vague language
+grep -iE "(properly|correctly|as expected|should work)" prd.md
+
+# Verify boundaries structure (all three tiers must exist)
+grep -E "(✅|⚠️|🚫)" prd.md
+
+# Count command blocks (should have 3+ for setup/test/build)
+grep -c '```bash' prd.md
+
+# Verify commands aren't placeholders
+grep -iE "<.*>|TODO|FIXME" prd.md  # Should find zero
+```
 
 ## Output
 

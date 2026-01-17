@@ -809,6 +809,109 @@ mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2"
         </div>
       </section>
 
+      <!-- Writing Quality Specifications -->
+      <section class="rams-section">
+        <h2 class="rams-h2">Writing Quality Specifications (Tech-Agnostic)</h2>
+
+        <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 2px; padding: 6px 8px; margin-bottom: 8px; border-left: 2px solid rgba(59, 130, 246, 0.8);">
+          <strong style="font-size: 12px; display: block; margin-bottom: 4px; color: #1E40AF;">Ralph's Design Philosophy</strong>
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            Ralph works across Python, JavaScript, Go, Rust, Java, etc. All improvements are:<br>
+            ✅ Tech-agnostic (no prescriptive stacks)<br>
+            ✅ Auto-detect project context (package.json, Cargo.toml, etc.)<br>
+            ✅ Configurable via optional <code>.ralph/standards.md</code><br>
+            ✅ PRD = WHAT (requirements), Plan = HOW (implementation)
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Six Core Areas</h3>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px; margin-bottom: 8px;">
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            Ralph PRDs should include: <strong>Commands, Testing, Project Structure, Standards, Boundaries</strong><br>
+            <strong>Note:</strong> Code patterns belong in Plans, not PRDs (WHAT vs HOW)
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Commands (Project-Specific Auto-Detection)</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+          <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; color: #B91C1C;">❌ Bad: Generic placeholders</strong>
+            <pre style="margin: 4px 0 0 0; font-size: 10px; color: #B91C1C;">"Run the tests"</pre>
+          </div>
+          <div style="background: rgba(34, 197, 94, 0.04); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 2px; padding: 6px 8px;">
+            <strong style="font-size: 11px; color: #15803D;">✅ Good: Detect from project</strong>
+            <pre style="margin: 4px 0 0 0; font-size: 10px; color: #15803D;"># JavaScript: npm test -- --testPathPattern=auth
+# Python: pytest tests/test_auth.py
+# Rust: cargo test auth
+# Go: go test ./auth</pre>
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Three-Tier Boundaries (Universal)</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11px;">
+          <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);"><strong>Tier</strong></td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);"><strong>Permission</strong></td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);"><strong>Examples</strong></td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">✅ Always</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">No permission needed</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">Run tests, modify feature files</td>
+          </tr>
+          <tr style="background: var(--rams-gray-50);">
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">⚠️ Ask</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">Requires approval</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">DB schema, new deps, shared utils</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">🚫 Never</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">Prohibited</td>
+            <td style="padding: 4px 6px; border: 1px solid var(--rams-border-color);">Commit secrets, delete tests, skip checks</td>
+          </tr>
+        </table>
+
+        <h3 class="rams-h3">Tech-Agnostic Principles</h3>
+        <ul style="font-size: 11px; line-height: 1.6; color: #374151; margin: 0 0 8px 0; padding-left: 18px;">
+          <li><strong>Auto-detect tech stack:</strong> Read project files (package.json, Cargo.toml, go.mod, requirements.txt)</li>
+          <li><strong>Follow existing patterns:</strong> Inspect codebase, don't invent generic examples</li>
+          <li><strong>Use project's commands:</strong> Check README, Makefile, package scripts</li>
+          <li><strong>PRD = WHAT, Plan = HOW:</strong> Keep PRDs high-level, Plans implementation-focused</li>
+        </ul>
+
+        <h3 class="rams-h3">Common Pitfalls</h3>
+        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8); margin-bottom: 8px;">
+          <ul style="font-size: 11px; line-height: 1.6; color: #B91C1C; margin: 0; padding-left: 18px;">
+            <li>❌ Assuming tech stack: "Use TypeScript interfaces" → ✅ "Define data types per project language"</li>
+            <li>❌ Generic examples: "Follow async patterns" → ✅ "Copy error handling from src/services/example.py"</li>
+            <li>❌ Vague commands: "Run tests" → ✅ "pytest tests/feature.py -v"</li>
+          </ul>
+        </div>
+
+        <h3 class="rams-h3">Code Patterns (Plans Only, Not PRDs)</h3>
+        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            <strong>When creating implementation plans:</strong><br>
+            1. Read the project codebase to find existing patterns<br>
+            2. Copy 2-3 concrete examples (error handling, validation, testing)<br>
+            3. Reference actual files (e.g., "Found in: src/services/example.js")<br>
+            4. Never invent generic examples - always project-specific
+          </div>
+        </div>
+
+        <h3 class="rams-h3">Standards File (Optional)</h3>
+        <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 2px; padding: 6px 8px;">
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            Create <code>.ralph/standards.md</code> for project-specific conventions:<br>
+            • Git workflow (branch naming, commit format)<br>
+            • Code quality requirements (pre-commit checklist)<br>
+            • Custom boundaries (project-specific Always/Ask/Never)<br>
+            <br>
+            <strong>Example:</strong> <code>cp .ralph/standards.md.example .ralph/standards.md</code>
+          </div>
+        </div>
+      </section>
+
       <!-- Quick Reference Card -->
       <section class="rams-section">
         <h2 class="rams-h2">Quick Reference</h2>
