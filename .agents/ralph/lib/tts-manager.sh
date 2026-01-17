@@ -1,31 +1,95 @@
 #!/usr/bin/env bash
 # TTS Manager - Prevents overlapping voice output
-# Provides exclusive TTS playback by canceling any existing TTS before speaking
+# Provides exclusive TTS playback with cross-session coordination
 #
 # Usage:
 #   source .agents/ralph/lib/tts-manager.sh
 #   speak_exclusive "Hello world"
 #
 # Functions:
-#   cancel_existing_tts - Kill all running TTS processes
-#   speak_exclusive <text> - Cancel existing TTS and speak new text
+#   cancel_existing_tts - Kill TTS processes from THIS session only
+#   speak_exclusive <text> - Wait for lock, cancel our TTS, speak new text
+#
+# Cross-Session Coordination:
+#   Uses global voice lock file (.ralph/locks/voice/voice.lock) to coordinate
+#   across multiple Claude Code sessions. Each session is identified by its
+#   terminal/parent process.
 
 set -euo pipefail
 
 RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
-TTS_PID_FILE="${RALPH_ROOT}/.ralph/tts.pid"
+
+# Generate session ID from terminal/parent process FIRST
+# This ensures each Claude Code session has a unique ID
+TTS_SESSION_ID="${TERM_SESSION_ID:-${WINDOWID:-session-${PPID:-$$}}}"
+# Sanitize session ID for use in filenames
+TTS_SESSION_ID_SAFE=$(echo "$TTS_SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
+
+# Session-specific PID file (prevents cross-session overwrites)
+TTS_PID_FILE="${RALPH_ROOT}/.ralph/tts-${TTS_SESSION_ID_SAFE}.pid"
 TTS_LOG_FILE="${RALPH_ROOT}/.ralph/tts-manager.log"
+VOICE_LOCK_DIR="${RALPH_ROOT}/.ralph/locks/voice"
+VOICE_LOCK_FILE="${VOICE_LOCK_DIR}/voice.lock"
 
 # Log to TTS manager log
 tts_log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [tts-mgr] $*" >> "$TTS_LOG_FILE"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [tts-mgr:${TTS_SESSION_ID:0:20}] $*" >> "$TTS_LOG_FILE"
 }
 
-# Cancel all existing TTS processes
-cancel_existing_tts() {
-  tts_log "Canceling existing TTS..."
+# Check if voice lock is held by another session
+# Returns 0 if we can proceed (lock free or held by us), 1 if held by another
+check_voice_lock() {
+  if [[ ! -f "$VOICE_LOCK_FILE" ]]; then
+    return 0  # Lock free
+  fi
 
-  # Kill tracked PID if exists
+  local lock_pid=$(grep '^PID=' "$VOICE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+  local lock_cli=$(grep '^CLI_ID=' "$VOICE_LOCK_FILE" 2>/dev/null | cut -d= -f2)
+
+  # Check if lock holder process is dead
+  if [[ -n "$lock_pid" ]] && ! kill -0 "$lock_pid" 2>/dev/null; then
+    tts_log "Lock held by dead process $lock_pid, cleaning up"
+    rm -f "$VOICE_LOCK_FILE" 2>/dev/null || true
+    return 0  # Lock was stale, now free
+  fi
+
+  # Check if lock is held by THIS session (same session ID prefix)
+  if [[ -n "$lock_cli" && "$lock_cli" == *"$TTS_SESSION_ID"* ]]; then
+    return 0  # Our lock, can proceed
+  fi
+
+  # Lock held by another active session
+  tts_log "Lock held by another session: $lock_cli (PID: $lock_pid)"
+  return 1
+}
+
+# Wait for voice lock to be available (with timeout)
+# Returns 0 if lock acquired/available, 1 if timeout
+wait_for_voice_lock() {
+  local timeout_seconds="${1:-10}"
+  local waited=0
+  local interval=0.3
+
+  tts_log "Waiting for voice lock (timeout: ${timeout_seconds}s)..."
+
+  while [[ $waited -lt $timeout_seconds ]]; do
+    if check_voice_lock; then
+      tts_log "Voice lock available after ${waited}s"
+      return 0
+    fi
+    sleep "$interval"
+    waited=$(echo "$waited + $interval" | bc)
+  done
+
+  tts_log "Timeout waiting for voice lock after ${timeout_seconds}s"
+  return 1
+}
+
+# Cancel TTS processes from THIS session only (not other sessions)
+cancel_existing_tts() {
+  tts_log "Canceling TTS for this session..."
+
+  # Kill our tracked PID if exists (session-specific)
   if [[ -f "$TTS_PID_FILE" ]]; then
     local pid=$(cat "$TTS_PID_FILE" 2>/dev/null || echo "")
     if [[ -n "$pid" ]]; then
@@ -48,14 +112,28 @@ cancel_existing_tts() {
     rm -f "$TTS_PID_FILE"
   fi
 
-  # Kill any orphaned ralph speak processes (safety net)
+  # NOTE: We NO LONGER kill all "ralph speak" processes globally!
+  # This was causing race conditions across sessions.
+  # Each session only manages its own TTS PID.
+
+  # Brief wait for cleanup
+  sleep 0.1
+
+  tts_log "TTS cancel complete for this session"
+}
+
+# Cancel all TTS processes globally (use with caution - only for cleanup)
+cancel_all_tts() {
+  tts_log "Canceling ALL TTS processes globally..."
+
+  # Kill any ralph speak processes
   local orphans=$(pgrep -f "ralph speak" 2>/dev/null || echo "")
   if [[ -n "$orphans" ]]; then
-    tts_log "Killing orphaned ralph speak processes: $orphans"
+    tts_log "Killing all ralph speak processes: $orphans"
     pkill -f "ralph speak" 2>/dev/null || true
   fi
 
-  # Kill any say processes on macOS (safety net)
+  # Kill any say processes on macOS
   if command -v say &>/dev/null; then
     local say_pids=$(pgrep say 2>/dev/null || echo "")
     if [[ -n "$say_pids" ]]; then
@@ -64,15 +142,25 @@ cancel_existing_tts() {
     fi
   fi
 
-  # Brief wait for cleanup
-  sleep 0.3
+  # Kill any piper processes
+  local piper_pids=$(pgrep -f "piper" 2>/dev/null || echo "")
+  if [[ -n "$piper_pids" ]]; then
+    tts_log "Killing piper processes: $piper_pids"
+    pkill -f "piper" 2>/dev/null || true
+  fi
 
-  tts_log "TTS cancel complete"
+  sleep 0.3
+  tts_log "All TTS canceled"
 }
 
-# Speak text exclusively (cancels any existing TTS first)
+# Speak text exclusively with cross-session coordination
 # Usage: speak_exclusive "text to speak"
 #        echo "text" | speak_exclusive
+#
+# This function:
+# 1. Waits for the global voice lock if another session is speaking
+# 2. Cancels any TTS from THIS session (not others)
+# 3. Speaks the new text
 speak_exclusive() {
   local text="${1:-}"
 
@@ -88,7 +176,17 @@ speak_exclusive() {
 
   tts_log "Speaking: ${text:0:50}..."
 
-  # Cancel any existing TTS
+  # Wait for voice lock if another session is speaking
+  # This prevents cross-session audio overlap
+  if ! check_voice_lock; then
+    tts_log "Another session is speaking, waiting..."
+    if ! wait_for_voice_lock 15; then
+      tts_log "Timeout waiting for other session, skipping TTS"
+      return 1
+    fi
+  fi
+
+  # Cancel any existing TTS from THIS session only
   cancel_existing_tts
 
   # Speak and track PID
@@ -107,7 +205,15 @@ cleanup_tts_manager() {
   rm -f "$TTS_PID_FILE" 2>/dev/null || true
 }
 
-# Export functions
+# Export functions and variables
 export -f cancel_existing_tts
+export -f cancel_all_tts
 export -f speak_exclusive
+export -f check_voice_lock
+export -f wait_for_voice_lock
 export -f tts_log
+export -f cleanup_tts_manager
+export TTS_SESSION_ID
+export TTS_SESSION_ID_SAFE
+export TTS_PID_FILE
+export VOICE_LOCK_FILE
