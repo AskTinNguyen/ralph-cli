@@ -59,6 +59,9 @@ function assertArrayEqual(actual, expected, message) {
 console.log("\nRunning Agent Switcher Integration Tests");
 console.log("=========================================\n");
 
+// Enable test mode to mock agent availability (agents aren't installed in CI)
+switcher.enableTestMode(['claude', 'codex', 'droid']);
+
 // Test 1: Fallback chain parsing and order
 test("parseChain handles various input formats correctly", () => {
   // Space-separated string
@@ -155,6 +158,30 @@ test("validateChain checks agent availability and warns on issues", () => {
     "Should warn about duplicate agents"
   );
 });
+
+// Test 5: Verify behavior when no agents are available
+test("handles scenario when no agents are available", () => {
+  // Temporarily disable all agents
+  switcher.enableTestMode([]);
+
+  // getNextAgent should return null
+  const next = switcher.getNextAgent(["claude", "codex"], "claude");
+  assertEqual(next, null, "Should return null when no agents available");
+
+  // validateChain should be invalid
+  const validation = switcher.validateChain(["claude", "codex"]);
+  assertEqual(validation.valid, false, "Chain should be invalid with no available agents");
+
+  // suggestAgentForStory should return default with confidence 0
+  const suggestion = switcher.suggestAgentForStory("US-001", [], ["claude"]);
+  assertEqual(suggestion.confidence, 0, "Should have 0 confidence with no available agents");
+
+  // Restore test mode with all agents
+  switcher.enableTestMode(['claude', 'codex', 'droid']);
+});
+
+// Cleanup test mode
+switcher.disableTestMode();
 
 // Summary
 console.log("\n" + "=".repeat(40));
