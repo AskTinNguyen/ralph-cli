@@ -18,7 +18,7 @@
   <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" onkeydown="handleSidebarToggleKeydown(event)" role="button" tabindex="0" aria-label="Toggle sidebar" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -178,28 +178,32 @@
       <section class="rams-section">
         <div class="rams-section-header">
           <h2 class="rams-h2">Active Streams</h2>
-          <div style="display: flex; gap: var(--rams-space-2);">
+          <div role="group" aria-label="Filter streams" style="display: flex; gap: var(--rams-space-2);">
             <button
               class="rams-btn rams-btn-secondary rams-btn-sm"
               onclick="filterStreamGrid('all')"
+              aria-pressed="true"
             >
               All
             </button>
             <button
               class="rams-btn rams-btn-secondary rams-btn-sm"
               onclick="filterStreamGrid('running')"
+              aria-pressed="false"
             >
               Running
             </button>
             <button
               class="rams-btn rams-btn-secondary rams-btn-sm"
               onclick="filterStreamGrid('ready')"
+              aria-pressed="false"
             >
               Ready
             </button>
             <button
               class="rams-btn rams-btn-secondary rams-btn-sm"
               onclick="filterStreamGrid('completed')"
+              aria-pressed="false"
             >
               Completed
             </button>
@@ -253,9 +257,9 @@
           <div class="rams-card">
             <div class="chart-controls">
               <div class="chart-title">Cost Trend</div>
-              <div class="chart-period-selector">
-                <button class="chart-period-btn active" data-chart="cost" data-period="7d">7d</button>
-                <button class="chart-period-btn" data-chart="cost" data-period="30d">30d</button>
+              <div class="chart-period-selector" role="group" aria-label="Chart time period">
+                <button class="chart-period-btn active" data-chart="cost" data-period="7d" aria-pressed="true">7d</button>
+                <button class="chart-period-btn" data-chart="cost" data-period="30d" aria-pressed="false">30d</button>
               </div>
             </div>
             <div class="chart-container" style="position: relative;">
@@ -271,9 +275,9 @@
           <div class="rams-card">
             <div class="chart-controls">
               <div class="chart-title">Velocity</div>
-              <div class="chart-period-selector">
-                <button class="chart-period-btn active" data-chart="velocity" data-period="7d">7d</button>
-                <button class="chart-period-btn" data-chart="velocity" data-period="30d">30d</button>
+              <div class="chart-period-selector" role="group" aria-label="Chart time period">
+                <button class="chart-period-btn active" data-chart="velocity" data-period="7d" aria-pressed="true">7d</button>
+                <button class="chart-period-btn" data-chart="velocity" data-period="30d" aria-pressed="false">30d</button>
               </div>
             </div>
             <div class="chart-container" style="position: relative;">
@@ -289,9 +293,9 @@
           <div class="rams-card">
             <div class="chart-controls">
               <div class="chart-title">Success Rate</div>
-              <div class="chart-period-selector">
-                <button class="chart-period-btn active" data-chart="success" data-period="7d">7d</button>
-                <button class="chart-period-btn" data-chart="success" data-period="30d">30d</button>
+              <div class="chart-period-selector" role="group" aria-label="Chart time period">
+                <button class="chart-period-btn active" data-chart="success" data-period="7d" aria-pressed="true">7d</button>
+                <button class="chart-period-btn" data-chart="success" data-period="30d" aria-pressed="false">30d</button>
               </div>
             </div>
             <div class="chart-container" style="position: relative;">
@@ -316,7 +320,7 @@
         <div class="rams-toast-title">Error</div>
         <div id="error-toast-message" class="rams-text-sm"></div>
       </div>
-      <button onclick="dismissErrorToast()" class="rams-toast-close">&times;</button>
+      <button onclick="dismissErrorToast()" class="rams-toast-close" aria-label="Dismiss notification">&times;</button>
     </div>
   </div>
 

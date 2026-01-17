@@ -16,7 +16,7 @@
   <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" onkeydown="handleSidebarToggleKeydown(event)" role="button" tabindex="0" aria-label="Toggle sidebar" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -72,11 +72,13 @@
         <span class="rams-breadcrumb-current">Logs</span>
       </div>
       <div class="rams-topbar-actions">
+        <label for="stream-filter" class="sr-only">Filter by stream</label>
         <select
           id="stream-filter"
           class="rams-select"
           style="width: auto; min-width: 150px;"
           name="streamId"
+          aria-label="Filter by stream"
         >
           <option value="">Default (latest)</option>
         </select>
@@ -163,11 +165,13 @@
               });
           }
         </script>
+        <label for="level-filter" class="sr-only">Filter by log level</label>
         <select
           id="level-filter"
           class="rams-select"
           style="width: auto; min-width: 130px;"
           name="level"
+          aria-label="Filter by log level"
         >
           <option value="">All Levels</option>
           <option value="error">Errors Only</option>

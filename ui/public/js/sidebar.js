@@ -19,6 +19,15 @@ function toggleSidebar() {
   localStorage.setItem('sidebarCollapsed', isCollapsed);
 }
 
+// Keyboard accessibility for sidebar toggle
+function handleSidebarToggleKeydown(event) {
+  // Activate on Enter or Space
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    toggleSidebar();
+  }
+}
+
 // Initialize sidebar state from localStorage on page load
 (function initSidebar() {
   // Wait for DOM to be ready

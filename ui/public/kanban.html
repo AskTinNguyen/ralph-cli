@@ -510,7 +510,7 @@
   <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" onkeydown="handleSidebarToggleKeydown(event)" role="button" tabindex="0" aria-label="Toggle sidebar" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -623,7 +623,7 @@
         <div class="rams-toast-title">Error</div>
         <div id="error-toast-message" class="rams-text-sm"></div>
       </div>
-      <button onclick="dismissErrorToast()" class="rams-toast-close">&times;</button>
+      <button onclick="dismissErrorToast()" class="rams-toast-close" aria-label="Dismiss notification">&times;</button>
     </div>
   </div>
 
@@ -680,6 +680,17 @@
       cards.forEach(function(card, index) {
         card.setAttribute('tabindex', '0');
         card.setAttribute('data-card-index', index);
+        card.setAttribute('role', 'article');
+        card.setAttribute('aria-posinset', index + 1);
+        card.setAttribute('aria-setsize', cards.length);
+
+        // Set aria-label from PRD name
+        var prdName = card.querySelector('.kanban-card-prd-name');
+        var prdTitle = card.querySelector('.kanban-card-title');
+        if (prdName && prdTitle) {
+          var label = prdName.textContent + ' - ' + prdTitle.textContent;
+          card.setAttribute('aria-label', label);
+        }
       });
     }
 

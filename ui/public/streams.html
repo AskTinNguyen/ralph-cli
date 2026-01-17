@@ -704,7 +704,7 @@
   <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <div class="rams-logo-mark" onclick="toggleSidebar()" onkeydown="handleSidebarToggleKeydown(event)" role="button" tabindex="0" aria-label="Toggle sidebar" title="Toggle sidebar"></div>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -791,17 +791,17 @@
       <div id="alert-container"></div>
 
       <!-- Tab Navigation -->
-      <div class="rams-tabs">
-        <button class="rams-tab active" onclick="switchTab('monitor')">
+      <div class="rams-tabs" role="tablist" aria-label="Streams navigation">
+        <button class="rams-tab active" onclick="switchTab('monitor')" role="tab" aria-selected="true" aria-controls="monitor-tab" id="monitor-tab-button">
           Monitor
         </button>
-        <button class="rams-tab" onclick="switchTab('documentation')">
+        <button class="rams-tab" onclick="switchTab('documentation')" role="tab" aria-selected="false" aria-controls="documentation-tab" id="documentation-tab-button">
           Documentation
         </button>
       </div>
 
       <!-- Monitor Tab Content -->
-      <div id="monitor-tab" class="rams-tab-content active">
+      <div id="monitor-tab" class="rams-tab-content active" role="tabpanel" aria-labelledby="monitor-tab-button">
 
         <!-- Streams Overview Section -->
         <section id="streams-overview" class="rams-section">
@@ -872,7 +872,7 @@
       </div>
 
       <!-- Documentation Tab Content -->
-      <div id="documentation-tab" class="rams-tab-content">
+      <div id="documentation-tab" class="rams-tab-content" role="tabpanel" aria-labelledby="documentation-tab-button">
 
         <!-- Introduction -->
         <div class="rams-step">

@@ -305,6 +305,15 @@
       transform: translateY(-2px);
     }
 
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     .enter-btn-hint {
       display: block;
       font-size: 0.7rem;

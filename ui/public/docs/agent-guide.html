@@ -7,29 +7,8 @@
   <title>Agent Guide - Ralph CLI</title>
   <meta name="description" content="Concise reference for AI agents working with Ralph CLI on behalf of users.">
   <link rel="stylesheet" href="/docs/rams-design-system.css">
-  <style>
-    /* Compact agent-focused layout */
-    .rams-main { padding: 12px 24px; }
-    .rams-header { padding: 8px 0; margin-bottom: 12px; }
-    .rams-h1 { font-size: 22px; margin-bottom: 4px; }
-    .rams-lead { font-size: 13px; margin-bottom: 0; }
-    .rams-section { margin-bottom: 16px; }
-    .rams-h2 { font-size: 17px; margin-bottom: 8px; }
-    .rams-h3 { font-size: 14px; margin-bottom: 6px; margin-top: 12px; }
-    .rams-text { font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
-    .rams-text-sm { font-size: 12px; line-height: 1.3; }
-    .rams-code-block { margin-bottom: 8px; }
-    .rams-code-content { padding: 6px 10px; }
-    .rams-code-content pre { font-size: 11px; line-height: 1.4; }
-    .rams-info-box, .rams-warning-box { padding: 8px 10px; margin-bottom: 8px; }
-    ul, ol { margin-top: 3px; margin-bottom: 6px; }
-    li { margin-bottom: 1px; }
-    pre { margin: 0; }
-    table { margin-bottom: 8px; }
-    th, td { padding: 5px 8px; }
-  </style>
 </head>
-<body class="rams-page">
+<body class="rams-page rams-compact">
 
   <script src="/js/sidebar.js"></script>
 
@@ -37,7 +16,14 @@
   <aside class="rams-sidebar" id="rams-sidebar">
     <div class="rams-sidebar-header">
       <div class="rams-logo">
-        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <button
+          class="rams-logo-mark"
+          onclick="toggleSidebar()"
+          aria-label="Toggle sidebar navigation"
+          aria-expanded="true"
+          aria-controls="rams-sidebar"
+          title="Toggle sidebar">
+        </button>
         <span class="rams-logo-text">RALPH</span>
       </div>
     </div>
@@ -103,24 +89,24 @@
 
       <!-- Critical Agent-Specific Rules -->
       <section class="rams-section">
-        <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid rgba(239, 68, 68, 0.5); border-radius: 4px; padding: 10px 12px; border-left: 4px solid rgba(239, 68, 68, 1); margin-bottom: 16px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1); color: #B91C1C;">
-          <strong style="font-size: 13px; color: rgba(239, 68, 68, 1); display: block; margin-bottom: 8px;">⚠️ CRITICAL: Nested Agent Interaction Warning</strong>
-          <div style="margin-top: 6px; font-size: 11px; line-height: 1.6; color: #B91C1C;">
-            <strong style="display: block; margin-bottom: 4px; color: #B91C1C;">When Claude Code (or another AI agent) executes <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph prd</code>, it invokes a nested agent. Without <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">--headless</code>, both agents try to interact with the same TTY, causing:</strong>
-            <ul style="margin: 6px 0 8px 0; padding-left: 18px; color: #B91C1C;">
+        <div class="rams-alert rams-alert-error" role="alert" aria-labelledby="nested-warning-title">
+          <strong id="nested-warning-title">⚠️ CRITICAL: Nested Agent Interaction Warning</strong>
+          <div>
+            <strong>When Claude Code (or another AI agent) executes <code>ralph prd</code>, it invokes a nested agent. Without <code>--headless</code>, both agents try to interact with the same TTY, causing:</strong>
+            <ul>
               <li><strong>Deadlocks</strong> - Both agents waiting for input</li>
               <li><strong>TTY conflicts</strong> - Overlapping I/O streams</li>
               <li><strong>Process hangs</strong> - Commands never complete</li>
               <li><strong>Unpredictable output</strong> - Garbled or missing responses</li>
             </ul>
-            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid rgba(16, 185, 129, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #047857;">
-              <strong style="color: rgba(16, 185, 129, 1);">✅ ALWAYS USE:</strong>
-              <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px; display: inline-block; margin-top: 4px;">ralph prd "description" --headless</code>
+            <div class="rams-alert-nested rams-alert-nested-success">
+              <strong>✅ ALWAYS USE:</strong><br>
+              <code>ralph prd "description" --headless</code>
             </div>
-            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid rgba(239, 68, 68, 1); padding: 6px 8px; margin-top: 6px; border-radius: 2px; color: #B91C1C;">
-              <strong style="color: rgba(239, 68, 68, 1);">❌ NEVER USE:</strong>
-              <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px; display: inline-block; margin-top: 4px;">ralph prd "description"</code>
-              <span style="display: block; margin-top: 4px; font-size: 10px; color: #B91C1C;">(causes nested interaction)</span>
+            <div class="rams-alert-nested rams-alert-nested-error">
+              <strong>❌ NEVER USE:</strong><br>
+              <code>ralph prd "description"</code><br>
+              <span class="rams-text-sm">(causes nested interaction)</span>
             </div>
           </div>
         </div>
@@ -128,15 +114,15 @@
 
       <!-- Critical Merge Policy -->
       <section class="rams-section">
-        <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid rgba(239, 68, 68, 0.5); border-radius: 4px; padding: 10px 12px; border-left: 4px solid rgba(239, 68, 68, 1); margin-bottom: 16px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1); color: #B91C1C;">
-          <strong style="font-size: 13px; color: rgba(239, 68, 68, 1); display: block; margin-bottom: 8px;">🚨 CRITICAL: Manual Merge Policy</strong>
-          <div style="margin-top: 6px; font-size: 11px; line-height: 1.6; color: #B91C1C;">
-            <strong style="display: block; margin-bottom: 4px; color: #B91C1C;">Ralph NEVER auto-merges builds to main. This is a core safety guarantee.</strong>
+        <div class="rams-alert rams-alert-error" role="alert" aria-labelledby="merge-policy-title">
+          <strong id="merge-policy-title">🚨 CRITICAL: Manual Merge Policy</strong>
+          <div>
+            <strong>Ralph NEVER auto-merges builds to main. This is a core safety guarantee.</strong>
 
-            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid rgba(239, 68, 68, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #B91C1C;">
-              <strong style="color: rgba(239, 68, 68, 1);">❌ NEVER DO (Prohibited):</strong>
-              <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #B91C1C;">
-                <li>Run <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph stream merge</code> commands</li>
+            <div class="rams-alert-nested rams-alert-nested-error">
+              <strong>❌ NEVER DO (Prohibited):</strong>
+              <ul>
+                <li>Run <code>ralph stream merge</code> commands</li>
                 <li>Create pull requests automatically</li>
                 <li>Push branches to remote automatically</li>
                 <li>Attempt any form of automatic merge</li>
@@ -144,28 +130,28 @@
               </ul>
             </div>
 
-            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid rgba(16, 185, 129, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #047857;">
-              <strong style="color: rgba(16, 185, 129, 1);">✅ CORRECT AGENT WORKFLOW:</strong>
-              <ol style="margin: 4px 0 0 0; padding-left: 18px; color: #047857;">
+            <div class="rams-alert-nested rams-alert-nested-success">
+              <strong>✅ CORRECT AGENT WORKFLOW:</strong>
+              <ol>
                 <li>Execute the assigned stories</li>
-                <li>Output <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">&lt;promise&gt;COMPLETE&lt;/promise&gt;</code> signal</li>
+                <li>Output <code>&lt;promise&gt;COMPLETE&lt;/promise&gt;</code> signal</li>
                 <li>Exit - let the human handle merge/PR creation</li>
               </ol>
             </div>
 
-            <div style="background: rgba(59, 130, 246, 0.1); border-left: 3px solid rgba(59, 130, 246, 1); padding: 6px 8px; margin-top: 8px; border-radius: 2px; color: #1E40AF;">
-              <strong style="color: rgba(59, 130, 246, 1);">ℹ️ USER WORKFLOW (What Happens Next):</strong>
-              <ol style="margin: 4px 0 0 0; padding-left: 18px; color: #1E40AF; font-size: 10px;">
-                <li>User reviews commits: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">git log</code>, <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">git diff</code></li>
-                <li>User validates build: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">npm test</code>, <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">npm run build</code></li>
-                <li>User manually triggers merge: <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">ralph stream merge N</code></li>
-                <li>User confirms merge at interactive prompt (or uses <code style="background: rgba(0,0,0,0.08); padding: 2px 4px; border-radius: 2px;">--yes</code> flag)</li>
+            <div class="rams-alert-nested rams-alert-nested-info">
+              <strong>ℹ️ USER WORKFLOW (What Happens Next):</strong>
+              <ol class="rams-text-sm">
+                <li>User reviews commits: <code>git log</code>, <code>git diff</code></li>
+                <li>User validates build: <code>npm test</code>, <code>npm run build</code></li>
+                <li>User manually triggers merge: <code>ralph stream merge N</code></li>
+                <li>User confirms merge at interactive prompt (or uses <code>--yes</code> flag)</li>
               </ol>
             </div>
 
-            <div style="margin-top: 8px; padding: 6px 8px; background: rgba(0,0,0,0.03); border-radius: 2px; font-size: 10px; color: #6B7280;">
+            <p class="rams-text-sm" style="margin-top: 8px; padding: 6px 8px; background: rgba(0,0,0,0.03); border-radius: 2px;">
               <strong>Why this matters:</strong> Merging requires explicit human validation. Build completion does NOT imply merge approval. This separation ensures code quality and prevents unreviewed changes from reaching main.
-            </div>
+            </p>
           </div>
         </div>
       </section>
@@ -359,9 +345,9 @@ ralph prd "Add dashboard feature" --headless
       <!-- Critical Rules -->
       <section class="rams-section">
         <h2 class="rams-h2">Critical Rules</h2>
-        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8); margin-bottom: 6px; color: #B91C1C;">
-          <strong style="font-size: 12px; color: #B91C1C;">❌ DO NOT</strong>
-          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px; color: #B91C1C;">
+        <div class="rams-alert rams-alert-error">
+          <strong>❌ DO NOT</strong>
+          <ul>
             <li><strong>Run <code>ralph prd</code> without <code>--headless</code></strong> (causes nested agent interaction)</li>
             <li>Run build and stream build simultaneously on same PRD</li>
             <li>Edit .ralph/PRD-N/ while build running</li>
@@ -370,9 +356,9 @@ ralph prd "Add dashboard feature" --headless
             <li><strong>Trust checkboxes as proof of completion</strong> (git log is source of truth)</li>
           </ul>
         </div>
-        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(16, 185, 129, 0.8); color: #047857;">
-          <strong style="font-size: 12px; color: #047857;">✅ DO</strong>
-          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px; color: #047857;">
+        <div class="rams-alert rams-alert-success">
+          <strong>✅ DO</strong>
+          <ul>
             <li><strong>Always use <code>ralph prd "..." --headless</code></strong> when executing as agent</li>
             <li>Check <code>ralph stream status</code> before builds</li>
             <li>Use --no-worktree for simple builds</li>
@@ -388,16 +374,14 @@ ralph prd "Add dashboard feature" --headless
       <section class="rams-section">
         <h2 class="rams-h2">Status Codes</h2>
 
-        <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 2px; padding: 8px 10px; border-left: 3px solid rgba(59, 130, 246, 0.8); margin-bottom: 10px; color: #1D4ED8;">
-          <strong style="font-size: 12px; color: rgba(59, 130, 246, 1);">Git Commits = Source of Truth</strong>
-          <div style="margin-top: 4px; font-size: 11px; line-height: 1.5; color: #1D4ED8;">
-            <ul style="margin: 2px 0 0 0; padding-left: 16px; color: #1D4ED8;">
-              <li><strong>Git history</strong> is authoritative, not checkboxes</li>
-              <li><strong>Two workflows</strong>: <code>merged</code> (worktree → PR) or <code>completed</code> (direct-to-main)</li>
-              <li><strong>Auto-correction</strong>: Missing <code>.completed</code> markers auto-created when git shows commits</li>
-              <li><strong>Checkboxes are hints</strong>: Used by agents during work, not for status determination</li>
-            </ul>
-          </div>
+        <div class="rams-alert rams-alert-info">
+          <strong>Git Commits = Source of Truth</strong>
+          <ul>
+            <li><strong>Git history</strong> is authoritative, not checkboxes</li>
+            <li><strong>Two workflows</strong>: <code>merged</code> (worktree → PR) or <code>completed</code> (direct-to-main)</li>
+            <li><strong>Auto-correction</strong>: Missing <code>.completed</code> markers auto-created when git shows commits</li>
+            <li><strong>Checkboxes are hints</strong>: Used by agents during work, not for status determination</li>
+          </ul>
         </div>
 
         <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
