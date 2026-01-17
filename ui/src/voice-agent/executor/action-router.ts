@@ -27,8 +27,10 @@ import {
 import {
   createClaudeCodeExecutor,
   type ClaudeCodeExecutor,
+  type ClaudeCodeEvent,
 } from "./claude-code-executor.js";
 import { createTTSEngine, type TTSEngine } from "../tts/tts-engine.js";
+import { createSentenceBuffer } from "../tts/sentence-buffer.js";
 import {
   createStatusHandler,
   type StatusHandler,
@@ -450,7 +452,10 @@ export class ActionRouter {
   }
 
   /**
-   * Execute a Claude Code command with TTS response
+   * Execute a Claude Code command with streaming TTS response
+   *
+   * Uses streaming execution to speak TTS while Claude Code is still running,
+   * providing continuous audio feedback instead of waiting for completion.
    */
   private async executeClaudeCode(
     intent: VoiceIntent,
@@ -458,27 +463,95 @@ export class ActionRouter {
   ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string }> {
     const startTime = Date.now();
 
-    // Execute via Claude Code executor
-    const result = await this.claudeCodeExecutor.execute(intent, {
+    // Use streaming execution for continuous TTS
+    const { eventEmitter } = this.claudeCodeExecutor.executeStreaming(intent, {
       cwd: options.cwd || process.cwd(),
       timeout: options.timeout || 300000, // 5 minutes default
       includeContext: true,
-      sessionId: "voice-session", // Could be made configurable
+      sessionId: "voice-session",
     });
 
-    // Speak the response via TTS if enabled
-    if (this.ttsEnabled && this.ttsEngine && result.ttsText) {
-      try {
-        await this.ttsEngine.speak(result.ttsText);
-      } catch (error) {
-        console.warn("TTS failed:", error);
-      }
-    }
+    // Create sentence buffer for smooth TTS
+    // Buffer chunks into complete sentences before speaking
+    const sentenceBuffer = this.ttsEnabled && this.ttsEngine
+      ? createSentenceBuffer((sentence) => {
+          if (this.ttsEngine) {
+            this.ttsEngine.enqueue(sentence);
+          }
+        }, {
+          flushTimeoutMs: 500,
+          minChunkSize: 15,
+          maxBufferSize: 150,
+        })
+      : null;
 
-    return {
-      ...result,
-      duration_ms: Date.now() - startTime,
-    };
+    let fullOutput = "";
+    let lastFilteredOutput = "";
+
+    // Feed filtered chunks to TTS queue
+    eventEmitter.on("filtered_output", (event: ClaudeCodeEvent) => {
+      if (event.filteredForTTS && sentenceBuffer) {
+        sentenceBuffer.add(event.filteredForTTS);
+        lastFilteredOutput = event.filteredForTTS;
+      }
+    });
+
+    // Collect full output
+    eventEmitter.on("stdout", (event: ClaudeCodeEvent) => {
+      fullOutput += event.data;
+    });
+
+    // Wait for completion and return result
+    return new Promise((resolve) => {
+      eventEmitter.on("exit", (event: ClaudeCodeEvent) => {
+        // Flush remaining buffer to ensure all text is spoken
+        if (sentenceBuffer) {
+          sentenceBuffer.flush();
+        }
+
+        // Parse exit data
+        let exitCode = 0;
+        let success = true;
+        try {
+          const exitData = JSON.parse(event.data);
+          exitCode = exitData.code ?? 0;
+          success = exitCode === 0;
+        } catch {
+          // If we can't parse, assume success if no error
+          success = !event.data.includes("error");
+        }
+
+        resolve({
+          success,
+          output: fullOutput,
+          filteredOutput: lastFilteredOutput,
+          ttsText: event.filteredForTTS || lastFilteredOutput,
+          exitCode,
+          action: intent.action,
+          intent,
+          duration_ms: Date.now() - startTime,
+        });
+      });
+
+      eventEmitter.on("error", (event: ClaudeCodeEvent) => {
+        // Clear buffer and stop TTS on error
+        if (sentenceBuffer) {
+          sentenceBuffer.clear();
+        }
+        if (this.ttsEngine) {
+          this.ttsEngine.clearQueue();
+        }
+
+        resolve({
+          success: false,
+          error: event.data,
+          output: fullOutput,
+          action: intent.action,
+          intent,
+          duration_ms: Date.now() - startTime,
+        });
+      });
+    });
   }
 
   /**
