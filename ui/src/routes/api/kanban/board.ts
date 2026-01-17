@@ -10,6 +10,31 @@ import { getStreams } from "../../../services/state-reader.js";
 const board = new Hono();
 
 /**
+ * Format elapsed time from a start date to now
+ * Returns format like "2m 34s" or "1h 23m"
+ */
+function formatElapsedTime(startedAt: Date): string {
+  const now = new Date();
+  const elapsedMs = now.getTime() - startedAt.getTime();
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+
+  if (elapsedSec < 60) {
+    return `${elapsedSec}s`;
+  }
+
+  const minutes = Math.floor(elapsedSec / 60);
+  const seconds = elapsedSec % 60;
+
+  if (minutes < 60) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+/**
  * GET /api/kanban/board
  *
  * Returns rendered Kanban board HTML with all PRDs organized into columns.
@@ -126,6 +151,13 @@ function renderCard(stream: ReturnType<typeof getStreams>[0]): string {
   const isRunning = stream.status === "running";
   const roverClass = isRunning ? "spinning" : "";
 
+  // Calculate elapsed time for running builds
+  let elapsedTimeBadge = "";
+  if (isRunning && stream.startedAt) {
+    const elapsed = formatElapsedTime(stream.startedAt);
+    elapsedTimeBadge = `<span class="elapsed-time-badge">⏱ ${elapsed}</span>`;
+  }
+
   // Build hover overlay content
   let overlayContent = "";
   if (isRunning) {
@@ -174,7 +206,7 @@ function renderCard(stream: ReturnType<typeof getStreams>[0]): string {
       </div>
       <div class="kanban-card-stats">
         ${stream.completedStories}/${stream.totalStories} stories
-        ${isRunning ? '<span class="elapsed-time-badge">⏱ Active</span>' : ""}
+        ${elapsedTimeBadge}
       </div>
       ${overlayContent}
     </a>

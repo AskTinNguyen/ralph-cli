@@ -63,6 +63,7 @@ export interface Stream {
   completedStories: number;
   runs: Run[];
   lastRun?: Run;
+  startedAt?: Date; // For running builds - lock file creation time
 }
 
 /**

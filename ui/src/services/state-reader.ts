@@ -171,6 +171,33 @@ function isStreamLocked(ralphRoot: string, streamId: string): boolean {
 }
 
 /**
+ * Get lock file creation time for a running stream
+ * Returns the modification time of the lock file if it exists
+ */
+function getLockStartedAt(ralphRoot: string, streamId: string): Date | undefined {
+  const locksDir = path.join(ralphRoot, "locks");
+
+  // Check both naming conventions
+  const lockPaths = [
+    path.join(locksDir, `${streamId}.lock`), // N.lock
+    path.join(locksDir, `PRD-${streamId}.lock`), // PRD-N.lock
+  ];
+
+  for (const lockPath of lockPaths) {
+    if (fs.existsSync(lockPath)) {
+      try {
+        const stats = fs.statSync(lockPath);
+        return stats.mtime; // Return modification time
+      } catch {
+        // Continue to next path
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Count completed stories from PRD content
  */
 function countStories(prdContent: string): { total: number; completed: number } {
@@ -548,6 +575,9 @@ export function getStreams(): Stream[] {
           }
         }
 
+        // Get startedAt for running builds
+        const startedAt = status === "running" ? getLockStartedAt(ralphRoot, streamId) : undefined;
+
         streams.push({
           id: streamId,
           name,
@@ -562,6 +592,7 @@ export function getStreams(): Stream[] {
           totalStories,
           completedStories,
           runs: [], // Populated by getStreamDetails
+          startedAt,
         });
       }
     }
@@ -1054,6 +1085,9 @@ export function getStreamDetails(id: string): Stream | null {
   const merged = isStreamMerged(ralphRoot, id);
   const closed = isStreamClosed(ralphRoot, id);
 
+  // Get startedAt for running builds
+  const startedAt = status === "running" ? getLockStartedAt(ralphRoot, id) : undefined;
+
   return {
     id,
     name,
@@ -1069,5 +1103,6 @@ export function getStreamDetails(id: string): Stream | null {
     completedStories,
     runs,
     lastRun: runs.length > 0 ? runs[0] : undefined,
+    startedAt,
   };
 }
