@@ -7,14 +7,11 @@
   <title>Ralph CLI - Mission Control</title>
   <link rel="stylesheet" href="/css/rams-ui.css">
   <script src="/js/htmx.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
-    /* Mission Control Typography Override */
+    /* Mission Control Typography - Uses Rams system */
     .kanban-mono {
-      font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+      font-family: var(--rams-font-mono);
       letter-spacing: -0.01em;
     }
 
@@ -81,7 +78,7 @@
     }
 
     .kanban-column-count {
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--rams-font-mono);
       font-size: var(--rams-text-sm);
       font-weight: 500;
       color: var(--rams-gray-500);
@@ -181,7 +178,7 @@
     /* Card Elements */
     .kanban-card-prd-name {
       grid-area: prd-name;
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--rams-font-mono);
       font-size: var(--rams-text-base);
       font-weight: 600;
       color: var(--rams-gray-900);
@@ -215,7 +212,7 @@
 
     .kanban-card-stats {
       grid-area: stats;
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--rams-font-mono);
       font-size: var(--rams-text-xs);
       color: var(--rams-gray-500);
       margin-top: var(--rams-space-1);
@@ -265,7 +262,7 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--rams-font-mono);
       font-size: var(--rams-text-xs);
       color: var(--rams-gray-600);
       background: var(--rams-gray-100);
@@ -281,7 +278,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(255, 255, 255, 0.95);
+      background: var(--rams-white);
       border-radius: var(--rams-radius-md);
       padding: var(--rams-space-4);
       opacity: 0;
@@ -389,7 +386,7 @@
     }
 
     .kanban-global-empty-code {
-      font-family: 'IBM Plex Mono', monospace;
+      font-family: var(--rams-font-mono);
       background: var(--rams-gray-100);
       padding: var(--rams-space-2) var(--rams-space-4);
       border-radius: var(--rams-radius-md);
