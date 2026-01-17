@@ -116,9 +116,28 @@ clean_text_for_tts() {
   echo "$text"
 }
 
+# Stop progress timer and watcher before speaking final summary
+cleanup_acknowledgment_processes() {
+  log "Stopping acknowledgment processes..."
+
+  # Stop progress timer
+  "${RALPH_ROOT}/.agents/ralph/progress-timer.sh" stop 2>/dev/null || true
+
+  # Kill any running transcript watcher
+  pkill -f "transcript-watcher.mjs" 2>/dev/null || true
+
+  # Remove watcher PID file
+  rm -f "${RALPH_ROOT}/.ralph/transcript-watcher.pid" 2>/dev/null || true
+
+  log "Acknowledgment processes stopped"
+}
+
 # Main hook logic
 main() {
   log "=== Auto-speak hook triggered ==="
+
+  # Stop any acknowledgment/progress processes before speaking final summary
+  cleanup_acknowledgment_processes
 
   # Check if auto-speak is enabled
   if ! is_auto_speak_enabled; then
