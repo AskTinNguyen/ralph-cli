@@ -98,8 +98,7 @@ function renderColumn(stage: string, title: string, streams: ReturnType<typeof g
     return `
       <div class="kanban-column" data-stage="${stage}">
         <div class="kanban-column-header">
-          <div class="kanban-column-title">${title}</div>
-          <div class="kanban-column-count">0</div>
+          <div class="kanban-column-title">${title} (0)</div>
         </div>
         <div class="kanban-empty-state">
           <svg class="kanban-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -117,8 +116,7 @@ function renderColumn(stage: string, title: string, streams: ReturnType<typeof g
   return `
     <div class="kanban-column" data-stage="${stage}">
       <div class="kanban-column-header">
-        <div class="kanban-column-title">${title}</div>
-        <div class="kanban-column-count">${count}</div>
+        <div class="kanban-column-title">${title} (${count})</div>
       </div>
       <div class="kanban-cards">
         ${cards}
