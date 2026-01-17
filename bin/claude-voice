@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# Claude Code with automatic voice output
+# Usage: claude-voice (runs claude with auto-speak enabled)
+
+set -euo pipefail
+
+RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
+CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
+BUFFER_FILE="/tmp/claude-voice-buffer-$$"
+SPEAK_PID_FILE="/tmp/claude-voice-speak-$$"
+
+# Colors
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# Cleanup on exit
+cleanup() {
+  rm -f "$BUFFER_FILE" "$SPEAK_PID_FILE"
+  # Kill any remaining speak processes
+  if [[ -f "$SPEAK_PID_FILE" ]]; then
+    local pid=$(cat "$SPEAK_PID_FILE" 2>/dev/null || echo "")
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  fi
+}
+trap cleanup EXIT INT TERM
+
+# Check if auto-speak is enabled
+is_enabled() {
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    return 1
+  fi
+
+  if command -v jq &>/dev/null; then
+    local enabled=$(jq -r '.autoSpeak // false' "$CONFIG_FILE" 2>/dev/null)
+    [[ "$enabled" == "true" ]]
+  else
+    grep -q '"autoSpeak"[[:space:]]*:[[:space:]]*true' "$CONFIG_FILE" 2>/dev/null
+  fi
+}
+
+# Speak accumulated text
+speak_buffer() {
+  if [[ ! -s "$BUFFER_FILE" ]]; then
+    return
+  fi
+
+  local text=$(cat "$BUFFER_FILE")
+
+  # Only speak if text is substantial (>20 chars)
+  if [[ ${#text} -lt 20 ]]; then
+    return
+  fi
+
+  # Kill previous speak process if still running
+  if [[ -f "$SPEAK_PID_FILE" ]]; then
+    local old_pid=$(cat "$SPEAK_PID_FILE" 2>/dev/null || echo "")
+    if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
+      kill "$old_pid" 2>/dev/null || true
+      sleep 0.1
+    fi
+  fi
+
+  # Speak in background
+  (echo "$text" | ralph speak 2>/dev/null) &
+  echo $! > "$SPEAK_PID_FILE"
+
+  # Clear buffer
+  : > "$BUFFER_FILE"
+}
+
+# Filter and process line
+process_line() {
+  local line="$1"
+
+  # Always echo the line to stdout
+  echo "$line"
+
+  # Skip if auto-speak not enabled
+  if ! is_enabled; then
+    return
+  fi
+
+  # Remove ANSI codes for processing
+  local clean=$(echo "$line" | sed 's/\x1B\[[0-9;]*[JKmsu]//g')
+
+  # Skip system messages, tool calls, empty lines
+  if [[ "$clean" =~ ^\<.*\>$ ]] || \
+     [[ "$clean" =~ ^\< ]] || \
+     [[ "$clean" =~ ^[[:space:]]*$ ]] || \
+     [[ "$clean" =~ ^function_calls ]] || \
+     [[ "$clean" =~ ^invoke ]] || \
+     [[ "$clean" =~ ^parameter ]] || \
+     [[ "$clean" =~ ^\[.*\]$ ]]; then
+    # If we have buffered content, speak it now
+    if [[ -s "$BUFFER_FILE" ]]; then
+      speak_buffer
+    fi
+    return
+  fi
+
+  # Accumulate content
+  echo "$clean" >> "$BUFFER_FILE"
+
+  # Check for sentence/paragraph end
+  if [[ "$clean" =~ \.[[:space:]]*$ ]] || \
+     [[ "$clean" =~ \?[[:space:]]*$ ]] || \
+     [[ "$clean" =~ \![[:space:]]*$ ]]; then
+    # Wait a moment for potential continuation
+    sleep 0.5
+    # If buffer has grown, wait more
+    local size=$(wc -c < "$BUFFER_FILE" 2>/dev/null || echo 0)
+    if [[ $size -gt 200 ]]; then
+      speak_buffer
+    fi
+  fi
+}
+
+# Main
+main() {
+  # Check if ralph speak is available
+  if ! command -v ralph &>/dev/null; then
+    echo -e "${CYAN}Error: ralph command not found${NC}" >&2
+    echo "Install ralph-cli first" >&2
+    exit 1
+  fi
+
+  # Check auto-speak status
+  if is_enabled; then
+    echo -e "${GREEN}🔊 Auto-speak enabled${NC}" >&2
+    echo -e "${DIM}My responses will be spoken automatically${NC}" >&2
+    echo "" >&2
+  else
+    echo -e "${CYAN}Auto-speak is disabled${NC}" >&2
+    echo -e "${DIM}Run: ralph speak --auto-on${NC}" >&2
+    echo "" >&2
+  fi
+
+  # Initialize buffer
+  : > "$BUFFER_FILE"
+
+  # Run claude with output processing
+  claude "$@" | while IFS= read -r line; do
+    process_line "$line"
+  done
+
+  # Speak any remaining buffer
+  sleep 0.5
+  speak_buffer
+}
+
+main "$@"

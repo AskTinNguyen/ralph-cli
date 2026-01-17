@@ -493,6 +493,7 @@ async function main() {
     "factory",
     // Voice Control
     "voice",
+    "speak",
   ];
 
   if (moduleCommands.includes(actualCmd)) {
