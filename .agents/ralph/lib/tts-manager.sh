@@ -224,6 +224,52 @@ speak_exclusive() {
   # Don't wait for completion - let it run in background
 }
 
+# Speak text and wait for completion (blocking)
+# Use this for short confirmations that must finish before subsequent TTS
+# Usage: speak_blocking "Starting your request"
+speak_blocking() {
+  local text="${1:-}"
+
+  # If no arg provided, read from stdin
+  if [[ -z "$text" ]]; then
+    text=$(cat)
+  fi
+
+  if [[ -z "$text" ]]; then
+    tts_log "No text provided, skipping"
+    return 0
+  fi
+
+  tts_log "Speaking (blocking): ${text:0:50}..."
+
+  # Wait for voice lock if another session is speaking
+  if ! check_voice_lock; then
+    tts_log "Another session is speaking, waiting..."
+    if ! wait_for_voice_lock 15; then
+      tts_log "Timeout waiting for other session, skipping TTS"
+      return 1
+    fi
+  fi
+
+  # Cancel any existing TTS from THIS session only
+  cancel_existing_tts
+
+  # Speak and track PID
+  (echo "$text" | ralph speak) &
+  local tts_pid=$!
+  echo "$tts_pid" > "$TTS_PID_FILE"
+
+  tts_log "TTS started with PID: $tts_pid (waiting for completion)"
+
+  # Wait for completion
+  wait "$tts_pid" 2>/dev/null || true
+
+  # Clean up PID file
+  rm -f "$TTS_PID_FILE" 2>/dev/null || true
+
+  tts_log "TTS completed (blocking)"
+}
+
 # Cleanup function (for trap)
 cleanup_tts_manager() {
   rm -f "$TTS_PID_FILE" 2>/dev/null || true
@@ -233,6 +279,7 @@ cleanup_tts_manager() {
 export -f cancel_existing_tts
 export -f cancel_all_tts
 export -f speak_exclusive
+export -f speak_blocking
 export -f check_voice_lock
 export -f wait_for_voice_lock
 export -f tts_log

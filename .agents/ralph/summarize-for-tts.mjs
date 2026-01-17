@@ -125,8 +125,12 @@ async function main() {
         cleaned = cleaned.slice(1, -1);
       }
 
+      // CRITICAL: Enforce max length for TTS (prevents jibberish from overly long text)
+      // Max ~150 chars (~30 words) - truncate at sentence boundary if too long
+      cleaned = truncateForTTS(cleaned.trim(), 150);
+
       // Output the summary
-      console.log(cleaned.trim());
+      console.log(cleaned);
     }
 
     process.exit(0);
@@ -266,6 +270,44 @@ function cleanSummary(text) {
   result = result.replace(/\s+/g, " ");
 
   return result.trim();
+}
+
+/**
+ * Truncate text for TTS at a clean sentence boundary
+ * Ensures summary ends with proper punctuation and doesn't cut mid-word
+ */
+function truncateForTTS(text, maxLength = 150) {
+  if (!text || text.length <= maxLength) {
+    // Ensure it ends with punctuation
+    if (text && !text.match(/[.!?]$/)) {
+      return text + ".";
+    }
+    return text;
+  }
+
+  // Try to truncate at sentence boundary (., !, ?)
+  const truncated = text.substring(0, maxLength);
+
+  // Look for last sentence ending
+  const lastPeriod = truncated.lastIndexOf(". ");
+  const lastExclaim = truncated.lastIndexOf("! ");
+  const lastQuestion = truncated.lastIndexOf("? ");
+
+  const lastSentenceEnd = Math.max(lastPeriod, lastExclaim, lastQuestion);
+
+  if (lastSentenceEnd > maxLength * 0.5) {
+    // Found a sentence boundary in the second half - use it
+    return truncated.substring(0, lastSentenceEnd + 1);
+  }
+
+  // No good sentence boundary - truncate at last word
+  const lastSpace = truncated.lastIndexOf(" ");
+  if (lastSpace > maxLength * 0.7) {
+    return truncated.substring(0, lastSpace) + ".";
+  }
+
+  // Fallback: just truncate and add period
+  return truncated + ".";
 }
 
 /**

@@ -16,13 +16,18 @@
 import { readFileSync, statSync, existsSync } from "fs";
 import { execSync, spawn } from "child_process";
 import { dirname } from "path";
+import { fileURLToPath } from "url";
 
 const POLL_INTERVAL = 200; // ms
 const MAX_WAIT = 30000; // 30 seconds max wait time
 const MAX_SPEAK_LENGTH = 150; // Max chars before summarization
 
 const transcriptPath = process.argv[2];
-const RALPH_ROOT = process.env.RALPH_ROOT || process.cwd();
+
+// Get the script's directory (.agents/ralph/) - don't rely on RALPH_ROOT which points to .ralph/
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const SCRIPT_DIR = __dirname; // This is .agents/ralph/
 
 function log(msg) {
   const ts = new Date().toISOString().replace("T", " ").substring(0, 19);
@@ -178,16 +183,17 @@ function escapeShell(text) {
 }
 
 /**
- * Speak text using TTS manager (exclusive playback)
+ * Speak text using TTS manager (blocking - waits for completion)
+ * Uses speak_blocking so acknowledgments finish before progress timer can interrupt
  */
 function speak(text) {
   try {
     const escaped = escapeShell(text);
-    // Source TTS manager and call speak_exclusive
-    const cmd = `source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh" && speak_exclusive '${escaped}'`;
+    // Source TTS manager from SCRIPT_DIR (not RALPH_ROOT which points to .ralph/)
+    const cmd = `source "${SCRIPT_DIR}/lib/tts-manager.sh" && speak_blocking '${escaped}'`;
     execSync(cmd, {
       stdio: "ignore",
-      cwd: RALPH_ROOT,
+      cwd: SCRIPT_DIR,
       shell: "/bin/bash",
     });
     return true;
@@ -201,7 +207,8 @@ function speak(text) {
  * Start the progress timer
  */
 function startProgressTimer() {
-  const timerScript = `${RALPH_ROOT}/.agents/ralph/progress-timer.sh`;
+  // Use SCRIPT_DIR (not RALPH_ROOT which points to .ralph/)
+  const timerScript = `${SCRIPT_DIR}/progress-timer.sh`;
 
   if (!existsSync(timerScript)) {
     log(`Progress timer script not found: ${timerScript}`);
@@ -212,7 +219,7 @@ function startProgressTimer() {
     const child = spawn(timerScript, ["start"], {
       detached: true,
       stdio: "ignore",
-      cwd: RALPH_ROOT,
+      cwd: SCRIPT_DIR,
     });
     child.unref();
     log("Progress timer started");
