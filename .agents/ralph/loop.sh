@@ -4085,7 +4085,7 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
         clear_checkpoint "$PRD_FOLDER"
         clear_switch_state "$PRD_FOLDER"
         # Extract PRD number from folder path for completion instructions
-        local prd_num=""
+        prd_num=""
         if [[ "$PRD_FOLDER" =~ PRD-([0-9]+) ]]; then
           prd_num="${BASH_REMATCH[1]}"
         fi
