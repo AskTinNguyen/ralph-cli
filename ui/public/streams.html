@@ -606,6 +606,94 @@
       margin-top: var(--rams-space-1);
     }
 
+    /* Three-dots overflow menu */
+    .threedots-menu-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .threedots-btn {
+      background: var(--rams-gray-100);
+      border: 1px solid var(--rams-gray-200);
+      border-radius: 4px;
+      padding: var(--rams-space-2) var(--rams-space-3);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--rams-gray-600);
+      transition: all var(--rams-transition-fast);
+      min-width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .threedots-btn:hover {
+      background: var(--rams-gray-200);
+      color: var(--rams-gray-900);
+    }
+
+    .threedots-btn:active {
+      transform: scale(0.95);
+    }
+
+    .threedots-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + var(--rams-space-1));
+      background: white;
+      border: 1px solid var(--rams-gray-200);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      min-width: 180px;
+      z-index: 1000;
+      padding: var(--rams-space-2) 0;
+    }
+
+    .threedots-menu.active {
+      display: block;
+    }
+
+    .threedots-menu-item {
+      width: 100%;
+      padding: var(--rams-space-2) var(--rams-space-4);
+      background: none;
+      border: none;
+      text-align: left;
+      color: var(--rams-gray-700);
+      font-size: var(--rams-text-sm);
+      cursor: pointer;
+      transition: background var(--rams-transition-fast);
+      display: block;
+    }
+
+    .threedots-menu-item:hover {
+      background: var(--rams-gray-50);
+      color: var(--rams-gray-900);
+    }
+
+    .threedots-menu-item:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .threedots-menu-item.danger {
+      color: var(--rams-error);
+    }
+
+    .threedots-menu-item.danger:hover {
+      background: rgba(220, 38, 38, 0.1);
+      color: var(--rams-error);
+    }
+
+    .threedots-menu-divider {
+      height: 1px;
+      background: var(--rams-gray-200);
+      margin: var(--rams-space-2) 0;
+    }
+
   </style>
 </head>
 <body class="rams-page">
@@ -1342,6 +1430,32 @@ ralph stream verify-status       # Auto-fix stale status</code></pre>
         }, 2000);
       });
     }
+
+    // Toggle three-dots overflow menu
+    function toggleThreeDotsMenu(streamId) {
+      const menu = document.getElementById(`threedots-menu-${streamId}`);
+      if (!menu) return;
+
+      // Close all other open menus first
+      document.querySelectorAll('.threedots-menu.active').forEach(openMenu => {
+        if (openMenu.id !== `threedots-menu-${streamId}`) {
+          openMenu.classList.remove('active');
+        }
+      });
+
+      // Toggle the current menu
+      menu.classList.toggle('active');
+    }
+
+    // Close all three-dots menus when clicking outside
+    document.addEventListener('click', function(event) {
+      // Check if click is outside any menu
+      if (!event.target.closest('.threedots-menu-container')) {
+        document.querySelectorAll('.threedots-menu.active').forEach(menu => {
+          menu.classList.remove('active');
+        });
+      }
+    });
 
     // Show stream detail view with smooth transition
     function showStreamDetail(streamId, streamName) {
