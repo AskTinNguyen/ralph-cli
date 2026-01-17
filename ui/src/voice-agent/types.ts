@@ -227,7 +227,7 @@ export interface VoiceAgentConfig {
 /**
  * Default voice agent configuration
  */
-export const DEFAULT_VOICE_CONFIG: VoiceAgentConfig = {
+export const DEFAULT_VOICE_AGENT_CONFIG: VoiceAgentConfig = {
   sttServerUrl: 'http://localhost:5001',
   ollamaUrl: 'http://localhost:11434',
   ollamaModel: 'qwen2.5:1.5b',
@@ -354,7 +354,7 @@ export {
 } from "./tts/types.js";
 
 // Legacy type alias for backward compatibility
-import type { TTSProviderType } from "./tts/types.js";
+import type { TTSProviderType, TTSResult as TTSResultType } from "./tts/types.js";
 export type TTSProvider = TTSProviderType;
 
 /**
@@ -371,5 +371,5 @@ export interface ExecutionResultWithTTS extends ExecutionResult {
   ttsSummary?: string;
 
   /** TTS result if speech was attempted */
-  ttsResult?: TTSResult;
+  ttsResult?: TTSResultType;
 }

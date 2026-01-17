@@ -63,6 +63,8 @@ export class ElevenLabsTTSEngine implements TTSEngine {
   private speaking: boolean = false;
   private currentAudio: { abort?: () => void } | null = null;
   private voiceCache: Map<string, string> = new Map(); // name -> voice_id mapping
+  private queue: string[] = [];
+  private processing: boolean = false;
 
   constructor(config: TTSConfig, elevenLabsConfig?: Partial<ElevenLabsTTSConfig>) {
     this.config = config;
