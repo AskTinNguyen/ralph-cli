@@ -67,19 +67,20 @@ board.get("/", (c) => {
   // If no PRDs exist at all, show global empty state
   if (allStreams.length === 0) {
     return c.html(`
-      <div class="kanban-global-empty">
-        <img src="/ralph-logo-bw.png" alt="Ralph rover" class="kanban-global-empty-icon" />
-        <h2>No PRDs Found</h2>
-        <p>No rovers deployed yet. Create your first PRD to begin the mission.</p>
-        <div class="kanban-global-empty-code">ralph prd</div>
-        <a href="/docs/" class="rams-btn rams-btn-primary">View Documentation</a>
+      <div id="kanban-container" class="kanban-global-empty">
+        <div class="rams-card" style="max-width: 500px; margin: 0 auto; text-align: center; padding: var(--rams-space-8);">
+          <img src="/ralph-logo-bw.png" alt="Ralph rover" class="kanban-global-empty-icon" />
+          <h2>No PRDs Found</h2>
+          <p>Run 'ralph prd' to create your first PRD</p>
+          <a href="/docs/" class="rams-btn rams-btn-primary" style="margin-top: var(--rams-space-4);">View Documentation</a>
+        </div>
       </div>
     `);
   }
 
   // Render Kanban board
   return c.html(`
-    <div class="kanban-board">
+    <div id="kanban-container" class="kanban-board">
       ${renderColumn("ready", "Launch Pad", ready)}
       ${renderColumn("planning", "Transit", planning)}
       ${renderColumn("building", "Active Mission", building)}
