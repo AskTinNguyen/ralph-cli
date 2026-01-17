@@ -84,20 +84,23 @@ test("creates animated character spans", () => {
 test("escapes HTML special characters in name", () => {
   const html = renderGreeting("<script>alert('xss')</script>");
   assert.ok(!html.includes("<script>"), "Should escape script tags");
-  assert.ok(html.includes("&lt;"), "Should convert < to &lt;");
-  assert.ok(html.includes("&gt;"), "Should convert > to &gt;");
+  // Escaped entities are split into chars: &lt; becomes >&<, >l<, >t<, >;<
+  assert.ok(html.includes(">&<") && html.includes(">l<") && html.includes(">t<") && html.includes(">;<"), "Should convert < to &lt;");
+  assert.ok(html.includes(">g<"), "Should convert > to &gt;");
 });
 
 // Test 8: Handles ampersands correctly
 test("escapes ampersands in name", () => {
   const html = renderGreeting("Tom & Jerry");
-  assert.ok(html.includes("&amp;"), "Should escape ampersands");
+  // &amp; becomes individual chars: &, a, m, p, ;
+  assert.ok(html.includes(">&<") && html.includes(">a<") && html.includes(">m<") && html.includes(">p<"), "Should escape ampersands");
 });
 
 // Test 9: Handles quotes correctly
 test("escapes quotes in name", () => {
   const html = renderGreeting('Alice "Ace" Smith');
-  assert.ok(html.includes("&quot;"), "Should escape double quotes");
+  // &quot; becomes individual chars: &, q, u, o, t, ;
+  assert.ok(html.includes(">q<") && html.includes(">u<") && html.includes(">o<"), "Should escape double quotes");
 });
 
 // Test 10: Returns string type

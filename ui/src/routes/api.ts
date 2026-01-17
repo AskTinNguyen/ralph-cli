@@ -9485,4 +9485,143 @@ api.get('/streams/:id/workflow-graph', (c) => {
   }
 });
 
+/**
+ * GET /api/test-greeting
+ *
+ * Test page for greeting component visual verification.
+ * Displays greeting component with different props to verify rendering.
+ */
+import { renderGreeting } from './utils/greeting.js';
+
+api.get('/test-greeting', async (c) => {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Greeting Component Test</title>
+      <link rel="stylesheet" href="/css/rams-ui.css">
+      <style>
+        body {
+          margin: 0;
+          padding: 40px;
+          background: var(--rams-gray-100);
+          font-family: var(--rams-font-sans);
+        }
+        .test-container {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .test-section {
+          margin-bottom: 60px;
+        }
+        .test-section h2 {
+          font-size: var(--rams-text-2xl);
+          font-weight: 600;
+          margin-bottom: var(--rams-space-6);
+          color: var(--rams-gray-900);
+        }
+        .test-case {
+          margin-bottom: var(--rams-space-8);
+        }
+        .test-case-label {
+          font-size: var(--rams-text-sm);
+          font-weight: 500;
+          color: var(--rams-gray-600);
+          margin-bottom: var(--rams-space-4);
+          font-family: var(--rams-font-mono);
+        }
+        .greeting-wrapper {
+          display: inline-block;
+          margin: var(--rams-space-4) 0;
+        }
+        .code-example {
+          background: var(--rams-gray-900);
+          color: var(--rams-gray-100);
+          padding: var(--rams-space-4);
+          border-radius: var(--rams-radius-md);
+          font-family: var(--rams-font-mono);
+          font-size: var(--rams-text-sm);
+          margin-top: var(--rams-space-4);
+        }
+      </style>
+    </head>
+    <body>
+      <div class="test-container">
+        <h1 style="font-size: 3rem; font-weight: 700; margin-bottom: 40px; color: var(--rams-black);">
+          Greeting Component Test
+        </h1>
+
+        <div class="test-section">
+          <h2>Standard Cases</h2>
+
+          <div class="test-case">
+            <div class="test-case-label">renderGreeting("Alice")</div>
+            <div class="greeting-wrapper">
+              ${renderGreeting("Alice")}
+            </div>
+            <div class="code-example">Expected: "Hello, Alice!" with kinetic typography animation</div>
+          </div>
+
+          <div class="test-case">
+            <div class="test-case-label">renderGreeting("") (empty string fallback)</div>
+            <div class="greeting-wrapper">
+              ${renderGreeting("")}
+            </div>
+            <div class="code-example">Expected: "Hello, Guest!" (fallback behavior)</div>
+          </div>
+
+          <div class="test-case">
+            <div class="test-case-label">renderGreeting() (undefined fallback)</div>
+            <div class="greeting-wrapper">
+              ${renderGreeting()}
+            </div>
+            <div class="code-example">Expected: "Hello, Guest!" (fallback behavior)</div>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <h2>Edge Cases</h2>
+
+          <div class="test-case">
+            <div class="test-case-label">renderGreeting("Mary Jane Watson")</div>
+            <div class="greeting-wrapper">
+              ${renderGreeting("Mary Jane Watson")}
+            </div>
+            <div class="code-example">Expected: Multi-word name with proper spacing</div>
+          </div>
+
+          <div class="test-case">
+            <div class="test-case-label">renderGreeting("X")</div>
+            <div class="greeting-wrapper">
+              ${renderGreeting("X")}
+            </div>
+            <div class="code-example">Expected: Single character name</div>
+          </div>
+        </div>
+
+        <div class="test-section">
+          <h2>Typography & Animation Verification</h2>
+          <p style="color: var(--rams-gray-600); margin-bottom: 20px;">
+            Verify the following:
+          </p>
+          <ul style="color: var(--rams-gray-700); line-height: 1.8;">
+            <li><strong>Monospace font</strong> on name (IBM Plex Mono)</li>
+            <li><strong>Electric lime (#CCFF00) exclamation mark</strong> with glow effect</li>
+            <li><strong>Letter-by-letter animation</strong> with staggered delays (50ms between letters)</li>
+            <li><strong>Scanline texture overlay</strong> for retro-terminal aesthetic</li>
+            <li><strong>Blinking cursor</strong> after the name (green, step animation)</li>
+            <li><strong>High-contrast black background</strong> with white border</li>
+            <li><strong>Box shadow</strong> with layered borders</li>
+          </ul>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return c.html(html);
+});
+
 export { api };
