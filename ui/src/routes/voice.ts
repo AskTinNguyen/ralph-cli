@@ -806,11 +806,13 @@ voice.post("/classify", async (c) => {
 /**
  * POST /voice/execute
  * Execute an intent directly (for testing)
+ *
+ * Queue enforcement: Requires voice access before execution
  */
 voice.post("/execute", async (c) => {
   try {
     const body = await c.req.json();
-    const { intent, autoExecute } = body;
+    const { intent, autoExecute, skipQueueCheck } = body;
 
     if (!intent) {
       return c.json(
@@ -820,6 +822,33 @@ voice.post("/execute", async (c) => {
         },
         400
       );
+    }
+
+    // Enforce queue access (unless explicitly skipped for internal calls)
+    if (!skipQueueCheck && !voiceProcessManager.hasVoiceAccess()) {
+      const queueStatus = voiceProcessManager.getQueueStatus();
+
+      // Try to acquire access with short timeout
+      const accessResult = await voiceProcessManager.requestVoiceAccess({
+        timeout: 5000, // 5 second timeout for immediate execution
+        waitForTurn: true,
+      });
+
+      if (!accessResult.granted) {
+        return c.json(
+          {
+            success: false,
+            error: "Voice access denied - another CLI session is active",
+            queueStatus: {
+              lockHolder: queueStatus.lockHolder?.cliId,
+              queueLength: queueStatus.queueLength,
+              myPosition: queueStatus.myPosition,
+            },
+            message: accessResult.message,
+          },
+          503
+        );
+      }
     }
 
     // Check if confirmation is required
@@ -859,11 +888,13 @@ voice.post("/execute", async (c) => {
 /**
  * POST /voice/process
  * Process text through full pipeline (classify + execute)
+ *
+ * Queue enforcement: Requires voice access before processing
  */
 voice.post("/process", async (c) => {
   try {
     const body = await c.req.json();
-    const { text, autoExecute } = body;
+    const { text, autoExecute, skipQueueCheck } = body;
 
     if (!text || typeof text !== "string") {
       return c.json(
@@ -873,6 +904,33 @@ voice.post("/process", async (c) => {
         },
         400
       );
+    }
+
+    // Enforce queue access (unless explicitly skipped for internal calls)
+    if (!skipQueueCheck && !voiceProcessManager.hasVoiceAccess()) {
+      const queueStatus = voiceProcessManager.getQueueStatus();
+
+      // Try to acquire access with short timeout
+      const accessResult = await voiceProcessManager.requestVoiceAccess({
+        timeout: 5000,
+        waitForTurn: true,
+      });
+
+      if (!accessResult.granted) {
+        return c.json(
+          {
+            success: false,
+            error: "Voice access denied - another CLI session is active",
+            queueStatus: {
+              lockHolder: queueStatus.lockHolder?.cliId,
+              queueLength: queueStatus.queueLength,
+              myPosition: queueStatus.myPosition,
+            },
+            message: accessResult.message,
+          },
+          503
+        );
+      }
     }
 
     const result = await actionRouter.processText(text, {
