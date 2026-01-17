@@ -67,18 +67,28 @@ check_voice_lock() {
 # Returns 0 if lock acquired/available, 1 if timeout
 wait_for_voice_lock() {
   local timeout_seconds="${1:-10}"
-  local waited=0
-  local interval=0.3
+  local interval_ms=300  # 300ms between checks
+  local max_iterations=$(( (timeout_seconds * 1000) / interval_ms ))
+  local i=0
 
-  tts_log "Waiting for voice lock (timeout: ${timeout_seconds}s)..."
+  tts_log "Waiting for voice lock (timeout: ${timeout_seconds}s, max_iterations: ${max_iterations})..."
 
-  while [[ $waited -lt $timeout_seconds ]]; do
+  while [[ $i -lt $max_iterations ]]; do
     if check_voice_lock; then
-      tts_log "Voice lock available after ${waited}s"
+      local waited_seconds=$(( (i * interval_ms) / 1000 ))
+      tts_log "Voice lock available after ~${waited_seconds}s (iteration $i)"
       return 0
     fi
-    sleep "$interval"
-    waited=$(echo "$waited + $interval" | bc)
+
+    # Sleep 300ms
+    sleep 0.3
+    i=$((i + 1))
+
+    # Log progress every 10 iterations (~3 seconds)
+    if [[ $((i % 10)) -eq 0 ]]; then
+      local waited_so_far=$(( (i * interval_ms) / 1000 ))
+      tts_log "Still waiting for voice lock... (${waited_so_far}s elapsed)"
+    fi
   done
 
   tts_log "Timeout waiting for voice lock after ${timeout_seconds}s"
