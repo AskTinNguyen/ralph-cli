@@ -411,6 +411,295 @@
       box-shadow: 0 0 0 2px rgba(var(--rams-accent-rgb), 0.2);
     }
 
+    /* ==================== Voice Settings Panel - Pro Audio Aesthetic ==================== */
+
+    .settings-panel-container {
+      margin-bottom: var(--rams-space-4);
+    }
+
+    .settings-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-2);
+      padding: var(--rams-space-2) var(--rams-space-3);
+      background: linear-gradient(180deg, #2a2a2e 0%, #1a1a1e 100%);
+      border: 1px solid #3a3a40;
+      border-radius: var(--rams-radius-md);
+      color: #a0a0a8;
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .settings-toggle-btn:hover {
+      background: linear-gradient(180deg, #3a3a40 0%, #2a2a2e 100%);
+      border-color: #4a4a50;
+      color: #e0e0e8;
+    }
+
+    .settings-toggle-btn.active {
+      background: linear-gradient(180deg, #1e3a2e 0%, #0a2a1e 100%);
+      border-color: #22c55e;
+      color: #22c55e;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .settings-toggle-btn .gear-icon {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.4s ease;
+    }
+
+    .settings-toggle-btn.active .gear-icon {
+      transform: rotate(90deg);
+    }
+
+    .settings-panel {
+      display: none;
+      margin-top: var(--rams-space-3);
+      background: linear-gradient(180deg, #18181c 0%, #0e0e12 100%);
+      border: 1px solid #2a2a30;
+      border-radius: var(--rams-radius-lg);
+      padding: var(--rams-space-5);
+      box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .settings-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.3), transparent);
+    }
+
+    .settings-panel.show {
+      display: block;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .settings-panel-header {
+      display: flex;
+      align-items: center;
+      gap: var(--rams-space-3);
+      margin-bottom: var(--rams-space-5);
+      padding-bottom: var(--rams-space-3);
+      border-bottom: 1px solid #2a2a30;
+    }
+
+    .settings-panel-title {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: var(--rams-text-xs);
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #6a6a70;
+    }
+
+    .settings-panel-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .settings-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+      animation: led-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes led-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--rams-space-5);
+    }
+
+    @media (max-width: 600px) {
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .settings-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-2);
+    }
+
+    .settings-label {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #5a5a60;
+    }
+
+    /* Pro Audio Style Dropdown */
+    .settings-dropdown {
+      appearance: none;
+      background: linear-gradient(180deg, #1e1e22 0%, #141418 100%);
+      border: 1px solid #3a3a40;
+      border-radius: var(--rams-radius-sm);
+      padding: var(--rams-space-2) var(--rams-space-3);
+      padding-right: 36px;
+      color: #e0e0e8;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: var(--rams-text-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236a6a70' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    .settings-dropdown:hover {
+      border-color: #4a4a50;
+      background-color: #1e1e22;
+    }
+
+    .settings-dropdown:focus {
+      outline: none;
+      border-color: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+    }
+
+    .settings-dropdown option {
+      background: #1a1a1e;
+      color: #e0e0e8;
+      padding: 8px;
+    }
+
+    /* Pro Audio Style Slider */
+    .settings-slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-2);
+    }
+
+    .settings-slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-slider-value {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .settings-slider-track {
+      position: relative;
+      height: 8px;
+      background: linear-gradient(180deg, #0a0a0e 0%, #1a1a1e 100%);
+      border-radius: 4px;
+      border: 1px solid #2a2a30;
+      overflow: hidden;
+    }
+
+    .settings-slider-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #059669 0%, #22c55e 100%);
+      border-radius: 3px;
+      transition: width 0.1s ease;
+    }
+
+    .settings-slider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .settings-slider-wrapper {
+      position: relative;
+      height: 8px;
+    }
+
+    /* Slider tick marks */
+    .settings-slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 2px;
+      margin-top: 4px;
+    }
+
+    .settings-slider-tick {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      color: #4a4a50;
+    }
+
+    /* Voice dropdown with loading state */
+    .voice-dropdown-container {
+      position: relative;
+    }
+
+    .voice-loading-indicator {
+      position: absolute;
+      right: 36px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      border: 2px solid #3a3a40;
+      border-top-color: #22c55e;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .voice-loading-indicator.show {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+
     /* Filtered Output Toggle */
     .output-toggle {
       display: flex;
@@ -732,6 +1021,91 @@
 
             <button class="tts-stop-btn" id="tts-stop-btn" disabled>Stop Speaking</button>
             <span class="tts-status" id="tts-status">Ready</span>
+          </div>
+        </div>
+
+        <!-- Voice Settings Panel (Collapsible) -->
+        <div class="settings-panel-container">
+          <button class="settings-toggle-btn" id="settings-toggle-btn" aria-expanded="false" aria-controls="settings-panel">
+            <svg class="gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Voice Settings</span>
+          </button>
+
+          <div class="settings-panel" id="settings-panel" aria-hidden="true">
+            <div class="settings-panel-header">
+              <span class="settings-panel-title">Audio Configuration</span>
+              <div class="settings-panel-indicator">
+                <div class="settings-led"></div>
+              </div>
+            </div>
+
+            <div class="settings-grid">
+              <!-- TTS Provider Selection -->
+              <div class="settings-control-group">
+                <label class="settings-label" for="tts-provider-select">TTS Provider</label>
+                <select class="settings-dropdown" id="tts-provider-select">
+                  <option value="macos">macOS (System)</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </div>
+
+              <!-- Voice Selection -->
+              <div class="settings-control-group">
+                <label class="settings-label" for="voice-select-settings">Voice</label>
+                <div class="voice-dropdown-container">
+                  <select class="settings-dropdown" id="voice-select-settings">
+                    <option value="">Select a voice...</option>
+                  </select>
+                  <div class="voice-loading-indicator" id="voice-loading-indicator"></div>
+                </div>
+              </div>
+
+              <!-- Speech Rate Slider -->
+              <div class="settings-control-group">
+                <div class="settings-slider-container">
+                  <div class="settings-slider-header">
+                    <label class="settings-label" for="rate-slider">Speech Rate</label>
+                    <span class="settings-slider-value" id="rate-value">175 WPM</span>
+                  </div>
+                  <div class="settings-slider-wrapper">
+                    <div class="settings-slider-track">
+                      <div class="settings-slider-fill" id="rate-fill" style="width: 37.5%;"></div>
+                    </div>
+                    <input type="range" class="settings-slider" id="rate-slider" min="100" max="300" value="175">
+                  </div>
+                  <div class="settings-slider-ticks">
+                    <span class="settings-slider-tick">100</span>
+                    <span class="settings-slider-tick">200</span>
+                    <span class="settings-slider-tick">300</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Volume Slider -->
+              <div class="settings-control-group">
+                <div class="settings-slider-container">
+                  <div class="settings-slider-header">
+                    <label class="settings-label" for="volume-slider">Volume</label>
+                    <span class="settings-slider-value" id="volume-value">80%</span>
+                  </div>
+                  <div class="settings-slider-wrapper">
+                    <div class="settings-slider-track">
+                      <div class="settings-slider-fill" id="volume-fill" style="width: 80%;"></div>
+                    </div>
+                    <input type="range" class="settings-slider" id="volume-slider" min="0" max="100" value="80">
+                  </div>
+                  <div class="settings-slider-ticks">
+                    <span class="settings-slider-tick">0%</span>
+                    <span class="settings-slider-tick">50%</span>
+                    <span class="settings-slider-tick">100%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -55,12 +55,28 @@
   const summaryOutput = document.getElementById('summary-output');
   const voiceSelect = document.getElementById('voice-select');
 
+  // Settings panel elements
+  const settingsToggleBtn = document.getElementById('settings-toggle-btn');
+  const settingsPanel = document.getElementById('settings-panel');
+  const ttsProviderSelect = document.getElementById('tts-provider-select');
+  const voiceSelectSettings = document.getElementById('voice-select-settings');
+  const voiceLoadingIndicator = document.getElementById('voice-loading-indicator');
+  const rateSlider = document.getElementById('rate-slider');
+  const rateValue = document.getElementById('rate-value');
+  const rateFill = document.getElementById('rate-fill');
+  const volumeSlider = document.getElementById('volume-slider');
+  const volumeValue = document.getElementById('volume-value');
+  const volumeFill = document.getElementById('volume-fill');
+
   // TTS state
   let ttsSpeaking = false;
   let outputViewMode = 'summary'; // 'summary' | 'filtered' | 'full'
   let ttsEnabledState = true;
   let currentVoice = 'alba';
   let currentSummary = ''; // Store last summary for display
+  let currentProvider = 'macos';
+  let currentRate = 175;
+  let currentVolume = 80;
 
   // Wake word state
   let wakeWordEnabled = false;
@@ -113,6 +129,26 @@
       // Load available voices
       loadVoices();
     }
+
+    // Set up settings panel event listeners
+    if (settingsToggleBtn) {
+      settingsToggleBtn.addEventListener('click', toggleSettingsPanel);
+    }
+    if (ttsProviderSelect) {
+      ttsProviderSelect.addEventListener('change', handleProviderChange);
+    }
+    if (voiceSelectSettings) {
+      voiceSelectSettings.addEventListener('change', handleVoiceChangeSettings);
+    }
+    if (rateSlider) {
+      rateSlider.addEventListener('input', handleRateChange);
+    }
+    if (volumeSlider) {
+      volumeSlider.addEventListener('input', handleVolumeChange);
+    }
+
+    // Load saved settings
+    loadSavedSettings();
 
     // Set up waveform canvas
     resizeWaveformCanvas();
@@ -1659,6 +1695,346 @@
   window.isWakeWordActive = function() {
     return wakeWordListening;
   };
+
+  // ==================== Settings Panel Functions ====================
+
+  /**
+   * Toggle settings panel visibility
+   */
+  function toggleSettingsPanel() {
+    const isOpen = settingsPanel.classList.contains('show');
+
+    if (isOpen) {
+      settingsPanel.classList.remove('show');
+      settingsToggleBtn.classList.remove('active');
+      settingsToggleBtn.setAttribute('aria-expanded', 'false');
+      settingsPanel.setAttribute('aria-hidden', 'true');
+    } else {
+      settingsPanel.classList.add('show');
+      settingsToggleBtn.classList.add('active');
+      settingsToggleBtn.setAttribute('aria-expanded', 'true');
+      settingsPanel.setAttribute('aria-hidden', 'false');
+
+      // Refresh voices for current provider
+      loadVoicesForProvider(currentProvider);
+    }
+  }
+
+  /**
+   * Load saved settings from localStorage
+   */
+  function loadSavedSettings() {
+    // Load provider
+    const savedProvider = localStorage.getItem('ttsProvider');
+    if (savedProvider && ttsProviderSelect) {
+      currentProvider = savedProvider;
+      ttsProviderSelect.value = savedProvider;
+    }
+
+    // Load rate
+    const savedRate = localStorage.getItem('ttsRate');
+    if (savedRate) {
+      currentRate = parseInt(savedRate, 10);
+      if (rateSlider) {
+        rateSlider.value = currentRate;
+        updateRateDisplay(currentRate);
+      }
+    }
+
+    // Load volume
+    const savedVolume = localStorage.getItem('ttsVolume');
+    if (savedVolume) {
+      currentVolume = parseInt(savedVolume, 10);
+      if (volumeSlider) {
+        volumeSlider.value = currentVolume;
+        updateVolumeDisplay(currentVolume);
+      }
+    }
+
+    // Load voice (after provider is set)
+    const savedVoice = localStorage.getItem('ttsVoice');
+    if (savedVoice) {
+      currentVoice = savedVoice;
+    }
+  }
+
+  /**
+   * Handle TTS provider change
+   */
+  async function handleProviderChange(event) {
+    const newProvider = event.target.value;
+    const previousProvider = currentProvider;
+
+    // Show loading indicator
+    if (voiceLoadingIndicator) {
+      voiceLoadingIndicator.classList.add('show');
+    }
+
+    try {
+      // Update provider on server
+      const response = await fetch(`${API_BASE}/tts/provider`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: newProvider })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        currentProvider = newProvider;
+        localStorage.setItem('ttsProvider', newProvider);
+
+        // Load voices for new provider
+        await loadVoicesForProvider(newProvider);
+
+        console.log('TTS provider changed to:', newProvider);
+      } else {
+        // Revert on failure
+        event.target.value = previousProvider;
+        console.error('Failed to change provider:', result.error);
+      }
+    } catch (error) {
+      // Revert on error
+      event.target.value = previousProvider;
+      console.error('Provider change error:', error);
+    } finally {
+      if (voiceLoadingIndicator) {
+        voiceLoadingIndicator.classList.remove('show');
+      }
+    }
+  }
+
+  /**
+   * Load voices for a specific provider
+   */
+  async function loadVoicesForProvider(provider) {
+    if (!voiceSelectSettings) return;
+
+    // Show loading indicator
+    if (voiceLoadingIndicator) {
+      voiceLoadingIndicator.classList.add('show');
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/tts/voices?provider=${provider}`);
+      const result = await response.json();
+
+      if (result.success && result.voices) {
+        // Clear existing options
+        voiceSelectSettings.innerHTML = '';
+
+        // Define voice display names by provider
+        const voiceDisplayNames = {
+          macos: {
+            'Alex': 'Alex (American)',
+            'Samantha': 'Samantha (American)',
+            'Victoria': 'Victoria (American)',
+            'Daniel': 'Daniel (British)',
+            'Karen': 'Karen (Australian)',
+            'Moira': 'Moira (Irish)',
+            'Tessa': 'Tessa (South African)'
+          },
+          elevenlabs: {
+            'Rachel': 'Rachel (Calm)',
+            'Drew': 'Drew (Confident)',
+            'Clyde': 'Clyde (War Veteran)',
+            'Paul': 'Paul (News)',
+            'Domi': 'Domi (Assertive)',
+            'Dave': 'Dave (Conversational)',
+            'Fin': 'Fin (Sailor)',
+            'Sarah': 'Sarah (Soft)',
+            'Antoni': 'Antoni (Well-Rounded)',
+            'Thomas': 'Thomas (Calm)',
+            'Charlie': 'Charlie (Natural)',
+            'Emily': 'Emily (Calm)',
+            'Elli': 'Elli (Emotional)',
+            'Callum': 'Callum (Character)',
+            'Patrick': 'Patrick (Shouty)',
+            'Harry': 'Harry (Anxious)',
+            'Liam': 'Liam (Articulate)'
+          },
+          openai: {
+            'alloy': 'Alloy (Neutral)',
+            'echo': 'Echo (Warm)',
+            'fable': 'Fable (British)',
+            'onyx': 'Onyx (Deep)',
+            'nova': 'Nova (Friendly)',
+            'shimmer': 'Shimmer (Clear)'
+          }
+        };
+
+        const displayNames = voiceDisplayNames[provider] || {};
+
+        // Add voice options
+        for (const voice of result.voices) {
+          const option = document.createElement('option');
+          option.value = voice;
+          option.textContent = displayNames[voice] || voice;
+          voiceSelectSettings.appendChild(option);
+        }
+
+        // Set current voice if it exists in the list
+        if (result.currentVoice) {
+          currentVoice = result.currentVoice;
+          voiceSelectSettings.value = currentVoice;
+        } else if (result.voices.length > 0) {
+          // Select first voice if current not available
+          voiceSelectSettings.value = result.voices[0];
+          currentVoice = result.voices[0];
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load voices for provider:', error);
+      // Show error option
+      voiceSelectSettings.innerHTML = '<option value="">Error loading voices</option>';
+    } finally {
+      if (voiceLoadingIndicator) {
+        voiceLoadingIndicator.classList.remove('show');
+      }
+    }
+  }
+
+  /**
+   * Handle voice selection change from settings panel
+   */
+  async function handleVoiceChangeSettings(event) {
+    const selectedVoice = event.target.value;
+    const previousVoice = currentVoice;
+
+    try {
+      const response = await fetch(`${API_BASE}/tts/voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: selectedVoice }),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        currentVoice = result.voice || selectedVoice;
+        localStorage.setItem('ttsVoice', currentVoice);
+
+        // Also update the legacy voice select if it exists
+        if (voiceSelect) {
+          voiceSelect.value = currentVoice;
+        }
+
+        console.log('Voice changed to:', currentVoice);
+      } else {
+        // Revert selection on failure
+        event.target.value = previousVoice;
+        console.error('Failed to set voice:', result.error);
+      }
+    } catch (error) {
+      event.target.value = previousVoice;
+      console.error('Voice change error:', error);
+    }
+  }
+
+  /**
+   * Handle speech rate slider change
+   */
+  function handleRateChange(event) {
+    const rate = parseInt(event.target.value, 10);
+    currentRate = rate;
+
+    // Update display
+    updateRateDisplay(rate);
+
+    // Save to localStorage
+    localStorage.setItem('ttsRate', rate.toString());
+
+    // Debounce server update
+    clearTimeout(handleRateChange.timeout);
+    handleRateChange.timeout = setTimeout(() => {
+      updateServerRate(rate);
+    }, 300);
+  }
+
+  /**
+   * Update rate display and slider fill
+   */
+  function updateRateDisplay(rate) {
+    if (rateValue) {
+      rateValue.textContent = `${rate} WPM`;
+    }
+    if (rateFill) {
+      // Calculate percentage (100-300 range)
+      const percentage = ((rate - 100) / 200) * 100;
+      rateFill.style.width = `${percentage}%`;
+    }
+  }
+
+  /**
+   * Update rate on server
+   */
+  async function updateServerRate(rate) {
+    try {
+      const response = await fetch(`${API_BASE}/tts/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rate })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('Failed to update rate:', result.error);
+      }
+    } catch (error) {
+      console.error('Rate update error:', error);
+    }
+  }
+
+  /**
+   * Handle volume slider change
+   */
+  function handleVolumeChange(event) {
+    const volume = parseInt(event.target.value, 10);
+    currentVolume = volume;
+
+    // Update display
+    updateVolumeDisplay(volume);
+
+    // Save to localStorage
+    localStorage.setItem('ttsVolume', volume.toString());
+
+    // Debounce server update
+    clearTimeout(handleVolumeChange.timeout);
+    handleVolumeChange.timeout = setTimeout(() => {
+      updateServerVolume(volume);
+    }, 300);
+  }
+
+  /**
+   * Update volume display and slider fill
+   */
+  function updateVolumeDisplay(volume) {
+    if (volumeValue) {
+      volumeValue.textContent = `${volume}%`;
+    }
+    if (volumeFill) {
+      volumeFill.style.width = `${volume}%`;
+    }
+  }
+
+  /**
+   * Update volume on server
+   */
+  async function updateServerVolume(volume) {
+    try {
+      const response = await fetch(`${API_BASE}/tts/volume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        console.error('Failed to update volume:', result.error);
+      }
+    } catch (error) {
+      console.error('Volume update error:', error);
+    }
+  }
 
   // Initialize on DOM ready
   if (document.readyState === 'loading') {
