@@ -11,6 +11,9 @@ CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
 LOG_FILE="${RALPH_ROOT}/.ralph/auto-speak-hook.log"
 TEMP_SCRIPT="${RALPH_ROOT}/.ralph/auto-speak-summarize.mjs"
 
+# Source TTS manager for exclusive TTS playback
+source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh"
+
 # Function to log messages
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
@@ -199,11 +202,9 @@ main() {
   log "Summary generated: ${#summary} characters"
   log "Summary preview: ${summary:0:100}..."
 
-  # Speak the summary (non-blocking)
-  echo "$summary" | ralph speak &>/dev/null &
-  local speak_pid=$!
+  # Speak the summary exclusively (cancels any existing TTS)
+  speak_exclusive "$summary"
 
-  log "TTS started (PID: $speak_pid)"
   log "=== Hook complete ==="
 
   exit 0

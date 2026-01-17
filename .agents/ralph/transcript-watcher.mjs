@@ -178,14 +178,17 @@ function escapeShell(text) {
 }
 
 /**
- * Speak text using ralph speak command
+ * Speak text using TTS manager (exclusive playback)
  */
 function speak(text) {
   try {
     const escaped = escapeShell(text);
-    execSync(`echo '${escaped}' | ralph speak`, {
+    // Source TTS manager and call speak_exclusive
+    const cmd = `source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh" && speak_exclusive '${escaped}'`;
+    execSync(cmd, {
       stdio: "ignore",
       cwd: RALPH_ROOT,
+      shell: "/bin/bash",
     });
     return true;
   } catch (error) {

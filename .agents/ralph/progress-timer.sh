@@ -16,6 +16,9 @@ PID_FILE="${RALPH_ROOT}/.ralph/progress-timer.pid"
 CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
 LOG_FILE="${RALPH_ROOT}/.ralph/progress-timer.log"
 
+# Source TTS manager for exclusive TTS playback
+source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh"
+
 # Progress phrases to cycle through
 PHRASES=(
   "Still working"
@@ -68,10 +71,10 @@ is_progress_enabled() {
   fi
 }
 
-# Speak a phrase using ralph speak
+# Speak a phrase using TTS manager (exclusive playback)
 speak_phrase() {
   local phrase="$1"
-  echo "$phrase" | ralph speak &>/dev/null || true
+  speak_exclusive "$phrase" || true
 }
 
 # Start the background timer loop
