@@ -9,6 +9,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { VoiceIntent, ExecutionResult } from "../types.js";
 import { OutputFilter, createOutputFilter } from "../filter/output-filter.js";
+import { TTSSummarizer, createTTSSummarizer } from "../filter/tts-summarizer.js";
 import {
   ConversationStateManager,
   createConversationStateManager,
@@ -61,6 +62,7 @@ export class ClaudeCodeExecutor {
   private defaultCwd: string;
   private defaultTimeout: number;
   private outputFilter: OutputFilter;
+  private ttsSummarizer: TTSSummarizer;
   private conversationManager: ConversationStateManager;
   private defaultModel: string;
 
@@ -69,6 +71,7 @@ export class ClaudeCodeExecutor {
     this.defaultTimeout = options.timeout || 300000; // 5 minutes default
     this.defaultModel = options.model || "sonnet";
     this.outputFilter = createOutputFilter();
+    this.ttsSummarizer = createTTSSummarizer();
     this.conversationManager = createConversationStateManager();
   }
 
@@ -102,11 +105,13 @@ export class ClaudeCodeExecutor {
         model: options.model || this.defaultModel,
       });
 
-      // Filter output for TTS
+      // Filter output for TTS - use LLM summarizer for natural speech
       const filteredOutput = this.outputFilter.filter(result.output || "");
-      const ttsText = this.outputFilter.generateTTSSummary(
+
+      // Use LLM to generate natural TTS summary
+      const ttsText = await this.ttsSummarizer.summarize(
         result.output || "",
-        intent.originalText || ""
+        intent.originalText
       );
 
       // Update conversation context

@@ -70,6 +70,9 @@ export class OutputFilter {
     // Remove code blocks (but keep short ones)
     filtered = this.filterCodeBlocks(filtered);
 
+    // Strip markdown formatting for TTS
+    filtered = this.stripMarkdownForTTS(filtered);
+
     // Remove excessive whitespace
     filtered = this.normalizeWhitespace(filtered);
 
@@ -108,7 +111,77 @@ export class OutputFilter {
     filtered = filtered.replace(/\[Reading\s+.*?\]/gi, "");
     filtered = filtered.replace(/\[Writing\s+.*?\]/gi, "");
 
+    // Strip markdown for TTS
+    filtered = this.stripMarkdownForTTS(filtered);
+
     return filtered.trim();
+  }
+
+  /**
+   * Strip markdown formatting for TTS-friendly output
+   */
+  private stripMarkdownForTTS(text: string): string {
+    let result = text;
+
+    // Remove code blocks entirely (```...```)
+    result = result.replace(/```[\s\S]*?```/g, "");
+
+    // Remove inline code backticks but keep the text
+    result = result.replace(/`([^`]+)`/g, "$1");
+
+    // Remove markdown headers (# ## ### etc) but keep the text
+    result = result.replace(/^#{1,6}\s+/gm, "");
+
+    // Remove bold/italic markers but keep text
+    result = result.replace(/\*\*\*([^*]+)\*\*\*/g, "$1"); // ***bold italic***
+    result = result.replace(/\*\*([^*]+)\*\*/g, "$1");     // **bold**
+    result = result.replace(/\*([^*]+)\*/g, "$1");         // *italic*
+    result = result.replace(/___([^_]+)___/g, "$1");       // ___bold italic___
+    result = result.replace(/__([^_]+)__/g, "$1");         // __bold__
+    result = result.replace(/_([^_]+)_/g, "$1");           // _italic_
+
+    // Remove strikethrough
+    result = result.replace(/~~([^~]+)~~/g, "$1");
+
+    // Remove markdown links but keep the text: [text](url) -> text
+    result = result.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+    // Remove image syntax: ![alt](url) -> (remove entirely)
+    result = result.replace(/!\[([^\]]*)\]\([^)]+\)/g, "");
+
+    // Remove HTML tags
+    result = result.replace(/<[^>]+>/g, "");
+
+    // Remove horizontal rules
+    result = result.replace(/^[\-*_]{3,}\s*$/gm, "");
+
+    // Remove table formatting - convert to plain text
+    // Remove table header separators (|---|---|)
+    result = result.replace(/^\|[\s\-:|]+\|\s*$/gm, "");
+    // Remove leading/trailing pipes from table rows
+    result = result.replace(/^\|\s*/gm, "");
+    result = result.replace(/\s*\|$/gm, "");
+    // Replace middle pipes with commas
+    result = result.replace(/\s*\|\s*/g, ", ");
+
+    // Convert bullet points to natural language
+    result = result.replace(/^[\s]*[-*+]\s+/gm, "");
+    result = result.replace(/^[\s]*\d+\.\s+/gm, "");
+
+    // Remove blockquote markers
+    result = result.replace(/^>\s*/gm, "");
+
+    // Remove remaining special characters that TTS reads literally
+    result = result.replace(/[│├┤┌┐└┘┬┴┼═║╔╗╚╝╠╣╦╩╬]/g, "");
+
+    // Remove multiple consecutive special chars
+    result = result.replace(/[*#_~`]{2,}/g, "");
+
+    // Clean up multiple spaces and newlines
+    result = result.replace(/[ \t]+/g, " ");
+    result = result.replace(/\n{3,}/g, "\n\n");
+
+    return result;
   }
 
   /**
