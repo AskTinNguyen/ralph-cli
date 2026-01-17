@@ -697,6 +697,8 @@ voice.post("/execute", async (c) => {
     return c.json({
       success: result.success,
       output: result.output,
+      filteredOutput: result.filteredOutput,
+      ttsSummary: result.ttsSummary,
       error: result.error,
       exitCode: result.exitCode,
       duration_ms: result.duration_ms,
@@ -1019,6 +1021,86 @@ voice.post("/tts/provider", async (c) => {
     return c.json({
       success: false,
       error: error instanceof Error ? error.message : "Failed to set provider",
+    }, 500);
+  }
+});
+
+/**
+ * GET /voice/tts/providers
+ * Get all available TTS providers with their status
+ */
+voice.get("/tts/providers", async (c) => {
+  try {
+    const providers = await actionRouter.getAvailableTTSProviders();
+    const currentProvider = actionRouter.getTTSProvider();
+
+    return c.json({
+      success: true,
+      providers,
+      currentProvider,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get providers",
+    }, 500);
+  }
+});
+
+/**
+ * GET /voice/tts/config
+ * Get TTS configuration (persistent settings)
+ */
+voice.get("/tts/config", (c) => {
+  try {
+    const config = actionRouter.getTTSConfig();
+    return c.json({
+      success: true,
+      config,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get config",
+    }, 500);
+  }
+});
+
+/**
+ * POST /voice/tts/config
+ * Update TTS configuration (persistent settings)
+ */
+voice.post("/tts/config", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    // Validate the update payload
+    const allowedFields = ["provider", "voice", "rate", "volume", "enabled", "fallbackChain", "providerVoices"];
+    const updates: Record<string, unknown> = {};
+
+    for (const key of Object.keys(body)) {
+      if (allowedFields.includes(key)) {
+        updates[key] = body[key];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return c.json({
+        success: false,
+        error: `No valid fields to update. Allowed: ${allowedFields.join(", ")}`,
+      }, 400);
+    }
+
+    const config = actionRouter.updateTTSConfig(updates);
+
+    return c.json({
+      success: true,
+      config,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update config",
     }, 500);
   }
 });

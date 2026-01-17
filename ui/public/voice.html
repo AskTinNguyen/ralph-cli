@@ -433,6 +433,33 @@
       border-color: var(--rams-accent);
     }
 
+    /* Summary Output (LLM-generated for long outputs) */
+    .summary-output {
+      background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+      color: #ecfdf5;
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      font-family: var(--rams-font-sans);
+      font-size: var(--rams-text-base);
+      line-height: 1.6;
+      margin-bottom: var(--rams-space-4);
+      border-left: 4px solid #10b981;
+    }
+
+    .summary-output:empty {
+      display: none;
+    }
+
+    .summary-output::before {
+      content: "TTS Summary";
+      display: block;
+      font-size: var(--rams-text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--rams-space-2);
+      opacity: 0.8;
+    }
+
     .filtered-output {
       background: #1e3a5f;
       color: #e0f2fe;
@@ -710,11 +737,15 @@
 
         <!-- Output Toggle -->
         <div class="output-toggle">
-          <button class="output-toggle-btn active" id="toggle-filtered" data-mode="filtered">TTS Output</button>
+          <button class="output-toggle-btn active" id="toggle-summary" data-mode="summary">Summary</button>
+          <button class="output-toggle-btn" id="toggle-filtered" data-mode="filtered">Filtered</button>
           <button class="output-toggle-btn" id="toggle-full" data-mode="full">Full Output</button>
         </div>
 
-        <!-- Filtered Output (TTS) -->
+        <!-- TTS Summary (LLM-generated for long outputs) -->
+        <div class="summary-output" id="summary-output"></div>
+
+        <!-- Filtered Output -->
         <div class="filtered-output" id="filtered-output"></div>
 
         <!-- Full Output Display -->

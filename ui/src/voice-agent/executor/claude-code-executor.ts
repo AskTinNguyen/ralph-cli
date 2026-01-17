@@ -10,6 +10,7 @@ import { EventEmitter } from "node:events";
 import type { VoiceIntent, ExecutionResult } from "../types.js";
 import { OutputFilter, createOutputFilter } from "../filter/output-filter.js";
 import { TTSSummarizer, createTTSSummarizer } from "../filter/tts-summarizer.js";
+import { OutputSummarizer, createOutputSummarizer } from "../filter/output-summarizer.js";
 import {
   ConversationStateManager,
   createConversationStateManager,
@@ -63,6 +64,7 @@ export class ClaudeCodeExecutor {
   private defaultTimeout: number;
   private outputFilter: OutputFilter;
   private ttsSummarizer: TTSSummarizer;
+  private outputSummarizer: OutputSummarizer;
   private conversationManager: ConversationStateManager;
   private defaultModel: string;
 
@@ -72,6 +74,7 @@ export class ClaudeCodeExecutor {
     this.defaultModel = options.model || "sonnet";
     this.outputFilter = createOutputFilter();
     this.ttsSummarizer = createTTSSummarizer();
+    this.outputSummarizer = createOutputSummarizer();
     this.conversationManager = createConversationStateManager();
   }
 
@@ -81,7 +84,7 @@ export class ClaudeCodeExecutor {
   async execute(
     intent: VoiceIntent,
     options: ClaudeCodeOptions = {}
-  ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string }> {
+  ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string; ttsSummary?: string }> {
     const prompt = this.buildPrompt(intent, options);
 
     if (!prompt) {
@@ -114,6 +117,17 @@ export class ClaudeCodeExecutor {
         intent.originalText
       );
 
+      // Generate LLM summary when filteredOutput exceeds 500 characters (per PRD)
+      let ttsSummary: string | undefined;
+      if (filteredOutput.length > 500) {
+        try {
+          ttsSummary = await this.outputSummarizer.summarize(filteredOutput);
+        } catch (summaryError) {
+          console.warn("[ClaudeCodeExecutor] LLM summarization failed:", summaryError);
+          // Continue without summary - TTS will use filteredOutput
+        }
+      }
+
       // Update conversation context
       if (result.success) {
         this.conversationManager.addToHistory(sessionId, {
@@ -129,6 +143,7 @@ export class ClaudeCodeExecutor {
         ...result,
         filteredOutput,
         ttsText,
+        ttsSummary,
         duration_ms: Date.now() - startTime,
         action: intent.action,
         intent,

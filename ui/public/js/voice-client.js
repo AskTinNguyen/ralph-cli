@@ -49,15 +49,18 @@
   const ttsEnabled = document.getElementById('tts-enabled');
   const ttsStopBtn = document.getElementById('tts-stop-btn');
   const ttsStatusText = document.getElementById('tts-status');
+  const toggleSummaryBtn = document.getElementById('toggle-summary');
   const toggleFilteredBtn = document.getElementById('toggle-filtered');
   const toggleFullBtn = document.getElementById('toggle-full');
+  const summaryOutput = document.getElementById('summary-output');
   const voiceSelect = document.getElementById('voice-select');
 
   // TTS state
   let ttsSpeaking = false;
-  let showFilteredOutput = true;
+  let outputViewMode = 'summary'; // 'summary' | 'filtered' | 'full'
   let ttsEnabledState = true;
   let currentVoice = 'alba';
+  let currentSummary = ''; // Store last summary for display
 
   // Wake word state
   let wakeWordEnabled = false;
@@ -95,6 +98,9 @@
     }
     if (ttsStopBtn) {
       ttsStopBtn.addEventListener('click', stopTTS);
+    }
+    if (toggleSummaryBtn) {
+      toggleSummaryBtn.addEventListener('click', () => setOutputView('summary'));
     }
     if (toggleFilteredBtn) {
       toggleFilteredBtn.addEventListener('click', () => setOutputView('filtered'));
@@ -284,6 +290,11 @@
     eventSource.addEventListener('filtered_output', function(event) {
       const data = JSON.parse(event.data);
       showFilteredOutputText(data.data.text);
+    });
+
+    eventSource.addEventListener('tts_summary', function(event) {
+      const data = JSON.parse(event.data);
+      showTTSSummary(data.data.summary);
     });
 
     eventSource.addEventListener('tts_start', function(event) {
@@ -685,6 +696,14 @@
         }
         appendOutput('\n[Completed successfully]\n');
         addToHistory(intent, true);
+
+        // Update filtered output and summary
+        if (result.filteredOutput) {
+          showFilteredOutputText(result.filteredOutput);
+        }
+        if (result.ttsSummary) {
+          showTTSSummary(result.ttsSummary);
+        }
       } else {
         appendOutput(`\n[Error: ${result.error || 'Execution failed'}]\n`);
         addToHistory(intent, false);
@@ -1120,25 +1139,31 @@
   }
 
   /**
-   * Set output view mode (filtered or full)
+   * Set output view mode (summary, filtered, or full)
    */
   function setOutputView(mode) {
-    showFilteredOutput = (mode === 'filtered');
+    outputViewMode = mode;
 
     // Update button states
+    if (toggleSummaryBtn) {
+      toggleSummaryBtn.classList.toggle('active', mode === 'summary');
+    }
     if (toggleFilteredBtn) {
-      toggleFilteredBtn.classList.toggle('active', showFilteredOutput);
+      toggleFilteredBtn.classList.toggle('active', mode === 'filtered');
     }
     if (toggleFullBtn) {
-      toggleFullBtn.classList.toggle('active', !showFilteredOutput);
+      toggleFullBtn.classList.toggle('active', mode === 'full');
     }
 
-    // Toggle visibility
+    // Toggle visibility based on mode
+    if (summaryOutput) {
+      summaryOutput.style.display = mode === 'summary' && currentSummary ? 'block' : 'none';
+    }
     if (filteredOutput) {
-      filteredOutput.style.display = showFilteredOutput ? 'block' : 'none';
+      filteredOutput.style.display = mode === 'filtered' ? 'block' : 'none';
     }
     if (outputDisplay) {
-      outputDisplay.style.display = showFilteredOutput ? 'none' : 'block';
+      outputDisplay.style.display = mode === 'full' ? 'block' : 'none';
     }
   }
 
@@ -1149,6 +1174,20 @@
     if (filteredOutput) {
       filteredOutput.textContent = text;
       filteredOutput.scrollTop = filteredOutput.scrollHeight;
+    }
+  }
+
+  /**
+   * Show TTS summary (LLM-generated for long outputs)
+   */
+  function showTTSSummary(summary) {
+    currentSummary = summary || '';
+    if (summaryOutput) {
+      summaryOutput.textContent = summary || '';
+      // Show summary section if we're in summary mode and have content
+      if (outputViewMode === 'summary' && summary) {
+        summaryOutput.style.display = 'block';
+      }
     }
   }
 

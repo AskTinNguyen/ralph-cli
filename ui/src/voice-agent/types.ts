@@ -84,6 +84,12 @@ export interface ExecutionResult {
   /** Output from the executed command */
   output?: string;
 
+  /** Filtered output suitable for TTS */
+  filteredOutput?: string;
+
+  /** LLM-generated summary for long outputs (>500 chars) */
+  ttsSummary?: string;
+
   /** Error message if failed */
   error?: string;
 
@@ -326,47 +332,30 @@ export interface ClaudeCodeExecutorOptions {
   enableTTS?: boolean;
 }
 
-/**
- * TTS (Text-to-Speech) provider types
- */
-export type TTSProvider = 'piper' | 'macos' | 'espeak' | 'system' | 'elevenlabs' | 'openai';
+// ============================================
+// TTS Types (re-exported from ./tts/types.ts)
+// ============================================
 
-/**
- * TTS configuration
- */
-export interface TTSConfig {
-  /** Voice name (e.g., "Samantha", "Daniel") */
-  voice: string;
+// Re-export all TTS types from the unified types module
+export type {
+  TTSProviderType,
+  TTSConfig,
+  TTSResult,
+  TTSEngine,
+  VoiceConfigSettings,
+  TTSProviderCapabilities,
+  TTSProviderStatus,
+  Platform,
+} from "./tts/types.js";
 
-  /** Speech rate (words per minute, typically 150-250) */
-  rate: number;
+export {
+  DEFAULT_TTS_CONFIG,
+  DEFAULT_VOICE_CONFIG,
+} from "./tts/types.js";
 
-  /** Provider to use */
-  provider: TTSProvider;
-
-  /** Volume (0.0 to 1.0) */
-  volume: number;
-
-  /** Whether TTS is enabled */
-  enabled: boolean;
-}
-
-/**
- * TTS result from speaking
- */
-export interface TTSResult {
-  /** Whether speech was successful */
-  success: boolean;
-
-  /** Error message if failed */
-  error?: string;
-
-  /** Duration of speech in milliseconds */
-  duration_ms?: number;
-
-  /** Whether speech was interrupted */
-  interrupted?: boolean;
-}
+// Legacy type alias for backward compatibility
+import type { TTSProviderType } from "./tts/types.js";
+export type TTSProvider = TTSProviderType;
 
 /**
  * Extended execution result with TTS fields
@@ -377,6 +366,9 @@ export interface ExecutionResultWithTTS extends ExecutionResult {
 
   /** Text that was/will be spoken */
   ttsText?: string;
+
+  /** LLM-generated summary for long outputs (>500 chars) */
+  ttsSummary?: string;
 
   /** TTS result if speech was attempted */
   ttsResult?: TTSResult;

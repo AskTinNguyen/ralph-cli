@@ -29,8 +29,18 @@ import {
   type ClaudeCodeExecutor,
   type ClaudeCodeEvent,
 } from "./claude-code-executor.js";
-import { createTTSEngine, type TTSEngine, type TTSProvider } from "../tts/tts-engine.js";
+import {
+  type TTSEngine,
+  type TTSProvider,
+  type TTSProviderStatus,
+  type VoiceConfigSettings,
+  getTTSFactory,
+  getConfigManager,
+  getAvailableProviders,
+  createTTSEngine,
+} from "../tts/tts-engine.js";
 import { createSentenceBuffer } from "../tts/sentence-buffer.js";
+import { createOutputSummarizer, type OutputSummarizer } from "../filter/output-summarizer.js";
 import {
   createStatusHandler,
   type StatusHandler,
@@ -115,6 +125,7 @@ export class ActionRouter {
   private ttsProvider: TTSProvider = "piper";
   private statusHandler: StatusHandler;
   private conversationContext: ConversationContext;
+  private outputSummarizer: OutputSummarizer;
   private config: VoiceAgentConfig;
   private ttsEnabled: boolean = true;
 
@@ -139,6 +150,7 @@ export class ActionRouter {
     this.claudeCodeExecutor = createClaudeCodeExecutor();
     this.statusHandler = createStatusHandler();
     this.conversationContext = createConversationContext();
+    this.outputSummarizer = createOutputSummarizer();
 
     // Initialize TTS engine asynchronously
     this.initTTS();
@@ -146,31 +158,29 @@ export class ActionRouter {
 
   /**
    * Initialize the TTS engine
-   * Uses Piper TTS with Alba voice by default, falls back to macOS if unavailable
+   * Uses the TTS factory with automatic fallback chain support
+   * Configuration is loaded from persistent storage
    */
   private async initTTS(): Promise<void> {
     try {
-      // Default to Piper with Alba voice
-      this.ttsEngine = await createTTSEngine({ provider: "piper", voice: "alba" });
-      this.ttsProvider = "piper";
-      const available = await this.ttsEngine.checkAvailable();
-      if (!available.available) {
-        console.warn("Piper TTS not available, falling back to macOS:", available.error);
-        // Fall back to macOS
-        this.ttsEngine = await createTTSEngine({ provider: "macos" });
-        this.ttsProvider = "macos";
-        const macosAvailable = await this.ttsEngine.checkAvailable();
-        if (!macosAvailable.available) {
-          console.warn("macOS TTS also not available:", macosAvailable.error);
-          this.ttsEnabled = false;
-        } else {
-          console.log("TTS initialized: macOS (fallback)");
-        }
+      const factory = getTTSFactory();
+      const configManager = getConfigManager();
+      const voiceConfig = configManager.getConfig();
+
+      // Use factory with automatic fallback
+      const result = await factory.getEngine();
+
+      this.ttsEngine = result.engine;
+      this.ttsProvider = result.provider;
+      this.ttsEnabled = voiceConfig.enabled;
+
+      if (result.usedFallback) {
+        console.log(`[TTS] Initialized with fallback: ${result.provider} (requested: ${result.requestedProvider})`);
       } else {
-        console.log("TTS initialized: Piper (alba)");
+        console.log(`[TTS] Initialized: ${result.provider} (${voiceConfig.voice})`);
       }
     } catch (error) {
-      console.warn("Failed to initialize TTS:", error);
+      console.warn("[TTS] Failed to initialize:", error);
       this.ttsEnabled = false;
     }
   }
@@ -459,11 +469,12 @@ export class ActionRouter {
    *
    * Uses streaming execution to speak TTS while Claude Code is still running,
    * providing continuous audio feedback instead of waiting for completion.
+   * When ttsSummary is available (for long outputs >500 chars), TTS uses that instead.
    */
   private async executeClaudeCode(
     intent: VoiceIntent,
     options: InterpreterOptions = {}
-  ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string }> {
+  ): Promise<ExecutionResult & { filteredOutput?: string; ttsText?: string; ttsSummary?: string }> {
     const startTime = Date.now();
 
     // Use streaming execution for continuous TTS
@@ -506,7 +517,7 @@ export class ActionRouter {
 
     // Wait for completion and return result
     return new Promise((resolve) => {
-      eventEmitter.on("exit", (event: ClaudeCodeEvent) => {
+      eventEmitter.on("exit", async (event: ClaudeCodeEvent) => {
         // Flush remaining buffer to ensure all text is spoken
         if (sentenceBuffer) {
           sentenceBuffer.flush();
@@ -524,11 +535,29 @@ export class ActionRouter {
           success = !event.data.includes("error");
         }
 
+        // Generate LLM summary when output is long (>500 chars per PRD)
+        let ttsSummary: string | undefined;
+        const effectiveOutput = lastFilteredOutput || fullOutput;
+        if (effectiveOutput.length > 500) {
+          try {
+            ttsSummary = await this.outputSummarizer.summarize(effectiveOutput);
+            // If we have a summary, speak it instead of streaming output
+            if (ttsSummary && this.ttsEngine && this.ttsEnabled) {
+              this.ttsEngine.clearQueue();
+              this.ttsEngine.enqueue(ttsSummary);
+            }
+          } catch (summaryError) {
+            console.warn("[ActionRouter] LLM summarization failed:", summaryError);
+            // Continue without summary - use streaming TTS already queued
+          }
+        }
+
         resolve({
           success,
           output: fullOutput,
           filteredOutput: lastFilteredOutput,
-          ttsText: event.filteredForTTS || lastFilteredOutput,
+          ttsText: ttsSummary || event.filteredForTTS || lastFilteredOutput,
+          ttsSummary,
           exitCode,
           action: intent.action,
           intent,
@@ -963,63 +992,78 @@ export class ActionRouter {
 
   /**
    * Set TTS provider and reinitialize the TTS engine
-   * If the new provider's API key is missing, falls back to macOS
+   * Uses the TTS factory with automatic fallback support
    */
   async setTTSProvider(provider: TTSProvider): Promise<{ success: boolean; provider: TTSProvider; error?: string }> {
     const previousProvider = this.ttsProvider;
 
     try {
-      // Validate API key for cloud providers
-      if (provider === "elevenlabs" && !process.env.ELEVENLABS_API_KEY) {
-        console.warn("[TTS] ELEVENLABS_API_KEY not set, falling back to macOS TTS");
-        provider = "macos";
-      }
+      const factory = getTTSFactory();
+      const configManager = getConfigManager();
 
-      if (provider === "openai" && !process.env.OPENAI_API_KEY) {
-        console.warn("[TTS] OPENAI_API_KEY not set, falling back to macOS TTS");
-        provider = "macos";
-      }
+      // Update config first
+      configManager.update({ provider });
 
-      // Create new engine with the selected provider
-      const currentVoice = this.ttsEngine?.getConfig().voice || "alba";
-      const newEngine = await createTTSEngine({
-        provider,
-        voice: currentVoice
-      });
+      // Create new engine using factory (handles fallback automatically)
+      const result = await factory.createEngine(provider);
 
-      // Check if new engine is available
-      const available = await newEngine.checkAvailable();
-      if (!available.available) {
-        console.warn(`[TTS] ${provider} not available, falling back to macOS:`, available.error);
-        const fallbackEngine = await createTTSEngine({ provider: "macos" });
-        this.ttsEngine = fallbackEngine;
-        this.ttsProvider = "macos";
+      this.ttsEngine = result.engine;
+      this.ttsProvider = result.provider;
+
+      console.log(`[TTS] Provider changed: ${previousProvider} -> ${result.provider}`);
+
+      if (result.usedFallback) {
         return {
           success: true,
-          provider: "macos",
-          error: `${provider} not available, using macOS fallback`
+          provider: result.provider,
+          error: result.fallbackReason,
         };
       }
 
-      // Stop current engine if speaking
-      if (this.ttsEngine) {
-        this.ttsEngine.stop();
-        this.ttsEngine.clearQueue();
-      }
-
-      this.ttsEngine = newEngine;
-      this.ttsProvider = provider;
-      console.log(`[TTS] Provider changed: ${previousProvider} -> ${provider}`);
-
-      return { success: true, provider };
+      return { success: true, provider: result.provider };
     } catch (error) {
       console.error(`[TTS] Failed to set provider ${provider}:`, error);
       return {
         success: false,
         provider: previousProvider,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * Get all available TTS providers with their status
+   */
+  async getAvailableTTSProviders(): Promise<TTSProviderStatus[]> {
+    return getAvailableProviders();
+  }
+
+  /**
+   * Get TTS configuration (persistent settings)
+   */
+  getTTSConfig(): VoiceConfigSettings {
+    const configManager = getConfigManager();
+    return configManager.getConfig();
+  }
+
+  /**
+   * Update TTS configuration (persistent)
+   */
+  updateTTSConfig(updates: Partial<VoiceConfigSettings>): VoiceConfigSettings {
+    const configManager = getConfigManager();
+    const newConfig = configManager.update(updates);
+
+    // If provider changed, reinitialize
+    if (updates.provider && updates.provider !== this.ttsProvider) {
+      this.setTTSProvider(updates.provider);
+    }
+
+    // Update enabled state
+    if (typeof updates.enabled === "boolean") {
+      this.ttsEnabled = updates.enabled;
+    }
+
+    return newConfig;
   }
 
   /**
