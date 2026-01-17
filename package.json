@@ -10,7 +10,7 @@
     "ralph": "bin/ralph"
   },
   "scripts": {
-    "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs",
+    "test": "node tests/cli-smoke.mjs && node tests/agent-loops.mjs && npx tsx tests/test-greeting.js",
     "test:integration": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock",
     "test:coverage": "c8 --reporter=lcov --reporter=text npm test",
     "test:real": "node tests/real-agents.mjs",
