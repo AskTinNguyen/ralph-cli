@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Ralph CLI - Counter</title>
+  <link rel="stylesheet" href="/css/rams-ui.css">
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/htmx-ext-sse.js"></script>
+
+  <style>
+    /* Digital Bauhaus Counter - Distinctive geometric aesthetic */
+
+    /* Custom font import - Orbitron for digital/geometric feel */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Space+Mono:wght@400,700&display=swap');
+
+    :root {
+      --counter-accent: #CDFF00; /* Electric lime - high contrast */
+      --counter-bg: #0A0A0A;
+      --counter-grid: #1A1A1A;
+    }
+
+    /* Counter-specific layout override */
+    .counter-page .rams-content {
+      background: var(--counter-bg);
+      min-height: calc(100vh - var(--rams-topbar-height));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Geometric grid background */
+    .counter-stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 49px, var(--counter-grid) 49px, var(--counter-grid) 50px),
+        repeating-linear-gradient(90deg, transparent, transparent 49px, var(--counter-grid) 49px, var(--counter-grid) 50px);
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* Main counter container */
+    .counter-container {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: var(--rams-space-12);
+    }
+
+    /* Counter display - massive kinetic numeral */
+    .counter-display {
+      font-family: 'Orbitron', var(--rams-font-mono);
+      font-size: clamp(8rem, 20vw, 18rem);
+      font-weight: 900;
+      line-height: 1;
+      color: var(--counter-accent);
+      text-shadow:
+        0 0 20px rgba(205, 255, 0, 0.5),
+        0 0 40px rgba(205, 255, 0, 0.3),
+        0 4px 8px rgba(0, 0, 0, 0.8);
+      letter-spacing: -0.05em;
+      margin: 0;
+      transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      will-change: transform;
+    }
+
+    /* Pulse animation on value change */
+    .counter-display.pulse {
+      animation: counterPulse 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes counterPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    /* Counter label - minimalist */
+    .counter-label {
+      font-family: 'Space Mono', var(--rams-font-mono);
+      font-size: var(--rams-text-sm);
+      font-weight: 400;
+      color: var(--rams-gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      margin-bottom: var(--rams-space-6);
+      opacity: 0.6;
+    }
+
+    /* Button group - asymmetric layout */
+    .counter-controls {
+      display: flex;
+      gap: var(--rams-space-3);
+      justify-content: center;
+      align-items: center;
+      margin-top: var(--rams-space-10);
+      flex-wrap: wrap;
+    }
+
+    /* Geometric brutalist buttons */
+    .counter-btn {
+      font-family: 'Space Mono', var(--rams-font-mono);
+      font-size: var(--rams-text-base);
+      font-weight: 700;
+      padding: var(--rams-space-4) var(--rams-space-8);
+      background: transparent;
+      color: var(--counter-accent);
+      border: 2px solid var(--counter-accent);
+      cursor: pointer;
+      transition: all 120ms cubic-bezier(0.4, 0, 0.2, 1);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      position: relative;
+      overflow: hidden;
+      min-width: 120px;
+    }
+
+    /* Primary action buttons (increment/decrement) */
+    .counter-btn-primary {
+      background: var(--counter-accent);
+      color: var(--counter-bg);
+      border-color: var(--counter-accent);
+    }
+
+    /* Button hover states with geometric transforms */
+    .counter-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(205, 255, 0, 0.3);
+    }
+
+    .counter-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* Button click ripple effect */
+    .counter-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 400ms, height 400ms, opacity 400ms;
+      opacity: 0;
+    }
+
+    .counter-btn:active::before {
+      width: 300px;
+      height: 300px;
+      opacity: 1;
+      transition: 0ms;
+    }
+
+    /* Reset button - secondary style */
+    .counter-btn-reset {
+      border-color: var(--rams-gray-700);
+      color: var(--rams-gray-400);
+    }
+
+    .counter-btn-reset:hover {
+      border-color: var(--rams-gray-500);
+      color: var(--rams-gray-200);
+      box-shadow: 0 4px 12px rgba(115, 115, 115, 0.2);
+    }
+
+    /* Geometric divider element */
+    .counter-divider {
+      width: 2px;
+      height: 40px;
+      background: linear-gradient(to bottom, transparent, var(--rams-gray-800), transparent);
+      margin: 0 var(--rams-space-2);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .counter-display {
+        font-size: clamp(6rem, 25vw, 12rem);
+      }
+
+      .counter-controls {
+        flex-direction: column;
+        gap: var(--rams-space-4);
+      }
+
+      .counter-divider {
+        display: none;
+      }
+
+      .counter-btn {
+        width: 100%;
+        max-width: 280px;
+      }
+    }
+
+    /* Accessibility: reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      .counter-display,
+      .counter-btn {
+        transition: none;
+      }
+
+      .counter-display.pulse {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body class="rams-page counter-page" hx-ext="sse" sse-connect="/api/events">
+
+  <script src="/js/sidebar.js"></script>
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar" id="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Main</div>
+        <ul class="rams-nav-items">
+          <li><a href="/" class="rams-nav-link">Home</a></li>
+          <li><a href="/dashboard.html" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/kanban.html" class="rams-nav-link">Mission Control</a></li>
+          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Monitoring</div>
+        <ul class="rams-nav-items">
+          <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
+          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
+          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Tools</div>
+        <ul class="rams-nav-items">
+          <li><a href="/editor.html" class="rams-nav-link">Editor</a></li>
+          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
+          <li><a href="/counter.html" class="rams-nav-link active">Counter</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current">Counter</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <div
+          id="status-indicator-top"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s, sse:run_started, sse:run_completed"
+          hx-swap="innerHTML"
+          hx-timeout="5000"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Content Area - Counter Stage -->
+    <article class="rams-content">
+
+      <!-- Geometric grid background -->
+      <div class="counter-stage"></div>
+
+      <!-- Counter component -->
+      <div class="counter-container">
+        <div class="counter-label">Counter</div>
+        <h1 class="counter-display" id="counter-value" aria-live="polite">0</h1>
+
+        <div class="counter-controls">
+          <button
+            type="button"
+            class="counter-btn counter-btn-primary"
+            id="btn-decrement"
+            aria-label="Decrement counter by 1"
+          >
+            <span aria-hidden="true">−</span> Decrement
+          </button>
+
+          <div class="counter-divider" aria-hidden="true"></div>
+
+          <button
+            type="button"
+            class="counter-btn counter-btn-primary"
+            id="btn-increment"
+            aria-label="Increment counter by 1"
+          >
+            <span aria-hidden="true">+</span> Increment
+          </button>
+
+          <div class="counter-divider" aria-hidden="true"></div>
+
+          <button
+            type="button"
+            class="counter-btn counter-btn-reset"
+            id="btn-reset"
+            aria-label="Reset counter to zero"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+    </article>
+
+  </main>
+
+  <!-- Counter Logic - Client-side JavaScript (as recommended in plan) -->
+  <script>
+    /**
+     * Counter Component - State Management
+     *
+     * Architecture: Client-side JavaScript (simple, fast, no server roundtrip)
+     * State persists only during page session (not across refreshes - see PRD Non-Goals)
+     *
+     * Design pattern: Direct DOM manipulation with CSS animation feedback
+     */
+
+    (function() {
+      // State
+      let counterValue = 0;
+
+      // DOM references
+      const displayElement = document.getElementById('counter-value');
+      const btnIncrement = document.getElementById('btn-increment');
+      const btnDecrement = document.getElementById('btn-decrement');
+      const btnReset = document.getElementById('btn-reset');
+
+      /**
+       * Updates the counter display with animation feedback
+       * @param {number} newValue - The new counter value to display
+       */
+      function updateDisplay(newValue) {
+        counterValue = newValue;
+        displayElement.textContent = counterValue;
+
+        // Trigger pulse animation
+        displayElement.classList.remove('pulse');
+        void displayElement.offsetWidth; // Force reflow to restart animation
+        displayElement.classList.add('pulse');
+      }
+
+      /**
+       * Increment handler - increases counter by 1
+       */
+      function handleIncrement() {
+        updateDisplay(counterValue + 1);
+      }
+
+      /**
+       * Decrement handler - decreases counter by 1
+       * Supports negative numbers (no lower bound - see PRD acceptance criteria)
+       */
+      function handleDecrement() {
+        updateDisplay(counterValue - 1);
+      }
+
+      /**
+       * Reset handler - returns counter to initial value of 0
+       */
+      function handleReset() {
+        updateDisplay(0);
+      }
+
+      // Event listeners
+      btnIncrement.addEventListener('click', handleIncrement);
+      btnDecrement.addEventListener('click', handleDecrement);
+      btnReset.addEventListener('click', handleReset);
+
+      // Keyboard shortcuts (bonus feature - not in PRD but improves UX)
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+          return; // Don't interfere with input fields
+        }
+
+        switch(e.key) {
+          case 'ArrowUp':
+          case '+':
+            e.preventDefault();
+            handleIncrement();
+            break;
+          case 'ArrowDown':
+          case '-':
+            e.preventDefault();
+            handleDecrement();
+            break;
+          case '0':
+          case 'r':
+          case 'R':
+            e.preventDefault();
+            handleReset();
+            break;
+        }
+      });
+
+      console.log('Counter component initialized - State: client-side JavaScript');
+    })();
+  </script>
+
+</body>
+</html>

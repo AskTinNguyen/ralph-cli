@@ -616,3 +616,14 @@ export interface WeekOverWeekComparison {
   direction: "improved" | "declined" | "stable";
   percentChange: number | null;
 }
+
+/**
+ * Props for the Greeting component
+ */
+export interface GreetingProps {
+  /**
+   * Name to display in the greeting.
+   * If empty, undefined, or null, displays "Guest" as fallback.
+   */
+  name?: string;
+}

@@ -3101,3 +3101,210 @@ body.sidebar-collapsed .rams-banner {
   border-left: 3px solid #D1D5DB;
   padding-left: 9px;
 }
+
+/* ========================================
+   Greeting Component - Brutalist Kinetic Typography
+   Aesthetic: Terminal precision meets Swiss typography
+   ======================================== */
+
+/* Import IBM Plex Mono for monospace aesthetic */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap');
+
+.greeting {
+  position: relative;
+  display: inline-block;
+  padding: var(--rams-space-8) var(--rams-space-10);
+  background: var(--rams-black);
+  border: 2px solid var(--rams-white);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 4px var(--rams-black),
+    0 0 0 6px var(--rams-white),
+    0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.greeting__content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  font-size: var(--rams-text-4xl);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--rams-white);
+  font-family: var(--rams-font-sans);
+}
+
+.greeting__prefix {
+  font-weight: 300;
+  opacity: 0;
+  animation: greeting-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.greeting__name {
+  font-family: 'IBM Plex Mono', var(--rams-font-mono);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  position: relative;
+}
+
+/* Individual character animation */
+.greeting__char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: greeting-char-reveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: 0.3s; /* Start after prefix */
+}
+
+.greeting__exclamation {
+  font-weight: 700;
+  color: #CCFF00; /* Electric lime accent */
+  margin-left: -0.05em;
+  opacity: 0;
+  transform: scale(0.8) rotate(-10deg);
+  animation: greeting-exclaim 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  animation-delay: calc(0.3s + (var(--name-length, 5) * 0.05s));
+  text-shadow:
+    0 0 10px rgba(204, 255, 0, 0.5),
+    0 0 20px rgba(204, 255, 0, 0.3);
+}
+
+/* Scanline texture overlay for retro-terminal feel */
+.greeting__scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.03) 0px,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  opacity: 0.6;
+  animation: greeting-scanline 8s linear infinite;
+}
+
+/* Cursor blink after name */
+.greeting__name::after {
+  content: '▌';
+  display: inline-block;
+  margin-left: 0.1em;
+  color: #CCFF00;
+  opacity: 0;
+  animation: greeting-cursor 1.2s step-end infinite;
+  animation-delay: calc(0.8s + (var(--name-length, 5) * 0.05s));
+}
+
+/* ========================================
+   Greeting Animations
+   ======================================== */
+
+@keyframes greeting-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes greeting-char-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes greeting-exclaim {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) rotate(-10deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes greeting-cursor {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes greeting-scanline {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+/* ========================================
+   Greeting Responsive Variants
+   ======================================== */
+
+@media (max-width: 640px) {
+  .greeting {
+    padding: var(--rams-space-6) var(--rams-space-8);
+  }
+
+  .greeting__content {
+    font-size: var(--rams-text-2xl);
+  }
+}
+
+/* Light mode variant (optional) */
+.greeting.greeting--light {
+  background: var(--rams-white);
+  border-color: var(--rams-black);
+  box-shadow:
+    0 0 0 4px var(--rams-white),
+    0 0 0 6px var(--rams-black),
+    0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.greeting.greeting--light .greeting__content {
+  color: var(--rams-black);
+}
+
+.greeting.greeting--light .greeting__exclamation {
+  color: var(--rams-accent);
+  text-shadow:
+    0 0 10px rgba(26, 77, 46, 0.3),
+    0 0 20px rgba(26, 77, 46, 0.2);
+}
+
+.greeting.greeting--light .greeting__name::after {
+  color: var(--rams-accent);
+}
+
+.greeting.greeting--light .greeting__scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.02) 0px,
+    rgba(0, 0, 0, 0.02) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+}
