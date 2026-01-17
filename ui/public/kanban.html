@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Ralph CLI - Mission Control</title>
+  <link rel="stylesheet" href="/css/rams-ui.css">
+  <script src="/js/htmx.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* Mission Control Typography Override */
+    .kanban-mono {
+      font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+      letter-spacing: -0.01em;
+    }
+
+    /* Kanban Grid Layout */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--rams-space-6);
+      padding: var(--rams-space-6);
+      min-height: calc(100vh - var(--rams-topbar-height) - 48px);
+    }
+
+    /* Desktop: Force 4 columns */
+    @media (min-width: 1024px) {
+      .kanban-board {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    /* Tablet: 2x2 grid */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .kanban-board {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(2, auto);
+      }
+    }
+
+    /* Mobile: Single column stack */
+    @media (max-width: 767px) {
+      .kanban-board {
+        grid-template-columns: 1fr;
+        gap: var(--rams-space-4);
+        padding: var(--rams-space-4);
+      }
+    }
+
+    /* Column Container */
+    .kanban-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-4);
+      background: var(--rams-gray-50);
+      border: 1px solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      min-height: 400px;
+    }
+
+    /* Column Header - Telemetry Style */
+    .kanban-column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: var(--rams-space-3);
+      border-bottom: 2px solid var(--rams-gray-300);
+    }
+
+    .kanban-column-title {
+      font-size: var(--rams-text-lg);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .kanban-column-count {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: var(--rams-text-sm);
+      font-weight: 500;
+      color: var(--rams-gray-500);
+      background: var(--rams-white);
+      padding: 2px 8px;
+      border-radius: var(--rams-radius-sm);
+      border: 1px solid var(--rams-gray-200);
+      min-width: 32px;
+      text-align: center;
+    }
+
+    /* Stage-specific accent colors */
+    .kanban-column[data-stage="ready"] .kanban-column-header {
+      border-bottom-color: var(--rams-gray-400);
+    }
+
+    .kanban-column[data-stage="planning"] .kanban-column-header {
+      border-bottom-color: var(--rams-info);
+    }
+
+    .kanban-column[data-stage="building"] .kanban-column-header {
+      border-bottom-color: var(--rams-accent);
+    }
+
+    .kanban-column[data-stage="completed"] .kanban-column-header {
+      border-bottom-color: var(--rams-success);
+    }
+
+    /* Empty State */
+    .kanban-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--rams-space-8);
+      color: var(--rams-gray-400);
+      text-align: center;
+      font-size: var(--rams-text-sm);
+      font-style: italic;
+      min-height: 200px;
+    }
+
+    .kanban-empty-icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: var(--rams-space-3);
+      opacity: 0.3;
+    }
+
+    /* Cards Container */
+    .kanban-cards {
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-3);
+      flex: 1;
+    }
+
+    /* PRD Card */
+    .kanban-card {
+      background: var(--rams-white);
+      border: 1px solid var(--rams-gray-200);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      box-shadow: var(--rams-shadow-sm);
+      transition: all var(--rams-transition-normal);
+      cursor: pointer;
+      position: relative;
+      display: grid;
+      grid-template-areas:
+        "prd-name rover-icon"
+        "prd-title prd-title"
+        "progress progress"
+        "stats stats";
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto 1fr auto auto;
+      gap: var(--rams-space-2);
+      min-height: 140px;
+    }
+
+    .kanban-card:hover {
+      transform: scale(1.02);
+      box-shadow: var(--rams-shadow-md);
+      border-color: var(--rams-gray-300);
+    }
+
+    .kanban-card:focus {
+      outline: 2px solid var(--rams-accent);
+      outline-offset: 2px;
+    }
+
+    /* Active build accent */
+    .kanban-card[data-status="running"] {
+      border-left: 4px solid var(--rams-accent);
+      padding-left: 12px;
+    }
+
+    /* Card Elements */
+    .kanban-card-prd-name {
+      grid-area: prd-name;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: var(--rams-text-base);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      letter-spacing: 0.02em;
+    }
+
+    .kanban-card-rover-icon {
+      grid-area: rover-icon;
+      width: 24px;
+      height: 24px;
+      opacity: 0.6;
+    }
+
+    .kanban-card-title {
+      grid-area: prd-title;
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-600);
+      line-height: var(--rams-leading-snug);
+      margin-top: var(--rams-space-1);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .kanban-card-progress {
+      grid-area: progress;
+      margin-top: var(--rams-space-2);
+    }
+
+    .kanban-card-stats {
+      grid-area: stats;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: var(--rams-text-xs);
+      color: var(--rams-gray-500);
+      margin-top: var(--rams-space-1);
+    }
+
+    /* Progress Bar */
+    .progress-bar-container {
+      width: 100%;
+      height: 4px;
+      background: var(--rams-gray-100);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 2px;
+    }
+
+    /* Progress color tiers */
+    .progress-bar-fill[data-tier="low"] {
+      background: var(--rams-gray-300);
+    }
+
+    .progress-bar-fill[data-tier="medium"] {
+      background: var(--rams-gray-500);
+    }
+
+    .progress-bar-fill[data-tier="high"] {
+      background: var(--rams-accent);
+    }
+
+    /* Rover Spin Animation (for active builds) */
+    @keyframes roverSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .kanban-card-rover-icon.spinning {
+      animation: roverSpin 8s ease-in-out infinite;
+    }
+
+    /* Elapsed Time Badge */
+    .elapsed-time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: var(--rams-text-xs);
+      color: var(--rams-gray-600);
+      background: var(--rams-gray-100);
+      padding: 2px 6px;
+      border-radius: var(--rams-radius-sm);
+      margin-left: auto;
+    }
+
+    /* Hover Overlay */
+    .kanban-card-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease-in-out;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--rams-space-2);
+      box-shadow: var(--rams-shadow-lg);
+    }
+
+    .kanban-card:hover .kanban-card-overlay {
+      opacity: 1;
+    }
+
+    /* Mobile: tap to toggle overlay */
+    @media (max-width: 767px) {
+      .kanban-card:active .kanban-card-overlay {
+        opacity: 1;
+      }
+    }
+
+    .kanban-card-overlay-text {
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      line-height: var(--rams-leading-relaxed);
+    }
+
+    /* Loading Skeleton */
+    .skeleton-kanban-board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--rams-space-6);
+      padding: var(--rams-space-6);
+    }
+
+    @media (min-width: 1024px) {
+      .skeleton-kanban-board {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .skeleton-column {
+      background: var(--rams-gray-50);
+      border: 1px solid var(--rams-border-color);
+      border-radius: var(--rams-radius-md);
+      padding: var(--rams-space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--rams-space-3);
+    }
+
+    .skeleton-header {
+      height: 24px;
+      background: linear-gradient(90deg, var(--rams-gray-100) 25%, var(--rams-gray-200) 50%, var(--rams-gray-100) 75%);
+      background-size: 200% 100%;
+      animation: pulse 1.5s ease-in-out infinite;
+      border-radius: var(--rams-radius-sm);
+    }
+
+    .skeleton-card {
+      height: 140px;
+      background: linear-gradient(90deg, var(--rams-gray-100) 25%, var(--rams-gray-200) 50%, var(--rams-gray-100) 75%);
+      background-size: 200% 100%;
+      animation: pulse 1.5s ease-in-out infinite;
+      border-radius: var(--rams-radius-md);
+    }
+
+    @keyframes pulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Global Empty State (no PRDs at all) */
+    .kanban-global-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - var(--rams-topbar-height) - 48px);
+      padding: var(--rams-space-12);
+      text-align: center;
+    }
+
+    .kanban-global-empty-icon {
+      width: 120px;
+      height: 120px;
+      opacity: 0.2;
+      margin-bottom: var(--rams-space-6);
+    }
+
+    .kanban-global-empty h2 {
+      font-size: var(--rams-text-2xl);
+      font-weight: 600;
+      color: var(--rams-gray-900);
+      margin-bottom: var(--rams-space-3);
+    }
+
+    .kanban-global-empty p {
+      font-size: var(--rams-text-base);
+      color: var(--rams-gray-500);
+      margin-bottom: var(--rams-space-6);
+      max-width: 400px;
+    }
+
+    .kanban-global-empty-code {
+      font-family: 'IBM Plex Mono', monospace;
+      background: var(--rams-gray-100);
+      padding: var(--rams-space-2) var(--rams-space-4);
+      border-radius: var(--rams-radius-md);
+      font-size: var(--rams-text-sm);
+      color: var(--rams-gray-700);
+      margin-bottom: var(--rams-space-4);
+    }
+  </style>
+</head>
+<body class="rams-page">
+
+  <script src="/js/sidebar.js"></script>
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar" id="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark" onclick="toggleSidebar()" title="Toggle sidebar"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Main</div>
+        <ul class="rams-nav-items">
+          <li><a href="/" class="rams-nav-link">Home</a></li>
+          <li><a href="/dashboard.html" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/kanban.html" class="rams-nav-link active">Mission Control</a></li>
+          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Monitoring</div>
+        <ul class="rams-nav-items">
+          <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
+          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
+          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Tools</div>
+        <ul class="rams-nav-items">
+          <li><a href="/editor.html" class="rams-nav-link">Editor</a></li>
+          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current kanban-mono">MISSION CONTROL</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <div
+          id="status-indicator-top"
+          hx-get="/api/partials/status-indicator"
+          hx-trigger="load, every 5s"
+          hx-swap="innerHTML"
+          hx-timeout="5000"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <article class="rams-content" style="padding: 0;">
+
+      <!-- Kanban Board Container -->
+      <div
+        id="kanban-container"
+        hx-get="/api/kanban/board"
+        hx-trigger="load, every 5s"
+        hx-swap="outerHTML"
+        hx-timeout="5000"
+      >
+        <!-- Loading Skeleton -->
+        <div class="skeleton-kanban-board">
+          <div class="skeleton-column">
+            <div class="skeleton-header"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+          <div class="skeleton-column">
+            <div class="skeleton-header"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+          <div class="skeleton-column">
+            <div class="skeleton-header"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+          <div class="skeleton-column">
+            <div class="skeleton-header"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+
+    </article>
+
+  </main>
+
+  <!-- Error Toast -->
+  <div id="error-toast" class="rams-alert rams-alert-error rams-hidden rams-toast">
+    <div class="rams-toast-content">
+      <div class="rams-toast-body">
+        <div class="rams-toast-title">Error</div>
+        <div id="error-toast-message" class="rams-text-sm"></div>
+      </div>
+      <button onclick="dismissErrorToast()" class="rams-toast-close">&times;</button>
+    </div>
+  </div>
+
+  <script>
+    // Error Toast Management
+    function showErrorToast(message, endpoint) {
+      console.error("[Error]", message, endpoint ? "(Endpoint: " + endpoint + ")" : "");
+      var toast = document.getElementById("error-toast");
+      var messageEl = document.getElementById("error-toast-message");
+
+      messageEl.textContent = message;
+      toast.classList.remove("rams-hidden");
+
+      setTimeout(function() {
+        dismissErrorToast();
+      }, 10000);
+    }
+
+    function dismissErrorToast() {
+      var toast = document.getElementById("error-toast");
+      toast.classList.add("rams-hidden");
+    }
+
+    document.body.addEventListener("htmx:responseError", function (event) {
+      var xhr = event.detail.xhr;
+      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+
+      var message = "Unable to load PRD data. Retrying...";
+      if (xhr && xhr.status) {
+        if (xhr.status === 0) {
+          message = "Unable to connect to server. Check if the server is running.";
+        } else if (xhr.status === 404) {
+          message = "Kanban endpoint not found: " + path;
+        } else if (xhr.status === 500) {
+          message = "Server error occurred. Please try again.";
+        }
+      }
+
+      showErrorToast(message, path);
+    });
+
+    document.body.addEventListener("htmx:timeout", function (event) {
+      var path = event.detail.pathInfo ? event.detail.pathInfo.requestPath : "unknown";
+      console.error("[HTMX Timeout] Request timed out:", path);
+      showErrorToast("Request timed out. The server may be busy.", path);
+    });
+
+    // Keyboard Navigation
+    var currentFocusIndex = -1;
+    var cards = [];
+
+    function updateCardList() {
+      cards = Array.from(document.querySelectorAll('.kanban-card'));
+      cards.forEach(function(card, index) {
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('data-card-index', index);
+      });
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (!cards.length) return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex + 1) % cards.length;
+        cards[currentFocusIndex].focus();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentFocusIndex = (currentFocusIndex - 1 + cards.length) % cards.length;
+        cards[currentFocusIndex].focus();
+      } else if (e.key === 'Enter' && document.activeElement.classList.contains('kanban-card')) {
+        e.preventDefault();
+        document.activeElement.click();
+      }
+    });
+
+    // Update card list after HTMX swap
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+      if (event.detail.target.id === 'kanban-container') {
+        updateCardList();
+      }
+    });
+
+    // Initial update
+    document.addEventListener('DOMContentLoaded', function() {
+      updateCardList();
+    });
+  </script>
+
+</body>
+</html>

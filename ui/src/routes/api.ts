@@ -39,6 +39,7 @@ import { tokens } from './api/tokens.js';
 import { realtime } from './api/realtime.js';
 import { streams } from './api/streams.js';
 import { estimation } from './api/estimation.js';
+import { kanban } from './api/kanban.js';
 
 // Partials sub-routers for HTML fragments
 import { tokenPartials } from './api/partials/tokens.js';
@@ -59,6 +60,7 @@ api.route('/trends', trends);
 api.route('/tokens', tokens);
 api.route('/', realtime);
 api.route('/streams', streams);
+api.route('/kanban', kanban);
 api.route('/', estimation);
 
 // Mount partials sub-routers for HTML fragments
