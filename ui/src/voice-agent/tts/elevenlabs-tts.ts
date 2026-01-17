@@ -3,9 +3,15 @@
  *
  * Text-to-speech implementation using ElevenLabs API.
  * High-quality, natural-sounding voice synthesis.
+ * Includes retry logic with exponential backoff for network resilience.
  */
 
 import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine.js";
+import {
+  withRetry,
+  formatRetryMessage,
+  type RetryConfig,
+} from "../utils/retry.js";
 
 /**
  * ElevenLabs API voice model
@@ -54,6 +60,25 @@ const DEFAULT_MODEL_ID = "eleven_turbo_v2";
 const API_BASE_URL = "https://api.elevenlabs.io/v1";
 
 /**
+ * Default retry configuration for TTS calls
+ */
+const DEFAULT_TTS_RETRY_CONFIG: Partial<RetryConfig> = {
+  maxAttempts: 3,
+  initialDelayMs: 1000, // 1s, 2s, 4s
+  backoffMultiplier: 2,
+  maxDelayMs: 10000,
+};
+
+/**
+ * Callback type for retry events
+ */
+export type TTSRetryCallback = (
+  attempt: number,
+  maxAttempts: number,
+  message: string
+) => void;
+
+/**
  * ElevenLabs TTS Engine class
  */
 export class ElevenLabsTTSEngine implements TTSEngine {
@@ -65,6 +90,8 @@ export class ElevenLabsTTSEngine implements TTSEngine {
   private voiceCache: Map<string, string> = new Map(); // name -> voice_id mapping
   private queue: string[] = [];
   private processing: boolean = false;
+  private retryConfig: Partial<RetryConfig>;
+  private onRetryCallback?: TTSRetryCallback;
 
   constructor(config: TTSConfig, elevenLabsConfig?: Partial<ElevenLabsTTSConfig>) {
     this.config = config;
@@ -76,6 +103,21 @@ export class ElevenLabsTTSEngine implements TTSEngine {
       similarityBoost: elevenLabsConfig?.similarityBoost ?? 0.75,
     };
     this.apiKey = process.env.ELEVENLABS_API_KEY;
+    this.retryConfig = { ...DEFAULT_TTS_RETRY_CONFIG };
+  }
+
+  /**
+   * Set callback for retry events (for UI updates)
+   */
+  setRetryCallback(callback: TTSRetryCallback): void {
+    this.onRetryCallback = callback;
+  }
+
+  /**
+   * Update retry configuration
+   */
+  setRetryConfig(config: Partial<RetryConfig>): void {
+    this.retryConfig = { ...this.retryConfig, ...config };
   }
 
   /**
@@ -98,61 +140,66 @@ export class ElevenLabsTTSEngine implements TTSEngine {
     const startTime = Date.now();
     this.speaking = true;
 
-    try {
-      // Get voice ID from cache or use configured voiceId
-      let voiceId = this.elevenLabsConfig.voiceId || DEFAULT_VOICE_ID;
+    // Get voice ID from cache or use configured voiceId
+    let voiceId = this.elevenLabsConfig.voiceId || DEFAULT_VOICE_ID;
 
-      // If voice name is provided instead of ID, try to look it up
-      if (this.config.voice && this.voiceCache.has(this.config.voice)) {
-        voiceId = this.voiceCache.get(this.config.voice)!;
-      }
+    // If voice name is provided instead of ID, try to look it up
+    if (this.config.voice && this.voiceCache.has(this.config.voice)) {
+      voiceId = this.voiceCache.get(this.config.voice)!;
+    }
 
-      const url = `${API_BASE_URL}/text-to-speech/${voiceId}`;
+    const url = `${API_BASE_URL}/text-to-speech/${voiceId}`;
+    const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-      const controller = new AbortController();
-      this.currentAudio = { abort: () => controller.abort() };
+    const controller = new AbortController();
+    this.currentAudio = { abort: () => controller.abort() };
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Accept": "audio/mpeg",
-          "Content-Type": "application/json",
-          "xi-api-key": this.apiKey,
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: this.elevenLabsConfig.modelId,
-          voice_settings: {
-            stability: this.elevenLabsConfig.stability,
-            similarity_boost: this.elevenLabsConfig.similarityBoost,
+    // Use retry wrapper for network resilience
+    const result = await withRetry(
+      async () => {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": this.apiKey!,
           },
-        }),
-        signal: controller.signal,
-      });
+          body: JSON.stringify({
+            text: text,
+            model_id: this.elevenLabsConfig.modelId,
+            voice_settings: {
+              stability: this.elevenLabsConfig.stability,
+              similarity_boost: this.elevenLabsConfig.similarityBoost,
+            },
+          }),
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "Unknown error");
-        console.error(`[ElevenLabs TTS] API error: ${response.status} - ${errorText}`);
-        return this.fallbackToMacOS(text, startTime);
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Unknown error");
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Get audio buffer
+        return await response.arrayBuffer();
+      },
+      {
+        ...this.retryConfig,
+        onRetry: (attempt, error, delayMs) => {
+          const message = formatRetryMessage(attempt, maxAttempts, 'ElevenLabs TTS');
+          console.warn(`[ElevenLabs TTS] ${message}. Waiting ${delayMs}ms...`);
+          if (this.onRetryCallback) {
+            this.onRetryCallback(attempt, maxAttempts, message);
+          }
+        },
       }
+    );
 
-      // Get audio buffer
-      const audioBuffer = await response.arrayBuffer();
-      const duration_ms = Date.now() - startTime;
+    this.speaking = false;
+    this.currentAudio = null;
 
-      this.speaking = false;
-      this.currentAudio = null;
-
-      // Note: On server-side, we return the audio buffer info
-      // The client will need to play this audio
-      // For now, we return success with the synthesized audio duration estimate
-      return {
-        success: true,
-        duration_ms,
-        interrupted: false,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Unknown error';
 
       // Check if it was an abort
       if (errorMessage.includes("abort")) {
@@ -163,9 +210,20 @@ export class ElevenLabsTTSEngine implements TTSEngine {
         };
       }
 
-      console.error(`[ElevenLabs TTS] Error: ${errorMessage}`);
+      console.error(`[ElevenLabs TTS] Error after ${result.attempts} attempts: ${errorMessage}`);
       return this.fallbackToMacOS(text, startTime);
     }
+
+    const duration_ms = Date.now() - startTime;
+
+    // Note: On server-side, we return the audio buffer info
+    // The client will need to play this audio
+    // For now, we return success with the synthesized audio duration estimate
+    return {
+      success: true,
+      duration_ms,
+      interrupted: false,
+    };
   }
 
   /**

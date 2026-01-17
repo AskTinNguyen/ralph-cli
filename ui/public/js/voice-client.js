@@ -22,6 +22,13 @@
   let animationId = null;
   let history = [];
 
+  // SSE auto-reconnection state
+  let sseReconnectAttempts = 0;
+  const MAX_SSE_RECONNECT_ATTEMPTS = 5;
+  const SSE_RECONNECT_BASE_DELAY = 1000; // 1s, 2s, 4s, 8s, 16s
+  let sseReconnectTimeout = null;
+  let sseUrl = null;
+
   // DOM elements
   const micButton = document.getElementById('mic-button');
   const recordingStatus = document.getElementById('recording-status');
@@ -247,11 +254,17 @@
       }
 
       if (!data.services.sttServer.healthy) {
-        recordingStatus.textContent = 'STT server not running. Start with: python ui/python/stt_server.py';
+        recordingStatus.textContent = 'STT server unreachable. Start with: python ui/python/stt_server.py';
+        console.warn('[Health] STT server not healthy - check if server is running');
       }
 
       if (!data.services.ollama.healthy) {
         recordingStatus.textContent = 'Ollama not running. Start with: ollama serve';
+      }
+
+      // Check TTS provider health
+      if (data.services.tts && !data.services.tts.healthy) {
+        console.warn('[Health] TTS service not healthy:', data.services.tts.error || 'Unknown error');
       }
     } catch (error) {
       console.error('Health check failed:', error);
@@ -259,7 +272,13 @@
       ollamaStatus.className = 'status-dot error';
       if (claudeCodeStatus) claudeCodeStatus.className = 'status-dot error';
       if (ttsStatusDot) ttsStatusDot.className = 'status-dot error';
-      recordingStatus.textContent = 'Could not connect to voice agent services';
+
+      // Provide more specific error message based on error type
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        recordingStatus.textContent = 'Voice agent server unreachable. Please check if the server is running.';
+      } else {
+        recordingStatus.textContent = 'Could not connect to voice agent services';
+      }
     }
   }
 
@@ -291,21 +310,44 @@
 
   /**
    * Connect to Server-Sent Events for session updates
+   * Includes automatic reconnection with exponential backoff
    */
   function connectSSE(url) {
+    // Store URL for reconnection
+    sseUrl = url;
+
     if (eventSource) {
       eventSource.close();
+    }
+
+    // Clear any pending reconnect timeout
+    if (sseReconnectTimeout) {
+      clearTimeout(sseReconnectTimeout);
+      sseReconnectTimeout = null;
     }
 
     eventSource = new EventSource(url);
 
     eventSource.onopen = function() {
       console.log('SSE connected');
+      // Reset reconnection attempts on successful connection
+      sseReconnectAttempts = 0;
+      sessionStatus.className = 'status-dot healthy';
+      // Clear any connection error message
+      if (recordingStatus.textContent.includes('Connection lost') ||
+          recordingStatus.textContent.includes('Reconnecting')) {
+        recordingStatus.textContent = 'Click the microphone to start recording';
+      }
     };
 
     eventSource.onerror = function(error) {
       console.error('SSE error:', error);
       sessionStatus.className = 'status-dot error';
+
+      // Attempt to reconnect if connection was lost
+      if (eventSource.readyState === EventSource.CLOSED) {
+        handleSSEDisconnect();
+      }
     };
 
     eventSource.addEventListener('state_change', function(event) {
@@ -366,6 +408,31 @@
     eventSource.addEventListener('heartbeat', function(event) {
       // Keep-alive, no action needed
     });
+  }
+
+  /**
+   * Handle SSE disconnect with automatic reconnection
+   */
+  function handleSSEDisconnect() {
+    if (sseReconnectAttempts >= MAX_SSE_RECONNECT_ATTEMPTS) {
+      console.error('SSE reconnection failed after', MAX_SSE_RECONNECT_ATTEMPTS, 'attempts');
+      recordingStatus.textContent = 'Connection lost. Please refresh the page.';
+      showNetworkError('Connection to server lost', 'Please refresh the page to reconnect.');
+      return;
+    }
+
+    sseReconnectAttempts++;
+    const delay = SSE_RECONNECT_BASE_DELAY * Math.pow(2, sseReconnectAttempts - 1);
+
+    console.log(`SSE disconnected. Reconnecting in ${delay}ms (attempt ${sseReconnectAttempts}/${MAX_SSE_RECONNECT_ATTEMPTS})...`);
+    recordingStatus.textContent = `Connection lost, reconnecting... (${sseReconnectAttempts}/${MAX_SSE_RECONNECT_ATTEMPTS})`;
+    sessionStatus.className = 'status-dot warning';
+
+    sseReconnectTimeout = setTimeout(() => {
+      if (sseUrl) {
+        connectSSE(sseUrl);
+      }
+    }, delay);
   }
 
   /**
@@ -464,11 +531,24 @@
         showTranscription(result.text);
         await classifyIntent(result.text);
       } else {
-        showError(result.error || 'Transcription failed');
+        // Check if error indicates STT server issue
+        const errorMsg = result.error || 'Transcription failed';
+        if (errorMsg.includes('STT') || errorMsg.includes('unreachable') || errorMsg.includes('retry')) {
+          showNetworkError('STT Server Unreachable', errorMsg);
+        } else {
+          showError(errorMsg);
+        }
       }
     } catch (error) {
       console.error('Audio processing failed:', error);
-      showError('Failed to process audio');
+      // Detect network errors
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        showNetworkError('STT server unreachable', 'The speech-to-text server is not responding. Please check if the server is running.');
+      } else if (error.message.includes('NetworkError') || error.message.includes('network')) {
+        showNetworkError('Network Error', 'Unable to connect to the transcription service. Please check your connection.');
+      } else {
+        showError('Failed to process audio');
+      }
     }
   }
 
@@ -963,6 +1043,30 @@
     setTimeout(() => {
       outputDisplay.style.background = '';  // Reset to default
     }, 5000);
+  }
+
+  /**
+   * Show network error with visual feedback
+   */
+  function showNetworkError(title, description) {
+    updateState('error');
+    recordingStatus.textContent = title;
+    const formattedMessage = `Network Error: ${title}\n\n${description}`;
+    outputDisplay.textContent = formattedMessage;
+    outputDisplay.style.background = '#3d1f1f';  // Dark red for network errors
+
+    setTimeout(() => {
+      outputDisplay.style.background = '';  // Reset to default
+    }, 10000);
+  }
+
+  /**
+   * Show retry status during network recovery attempts
+   */
+  function showRetryStatus(serviceName, attempt, maxAttempts) {
+    const message = `${serviceName} unreachable, retrying... (${attempt}/${maxAttempts})`;
+    recordingStatus.textContent = message;
+    console.log(`[Retry] ${message}`);
   }
 
   /**

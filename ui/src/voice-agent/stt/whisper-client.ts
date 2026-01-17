@@ -3,6 +3,7 @@
  *
  * HTTP client for communicating with the local Whisper STT server.
  * Handles audio transcription requests and server health checks.
+ * Includes retry logic with exponential backoff for network resilience.
  */
 
 import type {
@@ -11,6 +12,30 @@ import type {
   VoiceAgentConfig,
   DEFAULT_VOICE_CONFIG,
 } from '../types.js';
+import {
+  withRetry,
+  formatRetryMessage,
+  type RetryConfig,
+} from '../utils/retry.js';
+
+/**
+ * Default retry configuration for STT calls
+ */
+const DEFAULT_STT_RETRY_CONFIG: Partial<RetryConfig> = {
+  maxAttempts: 3,
+  initialDelayMs: 1000, // 1s, 2s, 4s
+  backoffMultiplier: 2,
+  maxDelayMs: 10000,
+};
+
+/**
+ * Callback type for retry events
+ */
+export type STTRetryCallback = (
+  attempt: number,
+  maxAttempts: number,
+  message: string
+) => void;
 
 /**
  * Client for the Whisper Speech-to-Text server
@@ -18,10 +43,27 @@ import type {
 export class WhisperClient {
   private baseUrl: string;
   private language?: string;
+  private retryConfig: Partial<RetryConfig>;
+  private onRetryCallback?: STTRetryCallback;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
     this.baseUrl = config.sttServerUrl || 'http://localhost:5001';
     this.language = config.language;
+    this.retryConfig = { ...DEFAULT_STT_RETRY_CONFIG };
+  }
+
+  /**
+   * Set callback for retry events (for UI updates)
+   */
+  setRetryCallback(callback: STTRetryCallback): void {
+    this.onRetryCallback = callback;
+  }
+
+  /**
+   * Update retry configuration
+   */
+  setRetryConfig(config: Partial<RetryConfig>): void {
+    this.retryConfig = { ...this.retryConfig, ...config };
   }
 
   /**
@@ -81,71 +123,83 @@ export class WhisperClient {
       filename?: string;
     } = {}
   ): Promise<TranscriptionResult> {
-    try {
-      // Build URL with optional language parameter
-      const url = new URL(`${this.baseUrl}/transcribe`);
-      const lang = options.language || this.language;
-      if (lang) {
-        url.searchParams.set('language', lang);
-      }
+    // Build URL with optional language parameter
+    const url = new URL(`${this.baseUrl}/transcribe`);
+    const lang = options.language || this.language;
+    if (lang) {
+      url.searchParams.set('language', lang);
+    }
 
-      // Create form data with audio file
-      const formData = new FormData();
-      const audioBuffer = audioData instanceof Buffer
-        ? audioData
-        : Buffer.from(new Uint8Array(audioData));
+    // Create form data with audio file
+    const formData = new FormData();
+    const audioBuffer = audioData instanceof Buffer
+      ? audioData
+      : Buffer.from(new Uint8Array(audioData));
 
-      // Create a Blob from the buffer for FormData
-      const blob = new Blob([audioBuffer], { type: 'audio/wav' });
-      const filename = options.filename || 'audio.wav';
-      formData.append('file', blob, filename);
+    // Create a Blob from the buffer for FormData
+    const blob = new Blob([audioBuffer], { type: 'audio/wav' });
+    const filename = options.filename || 'audio.wav';
+    formData.append('file', blob, filename);
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        body: formData,
-      });
+    const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        return {
-          success: false,
-          text: '',
-          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+    // Use retry wrapper for network resilience
+    const result = await withRetry(
+      async () => {
+        const response = await fetch(url.toString(), {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json() as {
+          success?: boolean;
+          text?: string;
+          language?: string;
+          duration_ms?: number;
+          segments?: Array<{ start: number; end: number; text: string }>;
+          error?: string;
         };
+
+        if (!data.success) {
+          throw new Error(data.error || 'Transcription failed');
+        }
+
+        return data;
+      },
+      {
+        ...this.retryConfig,
+        onRetry: (attempt, error, delayMs) => {
+          const message = formatRetryMessage(attempt, maxAttempts, 'STT server');
+          console.warn(`[WhisperClient] ${message}. Waiting ${delayMs}ms...`);
+          if (this.onRetryCallback) {
+            this.onRetryCallback(attempt, maxAttempts, message);
+          }
+        },
       }
+    );
 
-      const data = await response.json() as {
-        success?: boolean;
-        text?: string;
-        language?: string;
-        duration_ms?: number;
-        segments?: Array<{ start: number; end: number; text: string }>;
-        error?: string;
-      };
-
-      if (!data.success) {
-        return {
-          success: false,
-          text: '',
-          error: data.error || 'Transcription failed',
-        };
-      }
-
-      return {
-        success: true,
-        text: data.text || '',
-        language: data.language,
-        duration_ms: data.duration_ms,
-        segments: data.segments,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Unknown error';
       return {
         success: false,
         text: '',
         error: `Transcription request failed: ${errorMessage}`,
       };
     }
+
+    const data = result.result!;
+    return {
+      success: true,
+      text: data.text || '',
+      language: data.language,
+      duration_ms: data.duration_ms,
+      segments: data.segments,
+    };
   }
 
   /**
@@ -159,58 +213,77 @@ export class WhisperClient {
     audioData: Buffer | ArrayBuffer,
     contentType: string = 'audio/wav'
   ): Promise<TranscriptionResult> {
-    try {
-      const url = new URL(`${this.baseUrl}/transcribe`);
-      if (this.language) {
-        url.searchParams.set('language', this.language);
-      }
+    const url = new URL(`${this.baseUrl}/transcribe`);
+    if (this.language) {
+      url.searchParams.set('language', this.language);
+    }
 
-      const audioBuffer = audioData instanceof Buffer
-        ? audioData
-        : Buffer.from(new Uint8Array(audioData));
+    const audioBuffer = audioData instanceof Buffer
+      ? audioData
+      : Buffer.from(new Uint8Array(audioData));
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': contentType,
-        },
-        body: audioBuffer,
-      });
+    const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        return {
-          success: false,
-          text: '',
-          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+    // Use retry wrapper for network resilience
+    const result = await withRetry(
+      async () => {
+        const response = await fetch(url.toString(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': contentType,
+          },
+          body: audioBuffer,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json() as {
+          success?: boolean;
+          text?: string;
+          language?: string;
+          duration_ms?: number;
+          segments?: Array<{ start: number; end: number; text: string }>;
+          error?: string;
         };
+
+        if (!data.success) {
+          throw new Error(data.error || 'Transcription failed');
+        }
+
+        return data;
+      },
+      {
+        ...this.retryConfig,
+        onRetry: (attempt, error, delayMs) => {
+          const message = formatRetryMessage(attempt, maxAttempts, 'STT server');
+          console.warn(`[WhisperClient] ${message}. Waiting ${delayMs}ms...`);
+          if (this.onRetryCallback) {
+            this.onRetryCallback(attempt, maxAttempts, message);
+          }
+        },
       }
+    );
 
-      const data = await response.json() as {
-        success?: boolean;
-        text?: string;
-        language?: string;
-        duration_ms?: number;
-        segments?: Array<{ start: number; end: number; text: string }>;
-        error?: string;
-      };
-
-      return {
-        success: data.success ?? false,
-        text: data.text || '',
-        language: data.language,
-        duration_ms: data.duration_ms,
-        segments: data.segments,
-        error: data.error,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Unknown error';
       return {
         success: false,
         text: '',
         error: `Transcription request failed: ${errorMessage}`,
       };
     }
+
+    const data = result.result!;
+    return {
+      success: true,
+      text: data.text || '',
+      language: data.language,
+      duration_ms: data.duration_ms,
+      segments: data.segments,
+    };
   }
 
   /**

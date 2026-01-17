@@ -3,9 +3,15 @@
  *
  * Text-to-speech implementation using OpenAI's TTS API.
  * High-quality, natural-sounding voice synthesis with multiple voice options.
+ * Includes retry logic with exponential backoff for network resilience.
  */
 
 import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine.js";
+import {
+  withRetry,
+  formatRetryMessage,
+  type RetryConfig,
+} from "../utils/retry.js";
 
 /**
  * OpenAI TTS voice options
@@ -58,6 +64,25 @@ const DEFAULT_MODEL: OpenAITTSModel = "tts-1";
 const API_BASE_URL = "https://api.openai.com/v1";
 
 /**
+ * Default retry configuration for TTS calls
+ */
+const DEFAULT_TTS_RETRY_CONFIG: Partial<RetryConfig> = {
+  maxAttempts: 3,
+  initialDelayMs: 1000, // 1s, 2s, 4s
+  backoffMultiplier: 2,
+  maxDelayMs: 10000,
+};
+
+/**
+ * Callback type for retry events
+ */
+export type TTSRetryCallback = (
+  attempt: number,
+  maxAttempts: number,
+  message: string
+) => void;
+
+/**
  * OpenAI TTS Engine class
  */
 export class OpenAITTSEngine implements TTSEngine {
@@ -68,6 +93,8 @@ export class OpenAITTSEngine implements TTSEngine {
   private currentAudio: { abort?: () => void } | null = null;
   private queue: string[] = [];
   private processing: boolean = false;
+  private retryConfig: Partial<RetryConfig>;
+  private onRetryCallback?: TTSRetryCallback;
 
   constructor(config: TTSConfig, openaiConfig?: Partial<OpenAITTSConfig>) {
     this.config = config;
@@ -78,6 +105,21 @@ export class OpenAITTSEngine implements TTSEngine {
       speed: this.normalizeSpeed(openaiConfig?.speed ?? 1.0),
     };
     this.apiKey = process.env.OPENAI_API_KEY;
+    this.retryConfig = { ...DEFAULT_TTS_RETRY_CONFIG };
+  }
+
+  /**
+   * Set callback for retry events (for UI updates)
+   */
+  setRetryCallback(callback: TTSRetryCallback): void {
+    this.onRetryCallback = callback;
+  }
+
+  /**
+   * Update retry configuration
+   */
+  setRetryConfig(config: Partial<RetryConfig>): void {
+    this.retryConfig = { ...this.retryConfig, ...config };
   }
 
   /**
@@ -120,52 +162,57 @@ export class OpenAITTSEngine implements TTSEngine {
     const startTime = Date.now();
     this.speaking = true;
 
-    try {
-      const voice = this.getOpenAIVoice();
-      const url = `${API_BASE_URL}/audio/speech`;
+    const voice = this.getOpenAIVoice();
+    const url = `${API_BASE_URL}/audio/speech`;
+    const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-      const controller = new AbortController();
-      this.currentAudio = { abort: () => controller.abort() };
+    const controller = new AbortController();
+    this.currentAudio = { abort: () => controller.abort() };
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.apiKey}`,
+    // Use retry wrapper for network resilience
+    const result = await withRetry(
+      async () => {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.openaiConfig.openaiModel || DEFAULT_MODEL,
+            input: text,
+            voice: voice,
+            speed: this.openaiConfig.speed || 1.0,
+            response_format: "mp3",
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Unknown error");
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Get audio buffer
+        return await response.arrayBuffer();
+      },
+      {
+        ...this.retryConfig,
+        onRetry: (attempt, error, delayMs) => {
+          const message = formatRetryMessage(attempt, maxAttempts, 'OpenAI TTS');
+          console.warn(`[OpenAI TTS] ${message}. Waiting ${delayMs}ms...`);
+          if (this.onRetryCallback) {
+            this.onRetryCallback(attempt, maxAttempts, message);
+          }
         },
-        body: JSON.stringify({
-          model: this.openaiConfig.openaiModel || DEFAULT_MODEL,
-          input: text,
-          voice: voice,
-          speed: this.openaiConfig.speed || 1.0,
-          response_format: "mp3",
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "Unknown error");
-        console.error(`[OpenAI TTS] API error: ${response.status} - ${errorText}`);
-        return this.fallbackToMacOS(text, startTime);
       }
+    );
 
-      // Get audio buffer
-      const audioBuffer = await response.arrayBuffer();
-      const duration_ms = Date.now() - startTime;
+    this.speaking = false;
+    this.currentAudio = null;
 
-      this.speaking = false;
-      this.currentAudio = null;
-
-      // Note: On server-side, we return the audio buffer info
-      // The client will need to play this audio
-      // For now, we return success with the synthesis duration
-      return {
-        success: true,
-        duration_ms,
-        interrupted: false,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Unknown error';
 
       // Check if it was an abort
       if (errorMessage.includes("abort")) {
@@ -176,9 +223,20 @@ export class OpenAITTSEngine implements TTSEngine {
         };
       }
 
-      console.error(`[OpenAI TTS] Error: ${errorMessage}`);
+      console.error(`[OpenAI TTS] Error after ${result.attempts} attempts: ${errorMessage}`);
       return this.fallbackToMacOS(text, startTime);
     }
+
+    const duration_ms = Date.now() - startTime;
+
+    // Note: On server-side, we return the audio buffer info
+    // The client will need to play this audio
+    // For now, we return success with the synthesis duration
+    return {
+      success: true,
+      duration_ms,
+      interrupted: false,
+    };
   }
 
   /**
