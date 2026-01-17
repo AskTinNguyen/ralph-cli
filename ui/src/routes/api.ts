@@ -2673,12 +2673,6 @@ api.get("/partials/stream-detail", (c) => {
       <span>${stream.completedStories} / ${stream.totalStories} stories (${completionPercentage}%)</span>
     </div>
   </div>
-  <div class="stream-detail-actions">
-    <a href="/workflow.html?stream=${stream.id}" class="rams-btn rams-btn-primary" style="display: inline-flex; align-items: center; gap: var(--rams-space-2);">
-      <span>🏭</span>
-      <span>View Workflow</span>
-    </a>
-  </div>
 </div>
 
 <div class="stream-progress" style="margin-bottom: var(--spacing-lg);">
