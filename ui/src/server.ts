@@ -6,7 +6,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { api } from "./routes/api.js";
 import { sse } from "./routes/sse.js";
-import { voice } from "./routes/voice.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,9 +28,6 @@ app.route("/api", api);
 
 // Mount SSE routes
 app.route("/api", sse);
-
-// Mount Voice Agent routes
-app.route("/api/voice", voice);
 
 // Serve static files from public directory under /ralph-cli prefix (GitHub Pages compatibility)
 app.use(

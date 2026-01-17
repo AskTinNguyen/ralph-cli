@@ -1,16 +1,16 @@
 # Ralph CLI Voice Features - Comprehensive Guide
 
 **Last Updated:** January 17, 2026
-**Analysis Period:** Past 24 hours of development
-**Total Voice Commits:** 41+ commits, ~5,000 lines of code
+**Status:** Browser STT Removed (January 2026)
+**Voice Systems Remaining:** Auto-Speak Hook, Terminal STT, Standalone Speak, Electron App
 
 ---
 
 ## Executive Summary
 
-Ralph CLI has developed **four distinct voice/TTS implementations** in parallel, creating significant overlap. This guide helps you understand each system and choose the optimal configuration for your workflow.
+Ralph CLI provides **three distinct voice/TTS implementations** with clear separation of concerns. Browser STT has been removed due to redundancy. This guide helps you understand each system and choose the optimal configuration.
 
-### The Four Systems
+### The Three Remaining Systems
 
 1. **Auto-Speak Hook** (Recommended for most users) ✅
 2. **Terminal Voice Command** (`ralph voice`)
@@ -168,35 +168,7 @@ ralph voice --stt-stop         # Stop STT server
 
 ---
 
-#### 2.2 Browser STT (Web UI)
-
-**Location:** `ui/public/js/voice-client.js`
-
-**What it does:**
-- Browser-based voice input for Ralph UI
-- Real-time waveform visualization
-- Session persistence across refreshes
-- Optional wake word detection
-
-**How to use:**
-1. Open Ralph UI: `http://localhost:3000`
-2. Click microphone button
-3. Speak your command
-4. See transcription + execution in UI
-
-**Pros:**
-- ✅ Visual feedback (waveform, status indicators)
-- ✅ Better user experience than terminal
-- ✅ Session history preserved
-
-**Cons:**
-- ❌ Requires UI server running
-- ❌ Browser permission prompts for microphone access
-- ❌ Overlaps with terminal STT
-
----
-
-#### 2.3 Electron App STT
+#### 2.2 Electron App STT
 
 **Location:** `ralph-voice-app/src/voice-agent/stt/`
 
@@ -213,7 +185,7 @@ ralph voice --stt-stop         # Stop STT server
 
 **Cons:**
 - ❌ Requires running separate Electron app
-- ❌ Most feature overlap with CLI/browser
+- ❌ Most feature overlap with CLI
 - ❌ Additional process overhead
 
 ---
@@ -263,34 +235,32 @@ ralph voice --stt-stop         # Stop STT server
 
 ### Overlap Matrix
 
-| Feature | Auto-Speak Hook | Terminal STT | Browser STT | Electron App |
-|---------|----------------|--------------|-------------|--------------|
-| **TTS Output** | ✅ Context-aware | ✅ Full text | ✅ Full text | ✅ Full text |
-| **Audio Recording** | ❌ | ✅ sox/ffmpeg | ✅ MediaRecorder | ✅ MediaRecorder |
-| **STT** | ❌ | ✅ Whisper | ✅ Whisper | ✅ Whisper |
-| **Intent Classification** | ❌ | ✅ Ollama | ✅ Ollama | ✅ Ollama |
-| **Claude Code Integration** | ✅ Native hooks | ✅ Subprocess | ✅ Subprocess | ✅ Subprocess |
-| **Visual Feedback** | ❌ | ❌ | ✅ Waveform | ✅ Waveform |
-| **Global Hotkey** | ❌ | ❌ | ❌ | ✅ Cmd+Shift+Space |
-| **Summarization** | ✅ Qwen LLM | ❌ | ❌ | ❌ |
-| **Resource Usage** | Low | Medium | Medium | High |
+| Feature | Auto-Speak Hook | Terminal STT | Electron App |
+|---------|----------------|--------------|--------------|
+| **TTS Output** | ✅ Context-aware | ✅ Full text | ✅ Full text |
+| **Audio Recording** | ❌ | ✅ sox/ffmpeg | ✅ MediaRecorder |
+| **STT** | ❌ | ✅ Whisper | ✅ Whisper |
+| **Intent Classification** | ❌ | ✅ Ollama | ✅ Ollama |
+| **Claude Code Integration** | ✅ Native hooks | ✅ Subprocess | ✅ Subprocess |
+| **Visual Feedback** | ❌ | ❌ | ✅ Waveform |
+| **Global Hotkey** | ❌ | ❌ | ✅ Cmd+Shift+Space |
+| **Summarization** | ✅ Qwen LLM | ❌ | ❌ |
+| **Resource Usage** | Low | Medium | High |
 
 ### Key Redundancies
 
-1. **Three STT implementations** doing the same thing:
+1. **Two STT implementations** doing the same thing:
    - Terminal (`ralph voice`)
-   - Browser (UI server)
    - Electron app
 
-2. **Four TTS systems** with different trade-offs:
+2. **Multiple TTS systems** with different trade-offs:
    - Auto-speak hook (smart summarization)
    - `ralph speak` command (manual)
-   - Browser TTS (UI-based)
    - Electron TTS (desktop app)
 
 3. **Two intent classifiers** (identical):
    - Terminal voice command uses Ollama
-   - Browser/Electron use same Ollama service
+   - Electron app uses same Ollama service
 
 ---
 
@@ -302,7 +272,6 @@ ralph voice --stt-stop         # Stop STT server
 - ✅ **Enable:** Auto-speak hook (`ralph speak --auto-on`)
 - ✅ **Keep:** `ralph speak` command (for testing/manual TTS)
 - ❌ **Disable:** Terminal STT (`ralph voice` - use Claude Code instead)
-- ❌ **Disable:** Browser STT (unless you prefer visual UI)
 - ❌ **Disable:** Electron app (redundant with auto-speak)
 
 **Why:**
@@ -330,7 +299,6 @@ ralph speak "Auto-speak enabled"
 **Recommended Setup:**
 - ✅ **Enable:** Terminal STT (`ralph voice`)
 - ✅ **Enable:** Auto-speak hook
-- ❌ **Disable:** Browser STT (use terminal instead)
 - ❌ **Disable:** Electron app (terminal is lighter)
 
 **Why:**
@@ -354,35 +322,7 @@ ralph voice
 
 ---
 
-### Scenario 3: Visual UI Preferred
-
-**Recommended Setup:**
-- ✅ **Enable:** Browser STT (Ralph UI)
-- ✅ **Enable:** Auto-speak hook (for CLI interactions)
-- ❌ **Disable:** Terminal STT (`ralph voice`)
-- ❌ **Disable:** Electron app (browser UI is sufficient)
-
-**Why:**
-- Visual feedback (waveform, status, history)
-- Session persistence across refreshes
-- Auto-speak covers CLI usage
-- No need for separate Electron process
-
-**Commands:**
-```bash
-# Start UI server
-cd ui && npm run dev
-
-# Enable auto-speak
-ralph speak --auto-on
-
-# Open browser
-open http://localhost:3000
-```
-
----
-
-### Scenario 4: Standalone Voice Assistant
+### Scenario 3: Standalone Voice Assistant (Electron App)
 
 **Recommended Setup:**
 - ✅ **Enable:** Electron app
@@ -428,15 +368,6 @@ ralph voice
 
 # Stop STT server
 ralph voice --stt-stop
-```
-
-### Browser STT
-```bash
-# Start UI server
-cd ui && npm run dev
-
-# Open browser to http://localhost:3000
-# Click microphone icon to use voice
 ```
 
 ### Electron App
@@ -598,26 +529,6 @@ rec -r 16000 -c 1 test.wav silence 1 0.1 -50d 1 2.0 -50d
 
 ---
 
-### Browser STT Not Working
-
-**Check 1: UI server running?**
-```bash
-cd ui && npm run dev
-# Should show: "Local: http://localhost:3000"
-```
-
-**Check 2: STT server running?**
-```bash
-curl http://localhost:5001/health
-```
-
-**Check 3: Browser console errors?**
-- Open DevTools (F12)
-- Check Console tab for errors
-- Check Network tab for failed requests to `/transcribe`
-
----
-
 ### Electron App Not Launching
 
 **Check 1: Build completed?**
@@ -646,10 +557,9 @@ npm run dev
 |--------|---------|-----------|--------|----------|
 | **Auto-Speak Hook** | 200-400ms | Low (Qwen inference) | ~200MB (Ollama) | High (context-aware) |
 | **Terminal STT** | 1-3s | Medium (Whisper) | ~500MB (Whisper + Ollama) | Very High |
-| **Browser STT** | 1-3s | Medium | ~600MB (UI + Whisper) | Very High |
 | **Electron App** | 1-3s | High | ~800MB (Electron + Whisper) | Very High |
 
-**Recommendation:** Auto-speak hook is most efficient for passive listening. Terminal/Browser STT for active voice input.
+**Recommendation:** Auto-speak hook is most efficient for passive listening. Terminal STT for active voice input.
 
 ---
 
@@ -663,7 +573,6 @@ npm run dev
 
 # Disable:
 - Terminal STT (don't use ralph voice)
-- Browser STT (don't start UI server for voice)
 - Electron app (don't launch)
 ```
 
@@ -678,7 +587,6 @@ npm run dev
 - Terminal STT (ralph voice)
 
 # Disable:
-- Browser STT
 - Electron app
 ```
 
@@ -691,7 +599,6 @@ npm run dev
 # All systems running:
 - Auto-speak hook
 - Terminal STT
-- Browser STT (UI server)
 - Electron app
 
 # When to use:
@@ -700,35 +607,7 @@ npm run dev
 - Demonstrating capabilities
 ```
 
-**Resource usage:** ~1.5GB RAM, higher CPU during voice activity
-
----
-
-## Feature Roadmap
-
-### Implemented (Past 24 Hours) ✅
-- [x] Auto-speak hook with context-aware summarization
-- [x] Terminal STT with sox/ffmpeg
-- [x] Browser STT with waveform visualization
-- [x] Electron voice app with global hotkey
-- [x] Intent classification (Ollama + Qwen)
-- [x] Multi-provider TTS (macOS, Piper, OpenAI, ElevenLabs)
-- [x] E2E test suite (24 passing tests)
-- [x] Session persistence
-- [x] Output filtering for TTS
-
-### In Progress 🚧
-- [ ] Wake word detection improvements
-- [ ] Multi-language support (Whisper supports 99 languages)
-- [ ] Voice command customization (user-defined intents)
-- [ ] Cloud STT fallback (for offline scenarios)
-
-### Planned 📋
-- [ ] Voice profile management (multiple users)
-- [ ] Emotion/sentiment detection in voice input
-- [ ] Real-time voice translation
-- [ ] Voice-triggered Ralph workflows (PRD → Plan → Build via voice)
-- [ ] Integration with MCP servers via voice
+**Resource usage:** ~1.2GB RAM, higher CPU during voice activity
 
 ---
 
@@ -736,12 +615,11 @@ npm run dev
 
 | If you want... | Enable | Disable |
 |----------------|--------|---------|
-| **Automatic voice feedback on Claude responses** | Auto-speak hook | Terminal/Browser STT, Electron app |
-| **Hands-free voice input to Claude** | Terminal STT, Auto-speak | Browser STT, Electron app |
-| **Visual UI for voice interactions** | Browser STT, Auto-speak | Terminal STT, Electron app |
+| **Automatic voice feedback on Claude responses** | Auto-speak hook | Terminal STT, Electron app |
+| **Hands-free voice input to Claude** | Terminal STT, Auto-speak | Electron app |
 | **Global hotkey voice assistant** | Electron app | All others |
 | **Minimal resource usage** | Auto-speak only | Everything else |
-| **Best developer experience** | Auto-speak + Terminal STT | Browser STT, Electron app |
+| **Best developer experience** | Auto-speak + Terminal STT | Electron app |
 
 ---
 
@@ -757,7 +635,6 @@ ralph speak "custom message"
 
 # Don't use:
 - ralph voice (use Claude Code text input instead)
-- Browser STT (unless you prefer visual UI)
 - Electron app (redundant with auto-speak)
 ```
 
@@ -770,33 +647,24 @@ ralph speak "custom message"
 
 ### When to Deviate:
 - Use **Terminal STT** if you truly need hands-free input
-- Use **Browser STT** if you want visual feedback
 - Use **Electron app** if you want a standalone voice assistant
 
 ---
 
-## Contact & Support
+## Related Documentation
 
-**Documentation:**
-- Auto-speak guide: `AUTO-SPEAK-GUIDE.md`
-- Voice agent guide: `ui/public/docs/voice-agent-guide.md`
-- Voice setup: `ui/public/docs/voice-agent-setup.md`
+- **Auto-Speak:** `AUTO-SPEAK-GUIDE.md`
+- **Terminal STT:** `lib/commands/voice.js` (source code)
+- **Electron App:** `ralph-voice-app/README.md`
 
-**Logs:**
-- Auto-speak: `.ralph/auto-speak-hook.log`
-- STT server: `skills/voice/stt_server.log`
-- Electron app: Check console in DevTools
+---
 
-**Test the system:**
-```bash
-# Test auto-speak
-ralph speak --auto-on
-echo "Test message" | ralph speak
+## Removed: Browser STT
 
-# Test terminal STT
-cd skills/voice && ./start_stt_server.sh
-ralph voice "hello"
+Browser STT (Web UI voice input) was removed in January 2026 due to:
+- Redundancy with Terminal STT functionality
+- High resource overhead (UI server + browser)
+- Browser permission complexity
+- Terminal STT provides better integration with Ralph CLI
 
-# Run E2E tests
-npm test tests/voice-e2e.mjs
-```
+For visual UI preferences, use the Electron app instead, which provides a dedicated desktop experience.
