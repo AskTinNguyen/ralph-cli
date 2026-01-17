@@ -491,6 +491,8 @@ async function main() {
     "notify",
     // Factory Mode (Meta-orchestration)
     "factory",
+    // Voice Control
+    "voice",
   ];
 
   if (moduleCommands.includes(actualCmd)) {
