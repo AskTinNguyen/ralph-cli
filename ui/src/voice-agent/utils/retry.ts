@@ -17,8 +17,12 @@ export interface RetryConfig {
   backoffMultiplier: number;
   /** Maximum delay between retries in milliseconds (default: 10000) */
   maxDelayMs: number;
+  /** Optional timeout in milliseconds for each attempt (default: no timeout) */
+  timeoutMs?: number;
   /** Optional callback for retry events */
   onRetry?: (attempt: number, error: Error, delayMs: number) => void;
+  /** Optional callback for timeout events */
+  onTimeout?: (attempt: number, timeoutMs: number) => void;
   /** Optional function to determine if an error is retryable */
   isRetryable?: (error: Error) => boolean;
 }
@@ -48,6 +52,68 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   backoffMultiplier: 2,
   maxDelayMs: 10000,
 };
+
+/**
+ * Service-specific timeout defaults (in milliseconds)
+ */
+export const SERVICE_TIMEOUTS = {
+  STT: 30000,        // 30 seconds for speech-to-text
+  INTENT: 10000,     // 10 seconds for intent classification
+  TTS: 15000,        // 15 seconds for text-to-speech
+} as const;
+
+/**
+ * Custom error class for timeout errors
+ */
+export class TimeoutError extends Error {
+  public readonly timeoutMs: number;
+  public readonly serviceName: string;
+
+  constructor(serviceName: string, timeoutMs: number) {
+    super(`${serviceName} operation timed out after ${timeoutMs}ms`);
+    this.name = 'TimeoutError';
+    this.timeoutMs = timeoutMs;
+    this.serviceName = serviceName;
+  }
+}
+
+/**
+ * Check if an error is a timeout error
+ */
+export function isTimeoutError(error: unknown): error is TimeoutError {
+  return error instanceof TimeoutError;
+}
+
+/**
+ * Execute a function with a timeout
+ *
+ * @param fn - The async function to execute
+ * @param timeoutMs - Timeout in milliseconds
+ * @param serviceName - Name of the service for error messages
+ * @returns The result of the function
+ * @throws TimeoutError if the operation times out
+ */
+export async function withTimeout<T>(
+  fn: () => Promise<T>,
+  timeoutMs: number,
+  serviceName: string = 'Operation'
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new TimeoutError(serviceName, timeoutMs));
+    }, timeoutMs);
+
+    fn()
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
 
 /**
  * Default function to check if an error is retryable
@@ -148,7 +214,13 @@ export async function withRetry<T>(
 
   for (let attempt = 1; attempt <= fullConfig.maxAttempts; attempt++) {
     try {
-      const result = await fn();
+      // Wrap function with timeout if configured
+      let result: T;
+      if (fullConfig.timeoutMs) {
+        result = await withTimeout(fn, fullConfig.timeoutMs, 'Operation');
+      } else {
+        result = await fn();
+      }
       return {
         success: true,
         result,
@@ -157,6 +229,11 @@ export async function withRetry<T>(
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Notify about timeout specifically
+      if (isTimeoutError(lastError) && fullConfig.onTimeout) {
+        fullConfig.onTimeout(attempt, lastError.timeoutMs);
+      }
 
       // Check if we should retry
       const isRetryable = fullConfig.isRetryable ?? isNetworkRetryable;
@@ -246,4 +323,15 @@ export function formatRetryMessage(
     return `${serviceName} unreachable after ${maxAttempts} attempts`;
   }
   return `${serviceName} unreachable, retrying... (${attempt}/${maxAttempts})`;
+}
+
+/**
+ * Format timeout status message for display
+ */
+export function formatTimeoutMessage(
+  serviceName: string,
+  timeoutMs: number
+): string {
+  const seconds = Math.round(timeoutMs / 1000);
+  return `${serviceName} timed out after ${seconds}s. Please try again.`;
 }

@@ -10,6 +10,9 @@ import type { TTSConfig, TTSEngine, TTSResult } from "./tts-engine.js";
 import {
   withRetry,
   formatRetryMessage,
+  formatTimeoutMessage,
+  SERVICE_TIMEOUTS,
+  isTimeoutError,
   type RetryConfig,
 } from "../utils/retry.js";
 
@@ -67,6 +70,7 @@ const DEFAULT_TTS_RETRY_CONFIG: Partial<RetryConfig> = {
   initialDelayMs: 1000, // 1s, 2s, 4s
   backoffMultiplier: 2,
   maxDelayMs: 10000,
+  timeoutMs: SERVICE_TIMEOUTS.TTS, // 15s default timeout for TTS
 };
 
 /**
@@ -77,6 +81,11 @@ export type TTSRetryCallback = (
   maxAttempts: number,
   message: string
 ) => void;
+
+/**
+ * Callback type for timeout events
+ */
+export type TTSTimeoutCallback = (timeoutMs: number, message: string) => void;
 
 /**
  * ElevenLabs TTS Engine class
@@ -92,6 +101,7 @@ export class ElevenLabsTTSEngine implements TTSEngine {
   private processing: boolean = false;
   private retryConfig: Partial<RetryConfig>;
   private onRetryCallback?: TTSRetryCallback;
+  private onTimeoutCallback?: TTSTimeoutCallback;
 
   constructor(config: TTSConfig, elevenLabsConfig?: Partial<ElevenLabsTTSConfig>) {
     this.config = config;
@@ -114,10 +124,32 @@ export class ElevenLabsTTSEngine implements TTSEngine {
   }
 
   /**
+   * Set callback for timeout events (for UI updates)
+   */
+  setTimeoutCallback(callback: TTSTimeoutCallback): void {
+    this.onTimeoutCallback = callback;
+  }
+
+  /**
    * Update retry configuration
    */
   setRetryConfig(config: Partial<RetryConfig>): void {
     this.retryConfig = { ...this.retryConfig, ...config };
+  }
+
+  /**
+   * Set the timeout for TTS generation (in milliseconds)
+   * Default: 15000ms (15 seconds)
+   */
+  setTimeoutMs(timeoutMs: number): void {
+    this.retryConfig.timeoutMs = timeoutMs;
+  }
+
+  /**
+   * Get the current timeout setting (in milliseconds)
+   */
+  getTimeoutMs(): number {
+    return this.retryConfig.timeoutMs ?? SERVICE_TIMEOUTS.TTS;
   }
 
   /**
@@ -154,7 +186,7 @@ export class ElevenLabsTTSEngine implements TTSEngine {
     const controller = new AbortController();
     this.currentAudio = { abort: () => controller.abort() };
 
-    // Use retry wrapper for network resilience
+    // Use retry wrapper for network resilience (with timeout support)
     const result = await withRetry(
       async () => {
         const response = await fetch(url, {
@@ -192,6 +224,13 @@ export class ElevenLabsTTSEngine implements TTSEngine {
             this.onRetryCallback(attempt, maxAttempts, message);
           }
         },
+        onTimeout: (attempt, timeoutMs) => {
+          const message = formatTimeoutMessage('TTS generation', timeoutMs);
+          console.warn(`[ElevenLabs TTS] ${message}`);
+          if (this.onTimeoutCallback) {
+            this.onTimeoutCallback(timeoutMs, message);
+          }
+        },
       }
     );
 
@@ -199,7 +238,14 @@ export class ElevenLabsTTSEngine implements TTSEngine {
     this.currentAudio = null;
 
     if (!result.success) {
-      const errorMessage = result.error?.message || 'Unknown error';
+      const error = result.error;
+      const errorMessage = error?.message || 'Unknown error';
+
+      // Handle timeout errors specifically
+      if (error && isTimeoutError(error)) {
+        console.error(`[ElevenLabs TTS] Timeout after ${error.timeoutMs}ms`);
+        return this.fallbackToMacOS(text, startTime);
+      }
 
       // Check if it was an abort
       if (errorMessage.includes("abort")) {

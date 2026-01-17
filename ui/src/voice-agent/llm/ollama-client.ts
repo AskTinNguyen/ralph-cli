@@ -6,6 +6,13 @@
  */
 
 import type { LLMServerStatus, VoiceAgentConfig } from "../types.js";
+import {
+  withTimeout,
+  SERVICE_TIMEOUTS,
+  TimeoutError,
+  isTimeoutError,
+  formatTimeoutMessage,
+} from "../utils/retry.js";
 
 /**
  * Ollama chat message format
@@ -39,6 +46,9 @@ export interface OllamaChatOptions {
 
   /** Stop sequences */
   stop?: string[];
+
+  /** Timeout in milliseconds (default: 10s for intent classification) */
+  timeoutMs?: number;
 }
 
 /**
@@ -66,7 +76,15 @@ export interface OllamaChatResponse {
 
   /** Error message if failed */
   error?: string;
+
+  /** Whether the error was a timeout */
+  isTimeout?: boolean;
 }
+
+/**
+ * Callback type for timeout events
+ */
+export type OllamaTimeoutCallback = (timeoutMs: number, message: string) => void;
 
 /**
  * Ollama model info
@@ -84,10 +102,35 @@ export interface OllamaModel {
 export class OllamaClient {
   private baseUrl: string;
   private defaultModel: string;
+  private timeoutMs: number;
+  private onTimeoutCallback?: OllamaTimeoutCallback;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
     this.baseUrl = config.ollamaUrl || "http://localhost:11434";
     this.defaultModel = config.ollamaModel || "qwen2.5:1.5b";
+    this.timeoutMs = SERVICE_TIMEOUTS.INTENT; // 10s default for intent classification
+  }
+
+  /**
+   * Set callback for timeout events (for UI updates)
+   */
+  setTimeoutCallback(callback: OllamaTimeoutCallback): void {
+    this.onTimeoutCallback = callback;
+  }
+
+  /**
+   * Set the timeout for LLM operations (in milliseconds)
+   * Default: 10000ms (10 seconds)
+   */
+  setTimeoutMs(timeoutMs: number): void {
+    this.timeoutMs = timeoutMs;
+  }
+
+  /**
+   * Get the current timeout setting (in milliseconds)
+   */
+  getTimeoutMs(): number {
+    return this.timeoutMs;
   }
 
   /**
@@ -166,6 +209,7 @@ export class OllamaClient {
   ): Promise<OllamaChatResponse> {
     const startTime = Date.now();
     const model = options.model || this.defaultModel;
+    const timeoutMs = options.timeoutMs ?? this.timeoutMs;
 
     try {
       const requestBody: Record<string, unknown> = {
@@ -188,29 +232,31 @@ export class OllamaClient {
         (requestBody.options as Record<string, unknown>).stop = options.stop;
       }
 
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // Wrap fetch in timeout
+      const fetchPromise = async () => {
+        const response = await fetch(`${this.baseUrl}/api/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `Ollama API error: ${response.status} - ${errorText}`,
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Ollama API error: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json() as {
+          message?: { content?: string };
+          model?: string;
+          prompt_eval_count?: number;
+          eval_count?: number;
         };
-      }
-
-      const data = await response.json() as {
-        message?: { content?: string };
-        model?: string;
-        prompt_eval_count?: number;
-        eval_count?: number;
       };
+
+      const data = await withTimeout(fetchPromise, timeoutMs, 'Intent classification');
       const duration_ms = Date.now() - startTime;
 
       return {
@@ -225,6 +271,20 @@ export class OllamaClient {
         duration_ms,
       };
     } catch (error) {
+      // Handle timeout errors specifically
+      if (isTimeoutError(error)) {
+        const message = formatTimeoutMessage('Intent classification', error.timeoutMs);
+        console.warn(`[OllamaClient] ${message}`);
+        if (this.onTimeoutCallback) {
+          this.onTimeoutCallback(error.timeoutMs, message);
+        }
+        return {
+          success: false,
+          error: message,
+          isTimeout: true,
+        };
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       return {

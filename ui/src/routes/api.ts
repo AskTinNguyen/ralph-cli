@@ -33,12 +33,30 @@ import path from 'node:path';
 // Sub-routers for modular API organization
 import { agents } from './api/agents.js';
 import { checkpoint } from './api/checkpoint.js';
+import { wizard } from './api/wizard.js';
+import { trends } from './api/trends.js';
+import { tokens } from './api/tokens.js';
+import { realtime } from './api/realtime.js';
+
+// Partials sub-routers for HTML fragments
+import { tokenPartials } from './api/partials/tokens.js';
+import { trendsPartials } from './api/partials/trends.js';
+import { dashboardPartials } from './api/partials/dashboard.js';
 
 const api = new Hono();
 
 // Mount sub-routers for modular API organization
 api.route('/agents', agents);
 api.route('/', checkpoint);
+api.route('/', wizard);
+api.route('/trends', trends);
+api.route('/tokens', tokens);
+api.route('/', realtime);
+
+// Mount partials sub-routers for HTML fragments
+api.route('/partials', tokenPartials);
+api.route('/partials', trendsPartials);
+api.route('/partials', dashboardPartials);
 
 /**
  * Parse AUTO_FIX entries from an activity.log file

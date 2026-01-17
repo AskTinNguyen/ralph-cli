@@ -15,6 +15,9 @@ import type {
 import {
   withRetry,
   formatRetryMessage,
+  formatTimeoutMessage,
+  SERVICE_TIMEOUTS,
+  isTimeoutError,
   type RetryConfig,
 } from '../utils/retry.js';
 
@@ -26,6 +29,7 @@ const DEFAULT_STT_RETRY_CONFIG: Partial<RetryConfig> = {
   initialDelayMs: 1000, // 1s, 2s, 4s
   backoffMultiplier: 2,
   maxDelayMs: 10000,
+  timeoutMs: SERVICE_TIMEOUTS.STT, // 30s default timeout for STT
 };
 
 /**
@@ -38,6 +42,11 @@ export type STTRetryCallback = (
 ) => void;
 
 /**
+ * Callback type for timeout events
+ */
+export type STTTimeoutCallback = (timeoutMs: number, message: string) => void;
+
+/**
  * Client for the Whisper Speech-to-Text server
  */
 export class WhisperClient {
@@ -45,6 +54,7 @@ export class WhisperClient {
   private language?: string;
   private retryConfig: Partial<RetryConfig>;
   private onRetryCallback?: STTRetryCallback;
+  private onTimeoutCallback?: STTTimeoutCallback;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
     this.baseUrl = config.sttServerUrl || 'http://localhost:5001';
@@ -60,10 +70,32 @@ export class WhisperClient {
   }
 
   /**
+   * Set callback for timeout events (for UI updates)
+   */
+  setTimeoutCallback(callback: STTTimeoutCallback): void {
+    this.onTimeoutCallback = callback;
+  }
+
+  /**
    * Update retry configuration
    */
   setRetryConfig(config: Partial<RetryConfig>): void {
     this.retryConfig = { ...this.retryConfig, ...config };
+  }
+
+  /**
+   * Set the timeout for STT transcription (in milliseconds)
+   * Default: 30000ms (30 seconds)
+   */
+  setTimeoutMs(timeoutMs: number): void {
+    this.retryConfig.timeoutMs = timeoutMs;
+  }
+
+  /**
+   * Get the current timeout setting (in milliseconds)
+   */
+  getTimeoutMs(): number {
+    return this.retryConfig.timeoutMs ?? SERVICE_TIMEOUTS.STT;
   }
 
   /**
@@ -143,7 +175,7 @@ export class WhisperClient {
 
     const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-    // Use retry wrapper for network resilience
+    // Use retry wrapper for network resilience (with timeout support)
     const result = await withRetry(
       async () => {
         const response = await fetch(url.toString(), {
@@ -180,11 +212,28 @@ export class WhisperClient {
             this.onRetryCallback(attempt, maxAttempts, message);
           }
         },
+        onTimeout: (attempt, timeoutMs) => {
+          const message = formatTimeoutMessage('STT transcription', timeoutMs);
+          console.warn(`[WhisperClient] ${message}`);
+          if (this.onTimeoutCallback) {
+            this.onTimeoutCallback(timeoutMs, message);
+          }
+        },
       }
     );
 
     if (!result.success) {
-      const errorMessage = result.error?.message || 'Unknown error';
+      const error = result.error;
+      // Provide user-friendly timeout error message
+      if (error && isTimeoutError(error)) {
+        return {
+          success: false,
+          text: '',
+          error: formatTimeoutMessage('STT transcription', error.timeoutMs),
+          isTimeout: true,
+        };
+      }
+      const errorMessage = error?.message || 'Unknown error';
       return {
         success: false,
         text: '',
@@ -224,7 +273,7 @@ export class WhisperClient {
 
     const maxAttempts = this.retryConfig.maxAttempts || 3;
 
-    // Use retry wrapper for network resilience
+    // Use retry wrapper for network resilience (with timeout support)
     const result = await withRetry(
       async () => {
         const response = await fetch(url.toString(), {
@@ -264,11 +313,28 @@ export class WhisperClient {
             this.onRetryCallback(attempt, maxAttempts, message);
           }
         },
+        onTimeout: (attempt, timeoutMs) => {
+          const message = formatTimeoutMessage('STT transcription', timeoutMs);
+          console.warn(`[WhisperClient] ${message}`);
+          if (this.onTimeoutCallback) {
+            this.onTimeoutCallback(timeoutMs, message);
+          }
+        },
       }
     );
 
     if (!result.success) {
-      const errorMessage = result.error?.message || 'Unknown error';
+      const error = result.error;
+      // Provide user-friendly timeout error message
+      if (error && isTimeoutError(error)) {
+        return {
+          success: false,
+          text: '',
+          error: formatTimeoutMessage('STT transcription', error.timeoutMs),
+          isTimeout: true,
+        };
+      }
+      const errorMessage = error?.message || 'Unknown error';
       return {
         success: false,
         text: '',

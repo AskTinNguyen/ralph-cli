@@ -61,6 +61,9 @@ export interface TranscriptionResult {
   /** Error message if failed */
   error?: string;
 
+  /** Whether the error was a timeout */
+  isTimeout?: boolean;
+
   /** Individual segments with timestamps */
   segments?: TranscriptionSegment[];
 }

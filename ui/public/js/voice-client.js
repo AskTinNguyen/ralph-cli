@@ -533,7 +533,11 @@
       } else {
         // Check if error indicates STT server issue
         const errorMsg = result.error || 'Transcription failed';
-        if (errorMsg.includes('STT') || errorMsg.includes('unreachable') || errorMsg.includes('retry')) {
+
+        // Check for timeout error specifically
+        if (result.isTimeout || errorMsg.includes('timed out')) {
+          showTimeoutError('STT transcription', 30, () => processAudio(audioBlob));
+        } else if (errorMsg.includes('STT') || errorMsg.includes('unreachable') || errorMsg.includes('retry')) {
           showNetworkError('STT Server Unreachable', errorMsg);
         } else {
           showError(errorMsg);
@@ -546,6 +550,8 @@
         showNetworkError('STT server unreachable', 'The speech-to-text server is not responding. Please check if the server is running.');
       } else if (error.message.includes('NetworkError') || error.message.includes('network')) {
         showNetworkError('Network Error', 'Unable to connect to the transcription service. Please check your connection.');
+      } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+        showTimeoutError('STT transcription', 30, () => processAudio(audioBlob));
       } else {
         showError('Failed to process audio');
       }
@@ -594,10 +600,23 @@
           await executeIntent(result.intent);
         }
       } else {
-        showError(result.error || 'Intent classification failed');
+        const errorMsg = result.error || 'Intent classification failed';
+        // Check for timeout error
+        if (result.isTimeout || errorMsg.includes('timed out')) {
+          showTimeoutError('Intent classification', 10, () => classifyIntent(text));
+        } else {
+          showError(errorMsg);
+        }
       }
     } catch (error) {
       console.error('Classification failed:', error);
+
+      // Check for timeout error
+      if (error.message && (error.message.includes('timeout') || error.message.includes('timed out'))) {
+        showTimeoutError('Intent classification', 10, () => classifyIntent(text));
+        return;
+      }
+
       // Fall back to mock classification
       const mockIntent = mockClassify(text);
       showIntent(mockIntent);
@@ -1067,6 +1086,100 @@
     const message = `${serviceName} unreachable, retrying... (${attempt}/${maxAttempts})`;
     recordingStatus.textContent = message;
     console.log(`[Retry] ${message}`);
+  }
+
+  /**
+   * Show timeout error with retry option
+   * @param {string} serviceName - Name of the service that timed out (e.g., 'STT transcription')
+   * @param {number} timeoutSeconds - How many seconds before timeout
+   * @param {function} retryCallback - Function to call when retry is clicked
+   */
+  function showTimeoutError(serviceName, timeoutSeconds, retryCallback) {
+    updateState('error');
+    const message = `${serviceName} timed out after ${timeoutSeconds}s`;
+    recordingStatus.textContent = message;
+
+    // Create error display with retry button
+    const errorHtml = `
+      <div style="color: #ff6b6b; margin-bottom: 12px;">
+        <strong>Timeout Error</strong>
+      </div>
+      <div style="margin-bottom: 16px;">
+        ${serviceName} timed out after ${timeoutSeconds} seconds.
+        This may be due to high load or a slow network connection.
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="timeout-retry-btn" style="
+          padding: 8px 20px;
+          background: #4a9eff;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: background 0.2s;
+        ">
+          Retry
+        </button>
+        <button id="timeout-dismiss-btn" style="
+          padding: 8px 20px;
+          background: #444;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">
+          Dismiss
+        </button>
+      </div>
+    `;
+
+    outputDisplay.innerHTML = errorHtml;
+    outputDisplay.style.background = '#3d2f1f';  // Orange-ish for timeout
+
+    // Attach event handlers
+    const retryBtn = document.getElementById('timeout-retry-btn');
+    const dismissBtn = document.getElementById('timeout-dismiss-btn');
+
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        outputDisplay.style.background = '';
+        outputDisplay.innerHTML = '';
+        updateState('idle');
+        recordingStatus.textContent = 'Retrying...';
+        if (typeof retryCallback === 'function') {
+          retryCallback();
+        }
+      });
+
+      // Hover effect
+      retryBtn.addEventListener('mouseenter', () => {
+        retryBtn.style.background = '#3a8adf';
+      });
+      retryBtn.addEventListener('mouseleave', () => {
+        retryBtn.style.background = '#4a9eff';
+      });
+    }
+
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        outputDisplay.style.background = '';
+        outputDisplay.textContent = '';
+        updateState('idle');
+        recordingStatus.textContent = 'Click the microphone to start recording';
+      });
+
+      // Hover effect
+      dismissBtn.addEventListener('mouseenter', () => {
+        dismissBtn.style.background = '#555';
+      });
+      dismissBtn.addEventListener('mouseleave', () => {
+        dismissBtn.style.background = '#444';
+      });
+    }
+
+    console.log(`[Timeout] ${message}`);
   }
 
   /**
