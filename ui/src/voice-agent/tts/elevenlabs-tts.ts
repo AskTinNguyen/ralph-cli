@@ -376,6 +376,59 @@ export class ElevenLabsTTSEngine implements TTSEngine {
       return null;
     }
   }
+
+  /**
+   * Enqueue text for speaking (non-blocking)
+   * Adds text to queue and returns immediately.
+   */
+  enqueue(text: string): void {
+    if (!text || text.trim().length === 0) {
+      return;
+    }
+    this.queue.push(text);
+    this.processQueue();
+  }
+
+  /**
+   * Process the speech queue
+   */
+  private async processQueue(): Promise<void> {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const text = this.queue.shift();
+      if (text) {
+        await this.speak(text);
+      }
+    }
+
+    this.processing = false;
+  }
+
+  /**
+   * Clear pending items in the queue
+   */
+  clearQueue(): void {
+    this.queue = [];
+  }
+
+  /**
+   * Get number of items waiting in queue
+   */
+  getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  /**
+   * Check if queue is actively processing
+   */
+  isProcessing(): boolean {
+    return this.processing;
+  }
 }
 
 /**
