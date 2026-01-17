@@ -46,6 +46,9 @@ import { trendsPartials } from './api/partials/trends.js';
 import { dashboardPartials } from './api/partials/dashboard.js';
 import { estimationPartials } from './api/partials/estimation.js';
 
+// Shared utilities
+import { formatDuration, formatTokens, formatCost } from './utils/formatters.js';
+
 const api = new Hono();
 
 // Mount sub-routers for modular API organization
