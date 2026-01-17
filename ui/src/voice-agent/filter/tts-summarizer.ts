@@ -142,7 +142,7 @@ export class TTSSummarizer {
         throw new Error(`Ollama returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { response?: string };
       const summary = data.response?.trim() || "";
 
       // Clean up any remaining markdown the LLM might have included

@@ -1121,3 +1121,45 @@ voice.post("/tts/config", async (c) => {
     }, 500);
   }
 });
+
+/**
+ * POST /voice/config
+ * Apply full voice configuration (from client settings)
+ * Accepts the complete configuration and persists to .ralph/voice-config.json
+ */
+voice.post("/config", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    // Validate the configuration payload
+    const allowedFields = ["provider", "voice", "rate", "volume", "enabled", "fallbackChain", "providerVoices"];
+    const updates: Record<string, unknown> = {};
+
+    for (const key of Object.keys(body)) {
+      if (allowedFields.includes(key)) {
+        updates[key] = body[key];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return c.json({
+        success: false,
+        error: `No valid fields to update. Allowed: ${allowedFields.join(", ")}`,
+      }, 400);
+    }
+
+    // Apply the configuration via TTS config manager
+    const config = actionRouter.updateTTSConfig(updates);
+
+    return c.json({
+      success: true,
+      message: "Voice configuration applied and persisted",
+      config,
+    });
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to apply configuration",
+    }, 500);
+  }
+});

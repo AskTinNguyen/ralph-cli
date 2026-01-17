@@ -1067,9 +1067,13 @@
 
       if (result.success) {
         ttsEnabledState = enabled;
+        // Save to localStorage
+        localStorage.setItem('ttsEnabled', enabled.toString());
         if (ttsStatusText) {
           ttsStatusText.textContent = enabled ? 'TTS enabled' : 'TTS disabled';
         }
+        // Sync to server for persistence
+        syncSettingsToServer();
       } else {
         // Revert checkbox on failure
         event.target.checked = !enabled;
@@ -1721,17 +1725,33 @@
   }
 
   /**
-   * Load saved settings from localStorage
+   * Load saved settings from localStorage and sync with server
    */
-  function loadSavedSettings() {
-    // Load provider
+  async function loadSavedSettings() {
+    // First, try to load settings from server config
+    let serverConfig = null;
+    try {
+      const response = await fetch(`${API_BASE}/config`);
+      const result = await response.json();
+      if (result.success && result.config) {
+        serverConfig = result.config;
+      }
+    } catch (error) {
+      console.warn('Failed to load server config, using localStorage:', error);
+    }
+
+    // Load provider (prefer localStorage, fall back to server)
     const savedProvider = localStorage.getItem('ttsProvider');
     if (savedProvider && ttsProviderSelect) {
       currentProvider = savedProvider;
       ttsProviderSelect.value = savedProvider;
+    } else if (serverConfig && serverConfig.provider && ttsProviderSelect) {
+      currentProvider = serverConfig.provider;
+      ttsProviderSelect.value = serverConfig.provider;
+      localStorage.setItem('ttsProvider', serverConfig.provider);
     }
 
-    // Load rate
+    // Load rate (prefer localStorage, fall back to server)
     const savedRate = localStorage.getItem('ttsRate');
     if (savedRate) {
       currentRate = parseInt(savedRate, 10);
@@ -1739,9 +1759,16 @@
         rateSlider.value = currentRate;
         updateRateDisplay(currentRate);
       }
+    } else if (serverConfig && serverConfig.rate) {
+      currentRate = serverConfig.rate;
+      if (rateSlider) {
+        rateSlider.value = currentRate;
+        updateRateDisplay(currentRate);
+      }
+      localStorage.setItem('ttsRate', currentRate.toString());
     }
 
-    // Load volume
+    // Load volume (prefer localStorage, fall back to server)
     const savedVolume = localStorage.getItem('ttsVolume');
     if (savedVolume) {
       currentVolume = parseInt(savedVolume, 10);
@@ -1749,12 +1776,69 @@
         volumeSlider.value = currentVolume;
         updateVolumeDisplay(currentVolume);
       }
+    } else if (serverConfig && serverConfig.volume) {
+      // Server stores volume as 0-1, localStorage as 0-100
+      currentVolume = Math.round(serverConfig.volume * 100);
+      if (volumeSlider) {
+        volumeSlider.value = currentVolume;
+        updateVolumeDisplay(currentVolume);
+      }
+      localStorage.setItem('ttsVolume', currentVolume.toString());
     }
 
-    // Load voice (after provider is set)
+    // Load voice (prefer localStorage, fall back to server)
     const savedVoice = localStorage.getItem('ttsVoice');
     if (savedVoice) {
       currentVoice = savedVoice;
+    } else if (serverConfig && serverConfig.voice) {
+      currentVoice = serverConfig.voice;
+      localStorage.setItem('ttsVoice', serverConfig.voice);
+    }
+
+    // Load TTS enabled state (prefer localStorage, fall back to server)
+    const savedEnabled = localStorage.getItem('ttsEnabled');
+    if (savedEnabled !== null) {
+      ttsEnabledState = savedEnabled === 'true';
+      if (ttsEnabled) {
+        ttsEnabled.checked = ttsEnabledState;
+      }
+    } else if (serverConfig && typeof serverConfig.enabled === 'boolean') {
+      ttsEnabledState = serverConfig.enabled;
+      if (ttsEnabled) {
+        ttsEnabled.checked = ttsEnabledState;
+      }
+      localStorage.setItem('ttsEnabled', serverConfig.enabled.toString());
+    }
+
+    // Sync current settings to server to ensure persistence
+    syncSettingsToServer();
+  }
+
+  /**
+   * Sync current localStorage settings to server for persistence
+   */
+  async function syncSettingsToServer() {
+    const config = {
+      provider: currentProvider,
+      voice: currentVoice,
+      rate: currentRate,
+      volume: currentVolume / 100, // Convert to 0-1 range for server
+      enabled: ttsEnabledState
+    };
+
+    try {
+      const response = await fetch(`${API_BASE}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        console.warn('Failed to sync settings to server:', result.error);
+      }
+    } catch (error) {
+      console.warn('Failed to sync settings to server:', error);
     }
   }
 
@@ -1786,6 +1870,9 @@
 
         // Load voices for new provider
         await loadVoicesForProvider(newProvider);
+
+        // Sync to server for persistence
+        syncSettingsToServer();
 
         console.log('TTS provider changed to:', newProvider);
       } else {
@@ -1938,6 +2025,9 @@
           voiceSelect.value = currentVoice;
         }
 
+        // Sync to server for persistence
+        syncSettingsToServer();
+
         console.log('Voice changed to:', currentVoice);
       } else {
         // Revert selection on failure
@@ -1963,10 +2053,11 @@
     // Save to localStorage
     localStorage.setItem('ttsRate', rate.toString());
 
-    // Debounce server update
+    // Debounce server update and sync
     clearTimeout(handleRateChange.timeout);
     handleRateChange.timeout = setTimeout(() => {
       updateServerRate(rate);
+      syncSettingsToServer();
     }, 300);
   }
 
@@ -2017,10 +2108,11 @@
     // Save to localStorage
     localStorage.setItem('ttsVolume', volume.toString());
 
-    // Debounce server update
+    // Debounce server update and sync
     clearTimeout(handleVolumeChange.timeout);
     handleVolumeChange.timeout = setTimeout(() => {
       updateServerVolume(volume);
+      syncSettingsToServer();
     }, 300);
   }
 

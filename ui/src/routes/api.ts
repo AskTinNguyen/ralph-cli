@@ -9525,7 +9525,7 @@ api.get("/partials/critical-alerts", (c) => {
     return c.html('');
   }
 
-  const alertItems = alerts.map((alert) => {
+  const alertItems = alerts.map((alert: { type: string; message: string; action?: string }) => {
     const icon = alert.type === 'budget' ? '💰' :
                  alert.type === 'stalled' ? '⏸️' :
                  alert.type === 'failures' ? '❌' :
@@ -9606,10 +9606,10 @@ api.get("/partials/cost-summary-card", (c) => {
  */
 api.get("/partials/success-rate-card", (c) => {
   const trends = getSuccessRateTrends('7d');
-  const weekOverWeek = getWeekOverWeek('7d');
+  const weekOverWeek = getWeekOverWeek();
 
-  const successRate = trends.averageRate?.toFixed(1) || '0.0';
-  const delta = weekOverWeek.successRateDelta || 0;
+  const successRate = trends.overallSuccessRate?.toFixed(1) || '0.0';
+  const delta = weekOverWeek.delta || 0;
   const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : '';
   const deltaText = delta > 0 ? `▲ +${delta.toFixed(1)}%` : delta < 0 ? `▼ ${delta.toFixed(1)}%` : '—';
 
@@ -9621,7 +9621,7 @@ api.get("/partials/success-rate-card", (c) => {
         ${delta !== 0 ? `<span class="metric-summary-delta ${deltaClass}">${deltaText} from last week</span>` : ''}
       </div>
       <div class="metric-summary-subtext">
-        ${trends.totalCompleted || 0} passed / ${trends.totalAttempted || 0} total
+        ${trends.totalPassed || 0} passed / ${trends.totalRuns || 0} total
       </div>
     </div>
   `);
@@ -9668,16 +9668,17 @@ api.get("/partials/active-streams-card", (c) => {
  * Returns JSON data for cost trend chart.
  */
 api.get("/api/trends/cost", (c) => {
-  const period = c.req.query('period') || '7d';
-  const trend = getCostTrends(period as '7d' | '30d' | '90d' | 'all');
+  const periodParam = c.req.query('period') || '7d';
+  const period: '7d' | '30d' = periodParam === '30d' ? '30d' : '7d';
+  const trend = getCostTrends(period);
 
   // Format for Chart.js
   const labels: string[] = [];
   const values: number[] = [];
 
-  for (const point of trend.dataPoints) {
+  for (const point of trend.dailyMetrics) {
     labels.push(point.date);
-    values.push(point.totalCost);
+    values.push(point.cost);
   }
 
   return c.json({ labels, values, period });
@@ -9689,14 +9690,15 @@ api.get("/api/trends/cost", (c) => {
  * Returns JSON data for velocity trend chart.
  */
 api.get("/api/trends/velocity", (c) => {
-  const period = c.req.query('period') || '7d';
-  const trend = getVelocityTrends(period as '7d' | '30d' | '90d' | 'all');
+  const periodParam = c.req.query('period') || '7d';
+  const period: '7d' | '30d' = periodParam === '30d' ? '30d' : '7d';
+  const trend = getVelocityTrends(period);
 
   // Format for Chart.js
   const labels: string[] = [];
   const values: number[] = [];
 
-  for (const point of trend.dataPoints) {
+  for (const point of trend.velocityMetrics) {
     labels.push(point.date);
     values.push(point.storiesCompleted);
   }
@@ -9710,16 +9712,17 @@ api.get("/api/trends/velocity", (c) => {
  * Returns JSON data for success rate trend chart.
  */
 api.get("/api/trends/success-rate", (c) => {
-  const period = c.req.query('period') || '7d';
-  const trend = getSuccessRateTrends(period as '7d' | '30d' | '90d' | 'all');
+  const periodParam = c.req.query('period') || '7d';
+  const period: '7d' | '30d' = periodParam === '30d' ? '30d' : '7d';
+  const trend = getSuccessRateTrends(period);
 
   // Format for Chart.js
   const labels: string[] = [];
   const values: number[] = [];
 
-  for (const point of trend.dataPoints) {
+  for (const point of trend.dailyMetrics) {
     labels.push(point.date);
-    values.push(point.successRate);
+    values.push(point.successRate ?? 0);
   }
 
   return c.json({ labels, values, period });
