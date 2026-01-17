@@ -933,6 +933,25 @@ export class ActionRouter {
   }
 
   /**
+   * Get current TTS voice
+   */
+  getTTSVoice(): string {
+    if (!this.ttsEngine) {
+      return "alba";
+    }
+    return this.ttsEngine.getConfig().voice;
+  }
+
+  /**
+   * Set TTS voice
+   */
+  setTTSVoice(voice: string): void {
+    if (this.ttsEngine) {
+      this.ttsEngine.updateConfig({ voice });
+    }
+  }
+
+  /**
    * Get Claude Code executor for direct access
    */
   getClaudeCodeExecutor(): ClaudeCodeExecutor {
