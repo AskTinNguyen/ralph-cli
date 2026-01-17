@@ -148,7 +148,7 @@ cleanup_acknowledgment_processes() {
   pkill -f "transcript-watcher.mjs" 2>/dev/null || true
 
   # Remove watcher PID file
-  rm -f "${RALPH_ROOT}/.ralph/transcript-watcher.pid" 2>/dev/null || true
+  rm -f "${RALPH_DIR}/transcript-watcher.pid" 2>/dev/null || true
 
   log "Acknowledgment processes stopped"
 }
