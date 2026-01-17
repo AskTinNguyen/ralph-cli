@@ -50,6 +50,108 @@ voice.get("/health", async (c) => {
   });
 });
 
+// ============================================
+// Queue Management Routes
+// ============================================
+
+/**
+ * GET /voice/queue/status
+ * Get current queue status for voice access coordination
+ *
+ * Returns information about:
+ * - Current lock holder (if any)
+ * - Queue of waiting CLI sessions
+ * - This process's position in queue
+ */
+voice.get("/queue/status", (c) => {
+  const status = voiceProcessManager.getQueueStatus();
+  return c.json({
+    ...status,
+    cliId: voiceProcessManager.getCliId(),
+    hasVoiceAccess: voiceProcessManager.hasVoiceAccess(),
+  });
+});
+
+/**
+ * GET /voice/queue/status/formatted
+ * Get formatted queue status for display
+ */
+voice.get("/queue/status/formatted", (c) => {
+  const formatted = voiceProcessManager.getQueueStatusFormatted();
+  return c.text(formatted);
+});
+
+/**
+ * POST /voice/queue/request
+ * Request voice access through the queue
+ *
+ * Body options:
+ * - timeout: Max time to wait in ms (default: 30000)
+ * - priority: Lower number = higher priority (default: 100)
+ * - waitForTurn: If false, just joins queue without blocking (default: true)
+ */
+voice.post("/queue/request", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { timeout, priority, waitForTurn } = body;
+
+  const result = await voiceProcessManager.requestVoiceAccess({
+    timeout,
+    priority,
+    waitForTurn: waitForTurn !== false,
+  });
+
+  return c.json({
+    ...result,
+    cliId: voiceProcessManager.getCliId(),
+  });
+});
+
+/**
+ * POST /voice/queue/release
+ * Release voice access, allowing next in queue to proceed
+ */
+voice.post("/queue/release", (c) => {
+  const result = voiceProcessManager.releaseVoiceAccess();
+  return c.json({
+    ...result,
+    cliId: voiceProcessManager.getCliId(),
+  });
+});
+
+/**
+ * POST /voice/queue/join
+ * Join the voice queue without blocking
+ *
+ * Body options:
+ * - priority: Lower number = higher priority (default: 100)
+ */
+voice.post("/queue/join", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { priority } = body;
+
+  const result = voiceProcessManager.joinVoiceQueue(priority);
+  return c.json({
+    ...result,
+    cliId: voiceProcessManager.getCliId(),
+  });
+});
+
+/**
+ * POST /voice/queue/leave
+ * Leave the voice queue (give up waiting)
+ */
+voice.post("/queue/leave", (c) => {
+  const result = voiceProcessManager.leaveVoiceQueue();
+  return c.json({
+    ...result,
+    cliId: voiceProcessManager.getCliId(),
+  });
+});
+
+// ============================================
+// STT Server Routes
+// ============================================
+
 /**
  * POST /voice/stt/start
  * Start the Whisper STT server
@@ -323,8 +425,44 @@ voice.get("/wake-word/status", async (c) => {
 /**
  * POST /voice/session
  * Create a new voice session
+ *
+ * Body options:
+ * - requireQueueAccess: If true, waits for queue access before creating session (default: false)
+ * - queueTimeout: Max time to wait for queue access in ms (default: 30000)
+ * - queuePriority: Lower number = higher priority (default: 100)
  */
-voice.post("/session", (c) => {
+voice.post("/session", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { requireQueueAccess, queueTimeout, queuePriority } = body;
+
+  // If queue access is required, use the queue-aware session creation
+  if (requireQueueAccess) {
+    const result = await voiceProcessManager.createSessionWithQueueAccess({
+      timeout: queueTimeout,
+      priority: queuePriority,
+    });
+
+    if (!result.granted) {
+      return c.json({
+        success: false,
+        error: "Could not acquire voice access",
+        message: result.message,
+        queuePosition: result.queuePosition,
+        cliId: voiceProcessManager.getCliId(),
+      }, 503);
+    }
+
+    return c.json({
+      success: true,
+      sessionId: result.session!.id,
+      state: result.session!.state,
+      sseUrl: `/api/voice/session/${result.session!.id}/events`,
+      cliId: voiceProcessManager.getCliId(),
+      hasVoiceAccess: true,
+    });
+  }
+
+  // Regular session creation (no queue coordination)
   const { session, eventEmitter } = voiceProcessManager.createSession();
 
   return c.json({
@@ -332,6 +470,8 @@ voice.post("/session", (c) => {
     sessionId: session.id,
     state: session.state,
     sseUrl: `/api/voice/session/${session.id}/events`,
+    cliId: voiceProcessManager.getCliId(),
+    hasVoiceAccess: voiceProcessManager.hasVoiceAccess(),
   });
 });
 

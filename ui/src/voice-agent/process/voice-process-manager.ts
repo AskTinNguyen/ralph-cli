@@ -5,6 +5,7 @@
  * - Whisper STT server
  * - Voice sessions
  * - Command execution
+ * - Cross-process queue coordination (prevents concurrent voice agents)
  *
  * Uses EventEmitter pattern for streaming output to clients.
  */
@@ -22,6 +23,12 @@ import type {
   VoiceAgentConfig,
   DEFAULT_VOICE_CONFIG,
 } from "../types.js";
+import {
+  GlobalVoiceQueue,
+  createGlobalVoiceQueue,
+  type QueueStatus,
+  type QueueEvent,
+} from "./global-voice-queue.js";
 
 /**
  * Voice event types for SSE streaming
@@ -35,7 +42,12 @@ export type VoiceEventType =
   | "execution_start"
   | "execution_output"
   | "execution_complete"
-  | "error";
+  | "error"
+  | "queue_status"
+  | "queue_position_changed"
+  | "voice_access_granted"
+  | "voice_access_denied"
+  | "voice_access_waiting";
 
 /**
  * Voice event data for SSE streaming
@@ -69,11 +81,16 @@ interface SessionState {
 
 /**
  * Voice Process Manager singleton
+ *
+ * Now includes cross-process queue coordination to prevent multiple
+ * Claude Code CLI sessions from triggering concurrent voice agents.
  */
 class VoiceProcessManager {
   private sttServer: STTServerProcess | null = null;
   private sessions: Map<string, SessionState> = new Map();
   private config: VoiceAgentConfig;
+  private queue: GlobalVoiceQueue;
+  private hasVoiceLock: boolean = false;
 
   constructor(config: Partial<VoiceAgentConfig> = {}) {
     this.config = {
@@ -85,6 +102,39 @@ class VoiceProcessManager {
       silenceThreshold: config.silenceThreshold || 0.01,
       silenceTimeout: config.silenceTimeout || 1500,
     };
+
+    // Initialize cross-process queue
+    this.queue = createGlobalVoiceQueue();
+
+    // Listen for queue events and forward to sessions
+    this.setupQueueEventForwarding();
+  }
+
+  /**
+   * Forward queue events to all active sessions
+   */
+  private setupQueueEventForwarding(): void {
+    this.queue.on("queue_position_changed", (event: QueueEvent) => {
+      for (const [sessionId] of this.sessions) {
+        this.emitEvent(sessionId, "queue_position_changed", {
+          position: event.data.position,
+          cliId: event.cliId,
+        });
+      }
+    });
+
+    this.queue.on("lock_acquired", (event: QueueEvent) => {
+      this.hasVoiceLock = true;
+      for (const [sessionId] of this.sessions) {
+        this.emitEvent(sessionId, "voice_access_granted", {
+          cliId: event.cliId,
+        });
+      }
+    });
+
+    this.queue.on("lock_released", (event: QueueEvent) => {
+      this.hasVoiceLock = false;
+    });
   }
 
   /**
@@ -490,10 +540,246 @@ class VoiceProcessManager {
   updateConfig(updates: Partial<VoiceAgentConfig>): void {
     this.config = { ...this.config, ...updates };
   }
+
+  // ============================================
+  // Cross-Process Queue Management
+  // ============================================
+
+  /**
+   * Request voice access through the global queue.
+   * This must be called before using voice features to ensure
+   * only one CLI session uses voice at a time.
+   *
+   * @param options Configuration for the request
+   * @returns Result indicating if access was granted or queued
+   */
+  async requestVoiceAccess(options: {
+    timeout?: number;
+    priority?: number;
+    waitForTurn?: boolean;
+    onPositionChange?: (position: number) => void;
+  } = {}): Promise<{
+    granted: boolean;
+    message: string;
+    queuePosition?: number;
+  }> {
+    const { timeout = 30000, priority, waitForTurn = true, onPositionChange } = options;
+
+    // First, try to acquire immediately
+    const immediateResult = this.queue.tryAcquireLock();
+    if (immediateResult.success) {
+      this.hasVoiceLock = true;
+      console.log("[VoiceProcessManager] Voice access granted immediately");
+      return { granted: true, message: "Voice access granted" };
+    }
+
+    // If not waiting, just report queue position
+    if (!waitForTurn) {
+      const joinResult = this.queue.joinQueue(priority);
+      return {
+        granted: false,
+        message: `Queued for voice access at position ${joinResult.position}`,
+        queuePosition: joinResult.position,
+      };
+    }
+
+    // Wait for our turn
+    console.log("[VoiceProcessManager] Waiting for voice access...");
+    const waitResult = await this.queue.waitForLock({
+      timeout,
+      priority,
+      onPositionChange: (pos) => {
+        onPositionChange?.(pos);
+        // Emit to all sessions
+        for (const [sessionId] of this.sessions) {
+          this.emitEvent(sessionId, "voice_access_waiting", {
+            position: pos,
+          });
+        }
+      },
+    });
+
+    if (waitResult.success) {
+      this.hasVoiceLock = true;
+      console.log("[VoiceProcessManager] Voice access granted after waiting");
+      return { granted: true, message: "Voice access granted" };
+    }
+
+    return {
+      granted: false,
+      message: waitResult.message,
+      queuePosition: this.queue.getStatus().myPosition ?? undefined,
+    };
+  }
+
+  /**
+   * Release voice access, allowing the next CLI in queue to proceed.
+   * Should be called when done with voice operations.
+   */
+  releaseVoiceAccess(): { success: boolean; message: string } {
+    if (!this.hasVoiceLock) {
+      return { success: true, message: "Not holding voice access" };
+    }
+
+    const result = this.queue.releaseLock();
+    if (result.success) {
+      this.hasVoiceLock = false;
+      console.log("[VoiceProcessManager] Voice access released");
+    }
+    return result;
+  }
+
+  /**
+   * Check if this process currently has voice access
+   */
+  hasVoiceAccess(): boolean {
+    return this.hasVoiceLock;
+  }
+
+  /**
+   * Get current queue status
+   */
+  getQueueStatus(): QueueStatus {
+    return this.queue.getStatus();
+  }
+
+  /**
+   * Get formatted queue status for display
+   */
+  getQueueStatusFormatted(): string {
+    return this.queue.formatStatus();
+  }
+
+  /**
+   * Get the CLI identifier for this process
+   */
+  getCliId(): string {
+    return this.queue.getCliId();
+  }
+
+  /**
+   * Join the voice queue without blocking
+   * Useful for registering interest in voice access
+   */
+  joinVoiceQueue(priority?: number): {
+    success: boolean;
+    position: number;
+    message: string;
+  } {
+    return this.queue.joinQueue(priority);
+  }
+
+  /**
+   * Leave the voice queue (give up waiting)
+   */
+  leaveVoiceQueue(): { success: boolean; message: string } {
+    return this.queue.leaveQueue();
+  }
+
+  /**
+   * Start watching for queue changes
+   * Useful for long-running sessions that want real-time updates
+   */
+  startQueueWatcher(): void {
+    this.queue.startWatching();
+  }
+
+  /**
+   * Stop watching for queue changes
+   */
+  stopQueueWatcher(): void {
+    this.queue.stopWatching();
+  }
+
+  /**
+   * Clean up all resources including queue state
+   * Should be called on process shutdown
+   */
+  cleanup(): void {
+    // Release voice lock if held
+    if (this.hasVoiceLock) {
+      this.releaseVoiceAccess();
+    }
+
+    // Clean up queue resources
+    this.queue.cleanup();
+
+    // Close all sessions
+    for (const sessionId of this.sessions.keys()) {
+      this.closeSession(sessionId);
+    }
+
+    // Stop STT server if running
+    if (this.sttServer) {
+      this.stopSTTServer();
+    }
+
+    console.log("[VoiceProcessManager] Cleanup complete");
+  }
+
+  /**
+   * Create a session with automatic voice queue handling.
+   * This is the recommended way to create sessions when queue
+   * coordination is needed.
+   *
+   * @param options Session creation options
+   */
+  async createSessionWithQueueAccess(options: {
+    timeout?: number;
+    priority?: number;
+  } = {}): Promise<{
+    session: VoiceSession | null;
+    eventEmitter: EventEmitter | null;
+    granted: boolean;
+    message: string;
+    queuePosition?: number;
+  }> {
+    // Request voice access first
+    const accessResult = await this.requestVoiceAccess({
+      timeout: options.timeout,
+      priority: options.priority,
+      waitForTurn: true,
+    });
+
+    if (!accessResult.granted) {
+      return {
+        session: null,
+        eventEmitter: null,
+        granted: false,
+        message: accessResult.message,
+        queuePosition: accessResult.queuePosition,
+      };
+    }
+
+    // Create the session now that we have access
+    const { session, eventEmitter } = this.createSession();
+
+    return {
+      session,
+      eventEmitter,
+      granted: true,
+      message: "Session created with voice access",
+    };
+  }
 }
 
 // Export singleton instance
 export const voiceProcessManager = new VoiceProcessManager();
+
+// Handle process cleanup
+process.on("exit", () => {
+  voiceProcessManager.cleanup();
+});
+
+process.on("SIGINT", () => {
+  voiceProcessManager.cleanup();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  voiceProcessManager.cleanup();
+  process.exit(0);
+});
 
 // Export class for testing
 export { VoiceProcessManager };
