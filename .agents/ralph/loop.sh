@@ -93,10 +93,11 @@ fi
 # PRD folder helpers - each plan gets its own PRD-N folder
 RALPH_DIR=".ralph"
 
-get_next_prd_number() {
+# Find the highest PRD number in the .ralph directory
+# Returns 0 if no PRD folders exist
+find_max_prd_number() {
   local max=0
   if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
     for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
       if [[ -d "$dir" ]]; then
         local num="${dir##*[Pp][Rr][Dd]-}"
@@ -106,22 +107,16 @@ get_next_prd_number() {
       fi
     done
   fi
-  echo $((max + 1))
+  echo "$max"
+}
+
+get_next_prd_number() {
+  echo $(($(find_max_prd_number) + 1))
 }
 
 get_latest_prd_number() {
-  local max=0
-  if [[ -d "$RALPH_DIR" ]]; then
-    # Check both PRD-N (new) and prd-N (legacy) folders
-    for dir in "$RALPH_DIR"/PRD-* "$RALPH_DIR"/prd-*; do
-      if [[ -d "$dir" ]]; then
-        local num="${dir##*[Pp][Rr][Dd]-}"
-        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > max )); then
-          max=$num
-        fi
-      fi
-    done
-  fi
+  local max
+  max=$(find_max_prd_number)
   if (( max == 0 )); then
     echo ""
   else
@@ -443,34 +438,20 @@ cleanup_temp_files() {
 }
 
 # Tee with heartbeat: writes to stdout and log file while updating heartbeat (US-009)
-# Usage: cmd 2>&1 | tee_with_heartbeat <log_file> <append_mode>
-# append_mode: "append" to append to log, anything else to overwrite
+# Usage: cmd 2>&1 | tee_with_heartbeat <log_file> [append]
 tee_with_heartbeat() {
   local log_file="$1"
   local append_mode="${2:-}"
   local prd_folder="${PRD_FOLDER:-}"
 
-  if [ "$append_mode" = "append" ]; then
-    while IFS= read -r line; do
-      echo "$line"
-      echo "$line" >> "$log_file"
-      # Update heartbeat on every line of output (US-009)
-      if [ -n "$prd_folder" ]; then
-        update_heartbeat "$prd_folder"
-      fi
-    done
-  else
-    # Clear/create log file first
-    : > "$log_file"
-    while IFS= read -r line; do
-      echo "$line"
-      echo "$line" >> "$log_file"
-      # Update heartbeat on every line of output (US-009)
-      if [ -n "$prd_folder" ]; then
-        update_heartbeat "$prd_folder"
-      fi
-    done
-  fi
+  # Initialize log file (clear unless appending)
+  [ "$append_mode" != "append" ] && : > "$log_file"
+
+  while IFS= read -r line; do
+    echo "$line"
+    echo "$line" >> "$log_file"
+    [ -n "$prd_folder" ] && update_heartbeat "$prd_folder"
+  done
 }
 
 # Retry wrapper for agent execution
@@ -1423,88 +1404,42 @@ select_story_locked() {
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TypeScript Story Selection Integration (US-015)
-# Provides reliable, testable story parsing and atomic lock+select operations
+# NOTE: The TypeScript module is now integrated into the main functions above
+# (select_story, remaining_stories, story_field, select_story_locked).
+# The _ts variants below are kept for backwards compatibility only.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Check if TypeScript story module is available
-# Returns 0 if available, 1 otherwise
-story_ts_available() {
-  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
-  if command -v node >/dev/null 2>&1 && [ -f "$story_cli" ]; then
-    return 0
-  fi
-  return 1
-}
-
-# Select next story using TypeScript module with atomic locking (US-015)
-# Falls back to bash implementation if Node.js not available
-# Usage: select_story_ts "$prd_path" "$meta_out" "$block_out"
+# Backwards-compatible wrappers (delegate to main functions which already use TS)
 select_story_ts() {
-  local prd_path="$1"
-  local meta_out="$2"
-  local block_out="$3"
-  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
-
-  if story_ts_available; then
-    # Use TypeScript module with atomic locking
-    if node "$story_cli" select-and-lock "$prd_path" "$meta_out" "$block_out" >/dev/null 2>&1; then
-      return 0
-    else
-      # Fall back to bash if TypeScript fails
-      log_activity "STORY_TS_FALLBACK reason=select_failed prd=$prd_path"
-    fi
-  fi
-
-  # Fallback to bash implementation
   local prd_folder
-  prd_folder="$(dirname "$prd_path")"
-  select_story_locked "$prd_folder" "$meta_out" "$block_out"
+  prd_folder="$(dirname "$1")"
+  select_story_locked "$prd_folder" "$2" "$3"
 }
 
-# Get remaining story count using TypeScript module (US-015)
-# Usage: remaining=$(remaining_stories_ts "$prd_path")
 remaining_stories_ts() {
-  local prd_path="$1"
-  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
-
-  if story_ts_available; then
-    node "$story_cli" remaining "$prd_path" 2>/dev/null
-    return $?
-  fi
-
-  # Fallback to bash implementation via meta file
   remaining_stories "$1"
 }
 
-# Extract field from story metadata using TypeScript module (US-015)
-# Usage: story_id=$(story_field_ts "$meta_file" "id")
 story_field_ts() {
-  local meta_file="$1"
-  local field="$2"
-  local story_cli="${SCRIPT_DIR}/../../lib/story/cli.js"
-
-  if story_ts_available; then
-    node "$story_cli" field "$meta_file" "$field" 2>/dev/null
-    return $?
-  fi
-
-  # Fallback to bash implementation
-  story_field "$meta_file" "$field"
+  story_field "$1" "$2"
 }
 
-# Get path to state CLI
-# Returns path to lib/state/cli.js or empty if not available
-get_state_cli() {
-  local state_cli
+# Get path to a lib CLI script (returns empty if unavailable)
+# Usage: cli=$(get_lib_cli "tokens/router-cli.js")
+get_lib_cli() {
+  local rel_path="$1"
+  local cli_path
   if [[ -n "${RALPH_ROOT:-}" ]]; then
-    state_cli="$RALPH_ROOT/lib/state/cli.js"
+    cli_path="$RALPH_ROOT/lib/$rel_path"
   else
-    state_cli="$SCRIPT_DIR/../../lib/state/cli.js"
+    cli_path="$SCRIPT_DIR/../../lib/$rel_path"
   fi
+  [ -f "$cli_path" ] && command -v node >/dev/null 2>&1 && echo "$cli_path"
+}
 
-  if [ -f "$state_cli" ] && command -v node >/dev/null 2>&1; then
-    echo "$state_cli"
-  fi
+# Get path to state CLI (wrapper for backwards compatibility)
+get_state_cli() {
+  get_lib_cli "state/cli.js"
 }
 
 # Transactional log_activity using BuildStateManager (US-016)
@@ -1566,36 +1501,27 @@ log_error() {
   echo "[$timestamp] $message" >> "$ERRORS_LOG_PATH"
 }
 
+# Get path to checkpoint CLI (returns empty if unavailable)
+get_checkpoint_cli() {
+  get_lib_cli "checkpoint/cli.js"
+}
+
 # Save checkpoint before story execution for resumable builds
-# Usage: save_checkpoint <prd-folder> <prd-id> <iteration> <story-id> <git-sha> [agent] [total-cost]
 save_checkpoint() {
-  local prd_folder="$1"
-  local prd_id="$2"
-  local iteration="$3"
-  local story_id="$4"
-  local git_sha="$5"
-  local agent="${6:-codex}"
-  local total_cost="${7:-0}"
+  local prd_folder="$1" prd_id="$2" iteration="$3" story_id="$4" git_sha="$5"
+  local agent="${6:-codex}" total_cost="${7:-0}"
 
   local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
-
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
+  checkpoint_cli=$(get_checkpoint_cli)
+  if [ -z "$checkpoint_cli" ]; then
     msg_dim "Checkpoint CLI not available, skipping checkpoint save"
     return 0
   fi
 
-  # Build JSON data with cost tracking (US-007)
   local json_data
   json_data=$(printf '{"prd_id":%s,"iteration":%s,"story_id":"%s","git_sha":"%s","loop_state":{"agent":"%s","total_cost":%s}}' \
     "$prd_id" "$iteration" "$story_id" "$git_sha" "$agent" "${total_cost:-0}")
 
-  # Save checkpoint via CLI
   if node "$checkpoint_cli" save "$prd_folder" "$json_data" >/dev/null 2>&1; then
     msg_dim "Checkpoint saved: iteration=$iteration story=$story_id"
     return 0
@@ -1606,69 +1532,37 @@ save_checkpoint() {
 }
 
 # Clear checkpoint from PRD folder (called on successful completion)
-# Usage: clear_checkpoint <prd-folder>
 clear_checkpoint() {
   local prd_folder="$1"
-
   local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
+  checkpoint_cli=$(get_checkpoint_cli)
+  [ -z "$checkpoint_cli" ] && return 0
 
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
-    return 0
-  fi
-
-  # Clear checkpoint via CLI (silent - don't warn on failure)
   if node "$checkpoint_cli" clear "$prd_folder" >/dev/null 2>&1; then
     msg_dim "Checkpoint cleared (build complete)"
     return 0
-  else
-    return 1
   fi
+  return 1
 }
 
 # Load checkpoint from PRD folder for resumable builds
-# Returns: Sets CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA
-# Exit code: 0 if checkpoint loaded, 1 if not found or error
+# Sets: CHECKPOINT_ITERATION, CHECKPOINT_STORY_ID, CHECKPOINT_GIT_SHA, CHECKPOINT_AGENT
 load_checkpoint() {
   local prd_folder="$1"
-
   local checkpoint_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    checkpoint_cli="$RALPH_ROOT/lib/checkpoint/cli.js"
-  else
-    checkpoint_cli="$SCRIPT_DIR/../../lib/checkpoint/cli.js"
-  fi
+  checkpoint_cli=$(get_checkpoint_cli)
+  [ -z "$checkpoint_cli" ] && return 1
 
-  # Check if checkpoint CLI exists
-  if [ ! -f "$checkpoint_cli" ] || ! command -v node >/dev/null 2>&1; then
-    return 1
-  fi
-
-  # Load checkpoint via CLI
   local output
-  output=$(node "$checkpoint_cli" load "$prd_folder" 2>/dev/null)
-  local status=$?
+  output=$(node "$checkpoint_cli" load "$prd_folder" 2>/dev/null) || return 1
 
-  if [ $status -ne 0 ]; then
-    return 1
-  fi
-
-  # Parse JSON output using Python (more reliable than bash parsing)
+  # Parse JSON output using Python
   CHECKPOINT_ITERATION=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('iteration', ''))" 2>/dev/null)
   CHECKPOINT_STORY_ID=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('story_id', ''))" 2>/dev/null)
   CHECKPOINT_GIT_SHA=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('git_sha', ''))" 2>/dev/null)
   CHECKPOINT_AGENT=$(echo "$output" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('loop_state', {}).get('agent', 'codex'))" 2>/dev/null)
 
-  if [ -n "$CHECKPOINT_ITERATION" ]; then
-    return 0
-  else
-    return 1
-  fi
+  [ -n "$CHECKPOINT_ITERATION" ]
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1676,154 +1570,94 @@ load_checkpoint() {
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Detect test failures in build output
+# Helper: Check if log file matches any of the given patterns
+# Usage: match_patterns <log_file> <pattern1> [pattern2] ...
+# Returns: 0 if any pattern matches, 1 otherwise
+match_patterns() {
+  local log_file="$1"
+  shift
+  for pattern in "$@"; do
+    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Returns: 0 if test failure detected, 1 if no test failure
-# Usage: detect_test_failure <log_file>
 detect_test_failure() {
   local log_file="$1"
-
-  if [ ! -f "$log_file" ]; then
-    return 1
-  fi
-
-  # Common test failure patterns across various frameworks
-  # Jest: "Tests: X failed"
-  # Mocha: "X failing"
-  # Pytest: "X failed"
-  # npm test: "npm ERR!" with test context
-  # Go test: "FAIL" or "--- FAIL:"
-  # Vitest: "Tests: X failed"
-  # Bun test: "X fail"
-  local patterns=(
-    "Tests:.*[0-9]+ failed"           # Jest, Vitest
-    "[0-9]+ failing"                   # Mocha
-    "FAILED.*test"                     # Pytest
-    "^FAIL\t"                          # Go test (FAIL<tab>package)
-    "--- FAIL:"                        # Go test detailed
-    "npm ERR!.*test"                   # npm test failure
-    "test.*failed"                     # Generic test failure
-    "AssertionError"                   # Node.js assertion
-    "Error: expect"                    # Jest/Vitest expect failure
-    "✗.*test"                          # Various test runners
-    "[0-9]+ test.*fail"                # Bun and others
-    "FAIL.*\\.test\\."                 # Test file failure patterns
-    "FAIL.*\\.spec\\."                 # Spec file failure patterns
-    "exit status [1-9]"                # Go test exit status
-  )
-
-  for pattern in "${patterns[@]}"; do
-    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
-      return 0  # Test failure detected
-    fi
-  done
-
-  return 1  # No test failure detected
+  [ ! -f "$log_file" ] && return 1
+  match_patterns "$log_file" \
+    "Tests:.*[0-9]+ failed" \
+    "[0-9]+ failing" \
+    "FAILED.*test" \
+    "^FAIL\t" \
+    "--- FAIL:" \
+    "npm ERR!.*test" \
+    "test.*failed" \
+    "AssertionError" \
+    "Error: expect" \
+    "✗.*test" \
+    "[0-9]+ test.*fail" \
+    "FAIL.*\\.test\\." \
+    "FAIL.*\\.spec\\." \
+    "exit status [1-9]"
 }
 
-# Detect lint failures in build output (US-003)
 # Returns: 0 if lint failure detected, 1 if no lint failure
-# Usage: detect_lint_failure <log_file>
 detect_lint_failure() {
   local log_file="$1"
-
-  if [ ! -f "$log_file" ]; then
-    return 1
-  fi
-
-  # Common lint failure patterns across various linters
-  local patterns=(
-    "error.*eslint"                    # ESLint
-    "eslint.*error"                    # ESLint (alternate order)
-    "[0-9]+ error"                     # ESLint summary
-    "prettier.*failed"                 # Prettier
-    "prettier.*check.*failed"          # Prettier check mode
-    "ruff.*error"                      # Ruff (Python)
-    "pylint.*error"                    # Pylint
-    "flake8.*error"                    # Flake8
-    "rubocop.*offense"                 # RuboCop (Ruby)
-    "stylelint.*error"                 # Stylelint (CSS)
-    "golangci-lint.*error"             # golangci-lint (Go)
-    "lint.*failed"                     # Generic lint failure
-    "linting.*failed"                  # Generic linting failure
-    "Linting errors"                   # Generic linting errors
-  )
-
-  for pattern in "${patterns[@]}"; do
-    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
-      return 0  # Lint failure detected
-    fi
-  done
-
-  return 1  # No lint failure detected
+  [ ! -f "$log_file" ] && return 1
+  match_patterns "$log_file" \
+    "error.*eslint" \
+    "eslint.*error" \
+    "[0-9]+ error" \
+    "prettier.*failed" \
+    "prettier.*check.*failed" \
+    "ruff.*error" \
+    "pylint.*error" \
+    "flake8.*error" \
+    "rubocop.*offense" \
+    "stylelint.*error" \
+    "golangci-lint.*error" \
+    "lint.*failed" \
+    "linting.*failed" \
+    "Linting errors"
 }
 
-# Detect type check failures in build output (US-003)
 # Returns: 0 if type failure detected, 1 if no type failure
-# Usage: detect_type_failure <log_file>
 detect_type_failure() {
   local log_file="$1"
-
-  if [ ! -f "$log_file" ]; then
-    return 1
-  fi
-
-  # Common type check failure patterns
-  local patterns=(
-    "error TS[0-9]+"                   # TypeScript errors
-    "tsc.*error"                       # TypeScript compiler
-    "Type.*is not assignable"          # TypeScript type error
-    "Cannot find module"               # TypeScript/JavaScript import error
-    "Cannot find name"                 # TypeScript undefined error
-    "mypy.*error"                      # mypy (Python)
-    "pyright.*error"                   # Pyright (Python)
-    "type.*mismatch"                   # Generic type mismatch
-    "incompatible type"                # Generic incompatible type
-    "error\\[E[0-9]+"                  # Rust compiler errors
-    "flow.*error"                      # Flow (JavaScript)
-  )
-
-  for pattern in "${patterns[@]}"; do
-    if grep -qiE "$pattern" "$log_file" 2>/dev/null; then
-      return 0  # Type failure detected
-    fi
-  done
-
-  return 1  # No type failure detected
+  [ ! -f "$log_file" ] && return 1
+  match_patterns "$log_file" \
+    "error TS[0-9]+" \
+    "tsc.*error" \
+    "Type.*is not assignable" \
+    "Cannot find module" \
+    "Cannot find name" \
+    "mypy.*error" \
+    "pyright.*error" \
+    "type.*mismatch" \
+    "incompatible type" \
+    "error\\[E[0-9]+" \
+    "flow.*error"
 }
 
 # Unified failure detection based on ROLLBACK_TRIGGER config (US-003)
 # Returns: 0 if relevant failure detected (based on config), 1 otherwise
-# Usage: detect_failure <log_file> <trigger_policy>
 detect_failure() {
   local log_file="$1"
   local trigger_policy="${2:-test-fail}"
 
-  if [ ! -f "$log_file" ]; then
-    return 1
-  fi
+  [ ! -f "$log_file" ] && return 1
 
   case "$trigger_policy" in
-    test-fail)
-      detect_test_failure "$log_file"
-      return $?
-      ;;
-    lint-fail)
-      detect_lint_failure "$log_file"
-      return $?
-      ;;
-    type-fail)
-      detect_type_failure "$log_file"
-      return $?
-      ;;
-    any-fail)
-      # any-fail triggers on any non-zero exit, no log analysis needed
-      # The caller already checks CMD_STATUS != 0, so we always return 0 here
-      return 0
-      ;;
-    *)
-      # Unknown trigger policy, fall back to test-fail
-      detect_test_failure "$log_file"
-      return $?
-      ;;
+    test-fail) detect_test_failure "$log_file" ;;
+    lint-fail) detect_lint_failure "$log_file" ;;
+    type-fail) detect_type_failure "$log_file" ;;
+    any-fail)  return 0 ;;  # Caller already checks CMD_STATUS != 0
+    *)         detect_test_failure "$log_file" ;;
   esac
 }
 
@@ -2311,21 +2145,13 @@ get_routing_decision() {
   local story_file="$1"
   local override="${2:-}"
   local router_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    router_cli="$RALPH_ROOT/lib/tokens/router-cli.js"
-  else
-    router_cli="$SCRIPT_DIR/../../lib/tokens/router-cli.js"
-  fi
+  router_cli=$(get_lib_cli "tokens/router-cli.js")
 
-  # Check if router CLI exists and Node.js is available
-  if [ -f "$router_cli" ] && command -v node >/dev/null 2>&1; then
+  if [ -n "$router_cli" ]; then
     local args=("--story" "$story_file" "--repo-root" "$ROOT_DIR")
-    if [ -n "$override" ]; then
-      args+=("--override" "$override")
-    fi
+    [ -n "$override" ] && args+=("--override" "$override")
     node "$router_cli" "${args[@]}" 2>/dev/null || echo '{"model":"sonnet","score":null,"reason":"router unavailable","override":false}'
   else
-    # Fallback when router not available
     echo '{"model":"sonnet","score":null,"reason":"router not installed","override":false}'
   fi
 }
@@ -2346,59 +2172,38 @@ parse_routing_field() {
 
 # Estimate execution cost before running
 # Usage: estimate_execution_cost <model> <complexity_score>
-# Returns JSON: {"estimatedCost": "0.15", "costRange": "$0.10-0.25", "estimatedTokens": 15000, "comparison": "vs $0.75 if using Opus"}
 estimate_execution_cost() {
   local model="$1"
   local score="$2"
   local estimator_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    estimator_cli="$RALPH_ROOT/lib/tokens/estimator-cli.js"
-  else
-    estimator_cli="$SCRIPT_DIR/../../lib/tokens/estimator-cli.js"
-  fi
+  estimator_cli=$(get_lib_cli "tokens/estimator-cli.js")
 
-  # Check if estimator CLI exists and Node.js is available
-  if [ -f "$estimator_cli" ] && command -v node >/dev/null 2>&1; then
+  if [ -n "$estimator_cli" ]; then
     local args=("--model" "$model" "--repo-root" "$ROOT_DIR")
-    if [ -n "$score" ]; then
-      args+=("--complexity" "$score")
-    fi
+    [ -n "$score" ] && args+=("--complexity" "$score")
     node "$estimator_cli" "${args[@]}" 2>/dev/null || echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
   else
-    # Fallback when estimator not available
     echo '{"estimatedCost":null,"costRange":null,"estimatedTokens":null,"comparison":null}'
   fi
 }
 
 # Calculate actual cost from token usage
-# Usage: calculate_actual_cost <input_tokens> <output_tokens> <model>
-# Returns JSON: {"totalCost": "0.15", "inputCost": "0.05", "outputCost": "0.10"}
 calculate_actual_cost() {
   local input_tokens="$1"
   local output_tokens="$2"
   local model="$3"
+  local calculator_path
+  calculator_path=$(get_lib_cli "tokens/calculator.js")
 
-  # Use Node.js for cost calculation
-  if command -v node >/dev/null 2>&1; then
-    local calculator_path
-    if [[ -n "${RALPH_ROOT:-}" ]]; then
-      calculator_path="$RALPH_ROOT/lib/tokens/calculator.js"
-    else
-      calculator_path="$SCRIPT_DIR/../../lib/tokens/calculator.js"
-    fi
-
-    if [ -f "$calculator_path" ]; then
-      node -e "
-        const calc = require('$calculator_path');
-        const result = calc.calculateCost(
-          { inputTokens: $input_tokens, outputTokens: $output_tokens },
-          '$model'
-        );
-        console.log(JSON.stringify(result));
-      " 2>/dev/null || echo '{"totalCost":null}'
-    else
-      echo '{"totalCost":null}'
-    fi
+  if [ -n "$calculator_path" ]; then
+    node -e "
+      const calc = require('$calculator_path');
+      const result = calc.calculateCost(
+        { inputTokens: $input_tokens, outputTokens: $output_tokens },
+        '$model'
+      );
+      console.log(JSON.stringify(result));
+    " 2>/dev/null || echo '{"totalCost":null}'
   else
     echo '{"totalCost":null}'
   fi
@@ -2795,18 +2600,12 @@ git_dirty_files() {
 }
 
 # Extract token metrics from a log file using Node.js extractor
-# Returns JSON: {"inputTokens": N, "outputTokens": N, "model": "...", "estimated": bool}
 extract_tokens_from_log() {
   local log_file="$1"
   local extractor_path
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    extractor_path="$RALPH_ROOT/lib/tokens/extract-cli.js"
-  else
-    extractor_path="$SCRIPT_DIR/../../lib/tokens/extract-cli.js"
-  fi
+  extractor_path=$(get_lib_cli "tokens/extract-cli.js")
 
-  # Check if extractor exists and Node.js is available
-  if [ -f "$extractor_path" ] && command -v node >/dev/null 2>&1; then
+  if [ -n "$extractor_path" ]; then
     node "$extractor_path" "$log_file" 2>/dev/null || echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
   else
     echo '{"inputTokens":null,"outputTokens":null,"model":null,"estimated":false}'
@@ -2874,16 +2673,9 @@ append_metrics() {
   local retry_history="${26:-}"  # Format: "attempt=N status=S duration=Ds|..."
 
   local metrics_cli
-  if [[ -n "${RALPH_ROOT:-}" ]]; then
-    # US-014: Use new type-safe metrics builder
-    metrics_cli="$RALPH_ROOT/lib/metrics/cli.js"
-  else
-    # US-014: Use new type-safe metrics builder
-    metrics_cli="$SCRIPT_DIR/../../lib/metrics/cli.js"
-  fi
+  metrics_cli=$(get_lib_cli "metrics/cli.js")
 
-  # Check if metrics CLI exists and Node.js is available
-  if [ -f "$metrics_cli" ] && command -v node >/dev/null 2>&1; then
+  if [ -n "$metrics_cli" ]; then
     # Build JSON data - handle null tokens gracefully
     local input_val="null"
     local output_val="null"
@@ -3007,34 +2799,26 @@ local escaped_reason="null"
 # Rebuild token cache for the current stream
 # Called at end of build to ensure dashboard has fresh data
 rebuild_token_cache() {
-  if [ "$MODE" != "build" ]; then
-    return 0
-  fi
+  [ "$MODE" != "build" ] && return 0
 
   local cache_script
-  if [ -n "$RALPH_ROOT" ]; then
-    cache_script="$RALPH_ROOT/lib/tokens/index.js"
-  else
-    cache_script="$SCRIPT_DIR/../../lib/tokens/index.js"
-  fi
+  cache_script=$(get_lib_cli "tokens/index.js")
+  [ -z "$cache_script" ] && return 0
 
-  # Get the stream path (PRD-N directory)
   local stream_path
   stream_path="$(dirname "$PRD_PATH")"
 
-  if [ -f "$cache_script" ] && command -v node >/dev/null 2>&1; then
-    node -e "
-      const tokens = require('$cache_script');
-      const streamPath = '$stream_path';
-      const repoRoot = '$(dirname "$(dirname "$stream_path")")';
-      try {
-        tokens.rebuildCache(streamPath, tokens.parseTokensFromSummary, { repoRoot });
-        console.log('Token cache rebuilt for ' + streamPath);
-      } catch (e) {
-        console.error('Failed to rebuild token cache:', e.message);
-      }
-    " 2>/dev/null || true
-  fi
+  node -e "
+    const tokens = require('$cache_script');
+    const streamPath = '$stream_path';
+    const repoRoot = '$(dirname "$(dirname "$stream_path")")';
+    try {
+      tokens.rebuildCache(streamPath, tokens.parseTokensFromSummary, { repoRoot });
+      console.log('Token cache rebuilt for ' + streamPath);
+    } catch (e) {
+      console.error('Failed to rebuild token cache:', e.message);
+    }
+  " 2>/dev/null || true
 }
 
 msg_info "Ralph mode: $MODE"
