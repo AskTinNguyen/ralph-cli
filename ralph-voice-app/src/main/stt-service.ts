@@ -144,14 +144,28 @@ export class STTService {
    * Wait for the STT server to be healthy
    */
   private async waitForHealth(maxAttempts: number = 30): Promise<void> {
+    // Use explicit IPv4 to avoid IPv6 resolution issues
+    const healthUrl = `http://127.0.0.1:${this.port}/health`;
+
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        const response = await fetch(`http://localhost:${this.port}/health`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const response = await fetch(healthUrl, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
         if (response.ok) {
+          console.log(`STT server healthy after ${i + 1} attempts`);
           return;
         }
-      } catch {
-        // Server not ready yet
+      } catch (error) {
+        // Server not ready yet, continue waiting
+        if (i === 0 || i % 5 === 0) {
+          console.log(`Waiting for STT server... (attempt ${i + 1}/${maxAttempts})`);
+        }
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -193,7 +207,7 @@ export class STTService {
    */
   async checkHealth(): Promise<{ healthy: boolean; model?: string; error?: string }> {
     try {
-      const response = await fetch(`http://localhost:${this.port}/health`);
+      const response = await fetch(`http://127.0.0.1:${this.port}/health`);
       if (!response.ok) {
         return { healthy: false, error: `HTTP ${response.status}` };
       }
@@ -260,10 +274,12 @@ export class STTService {
    */
   private getPythonServerPath(): string | null {
     const paths = [
-      // In the ralph-cli skills directory
+      // In the ralph-cli skills directory (user home)
       join(app.getPath('home'), 'ralph-cli', 'skills', 'voice', 'stt_server.py'),
-      // Development path
-      join(__dirname, '../../../skills/voice/stt_server.py'),
+      // Development path (relative to ralph-voice-app)
+      join(__dirname, '../../..', 'skills', 'voice', 'stt_server.py'),
+      // Sibling directory (ralph-voice-app is inside ralph-cli)
+      join(__dirname, '../../../..', 'skills', 'voice', 'stt_server.py'),
       // Alternative location
       join(process.resourcesPath || '', 'stt_server.py'),
     ];

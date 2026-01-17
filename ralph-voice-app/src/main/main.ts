@@ -105,9 +105,14 @@ export function toggleWindow(): void {
 }
 
 async function initApp(): Promise<void> {
-  // Initialize STT service first
+  // Initialize STT service first (but don't fail if it doesn't start)
   sttService = new STTService();
-  await sttService.start();
+  try {
+    await sttService.start();
+  } catch (error) {
+    console.warn('STT service failed to start:', error instanceof Error ? error.message : error);
+    console.warn('Voice transcription will not be available. You can still use TTS and other features.');
+  }
 
   // Set up IPC handlers BEFORE creating window
   setupIpcHandlers(sttService);
