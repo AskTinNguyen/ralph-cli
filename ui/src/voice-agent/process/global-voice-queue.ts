@@ -261,9 +261,11 @@ export class GlobalVoiceQueue extends EventEmitter {
   }
 
   /**
-   * Write the lock file
+   * Write the lock file atomically using exclusive create (wx flag)
+   * This is the Node.js equivalent of flock - it fails if file exists
+   * Returns true if lock was acquired, false if already held
    */
-  private writeLockFile(holder: LockHolder): void {
+  private writeLockFileAtomic(holder: LockHolder): boolean {
     const content = [
       `CLI_ID=${holder.cliId}`,
       `PID=${holder.pid}`,
@@ -271,7 +273,18 @@ export class GlobalVoiceQueue extends EventEmitter {
       `TERMINAL_ID=${holder.terminalId || ""}`,
     ].join("\n");
 
-    fs.writeFileSync(this.lockFile, content, "utf-8");
+    try {
+      // wx = O_WRONLY | O_CREAT | O_EXCL - fails atomically if file exists
+      fs.writeFileSync(this.lockFile, content, { flag: "wx", encoding: "utf-8" });
+      return true;
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "code" in err && err.code === "EEXIST") {
+        // File already exists - lock is held
+        return false;
+      }
+      // Other error (permissions, disk full, etc.) - rethrow
+      throw err;
+    }
   }
 
   /**
@@ -468,36 +481,10 @@ export class GlobalVoiceQueue extends EventEmitter {
    * Only succeeds if we're first in queue or queue is empty
    */
   tryAcquireLock(): { success: boolean; message: string } {
-    this.cleanupStaleLock();
+    this.ensureDirectories();
 
-    const status = this.getStatus();
-
-    // Already have the lock
-    if (status.amIHolder) {
-      return { success: true, message: "Already holding lock" };
-    }
-
-    // Lock is held by someone else
-    if (status.isLockHeld) {
-      return {
-        success: false,
-        message: `Lock held by ${status.lockHolder?.cliId} (PID: ${status.lockHolder?.pid})`,
-      };
-    }
-
-    // Check queue position
-    if (status.queueLength > 0 && status.myPosition !== 1) {
-      // Not first in queue - join if not already
-      if (status.myPosition === null) {
-        this.joinQueue();
-      }
-      return {
-        success: false,
-        message: `Waiting in queue at position ${status.myPosition ?? "unknown"}`,
-      };
-    }
-
-    // Either queue is empty or we're first - acquire lock
+    // First, try atomic lock acquisition
+    // This is the KEY difference - we try to acquire FIRST, then check status
     const holder: LockHolder = {
       cliId: this.cliId,
       pid: this.pid,
@@ -505,10 +492,10 @@ export class GlobalVoiceQueue extends EventEmitter {
       terminalId: this.terminalId,
     };
 
-    try {
-      this.writeLockFile(holder);
-
-      // Remove ourselves from queue if present
+    // Attempt atomic lock acquisition
+    if (this.writeLockFileAtomic(holder)) {
+      // Successfully acquired lock atomically
+      // Remove ourselves from queue if we were waiting
       this.leaveQueue();
 
       this.emit("lock_acquired", {
@@ -518,14 +505,46 @@ export class GlobalVoiceQueue extends EventEmitter {
         timestamp: new Date(),
       } as QueueEvent);
 
-      console.log(`[GlobalVoiceQueue] Acquired voice lock`);
-
-      return { success: true, message: "Lock acquired successfully" };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return { success: false, message: `Failed to acquire lock: ${errorMessage}` };
+      console.log(`[GlobalVoiceQueue] Acquired voice lock atomically`);
+      return { success: true, message: "Lock acquired" };
     }
+
+    // Lock file exists - check if it's us or stale
+    const existingHolder = this.parseLockHolder();
+
+    // Check if we already hold the lock
+    if (existingHolder?.cliId === this.cliId) {
+      return { success: true, message: "Already holding lock" };
+    }
+
+    // Check if lock is stale (holder process is dead)
+    if (existingHolder && !this.isProcessAlive(existingHolder.pid)) {
+      // Stale lock - try to clean up and retry
+      try {
+        fs.unlinkSync(this.lockFile);
+        console.log(`[GlobalVoiceQueue] Cleaned up stale lock from dead process ${existingHolder.pid}`);
+        // Retry acquisition (recursive, but bounded by stale lock cleanup)
+        return this.tryAcquireLock();
+      } catch {
+        // Someone else might have cleaned it up and acquired - that's fine
+      }
+    }
+
+    // Lock is held by another active process
+    // Join queue if not already there
+    const status = this.getStatus();
+    if (status.myPosition === null) {
+      this.joinQueue();
+    }
+
+    return {
+      success: false,
+      message: existingHolder
+        ? `Lock held by ${existingHolder.cliId} (PID: ${existingHolder.pid})`
+        : "Lock held by another process",
+    };
   }
+
 
   /**
    * Release the voice lock
