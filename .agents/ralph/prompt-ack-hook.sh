@@ -10,6 +10,9 @@ CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
 LOG_FILE="${RALPH_ROOT}/.ralph/prompt-ack-hook.log"
 WATCHER_PID_FILE="${RALPH_ROOT}/.ralph/transcript-watcher.pid"
 
+# Source session detection library
+source "${RALPH_ROOT}/.agents/ralph/lib/session-detect.sh"
+
 # Function to log messages
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
@@ -88,6 +91,12 @@ main() {
   fi
 
   log "Transcript: $transcript_path"
+
+  # Check if this is a session start - skip voice on first prompt
+  if should_skip_session_start "$transcript_path"; then
+    log "Session start detected, skipping acknowledgment voice"
+    exit 0
+  fi
 
   # Kill any existing watcher before starting new one
   kill_existing_watcher

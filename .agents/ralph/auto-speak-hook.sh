@@ -14,6 +14,9 @@ TEMP_SCRIPT="${RALPH_ROOT}/.ralph/auto-speak-summarize.mjs"
 # Source TTS manager for exclusive TTS playback
 source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh"
 
+# Source session detection library
+source "${RALPH_ROOT}/.agents/ralph/lib/session-detect.sh"
+
 # Function to log messages
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
@@ -170,6 +173,12 @@ main() {
   fi
 
   log "Transcript path: $transcript_path"
+
+  # Check if this is a session start - skip voice on first prompt
+  if should_skip_session_start "$transcript_path"; then
+    log "Session start detected, skipping auto-speak voice"
+    exit 0
+  fi
 
   # Use Node.js script to extract, filter, and summarize with Qwen
   local summarizer_script="${RALPH_ROOT}/.agents/ralph/summarize-for-tts.mjs"
