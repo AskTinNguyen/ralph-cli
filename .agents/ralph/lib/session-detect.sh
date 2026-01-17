@@ -16,9 +16,24 @@
 
 set -euo pipefail
 
-RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
-SESSION_CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
-SESSION_LOG_FILE="${RALPH_ROOT}/.ralph/session-detect.log"
+# Get script directory for sourcing path-utils
+SESSION_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source path utilities for smart RALPH_ROOT resolution
+source "${SESSION_SCRIPT_DIR}/path-utils.sh"
+
+# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
+SESSION_RALPH_DIR="$(find_ralph_root)"
+if [[ -z "$SESSION_RALPH_DIR" ]]; then
+  # Fallback to default behavior
+  SESSION_RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
+fi
+
+# Set RALPH_ROOT for child processes (points to .ralph directory)
+export RALPH_ROOT="$SESSION_RALPH_DIR"
+
+SESSION_CONFIG_FILE="${SESSION_RALPH_DIR}/voice-config.json"
+SESSION_LOG_FILE="${SESSION_RALPH_DIR}/session-detect.log"
 
 # Log to session detect log
 session_log() {

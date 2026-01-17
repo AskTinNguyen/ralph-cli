@@ -17,7 +17,21 @@
 
 set -euo pipefail
 
-RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
+# Get script directory for sourcing path-utils
+TTS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source path utilities for smart RALPH_ROOT resolution
+source "${TTS_SCRIPT_DIR}/path-utils.sh"
+
+# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
+RALPH_DIR="$(find_ralph_root)"
+if [[ -z "$RALPH_DIR" ]]; then
+  # Fallback to default behavior
+  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
+fi
+
+# Set RALPH_ROOT for child processes (points to .ralph directory)
+export RALPH_ROOT="$RALPH_DIR"
 
 # Generate session ID from terminal/parent process FIRST
 # This ensures each Claude Code session has a unique ID
@@ -26,9 +40,9 @@ TTS_SESSION_ID="${TERM_SESSION_ID:-${WINDOWID:-session-${PPID:-$$}}}"
 TTS_SESSION_ID_SAFE=$(echo "$TTS_SESSION_ID" | tr -cd 'a-zA-Z0-9_-')
 
 # Session-specific PID file (prevents cross-session overwrites)
-TTS_PID_FILE="${RALPH_ROOT}/.ralph/tts-${TTS_SESSION_ID_SAFE}.pid"
-TTS_LOG_FILE="${RALPH_ROOT}/.ralph/tts-manager.log"
-VOICE_LOCK_DIR="${RALPH_ROOT}/.ralph/locks/voice"
+TTS_PID_FILE="${RALPH_DIR}/tts-${TTS_SESSION_ID_SAFE}.pid"
+TTS_LOG_FILE="${RALPH_DIR}/tts-manager.log"
+VOICE_LOCK_DIR="${RALPH_DIR}/locks/voice"
 VOICE_LOCK_FILE="${VOICE_LOCK_DIR}/voice.lock"
 
 # Log to TTS manager log

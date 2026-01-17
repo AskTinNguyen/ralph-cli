@@ -11,13 +11,28 @@
 
 set -euo pipefail
 
-RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
-PID_FILE="${RALPH_ROOT}/.ralph/progress-timer.pid"
-CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
-LOG_FILE="${RALPH_ROOT}/.ralph/progress-timer.log"
+# Get script directory for sourcing path-utils
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source path utilities for smart RALPH_ROOT resolution
+source "${SCRIPT_DIR}/lib/path-utils.sh"
+
+# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
+RALPH_DIR="$(find_ralph_root)"
+if [[ -z "$RALPH_DIR" ]]; then
+  # Fallback to default behavior
+  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
+fi
+
+PID_FILE="${RALPH_DIR}/progress-timer.pid"
+CONFIG_FILE="${RALPH_DIR}/voice-config.json"
+LOG_FILE="${RALPH_DIR}/progress-timer.log"
+
+# Set RALPH_ROOT for child processes (points to .ralph directory)
+export RALPH_ROOT="$RALPH_DIR"
 
 # Source TTS manager for exclusive TTS playback
-source "${RALPH_ROOT}/.agents/ralph/lib/tts-manager.sh"
+source "${SCRIPT_DIR}/lib/tts-manager.sh"
 
 # Progress phrases to cycle through
 PHRASES=(

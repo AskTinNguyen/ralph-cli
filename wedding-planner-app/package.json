@@ -1,1 +1,10 @@
-{"name":"wedding-planner-app","version":"0.1.0","scripts":{"test":"echo No tests && exit 0"}}
+{
+  "name": "wedding-planner-app",
+  "version": "0.1.0",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

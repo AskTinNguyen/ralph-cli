@@ -5,13 +5,28 @@
 
 set -euo pipefail
 
-RALPH_ROOT="${RALPH_ROOT:-$(pwd)}"
-CONFIG_FILE="${RALPH_ROOT}/.ralph/voice-config.json"
-LOG_FILE="${RALPH_ROOT}/.ralph/prompt-ack-hook.log"
-WATCHER_PID_FILE="${RALPH_ROOT}/.ralph/transcript-watcher.pid"
+# Get script directory for sourcing path-utils
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source path utilities for smart RALPH_ROOT resolution
+source "${SCRIPT_DIR}/lib/path-utils.sh"
+
+# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
+RALPH_DIR="$(find_ralph_root)"
+if [[ -z "$RALPH_DIR" ]]; then
+  # Fallback to default behavior
+  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
+fi
+
+CONFIG_FILE="${RALPH_DIR}/voice-config.json"
+LOG_FILE="${RALPH_DIR}/prompt-ack-hook.log"
+WATCHER_PID_FILE="${RALPH_DIR}/transcript-watcher.pid"
+
+# Set RALPH_ROOT for child processes (points to .ralph directory)
+export RALPH_ROOT="$RALPH_DIR"
 
 # Source session detection library
-source "${RALPH_ROOT}/.agents/ralph/lib/session-detect.sh"
+source "${SCRIPT_DIR}/lib/session-detect.sh"
 
 # Function to log messages
 log() {
