@@ -82,6 +82,27 @@ Factory Mode enables declarative, multi-stage agent workflows with verification 
 **Verification gates prevent gaming** - agents cannot claim success by outputting "All tests pass!" - the verification system actually runs tests and checks results.
 
 > **Documentation**:
+
+## Voice Commands (TTS)
+
+Text-to-speech for Claude Code responses using local Qwen LLM summarization.
+
+| Use Case | Command |
+|----------|---------|
+| **Enable auto-speak** | `ralph speak --auto-on` |
+| **Disable auto-speak** | `ralph speak --auto-off` |
+| **Check status** | `ralph speak --auto-status` |
+| **Speak text** | `ralph speak "Hello world"` |
+| **Recap (medium)** | `ralph recap` |
+| **Recap (detailed)** | `ralph recap --full` |
+| **Recap (preview)** | `ralph recap --preview` |
+
+**Auto-speak**: Short ~20-word summaries spoken automatically after each response.
+**Recap**: On-demand longer summaries (~100-200 words) when you want more detail.
+
+> **Full guide**: [`AUTO-SPEAK-GUIDE.md`](AUTO-SPEAK-GUIDE.md)
+
+> **Documentation**:
 > - **For AI Agents**: [`skills/factory/AGENT_GUIDE.md`](skills/factory/AGENT_GUIDE.md) - Concise guide with patterns and decision trees
 > - **Full Reference**: [`skills/factory/SKILL.md`](skills/factory/SKILL.md) - Complete YAML schema, verification types, examples
 > - **UI Guide**: http://localhost:3000/docs/factory-guide.html (when UI server running)
