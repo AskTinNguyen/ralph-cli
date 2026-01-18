@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { MODES, detectOptimalMode, getModeConfig } from "./lib/tts-modes.mjs";
+import { detectLanguage } from "./language-voice-mapper.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -233,6 +234,15 @@ async function contextAwareSummarize(response, userQuestion, modeConfig) {
   const model = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
   const timeout = modeConfig.maxTokens > 200 ? 15000 : 10000; // Longer timeout for longer summaries
 
+  // Detect language of the response for proper TTS routing
+  const detectedLang = detectLanguage(response);
+  const isVietnamese = detectedLang === "vi";
+
+  // Language-specific instructions
+  const langInstruction = isVietnamese
+    ? "- CRITICAL: Summarize in Vietnamese (tiếng Việt) - preserve the original language"
+    : "- Use ONLY plain conversational English - no technical terms";
+
   // Build context-aware prompt based on mode
   let prompt;
   if (userQuestion && userQuestion.trim().length > 0) {
@@ -245,7 +255,7 @@ Create a spoken summary as ${modeConfig.promptStyle}, ${modeConfig.promptWords}.
 
 CRITICAL RULES:
 - Focus on answering what the user asked
-- Use ONLY plain conversational English - no technical terms
+${langInstruction}
 - NEVER mention file names, paths, or extensions (e.g., .sh, .js, .agents)
 - NEVER include symbols: @ * # \` | < > { } [ ] / .
 - NEVER say "the file" or "the script" - describe what was DONE
@@ -266,7 +276,7 @@ CRITICAL RULES:
 - Extract the key outcomes and actions
 - NEVER mention file names, paths, or extensions
 - NEVER include symbols: @ * # \` | < > { } [ ] / .
-- Use plain conversational English
+${langInstruction}
 - For lists, use numbered words: "One, ... Two, ... Three, ..."
 
 Spoken summary:`;
