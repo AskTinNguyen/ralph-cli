@@ -46,25 +46,26 @@ def main():
         from vieneu import VieNeuTTS
         import soundfile as sf
 
-        # Initialize model with appropriate backbone
-        # Map model variant to Hugging Face repo (handle both "0.3b" and "vieneu-0.3b" formats)
-        model_variant = args.model.replace('vieneu-', '')
-        backbone_map = {
-            '0.3b': 'pnnbao-ump/VieNeu-TTS-0.3B-q4-gguf',
-            '0.5b': 'pnnbao-ump/VieNeu-TTS-0.5B-q4-gguf'
-        }
-        backbone_repo = backbone_map.get(model_variant, backbone_map['0.3b'])
-
-        model = VieNeuTTS(backbone_repo=backbone_repo)
+        # Initialize model with defaults (0.3B model is publicly available)
+        # Note: 0.5B model is not publicly available, so we only support 0.3B
+        model = VieNeuTTS()
 
         # Check if voice is a preset voice (Binh, Tuyen, Vinh, Doan, Ly, Ngoc)
         preset_voices = ['Binh', 'Tuyen', 'Vinh', 'Doan', 'Ly', 'Ngoc']
 
-        if args.voice in preset_voices:
+        # Case-insensitive matching for preset voices
+        voice_name = args.voice
+        matched_preset = None
+        for pv in preset_voices:
+            if pv.lower() == args.voice.lower():
+                matched_preset = pv
+                break
+
+        if matched_preset:
             # Use preset voice
             audio = model.infer(
                 text=text,
-                voice=model.get_preset_voice(args.voice)
+                voice=model.get_preset_voice(matched_preset)
             )
         else:
             # Try to load cloned voice reference
