@@ -29,6 +29,21 @@ The Agent Guide provides:
 2. Reference CLAUDE.md sections for detailed configuration/troubleshooting
 3. Use `ralph error RALPH-XXX` for error remediation
 
+**Context-specific guidance (NEW):**
+
+For context-aware agent guidance, check the local AGENTS.md file in your working directory:
+- **In root:** [AGENTS.md](AGENTS.md) - Core Ralph agent rules and decision trees
+- **In `.agents/ralph/`:** [.agents/ralph/AGENTS.md](.agents/ralph/AGENTS.md) - Build loop guidance
+- **In `skills/prd/`:** [skills/prd/AGENTS.md](skills/prd/AGENTS.md) - PRD generation rules (CRITICAL: --headless flag)
+- **In `skills/commit/`:** [skills/commit/AGENTS.md](skills/commit/AGENTS.md) - Conventional commit format
+- **In `skills/dev-browser/`:** [skills/dev-browser/AGENTS.md](skills/dev-browser/AGENTS.md) - Browser automation testing
+- **In `skills/factory/`:** [skills/factory/AGENT_GUIDE.md](skills/factory/AGENT_GUIDE.md) - Factory workflows
+- **In `skills/ue-agent/`:** [skills/ue-agent/AGENTS.md](skills/ue-agent/AGENTS.md) - UE multi-agent orchestration
+- **In `ui/`:** [ui/AGENTS.md](ui/AGENTS.md) - UI testing guidance
+- **In `tests/`:** [tests/AGENTS.md](tests/AGENTS.md) - Test writing rules
+
+These files provide right-time context for the task at hand, reducing token usage and eliminating redundancy.
+
 ---
 
 ## Quick Reference

@@ -1,83 +1,74 @@
-# Agent Operation Guidelines
+# Ralph CLI - Agent Guide
 
-**Critical guidelines for AI agents (Claude Code, Codex, etc.) working with Ralph CLI.**
+**Quick Reference for AI Agents**
 
----
-
-## Execution Modes
-
-Ralph CLI supports two distinct execution modes for PRD generation:
-
-### Interactive Mode (Default) - For Human Users
-
-**Command:** `ralph prd "Feature description"`
-
-**Behavior:**
-- ✅ Default behavior unchanged - still interactive
-- ✅ Users see real-time agent thinking and progress
-- ✅ Full terminal interaction preserved
-- 🆕 **New option:** `ralph prd "description" --headless` for scripting
-
-**Example:**
-```bash
-# Human running interactively
-$ ralph prd "Build a user authentication system with OAuth2"
-
-[Agent thinking appears here in real-time]
-...
-PRD created at .ralph/PRD-1/prd.md
-```
-
-### Headless Mode (Non-Interactive) - For Agents & Automation
-
-**Command:** `ralph prd "Feature description" --headless`
-
-**Behavior:**
-- ⚠️ **Critical:** Agents must now use `--headless` flag
-- ✅ Avoids nested agent interaction (agent-inside-agent)
-- ✅ Prevents TTY conflicts and deadlocks
-- ✅ Cleaner output parsing for progress tracking
-- 📚 Documented in Agent Guide with prominent warnings
-
-**Example:**
-```bash
-# Claude Code agent calling ralph
-$ ralph prd "Add dashboard feature" --headless
-
-Creating new PRD folder: PRD-1
-PRD generation in progress...
-```
+Ralph is an autonomous coding loop for Claude Code, Codex, and other AI agents. This guide provides critical rules, decision trees, and common patterns for working with Ralph.
 
 ---
 
-## Critical Rules for AI Agents
+## Quick Start
 
-### ⚠️ ALWAYS Use `--headless` Flag
+Ralph uses a PRD-based workflow: Define requirements → Create plan → Execute stories. Each PRD lives in an isolated folder (`.ralph/PRD-N/`) to prevent overwrites.
 
-When Claude Code (or another AI agent) executes `ralph prd`, it invokes a nested agent (Claude, Codex, Droid). Without `--headless`, both agents try to interact with the same TTY, causing:
+**Most Common Commands:**
+```bash
+ralph prd "description" --headless    # Generate PRD (ALWAYS use --headless as agent)
+ralph stream status                   # Check PRD status
+ralph stream build N [iterations]     # Execute build
+git log --grep="PRD-N"                # Verify commits (source of truth)
+ralph error RALPH-XXX                 # Lookup error codes
+```
+
+**Agent workflow:** (1) Generate PRD with `--headless` → (2) Check status → (3) Run build → (4) Verify via git log → (5) Exit with completion signal
+
+---
+
+## Critical Rules
+
+### ⚠️ ALWAYS Use `--headless` Flag for PRD Generation
+
+When Claude Code (or another AI agent) executes `ralph prd`, it invokes a nested agent. Without `--headless`, both agents try to interact with the same TTY, causing:
 
 - **Deadlocks** - Both agents waiting for input
 - **TTY conflicts** - Overlapping I/O streams
 - **Process hangs** - Commands never complete
-- **Unpredictable output** - Garbled or missing responses
 
-### ✅ Correct Agent Usage
-
+**✅ CORRECT:**
 ```bash
-# When Claude Code agent executes ralph prd
 ralph prd "Feature description" --headless
-
-# Other commands don't need --headless
-ralph stream status
-ralph stream list
-ralph stream build 1 5
 ```
 
-### ❌ Incorrect Agent Usage
-
+**❌ INCORRECT (causes nested interaction):**
 ```bash
-# NEVER do this as an agent - causes nested interaction
 ralph prd "Feature description"
+```
+
+### 🚨 NEVER Auto-Merge Builds
+
+Ralph NEVER auto-merges builds to main. This is a core safety guarantee.
+
+**YOU MUST NOT:**
+- Run `ralph stream merge` commands
+- Create pull requests automatically
+- Push branches to remote automatically
+- Suggest or attempt to merge on completion
+
+**YOUR ROLE:** Execute assigned stories. When complete, output `<promise>COMPLETE</promise>` signal. The human will handle merge/PR creation after reviewing your work.
+
+**WHAT HAPPENS NEXT:** User reviews commits, runs tests, manually triggers `ralph stream merge N`, confirms interactive prompt.
+
+### ✅ Git Commits = Source of Truth
+
+Git history is authoritative for PRD status, not checkboxes.
+
+- **Two workflows:** `merged` (worktree → PR) or `completed` (direct-to-main)
+- **Auto-correction:** Missing `.completed` markers auto-created when git shows commits
+- **Checkboxes are hints:** Used during work, not for status determination
+
+**Verify status:**
+```bash
+git log --oneline --grep="PRD-N"              # Check commits exist
+ralph stream verify-status                    # Auto-fix stale markers
 ```
 
 ---
@@ -85,109 +76,175 @@ ralph prd "Feature description"
 ## Decision Tree
 
 ```
-Are you an AI agent (Claude Code, Codex, etc.)?
-├─ YES → Use --headless flag ALWAYS for ralph prd
-│   └─ ralph prd "description" --headless
-│
-└─ NO (human user) → Use default interactive mode
-    ├─ Development/debugging → ralph prd "description"
-    └─ Scripting/automation → ralph prd "description" --headless
+User wants to...
+├─ Install → ralph install
+├─ List PRDs → ralph stream list
+├─ Check status → ralph stream status
+├─ New PRD → ralph prd "description" --headless
+├─ Build PRD → ralph stream build N [iters]
+├─ Parallel (no worktree) → ralph stream build 1 5 --no-worktree &
+├─ Parallel (worktree) → ralph stream init N && ralph stream build N 5 &
+├─ Verify status → git log --grep="PRD-N"
+├─ Check errors → ralph error RALPH-XXX
+└─ Dashboard → ralph ui
 ```
 
 ---
 
-## Common Scenarios
+## Common Task Patterns
 
-### Scenario 1: Claude Code Creating PRD
+### Pattern 1: Quick Single-PRD Build
 
-**Correct:**
 ```bash
-ralph prd "Build analytics dashboard with charts" --headless
+# IMPORTANT: Agents must use --headless to avoid nested interaction
+ralph prd "Feature X description" --headless
+# Wait for PRD generation (creates .ralph/PRD-N/prd.md)
+ralph plan
+# Wait for plan generation (creates .ralph/PRD-N/plan.md)
+ralph build 5
+# Monitor output, report completion
 ```
 
-**Incorrect:**
+### Pattern 2: Stream-Based Build (Recommended)
+
 ```bash
-# This causes nested agent interaction
-ralph prd "Build analytics dashboard with charts"
+# IMPORTANT: Agents must use --headless
+ralph prd "Feature X description" --headless
+# Note the PRD number from output (e.g., "PRD-3")
+ralph stream status
+# Verify PRD created, status shows "ready"
+ralph stream build 3 5
+# Monitor progress
 ```
 
-### Scenario 2: Human Developer in Terminal
+### Pattern 3: Status Check & Monitoring
 
-**Correct:**
 ```bash
-# Full interactive experience
-ralph prd "Implement OAuth2 authentication"
-```
+# Check all PRD statuses
+ralph stream status
 
-### Scenario 3: CI/CD Pipeline
+# Check specific PRD progress
+cat .ralph/PRD-N/progress.md
 
-**Correct:**
-```yaml
-- name: Generate PRD
-  run: |
-    ralph prd "CI/CD integration" --headless
-    ralph plan
-    ralph build 3
+# Verify via git commits (source of truth)
+git log --oneline --grep="PRD-N" -10
 ```
 
 ---
 
-## Quick Reference
+## Status Codes
 
-| Context | Command | Reason |
-|---------|---------|--------|
-| **Claude Code agent** | `ralph prd "..." --headless` | Prevents nested agent interaction |
-| **UI server** | `ralph prd "..." --headless` | Required for server processes |
-| **CI/CD pipeline** | `ralph prd "..." --headless` | Automation, no TTY available |
-| **Background job** | `ralph prd "..." --headless` | Non-blocking execution |
-| **Human terminal** | `ralph prd "..."` | Interactive experience (default) |
-| **Human scripting** | `ralph prd "..." --headless` | Optional for automation |
+Git commits are the source of truth for PRD status.
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `ready` | plan.md exists, no progress yet | `ralph stream build N` |
+| `running` | Lock file exists with active PID | Wait or check progress.md |
+| `in_progress` | progress.md exists but no commits | Resume build (work not committed) |
+| `completed` | Commits on main (direct-to-main workflow) | Done. Review `git log --grep="PRD-N"` |
+| `merged` | Branch merged to main (worktree workflow) | Done. PR merged |
+| `not_found` | PRD directory doesn't exist | `ralph prd "..." --headless` |
+
+**Status Verification Commands:**
+```bash
+# Check if PRD has commits on main (source of truth)
+git log --oneline --grep="PRD-N"
+
+# Verify specific commits from progress.md
+grep "Commit:" .ralph/PRD-N/progress.md
+
+# Auto-scan and fix all stale status markers
+ralph stream verify-status
+
+# Manually mark as completed (if commits exist on main)
+ralph stream mark-completed N
+```
+
+**Common Issues:**
+- **Checkbox marked but no commits** → Status = "in_progress" (work not committed yet)
+- **Commits exist but shows "ready"** → Run `ralph stream verify-status` to auto-correct
+- **Direct-to-main PRD shows wrong status** → Auto-creates `.completed` marker on first status check
+
+---
+
+## File Structure
+
+```
+.agents/ralph/        # Agent templates & scripts → See .agents/ralph/AGENTS.md
+.ralph/PRD-N/         # Each PRD isolated (prd.md, plan.md, progress.md)
+.ralph/locks/         # Prevent concurrent runs
+.ralph/worktrees/     # Git worktrees for parallel execution
+.ralph/factory/       # Factory mode workflows → See skills/factory/AGENT_GUIDE.md
+skills/prd/           # PRD generation skill → See skills/prd/AGENTS.md
+skills/commit/        # Git commit helper → See skills/commit/AGENTS.md
+skills/dev-browser/   # Browser automation → See skills/dev-browser/AGENTS.md
+ui/                   # Ralph UI → See ui/AGENTS.md
+tests/                # Test files → See tests/AGENTS.md
+```
+
+---
+
+## Error Handling
+
+Ralph uses standardized error codes (RALPH-XXX) for consistent handling.
+
+**Error Code Categories:**
+- `001-099` - CONFIG (configuration errors)
+- `100-199` - PRD (PRD/plan errors)
+- `200-299` - BUILD (build failures)
+- `300-399` - GIT (git errors)
+- `400-499` - AGENT (agent errors)
+- `500-599` - STREAM (stream errors)
+- `900-999` - INTERNAL (internal errors)
+
+**Lookup & Remediation:**
+```bash
+ralph error RALPH-401                 # Look up specific error
+ralph error --list --category=BUILD   # List all errors by category
+```
+
+**Agent Responsibilities:**
+- Reference error codes when reporting failures
+- Check remediation: `ralph error RALPH-XXX`
+- Include error code in progress.md updates
+- Create GitHub issues via MCP for critical errors (201, 202, 401, 402, 506)
+
+---
+
+## Navigation Guide
+
+**When working in subdirectories, read the local AGENTS.md for context-specific guidance:**
+
+- **In `.agents/ralph/`:** Read `.agents/ralph/AGENTS.md` for build loop guidance
+- **In `skills/prd/`:** Read `skills/prd/AGENTS.md` for PRD generation rules
+- **In `skills/commit/`:** Read `skills/commit/AGENTS.md` for commit format
+- **In `skills/dev-browser/`:** Read `skills/dev-browser/AGENTS.md` for browser testing
+- **In `skills/factory/`:** Read `skills/factory/AGENT_GUIDE.md` for factory workflows
+- **In `ui/`:** Read `ui/AGENTS.md` for UI testing guidance
+- **In `tests/`:** Read `tests/AGENTS.md` for test writing rules
+
+**For comprehensive reference:** See [CLAUDE.md](CLAUDE.md) for complete documentation on installation, configuration, workflows, and troubleshooting.
+
+**For web-based reference:** See [agent-guide.html](ui/public/docs/agent-guide.html) or http://localhost:3000/docs/agent-guide.html for interactive decision trees and section pointers.
+
+---
+
+## Related Documentation
+
+- **CLAUDE.md** - Comprehensive reference (installation, commands, configuration)
+- **agent-guide.html** - Web-based agent guide with visual decision trees
+- **skills/factory/AGENT_GUIDE.md** - Factory mode (meta-orchestration)
+- **MCP_TOOLS.md** - MCP server integrations (Notion, Slack, GitHub, Miro)
 
 ---
 
 ## Summary
 
-**For AI Agents (Claude Code, etc.):**
-```bash
-# ✅ ALWAYS do this
-ralph prd "description" --headless
+**Key Takeaways for AI Agents:**
 
-# ❌ NEVER do this (causes conflicts)
-ralph prd "description"
-```
-
-**For Human Users:**
-```bash
-# ✅ Default interactive mode
-ralph prd "description"
-
-# ✅ Optional headless for scripts
-ralph prd "description" --headless
-```
-
-**Remember:** The `--headless` flag prevents TTY conflicts when agents invoke other agents.
-
----
-
-## Codebase Reference
-
-### Build & Test
-
-- No build step
-- Tests (dry-run): `npm test`
-- Fast real agent check: `npm run test:ping`
-- Full real loop: `npm run test:real`
-
-### CLI Structure
-
-- CLI entry: `bin/ralph`
-- Templates: `.agents/ralph/` (copied to repos on install)
-- State/logs: `.ralph/` (local only)
-- Skills: `skills/`
-- Tests: `tests/`
-
-### Related Documentation
-
-- **Agent Guide (UI):** http://localhost:3000/docs/agent-guide.html
-- **Main Documentation:** [CLAUDE.md](./CLAUDE.md) - See "PRD Command Modes" section
-- **Tutorial:** http://localhost:3000/docs/tutorial.html
+1. **ALWAYS use `--headless` flag** when running `ralph prd` as an agent
+2. **NEVER auto-merge** - builds require explicit human approval via `ralph stream merge`
+3. **Git commits = source of truth** - verify status with `git log --grep="PRD-N"`
+4. **Read local AGENTS.md** files for context-specific guidance in subdirectories
+5. **Reference error codes** when reporting failures: `ralph error RALPH-XXX`
+6. **Exit after completion** - output `<promise>COMPLETE</promise>` and let humans handle merges
