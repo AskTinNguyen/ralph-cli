@@ -262,6 +262,13 @@ function cleanSummary(text) {
   // Remove special characters that TTS struggles with
   result = result.replace(/[|<>{}[\]]/g, "");
 
+  // Remove common status emojis that TTS reads literally
+  // Includes: ✅ ❌ ⚠️ ✓ ✔ ☑ ❎ ⬜ ⬛ 🔴 🟢 🟡 ⭐ 🎉 👍 👎 🚀 💡 📝 🔧 🐛 etc.
+  result = result.replace(/[\u2705\u274C\u26A0\u2713\u2714\u2611\u274E\u2B1C\u2B1B\u{1F534}\u{1F7E2}\u{1F7E1}\u2B50\u{1F389}\u{1F44D}\u{1F44E}\u{1F680}\u{1F4A1}\u{1F4DD}\u{1F527}\u{1F41B}]/gu, "");
+
+  // Fallback: remove any remaining emoji characters (comprehensive Unicode ranges)
+  result = result.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, "");
+
   // Remove extra punctuation (multiple periods, etc.)
   result = result.replace(/\.{2,}/g, ".");
   result = result.replace(/,{2,}/g, ",");
