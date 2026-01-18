@@ -318,6 +318,78 @@ verify_installation() {
     fi
 }
 
+# Show auto-speak setup guidance
+show_auto_speak_setup() {
+    echo ""
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}  📢 Auto-Speak Available${NC}"
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo "Ralph can speak Claude's responses using TTS."
+    echo ""
+
+    # Check dependencies
+    echo -e "${BOLD}Dependencies:${NC}"
+
+    # Check Ollama
+    if has_cmd ollama; then
+        # Check for qwen model
+        if ollama list 2>/dev/null | grep -q "qwen2.5:1.5b"; then
+            echo -e "  ${GREEN}✓${NC} Ollama with qwen2.5:1.5b (ready)"
+        else
+            echo -e "  ${YELLOW}○${NC} Ollama installed, but missing qwen2.5:1.5b"
+            echo -e "    ${CYAN}Run: ollama pull qwen2.5:1.5b${NC}"
+        fi
+    else
+        echo -e "  ${YELLOW}○${NC} Ollama (not installed)"
+        if [ "$OS" = "macos" ]; then
+            echo -e "    ${CYAN}Run: brew install ollama${NC}"
+        else
+            echo -e "    ${CYAN}Visit: https://ollama.com/install${NC}"
+        fi
+    fi
+
+    # Check jq
+    if has_cmd jq; then
+        echo -e "  ${GREEN}✓${NC} jq (installed)"
+    else
+        echo -e "  ${YELLOW}○${NC} jq (not installed)"
+        if [ "$OS" = "macos" ]; then
+            echo -e "    ${CYAN}Run: brew install jq${NC}"
+        elif [ "$OS" = "linux" ]; then
+            echo -e "    ${CYAN}Run: apt install jq${NC} (or use your package manager)"
+        fi
+    fi
+
+    # Check TTS provider
+    local tts_found=false
+    if has_cmd say; then
+        echo -e "  ${GREEN}✓${NC} TTS (macOS say command)"
+        tts_found=true
+    elif [ -f "$HOME/.vieneu-tts/venv/bin/activate" ]; then
+        echo -e "  ${GREEN}✓${NC} TTS (VieNeu-TTS)"
+        tts_found=true
+    elif has_cmd piper; then
+        echo -e "  ${GREEN}✓${NC} TTS (Piper)"
+        tts_found=true
+    else
+        echo -e "  ${YELLOW}○${NC} TTS (not installed)"
+        echo -e "    ${CYAN}macOS: Built-in 'say' command available${NC}"
+        echo -e "    ${CYAN}Linux: Install Piper or VieNeu-TTS${NC}"
+    fi
+
+    echo ""
+    echo -e "${BOLD}Setup:${NC}"
+    echo "  1. Install missing dependencies (see above)"
+    echo "  2. Run: ${CYAN}cd your-project && ralph install${NC}"
+    echo "  3. Add hooks to Claude Code config"
+    echo "  4. Run: ${CYAN}ralph speak --auto-on${NC}"
+    echo ""
+    echo -e "${BOLD}Documentation:${NC}"
+    echo -e "  ${CYAN}$RALPH_DIR/AUTO-SPEAK-GUIDE.md${NC}"
+    echo ""
+}
+
 # Print post-install instructions
 print_instructions() {
     echo ""
@@ -380,6 +452,9 @@ main() {
 
     # Verify
     verify_installation
+
+    # Auto-speak setup
+    show_auto_speak_setup
 
     # Instructions
     print_instructions

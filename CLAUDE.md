@@ -102,8 +102,11 @@ Factory Mode enables declarative, multi-stage agent workflows with verification 
 
 Text-to-speech for Claude Code responses using local Qwen LLM summarization.
 
+### Quick Start
+
 | Use Case | Command |
 |----------|---------|
+| **Setup (first time)** | `ralph install` (shows auto-speak setup guidance) |
 | **Enable auto-speak** | `ralph speak --auto-on` |
 | **Disable auto-speak** | `ralph speak --auto-off` |
 | **Check status** | `ralph speak --auto-status` |
@@ -115,10 +118,86 @@ Text-to-speech for Claude Code responses using local Qwen LLM summarization.
 **Auto-speak**: Short ~20-word summaries spoken automatically after each response.
 **Recap**: On-demand longer summaries (~100-200 words) when you want more detail.
 
+### Installation
+
+Auto-speak requires:
+1. **Dependencies**: Ollama + qwen2.5:1.5b model, jq, TTS provider (macOS say/VieNeu/Piper)
+2. **Claude Code hooks**: Add hooks to `~/.claude/settings.local.json`
+3. **Voice config**: `.ralph/voice-config.json` (auto-created by `ralph install`)
+
+**Automatic setup (recommended):**
+```bash
+# Install Ralph to your project
+ralph install
+# Follow the auto-speak setup prompts to:
+#  - Check dependencies
+#  - Create voice config
+#  - Get hook configuration instructions
+```
+
+**Manual hook setup:**
+```bash
+# Option A: Automated (uses jq to safely modify config)
+.agents/ralph/setup/post-install.sh
+
+# Option B: Manual (copy/paste to ~/.claude/settings.local.json)
+# See hook snippet in setup guidance or AUTO-SPEAK-GUIDE.md
+```
+
+**Install missing dependencies:**
+```bash
+# macOS
+brew install ollama jq
+ollama pull qwen2.5:1.5b
+# TTS: macOS has built-in 'say' command
+
+# Linux
+# Install Ollama: https://ollama.com/install
+sudo apt install jq  # or use your package manager
+ollama pull qwen2.5:1.5b
+# TTS: Install Piper or VieNeu-TTS
+```
+
+**VieNeu-TTS (Vietnamese voice cloning):**
+```bash
+# During ralph init wizard
+? Install VieNeu-TTS for Vietnamese voice support? Yes
+
+# Or manually
+.agents/ralph/setup/vieneu-setup.sh
+```
+
+### Configuration
+
+**Voice config location**: `.ralph/voice-config.json`
+
+**Key settings:**
+- `ttsEngine`: "macos" (say), "vieneu" (Vietnamese), "piper" (Linux)
+- `autoSpeak.enabled`: true/false (toggle via `ralph speak --auto-on/off`)
+- `autoSpeak.maxWords`: 20 (summary length)
+- `headlessAlwaysSpeak`: true (enable in headless mode)
+- `initialDelaySeconds`: 5 (first progress phrase delay)
+
 **Headless mode (Ralph build)**: Auto-speak works in headless mode with these defaults:
 - `headlessAlwaysSpeak: true` - Bypasses session-start detection
 - `initialDelaySeconds: 5` - First progress phrase after 5 seconds
 - Force headless mode: `export RALPH_HEADLESS=true`
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| **No voice output** | Run `ralph speak --auto-status` to check configuration |
+| **Missing dependencies** | Run `ralph install` again to see dependency status |
+| **Hooks not working** | Verify hooks in `~/.claude/settings.local.json`, restart Claude Code |
+| **"jq not found"** | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
+| **"ollama not found"** | Install Ollama: https://ollama.com/install |
+| **"qwen model not found"** | Run `ollama pull qwen2.5:1.5b` |
+
+**Uninstall hooks:**
+```bash
+.agents/ralph/setup/remove-hooks.sh
+```
 
 > **Full guide**: [`AUTO-SPEAK-GUIDE.md`](AUTO-SPEAK-GUIDE.md)
 
