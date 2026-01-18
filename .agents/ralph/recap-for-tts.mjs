@@ -10,6 +10,7 @@
 import { readFileSync } from "fs";
 import { createOutputFilter } from "../../ui/dist/voice-agent/filter/output-filter.js";
 import { MODES, getModeConfig } from "./lib/tts-modes.mjs";
+import { detectLanguage } from "./language-voice-mapper.mjs";
 
 async function main() {
   const transcriptPath = process.argv[2];
@@ -117,8 +118,11 @@ async function main() {
       process.exit(0); // Nothing speakable after filtering
     }
 
+    // Detect language from the filtered text
+    const detectedLang = detectLanguage(filtered);
+
     // Step 2: Context-aware summarization with Qwen
-    const summary = await contextAwareSummarize(filtered, userQuestion, config);
+    const summary = await contextAwareSummarize(filtered, userQuestion, config, detectedLang);
 
     if (summary && summary.trim().length > 0) {
       // Clean up the summary
@@ -147,15 +151,61 @@ async function main() {
 /**
  * Context-aware summarization using Qwen with configurable length
  */
-async function contextAwareSummarize(response, userQuestion, config) {
+async function contextAwareSummarize(response, userQuestion, config, lang = "en") {
   const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
   const model = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
   const timeout = 15000; // Longer timeout for longer summaries
 
-  // Build context-aware prompt for recap style
+  // Build context-aware prompt for recap style based on language
   let prompt;
-  if (userQuestion && userQuestion.trim().length > 0) {
-    prompt = `You are a TTS summarizer creating a spoken recap.
+
+  if (lang === "vi") {
+    // Vietnamese prompts
+    if (userQuestion && userQuestion.trim().length > 0) {
+      prompt = `Bạn là một công cụ tóm tắt TTS tạo bản tóm tắt bằng giọng nói.
+
+Người dùng hỏi: "${userQuestion.trim().substring(0, 300)}"
+
+Phản hồi của AI:
+${response.substring(0, 3000)}
+
+Tạo bản tóm tắt bằng giọng nói ${config.promptStyle}, ${config.promptWords}.
+
+QUY TẮC QUAN TRỌNG:
+- Sử dụng điểm đánh số: "Một, ... Hai, ... Ba, ..."
+- Cụm từ ngắn, không phải câu đầy đủ
+- KHÔNG dùng thuật ngữ kỹ thuật, tên thư viện, hoặc phần mở rộng tệp
+- KHÔNG dùng cú pháp code, đường dẫn, hoặc ký tự đặc biệt
+- Chỉ dùng tiếng Việt đàm thoại thông thường
+- Tập trung vào ĐÃ LÀM GÌ, không phải LÀM NHƯ THẾ NÀO
+- Nêu kết quả và bước tiếp theo
+
+Ví dụ định dạng:
+"Tính năng hoàn thành. Một, thêm endpoint đăng nhập. Hai, thêm endpoint đăng xuất. Ba, kiểm tra đã pass. Bước tiếp theo: thêm giới hạn tốc độ, thêm xác minh email."
+
+Bản tóm tắt:`;
+    } else {
+      prompt = `Bạn là một công cụ tóm tắt TTS tạo bản tóm tắt bằng giọng nói.
+
+Phản hồi của AI:
+${response.substring(0, 3000)}
+
+Tạo bản tóm tắt bằng giọng nói ${config.promptStyle}, ${config.promptWords}.
+
+QUY TẮC QUAN TRỌNG:
+- Sử dụng điểm đánh số: "Một, ... Hai, ... Ba, ..."
+- Cụm từ ngắn, không phải câu đầy đủ
+- KHÔNG dùng thuật ngữ kỹ thuật, tên thư viện, hoặc phần mở rộng tệp
+- KHÔNG dùng cú pháp code, đường dẫn, hoặc ký tự đặc biệt
+- Chỉ dùng tiếng Việt đàm thoại thông thường
+- Tập trung vào ĐÃ LÀM GÌ, không phải LÀM NHƯ THẾ NÀO
+
+Bản tóm tắt:`;
+    }
+  } else {
+    // English prompts (default)
+    if (userQuestion && userQuestion.trim().length > 0) {
+      prompt = `You are a TTS summarizer creating a spoken recap.
 
 User asked: "${userQuestion.trim().substring(0, 300)}"
 
@@ -177,8 +227,8 @@ Example format:
 "Feature completed. One, added login endpoint. Two, added logout endpoint. Three, tests passing. Next steps: add rate limiting, add email verification."
 
 Spoken recap:`;
-  } else {
-    prompt = `You are a TTS summarizer creating a spoken recap.
+    } else {
+      prompt = `You are a TTS summarizer creating a spoken recap.
 
 AI response:
 ${response.substring(0, 3000)}
@@ -194,6 +244,7 @@ CRITICAL RULES:
 - Focus on WHAT was done, not HOW
 
 Spoken recap:`;
+    }
   }
 
   try {
