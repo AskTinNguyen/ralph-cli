@@ -44,9 +44,28 @@ is_immediate_ack_enabled() {
   is_config_true ".acknowledgment.immediate"
 }
 
-# Get immediate acknowledgment phrase from config (default: "Got it")
+# Get preferred language from config
+get_voice_language() {
+  get_config_value ".multilingual.preferredLanguage" "en"
+}
+
+# Get immediate acknowledgment phrase from config
+# Supports multilingual: checks preferredLanguage for Vietnamese
 get_immediate_phrase() {
-  get_config_value ".acknowledgment.immediatePhrase" "Got it"
+  local lang=$(get_voice_language)
+
+  if [[ "$lang" == "vi" ]]; then
+    # Vietnamese acknowledgment (check config first, then default)
+    local vi_phrase=$(get_config_value ".acknowledgment.immediatePhraseVi" "")
+    if [[ -n "$vi_phrase" ]]; then
+      echo "$vi_phrase"
+    else
+      echo "Được rồi"  # Default Vietnamese "Got it"
+    fi
+  else
+    # English acknowledgment
+    get_config_value ".acknowledgment.immediatePhrase" "Got it"
+  fi
 }
 
 # Speak immediate acknowledgment (non-blocking)

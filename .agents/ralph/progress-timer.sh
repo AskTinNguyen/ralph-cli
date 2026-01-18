@@ -26,17 +26,45 @@ export RALPH_ROOT="$RALPH_DIR"
 PID_FILE="${RALPH_DIR}/progress-timer.pid"
 LOG_FILE="${RALPH_DIR}/progress-timer.log"
 
-# Progress phrases to cycle through
-PHRASES=(
+# Progress phrases - English
+PHRASES_EN=(
   "Still working"
   "Processing"
   "Almost there"
   "Working on it"
 )
 
+# Progress phrases - Vietnamese
+PHRASES_VI=(
+  "Đang xử lý"
+  "Vẫn đang làm"
+  "Sắp xong rồi"
+  "Đang thực hiện"
+)
+
+# Active phrases array (set based on language preference)
+PHRASES=()
+
 # Function to log messages
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [timer] $*" >> "$LOG_FILE"
+}
+
+# Get preferred language from config
+get_voice_language() {
+  get_config_value ".multilingual.preferredLanguage" "en"
+}
+
+# Initialize phrases based on language preference
+init_phrases() {
+  local lang=$(get_voice_language)
+  if [[ "$lang" == "vi" ]]; then
+    PHRASES=("${PHRASES_VI[@]}")
+    log "Using Vietnamese phrases"
+  else
+    PHRASES=("${PHRASES_EN[@]}")
+    log "Using English phrases"
+  fi
 }
 
 # Get interval from config (5-120 seconds, default 15)
@@ -83,6 +111,9 @@ start_timer() {
   local interval=$(get_interval)
   local initial_delay=$(get_initial_delay)
   log "Interval: ${interval}s, Initial delay: ${initial_delay}s"
+
+  # Initialize phrases based on language preference
+  init_phrases
 
   # Start the background timer loop
   (
