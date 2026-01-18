@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Wedding Planner - Guest Management</title>
-  <link rel="stylesheet" href="/css/footer.css">
   <style>
     * {
       margin: 0;
@@ -298,19 +297,26 @@
     </div>
   </div>
 
-  <footer>
-    <div class="footer-content">
-      <div class="footer-copyright">
-        © 2024 Wedding Planner. All rights reserved.
-      </div>
-      <div class="footer-social">
-        <a href="#" target="_blank" rel="noopener noreferrer">Facebook</a>
-        <a href="#" target="_blank" rel="noopener noreferrer">Instagram</a>
-        <a href="#" target="_blank" rel="noopener noreferrer">Twitter/X</a>
-        <a href="#" target="_blank" rel="noopener noreferrer">Pinterest</a>
-      </div>
-    </div>
-  </footer>
+  <div id="footer-container"></div>
+
+  <!-- Load footer component -->
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js"></script>
+
+  <script>
+    // Simple require() shim for browser
+    // Note: This shim stores the footer module in a temporary variable to avoid redeclaration
+    var _modules = {};
+    function require(path) {
+      if (path === './components/footer.js') {
+        if (!_modules[path]) {
+          _modules[path] = window.footer;
+        }
+        return _modules[path];
+      }
+      throw new Error('Module not found: ' + path);
+    }
+  </script>
 
   <script>
     const API_URL = 'http://localhost:3001/api/guests';
@@ -453,6 +459,12 @@
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // Import footer component
+    const footer = require('./components/footer.js');
+
+    // Render footer on page load
+    document.getElementById('footer-container').innerHTML = footer();
 
     // Load guests on page load
     loadGuests();
