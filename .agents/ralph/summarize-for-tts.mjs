@@ -432,6 +432,11 @@ function removeRepetitiveSentences(text) {
     return text; // Not enough sentences to have repetition
   }
 
+  // If text is already short (< 100 chars), don't risk removing content
+  if (text.length < 100) {
+    return text;
+  }
+
   const uniqueSentences = [];
   const seenConcepts = new Set();
 
@@ -449,7 +454,7 @@ function removeRepetitiveSentences(text) {
     let isDuplicate = false;
     for (const seenSig of seenConcepts) {
       const overlap = calculateOverlap(conceptSig, seenSig);
-      if (overlap > 0.6) { // More than 60% word overlap = duplicate concept
+      if (overlap > 0.75) { // More than 75% word overlap = duplicate concept (was 0.6 - too aggressive)
         isDuplicate = true;
         break;
       }
