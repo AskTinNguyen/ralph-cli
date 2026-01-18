@@ -246,40 +246,62 @@ async function contextAwareSummarize(response, userQuestion, modeConfig) {
   // Build context-aware prompt based on mode
   let prompt;
   if (userQuestion && userQuestion.trim().length > 0) {
-    prompt = `You are a TTS summarizer. The user asked: "${userQuestion.trim().substring(0, 200)}"
+    prompt = `You are a voice assistant. The user asked: "${userQuestion.trim().substring(0, 200)}"
 
-The AI assistant responded with:
+The assistant's response:
 ${response.substring(0, 3000)}
 
-Create a spoken summary as ${modeConfig.promptStyle}, ${modeConfig.promptWords}.
+Your task: Create a clear spoken summary answering what the user asked.
 
-CRITICAL RULES:
-- Focus on answering what the user asked
+FORMAT (${modeConfig.promptStyle}, ${modeConfig.promptWords}):
 ${langInstruction}
-- NEVER mention file names, paths, or extensions (e.g., .sh, .js, .agents)
-- NEVER include symbols: @ * # \` | < > { } [ ] / .
-- NEVER say "the file" or "the script" - describe what was DONE
-- If it's about code changes, say what changed in plain language
-- For lists, use numbered words: "One, ... Two, ... Three, ..."
-- State key outcomes and next steps
+- Use natural conversational speech
+- For lists: "First, [action]. Second, [action]. Third, [action]."
+- State ONLY the main point once - do not repeat or rephrase
 
-Spoken summary:`;
+STRICT RULES - NEVER include:
+- File names or paths (voice-config.json, .agents/ralph, src/components)
+- File extensions (.sh, .js, .py, .md, .json, .tsx)
+- Technical references ("the file", "the script", "the function", "the config")
+- Symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- Numbers with units unless essential (150ms, 10s, 200MB)
+- Abbreviations (TTS, API, CLI) - say full words
+- Code syntax or technical jargon
+
+WHAT TO SAY:
+- Actions completed: "Added feature X", "Fixed the login bug"
+- Key outcomes: "Users can now...", "The system will..."
+- Next steps: "You should...", "Consider..."
+- Answer directly - what did we accomplish?
+
+BAD: "Updated the voice config dot json file in dot agents slash ralph"
+GOOD: "Changed the voice settings to use a quieter tone"
+
+BAD: "One, modified the file. Two, tested the file. Three, the file works now."
+GOOD: "First, adjusted the settings. Second, verified it works. Done."
+
+Spoken summary (natural speech only, no repetition):`;
   } else {
     // Fallback to standard summarization without context
-    prompt = `You are a TTS summarizer. Convert this AI response into a spoken summary:
+    prompt = `You are a voice assistant converting this response to natural speech:
 
 ${response.substring(0, 3000)}
 
-Create a spoken summary as ${modeConfig.promptStyle}, ${modeConfig.promptWords}.
+Create a spoken summary (${modeConfig.promptStyle}, ${modeConfig.promptWords}).
 
-CRITICAL RULES:
-- Extract the key outcomes and actions
-- NEVER mention file names, paths, or extensions
-- NEVER include symbols: @ * # \` | < > { } [ ] / .
+STRICT RULES - NEVER include:
+- File names, paths, or extensions
+- Symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
 ${langInstruction}
-- For lists, use numbered words: "One, ... Two, ... Three, ..."
+- Technical references or abbreviations
+- Repetitive phrases
 
-Spoken summary:`;
+FORMAT:
+- Natural conversational speech
+- For lists: "First, [item]. Second, [item]. Third, [item]."
+- State each point once only
+
+Spoken summary (no repetition):`;
   }
 
   try {
@@ -295,8 +317,13 @@ Spoken summary:`;
         stream: false,
         options: {
           num_predict: modeConfig.maxTokens,
-          temperature: 0.3,
-          top_p: 0.9,
+          temperature: 0.2,        // Lower = more focused, less repetition
+          top_p: 0.85,             // Slightly more deterministic
+          top_k: 40,               // Limit vocabulary diversity
+          repeat_penalty: 1.3,     // Strongly penalize repetition
+          frequency_penalty: 0.5,  // Reduce word reuse
+          presence_penalty: 0.3,   // Encourage variety in concepts
+          stop: ["\n\n", "Summary:", "Note:", "Important:"], // Stop at meta-text
         },
       }),
       signal: controller.signal,
@@ -319,6 +346,7 @@ Spoken summary:`;
 
 /**
  * Clean up the generated summary
+ * Enhanced to catch symbols, technical terms, and repetitive patterns
  */
 function cleanSummary(text) {
   let result = text.trim();
@@ -338,15 +366,13 @@ function cleanSummary(text) {
   result = result.replace(/^[\s]*[-*+]\s+/gm, "");
   result = result.replace(/^[\s]*\d+\.\s+/gm, "");
 
-  // Remove @ symbols (markdown mentions)
-  result = result.replace(/@/g, "");
-
-  // Remove file paths and extensions
+  // Remove file paths and extensions (aggressive)
   // Matches: path/to/file.ext, .agents/ralph/script.sh, etc.
-  result = result.replace(/[\w\-./]+\.(sh|js|mjs|ts|tsx|jsx|json|md|txt|py|yaml|yml)/gi, "");
+  result = result.replace(/[\w\-./]+\.(sh|js|mjs|ts|tsx|jsx|json|md|txt|py|yaml|yml|css|html|xml|sql|rb|go|rs|java|c|cpp|h)/gi, "");
 
-  // Remove remaining path-like patterns (e.g., .agents/ralph/lib/)
+  // Remove path-like patterns (e.g., .agents/ralph/lib/, src/components/)
   result = result.replace(/\.[\w\-/]+\//g, "");
+  result = result.replace(/[\w\-]+\/[\w\-]+\//g, ""); // foo/bar/ patterns
 
   // Remove URLs
   result = result.replace(/https?:\/\/[^\s]+/g, "");
@@ -354,24 +380,106 @@ function cleanSummary(text) {
   // Remove XML/HTML-like tags
   result = result.replace(/<[^>]+>/g, "");
 
-  // Remove special characters that TTS struggles with
-  result = result.replace(/[|<>{}[\]]/g, "");
+  // AGGRESSIVE SYMBOL REMOVAL
+  // Remove ALL problematic symbols that TTS reads literally
+  result = result.replace(/[~\/\\|<>{}[\]@#$%^&*`+=_]/g, "");
+
+  // Replace "dot" when it appears as word (from file extensions being read)
+  result = result.replace(/\bdot\b/gi, "");
+  result = result.replace(/\bslash\b/gi, "");
+  result = result.replace(/\btilda\b/gi, "");
+  result = result.replace(/\btilde\b/gi, "");
+
+  // Remove technical abbreviations that slip through
+  result = result.replace(/\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|HTTPS|SSH|FTP)\b/g, "");
+
+  // Remove common technical words when followed by generic terms
+  result = result.replace(/\bthe (file|script|function|config|directory|folder|repository|repo)\b/gi, "it");
+  result = result.replace(/\bin the (file|script|function|config|directory|folder)\b/gi, "");
 
   // Remove common status emojis that TTS reads literally
-  // Includes: ✅ ❌ ⚠️ ✓ ✔ ☑ ❎ ⬜ ⬛ 🔴 🟢 🟡 ⭐ 🎉 👍 👎 🚀 💡 📝 🔧 🐛 etc.
   result = result.replace(/[\u2705\u274C\u26A0\u2713\u2714\u2611\u274E\u2B1C\u2B1B\u{1F534}\u{1F7E2}\u{1F7E1}\u2B50\u{1F389}\u{1F44D}\u{1F44E}\u{1F680}\u{1F4A1}\u{1F4DD}\u{1F527}\u{1F41B}]/gu, "");
 
-  // Fallback: remove any remaining emoji characters (comprehensive Unicode ranges)
+  // Fallback: remove any remaining emoji characters
   result = result.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, "");
+
+  // Fix spacing around punctuation
+  result = result.replace(/\s+([,.!?;:])/g, "$1"); // Remove space before punctuation
+  result = result.replace(/([,.!?;:])\s*/g, "$1 "); // Ensure space after punctuation
 
   // Remove extra punctuation (multiple periods, etc.)
   result = result.replace(/\.{2,}/g, ".");
   result = result.replace(/,{2,}/g, ",");
 
+  // Remove repetitive sentence patterns
+  // Detect "First, X. Second, X. Third, X." where X is very similar
+  result = removeRepetitiveSentences(result);
+
   // Normalize whitespace
   result = result.replace(/\s+/g, " ");
 
   return result.trim();
+}
+
+/**
+ * Remove repetitive sentences that say the same thing differently
+ * E.g., "Modified the file. Updated the file. Changed the file." → "Modified the file."
+ */
+function removeRepetitiveSentences(text) {
+  const sentences = text.split(/\.\s+/);
+
+  if (sentences.length <= 2) {
+    return text; // Not enough sentences to have repetition
+  }
+
+  const uniqueSentences = [];
+  const seenConcepts = new Set();
+
+  for (const sentence of sentences) {
+    // Extract key words (nouns/verbs) from sentence
+    const words = sentence.toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 3); // Only meaningful words
+
+    // Create a concept signature (sorted unique words)
+    const conceptSig = [...new Set(words)].sort().join("-");
+
+    // Check if we've seen a very similar sentence
+    let isDuplicate = false;
+    for (const seenSig of seenConcepts) {
+      const overlap = calculateOverlap(conceptSig, seenSig);
+      if (overlap > 0.6) { // More than 60% word overlap = duplicate concept
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (!isDuplicate) {
+      uniqueSentences.push(sentence);
+      seenConcepts.add(conceptSig);
+    }
+  }
+
+  return uniqueSentences.join(". ");
+}
+
+/**
+ * Calculate word overlap between two concept signatures
+ */
+function calculateOverlap(sig1, sig2) {
+  const words1 = new Set(sig1.split("-"));
+  const words2 = new Set(sig2.split("-"));
+
+  let intersection = 0;
+  for (const word of words1) {
+    if (words2.has(word)) {
+      intersection++;
+    }
+  }
+
+  const union = words1.size + words2.size - intersection;
+  return union > 0 ? intersection / union : 0;
 }
 
 /**

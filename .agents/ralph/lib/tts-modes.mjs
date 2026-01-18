@@ -20,9 +20,9 @@ export const MODES = {
     promptStyle: "bulleted list using numbered words (One, Two, Three)",
   },
   full: {
-    maxChars: 1000,
-    maxTokens: 400,
-    promptWords: "under 120 words",
+    maxChars: 700,
+    maxTokens: 300,
+    promptWords: "under 90 words",
     promptStyle: "comprehensive bulleted list with numbered items",
   },
 };
