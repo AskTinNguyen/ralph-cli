@@ -226,10 +226,93 @@ If `ralph recap` says "No transcript found":
 2. Check Claude projects exist: `ls ~/.claude/projects/`
 3. Transcripts are stored per-project with encoded paths
 
+## VieNeu-TTS (Vietnamese Voice Cloning)
+
+Ralph supports VieNeu-TTS for high-quality Vietnamese text-to-speech with voice cloning capability.
+
+### Installation
+
+```bash
+# Run the setup script
+.agents/ralph/setup/vieneu-setup.sh
+```
+
+This installs VieNeu-TTS to `~/.agents/ralph/vieneu/` (shared across all projects).
+
+### Configuration
+
+```bash
+# Set VieNeu as the TTS engine
+ralph speak --set-tts-engine vieneu
+
+# Choose a preset voice
+ralph speak --set-vieneu-voice Vinh
+
+# Check current settings
+ralph speak --get-tts-engine
+ralph speak --list-vieneu-voices
+```
+
+### Available Preset Voices
+
+| Voice | Description |
+|-------|-------------|
+| Binh | Male voice |
+| Tuyen | Female voice |
+| Vinh | Male voice |
+| Doan | Male voice |
+| Ly | Female voice |
+| Ngoc | Female voice |
+
+### Usage
+
+```bash
+# Speak Vietnamese text
+ralph speak "Xin chào thế giới"
+
+# One-time use without changing default engine
+ralph speak --engine vieneu "Xin chào"
+
+# Switch back to macOS TTS
+ralph speak --set-tts-engine macos
+```
+
+### Voice Cloning (Advanced)
+
+You can clone custom voices from audio samples:
+
+```bash
+# Activate venv and run clone script
+source ~/.agents/ralph/vieneu/venv/bin/activate
+python ~/.agents/ralph/vieneu/clone-voice.py your_audio.wav my_voice
+
+# Then use your cloned voice
+ralph speak --set-vieneu-voice my_voice
+```
+
+**Requirements for voice cloning:**
+- 3-5 second audio sample (WAV format)
+- 16kHz or 22kHz sample rate recommended
+- Clean speech, minimal background noise
+
+### VieNeu Configuration in voice-config.json
+
+```json
+{
+  "ttsEngine": "vieneu",
+  "vieneuVoice": "Vinh",
+  "vieneuModel": "vieneu-0.3b",
+  "autoSpeak": {
+    "enabled": true,
+    "mode": "adaptive"
+  }
+}
+```
+
 ## Requirements
 
 - **Claude Code CLI**: Must be installed and authenticated
-- **TTS provider**: macOS `say` command or voice-agent TTS (piper, etc.)
+- **TTS provider**: macOS `say` command, Piper TTS, or VieNeu-TTS
 - **Ollama**: Local LLM server running Qwen 2.5:1.5b
   ```bash
   # Install Ollama
@@ -248,6 +331,15 @@ If `ralph recap` says "No transcript found":
 
   # Linux
   sudo apt install jq
+  ```
+- **VieNeu-TTS** (optional): For Vietnamese voice cloning
+  ```bash
+  # Install VieNeu-TTS
+  .agents/ralph/setup/vieneu-setup.sh
+
+  # Configure
+  ralph speak --set-tts-engine vieneu
+  ralph speak --set-vieneu-voice Vinh
   ```
 
 ## Advanced Configuration
