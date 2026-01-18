@@ -1,0 +1,95 @@
+{
+  "projects": [
+    {
+      "name": "ralph-cli",
+      "path": "/Users/tinnguyen/ralph-cli",
+      "team": "platform",
+      "discipline": "backend"
+    }
+  ],
+  "factories": {
+    "daily-status-report": {
+      "enabled": true
+    },
+    "weekly-executive-summary": {
+      "enabled": true
+    },
+    "bug-triage-automation": {
+      "enabled": false
+    },
+    "feature-tracking": {
+      "enabled": true
+    },
+    "monthly-cost-analysis": {
+      "enabled": false
+    }
+  },
+  "slackChannels": {
+    "platform": "C07L2GUNV6Y",
+    "gameplay": "C07L2GUNV6Y",
+    "art": "C02RGAP67BL",
+    "qa": "C07L2GUNV6Y",
+    "backend": "C07L2GUNV6Y",
+    "leadership": "C05V8KNACTU",
+    "critical_alerts": "C05V8KNACTU"
+  },
+  "slackUsers": {
+    "ceo": "U123456",
+    "director_gameplay": "U234567",
+    "director_art": "U345678"
+  },
+  "notionDatabases": {
+    "studioMetrics": "",
+    "bugTracker": "",
+    "executiveSummary": ""
+  },
+  "budgets": {
+    "monthly": 2000.0,
+    "alertThresholds": [80, 95]
+  },
+  "schedules": {
+    "daily-status-report": "0 9 * * 1-5",
+    "weekly-executive-summary": "0 16 * * 5",
+    "bug-triage-automation": "0 9,13,17 * * 1-5",
+    "feature-tracking": "0 10 * * 1-5",
+    "monthly-cost-analysis": "0 9 1 * *"
+  },
+  "emailFallback": {
+    "enabled": false,
+    "sender": "ralph-automation@localhost",
+    "recipients": []
+  },
+  "blockerEscalation": {
+    "enabled": true,
+    "thresholds": {
+      "level1_days": 2,
+      "level2_days": 4,
+      "level3_days": 7
+    },
+    "actions": {
+      "level1": {
+        "channels": ["team"],
+        "mentions": ["teamLead"],
+        "severity": "warning"
+      },
+      "level2": {
+        "channels": ["team", "leadership"],
+        "mentions": ["teamLead", "director"],
+        "severity": "error"
+      },
+      "level3": {
+        "channels": ["leadership"],
+        "mentions": ["ceo", "director", "teamLead"],
+        "severity": "critical",
+        "dm_ceo": true
+      }
+    }
+  },
+  "bugWikipedia": {
+    "enabled": true,
+    "patternThreshold": 3,
+    "patternWindow_days": 30,
+    "autoCreateIssues": true,
+    "deepDiveFactory": ".ralph/factory/bug-deep-dive-analysis.yaml"
+  }
+}

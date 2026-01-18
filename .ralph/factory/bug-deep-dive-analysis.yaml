@@ -1,0 +1,48 @@
+name: bug-deep-dive-analysis
+description: Root cause analysis for recurring bug patterns
+
+stages:
+  - name: analyze_pattern
+    agent: claude-sonnet
+    prompt: |
+      Analyze this recurring bug pattern in the codebase:
+
+      Category: {{pattern.category}}
+      Module: {{pattern.module}}
+      Occurrences: {{pattern.bug_count}} bugs in 30 days
+
+      Similar bugs:
+      {{#each pattern.bugs}}
+      - {{this.commit_message}} ({{this.date_fixed}})
+        Author: {{this.author.name}}
+        Severity: {{this.severity}}
+        {{#if this.prevention_tips}}
+        Prevention tip: {{this.prevention_tips}}
+        {{/if}}
+      {{/each}}
+
+      Output:
+      1. Root cause (why does this keep happening?)
+      2. Recommended refactor (how to prevent permanently?)
+      3. Prevention strategy (tests, architecture changes)
+
+      Be specific and actionable. Focus on systemic issues, not individual bugs.
+
+  - name: generate_recommendations
+    agent: claude-sonnet
+    prompt: |
+      Based on the pattern analysis:
+
+      {{analyze_pattern.output}}
+
+      Generate:
+      1. Immediate action items (next 1-2 days)
+      2. Long-term refactor plan (1-2 weeks)
+      3. Test coverage recommendations
+
+      Format as markdown checklist with estimated effort for each item.
+
+outputs:
+  - deep_dive_report.md
+  - refactor_recommendations.md
+  - prevention_checklist.md
