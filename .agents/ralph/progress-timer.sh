@@ -14,25 +14,17 @@ set -euo pipefail
 # Get script directory for sourcing path-utils
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source path utilities for smart RALPH_ROOT resolution
+# Source shared utilities
 source "${SCRIPT_DIR}/lib/path-utils.sh"
+source "${SCRIPT_DIR}/lib/config-utils.sh"
+source "${SCRIPT_DIR}/lib/tts-manager.sh"
 
-# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
-RALPH_DIR="$(find_ralph_root)"
-if [[ -z "$RALPH_DIR" ]]; then
-  # Fallback to default behavior
-  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
-fi
-
-PID_FILE="${RALPH_DIR}/progress-timer.pid"
-CONFIG_FILE="${RALPH_DIR}/voice-config.json"
-LOG_FILE="${RALPH_DIR}/progress-timer.log"
-
-# Set RALPH_ROOT for child processes (points to .ralph directory)
+# Resolve RALPH_ROOT using smart detection
+RALPH_DIR="$(find_ralph_root)" || RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
 export RALPH_ROOT="$RALPH_DIR"
 
-# Source TTS manager for exclusive TTS playback
-source "${SCRIPT_DIR}/lib/tts-manager.sh"
+PID_FILE="${RALPH_DIR}/progress-timer.pid"
+LOG_FILE="${RALPH_DIR}/progress-timer.log"
 
 # Progress phrases to cycle through
 PHRASES=(
@@ -47,43 +39,26 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [timer] $*" >> "$LOG_FILE"
 }
 
-# Get interval from config or use default
+# Get interval from config (5-120 seconds, default 15)
 get_interval() {
-  local default=15
+  get_config_int ".progress.intervalSeconds" 15 5 120
+}
 
-  if [[ ! -f "$CONFIG_FILE" ]]; then
-    echo "$default"
-    return
-  fi
-
-  if command -v jq &>/dev/null; then
-    local interval=$(jq -r '.progress.intervalSeconds // 15' "$CONFIG_FILE" 2>/dev/null)
-    if [[ "$interval" =~ ^[0-9]+$ ]] && [[ "$interval" -ge 5 ]] && [[ "$interval" -le 120 ]]; then
-      echo "$interval"
-      return
-    fi
-  fi
-
-  echo "$default"
+# Get initial delay from config (2-60 seconds, default 5)
+get_initial_delay() {
+  get_config_int ".progress.initialDelaySeconds" 5 2 60
 }
 
 # Check if progress updates are enabled
+# Progress requires both progress.enabled != false AND autoSpeak enabled
 is_progress_enabled() {
-  if [[ ! -f "$CONFIG_FILE" ]]; then
-    return 0  # Default to enabled if no config
+  # Explicitly disabled
+  if is_config_false ".progress.enabled"; then
+    return 1
   fi
 
-  if command -v jq &>/dev/null; then
-    local enabled=$(jq -r '.progress.enabled // null' "$CONFIG_FILE" 2>/dev/null)
-    if [[ "$enabled" == "false" ]]; then
-      return 1
-    fi
-    # Also check if autoSpeak is enabled (progress depends on it)
-    local autoSpeak=$(jq -r '.autoSpeak // false' "$CONFIG_FILE" 2>/dev/null)
-    [[ "$autoSpeak" == "true" ]]
-  else
-    grep -q '"autoSpeak"[[:space:]]*:[[:space:]]*true' "$CONFIG_FILE" 2>/dev/null
-  fi
+  # Check autoSpeak (supports both legacy boolean and new object format)
+  is_config_true ".autoSpeak.enabled" || is_config_true ".autoSpeak"
 }
 
 # Speak a phrase using TTS manager (exclusive playback)
@@ -106,7 +81,8 @@ start_timer() {
   stop_timer 2>/dev/null || true
 
   local interval=$(get_interval)
-  log "Interval: ${interval}s"
+  local initial_delay=$(get_initial_delay)
+  log "Interval: ${interval}s, Initial delay: ${initial_delay}s"
 
   # Start the background timer loop
   (
@@ -120,9 +96,9 @@ start_timer() {
     local idx=0
     local num_phrases=${#PHRASES[@]}
 
-    # Wait for initial interval before first phrase
-    log "Waiting ${interval}s before first progress update..."
-    sleep "$interval"
+    # Wait for initial delay before first phrase (shorter than subsequent intervals)
+    log "Waiting ${initial_delay}s before first progress update..."
+    sleep "$initial_delay"
 
     # Check if we should still be running (PID file exists and matches)
     while true; do

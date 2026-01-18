@@ -17,20 +17,14 @@
 
 set -euo pipefail
 
-# Get script directory for sourcing path-utils
+# Get script directory
 TTS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source path utilities for smart RALPH_ROOT resolution
+# Source path utilities
 source "${TTS_SCRIPT_DIR}/path-utils.sh"
 
-# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
-RALPH_DIR="$(find_ralph_root)"
-if [[ -z "$RALPH_DIR" ]]; then
-  # Fallback to default behavior
-  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
-fi
-
-# Set RALPH_ROOT for child processes (points to .ralph directory)
+# Resolve RALPH_ROOT using smart detection
+RALPH_DIR="$(find_ralph_root)" || RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
 export RALPH_ROOT="$RALPH_DIR"
 
 # Generate session ID from terminal/parent process FIRST
@@ -177,16 +171,12 @@ cancel_all_tts() {
   tts_log "All TTS canceled"
 }
 
-# Speak text exclusively with cross-session coordination
-# Usage: speak_exclusive "text to speak"
-#        echo "text" | speak_exclusive
-#
-# This function:
-# 1. Waits for the global voice lock if another session is speaking
-# 2. Cancels any TTS from THIS session (not others)
-# 3. Speaks the new text
-speak_exclusive() {
+# Internal helper: prepare for TTS (acquire lock, cancel existing, validate)
+# Returns 0 if ready to speak, 1 if should skip
+# Sets TTS_TEXT variable with the text to speak
+_prepare_tts() {
   local text="${1:-}"
+  local mode="${2:-async}"
 
   # If no arg provided, read from stdin
   if [[ -z "$text" ]]; then
@@ -195,13 +185,15 @@ speak_exclusive() {
 
   if [[ -z "$text" ]]; then
     tts_log "No text provided, skipping"
-    return 0
+    return 1
   fi
 
-  tts_log "Speaking: ${text:0:50}..."
+  # Export for caller
+  TTS_TEXT="$text"
+
+  tts_log "Speaking${mode:+ ($mode)}: ${text:0:50}..."
 
   # Wait for voice lock if another session is speaking
-  # This prevents cross-session audio overlap
   if ! check_voice_lock; then
     tts_log "Another session is speaking, waiting..."
     if ! wait_for_voice_lock 15; then
@@ -213,61 +205,66 @@ speak_exclusive() {
   # Cancel any existing TTS from THIS session only
   cancel_existing_tts
 
-  # Speak and track PID
-  # Use echo + pipe to avoid shell escaping issues
-  (echo "$text" | ralph speak) &
+  # Verify ralph speak command is available
+  if ! command -v ralph &>/dev/null; then
+    tts_log "ERROR: ralph command not found in PATH"
+    return 1
+  fi
+
+  return 0
+}
+
+# Speak text exclusively with cross-session coordination (non-blocking)
+# Usage: speak_exclusive "text to speak"
+#        echo "text" | speak_exclusive
+speak_exclusive() {
+  local TTS_TEXT=""
+  if ! _prepare_tts "${1:-}" "async"; then
+    return $?
+  fi
+
+  # Speak in background and track PID
+  (echo "$TTS_TEXT" | ralph speak 2>&1) &
   local tts_pid=$!
   echo "$tts_pid" > "$TTS_PID_FILE"
 
   tts_log "TTS started with PID: $tts_pid"
 
-  # Don't wait for completion - let it run in background
+  # Brief wait to check if TTS started successfully
+  sleep 0.2
+  if ! kill -0 "$tts_pid" 2>/dev/null; then
+    tts_log "WARN: TTS process $tts_pid may have exited quickly"
+  fi
 }
 
 # Speak text and wait for completion (blocking)
-# Use this for short confirmations that must finish before subsequent TTS
+# Use for short confirmations that must finish before subsequent TTS
 # Usage: speak_blocking "Starting your request"
 speak_blocking() {
-  local text="${1:-}"
-
-  # If no arg provided, read from stdin
-  if [[ -z "$text" ]]; then
-    text=$(cat)
+  local TTS_TEXT=""
+  if ! _prepare_tts "${1:-}" "blocking"; then
+    return $?
   fi
-
-  if [[ -z "$text" ]]; then
-    tts_log "No text provided, skipping"
-    return 0
-  fi
-
-  tts_log "Speaking (blocking): ${text:0:50}..."
-
-  # Wait for voice lock if another session is speaking
-  if ! check_voice_lock; then
-    tts_log "Another session is speaking, waiting..."
-    if ! wait_for_voice_lock 15; then
-      tts_log "Timeout waiting for other session, skipping TTS"
-      return 1
-    fi
-  fi
-
-  # Cancel any existing TTS from THIS session only
-  cancel_existing_tts
 
   # Speak and track PID
-  (echo "$text" | ralph speak) &
+  (echo "$TTS_TEXT" | ralph speak) &
   local tts_pid=$!
   echo "$tts_pid" > "$TTS_PID_FILE"
 
   tts_log "TTS started with PID: $tts_pid (waiting for completion)"
 
   # Wait for completion
-  wait "$tts_pid" 2>/dev/null || true
+  local tts_exit_code=0
+  wait "$tts_pid" 2>/dev/null || tts_exit_code=$?
 
   # Clean up PID file
   rm -f "$TTS_PID_FILE" 2>/dev/null || true
 
-  tts_log "TTS completed (blocking)"
+  if [[ $tts_exit_code -ne 0 ]]; then
+    tts_log "WARN: TTS exited with code $tts_exit_code"
+  else
+    tts_log "TTS completed successfully"
+  fi
 }
 
 # Cleanup function (for trap)
@@ -276,6 +273,7 @@ cleanup_tts_manager() {
 }
 
 # Export functions and variables
+export -f _prepare_tts
 export -f cancel_existing_tts
 export -f cancel_all_tts
 export -f speak_exclusive

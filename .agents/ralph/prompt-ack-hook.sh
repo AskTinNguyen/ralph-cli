@@ -5,28 +5,20 @@
 
 set -euo pipefail
 
-# Get script directory for sourcing path-utils
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source path utilities for smart RALPH_ROOT resolution
+# Source shared utilities
 source "${SCRIPT_DIR}/lib/path-utils.sh"
+source "${SCRIPT_DIR}/lib/config-utils.sh"
+source "${SCRIPT_DIR}/lib/session-detect.sh"
 
-# Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
-RALPH_DIR="$(find_ralph_root)"
-if [[ -z "$RALPH_DIR" ]]; then
-  # Fallback to default behavior
-  RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
-fi
-
-CONFIG_FILE="${RALPH_DIR}/voice-config.json"
-LOG_FILE="${RALPH_DIR}/prompt-ack-hook.log"
-WATCHER_PID_FILE="${RALPH_DIR}/transcript-watcher.pid"
-
-# Set RALPH_ROOT for child processes (points to .ralph directory)
+# Resolve RALPH_ROOT using smart detection
+RALPH_DIR="$(find_ralph_root)" || RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
 export RALPH_ROOT="$RALPH_DIR"
 
-# Source session detection library
-source "${SCRIPT_DIR}/lib/session-detect.sh"
+LOG_FILE="${RALPH_DIR}/prompt-ack-hook.log"
+WATCHER_PID_FILE="${RALPH_DIR}/transcript-watcher.pid"
 
 # Function to log messages
 log() {
@@ -34,25 +26,37 @@ log() {
 }
 
 # Check if acknowledgment is enabled
+# Priority: acknowledgment.enabled > autoSpeak
 is_ack_enabled() {
-  if [[ ! -f "$CONFIG_FILE" ]]; then
+  # Check explicit acknowledgment setting first
+  if is_config_true ".acknowledgment.enabled"; then
+    return 0
+  fi
+  if is_config_false ".acknowledgment.enabled"; then
     return 1
   fi
+  # Fall back to autoSpeak
+  is_config_true ".autoSpeak"
+}
 
-  # Check acknowledgment.enabled first, then fall back to autoSpeak
-  if command -v jq &>/dev/null; then
-    local ack_enabled=$(jq -r '.acknowledgment.enabled // null' "$CONFIG_FILE" 2>/dev/null)
-    if [[ "$ack_enabled" == "true" ]]; then
-      return 0
-    elif [[ "$ack_enabled" == "false" ]]; then
-      return 1
-    fi
-    # Fall back to autoSpeak if acknowledgment.enabled is not set
-    local enabled=$(jq -r '.autoSpeak // false' "$CONFIG_FILE" 2>/dev/null)
-    [[ "$enabled" == "true" ]]
-  else
-    grep -q '"autoSpeak"[[:space:]]*:[[:space:]]*true' "$CONFIG_FILE" 2>/dev/null
-  fi
+# Check if immediate acknowledgment is enabled (default: false)
+is_immediate_ack_enabled() {
+  is_config_true ".acknowledgment.immediate"
+}
+
+# Get immediate acknowledgment phrase from config (default: "Got it")
+get_immediate_phrase() {
+  get_config_value ".acknowledgment.immediatePhrase" "Got it"
+}
+
+# Speak immediate acknowledgment (non-blocking)
+speak_immediate_ack() {
+  local phrase=$(get_immediate_phrase)
+  log "Speaking immediate acknowledgment: $phrase"
+
+  # Source TTS manager and speak (non-blocking)
+  source "${SCRIPT_DIR}/lib/tts-manager.sh"
+  speak_exclusive "$phrase" &
 }
 
 # Kill any existing transcript watcher
@@ -118,6 +122,11 @@ main() {
 
   # Also stop any existing progress timer
   "${SCRIPT_DIR}/progress-timer.sh" stop 2>/dev/null || true
+
+  # Speak immediate acknowledgment if enabled (quick "Got it" before processing)
+  if is_immediate_ack_enabled; then
+    speak_immediate_ack
+  fi
 
   # Start transcript watcher in background (detached from terminal)
   # Use SCRIPT_DIR which points to .agents/ralph/, not RALPH_ROOT which points to .ralph/
