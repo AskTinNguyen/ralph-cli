@@ -68,25 +68,25 @@ def main():
                 voice=model.get_preset_voice(matched_preset)
             )
         else:
-            # Try to load cloned voice reference
+            # Try to load pre-encoded cloned voice
             # Ralph-cli uses ~/.agents/ralph/vieneu for shared installation
             vieneu_dir = Path.home() / ".agents/ralph/vieneu"
-            references_dir = vieneu_dir / "references"
-            ref_audio_file = references_dir / f"{args.voice}.wav"
+            voices_dir = vieneu_dir / "voices"
+            ref_codes_file = voices_dir / f"{args.voice}.npy"
 
-            if not ref_audio_file.exists():
+            if not ref_codes_file.exists():
                 print(f"Error: Voice not found: {args.voice}", file=sys.stderr)
                 print(f"Available preset voices: {', '.join(preset_voices)}", file=sys.stderr)
                 print(f"Available cloned voices:", file=sys.stderr)
-                if references_dir.exists():
-                    for v in references_dir.glob("*.wav"):
+                if voices_dir.exists():
+                    for v in voices_dir.glob("*.npy"):
                         print(f"  - {v.stem}", file=sys.stderr)
                 else:
                     print("  (none)", file=sys.stderr)
                 sys.exit(1)
 
-            # Encode reference audio on-the-fly
-            ref_codes = model.encode_reference(str(ref_audio_file))
+            # Load pre-encoded voice embedding
+            ref_codes = np.load(str(ref_codes_file))
 
             # Synthesize speech using infer method
             audio = model.infer(

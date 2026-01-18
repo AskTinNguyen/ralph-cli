@@ -90,9 +90,10 @@ is_progress_enabled() {
 }
 
 # Speak a phrase using TTS manager (exclusive playback)
+# Uses "progress" usage type to select progress voice
 speak_phrase() {
   local phrase="$1"
-  speak_exclusive "$phrase" || true
+  speak_exclusive "$phrase" "progress" || true
 }
 
 # Start the background timer loop

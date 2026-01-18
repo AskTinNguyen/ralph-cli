@@ -22,6 +22,7 @@ TTS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source path utilities
 source "${TTS_SCRIPT_DIR}/path-utils.sh"
+source "${TTS_SCRIPT_DIR}/config-utils.sh"
 
 # Resolve RALPH_ROOT using smart detection
 RALPH_DIR="$(find_ralph_root)" || RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
@@ -42,6 +43,73 @@ VOICE_LOCK_FILE="${VOICE_LOCK_DIR}/voice.lock"
 # Log to TTS manager log
 tts_log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [tts-mgr:${TTS_SESSION_ID:0:20}] $*" >> "$TTS_LOG_FILE"
+}
+
+# Get preferred language from config (used as fallback)
+get_voice_language() {
+  get_config_value ".multilingual.preferredLanguage" "en"
+}
+
+# Detect language from text content using franc-min
+# Usage: detect_text_language "text to analyze"
+# Returns: ISO 639-1 language code (en, vi, zh)
+detect_text_language() {
+  local text="$1"
+
+  # Skip detection for very short text (< 20 chars)
+  if [[ ${#text} -lt 20 ]]; then
+    echo "en"
+    return
+  fi
+
+  # Use Node.js language detection module
+  local lang=$(node -e "
+    import('${TTS_SCRIPT_DIR}/../language-voice-mapper.mjs').then(m => {
+      const detected = m.detectLanguage('${text//\'/\\\'}');
+      console.log(detected);
+    }).catch(() => console.log('en'));
+  " 2>/dev/null)
+
+  # Fallback to English if detection fails
+  if [[ -z "$lang" ]]; then
+    lang="en"
+  fi
+
+  echo "$lang"
+}
+
+# Get voice configuration for specific usage type with language detection
+# Usage: get_usage_voice <usage_type> <voice|engine> [text]
+# usage_type: acknowledgment, progress, summary
+# param: voice or engine
+# text: optional text to detect language from (if not provided, uses preferredLanguage)
+# Returns: voice name or engine name based on second parameter
+get_usage_voice() {
+  local usage_type="$1"
+  local param="${2:-voice}"  # voice or engine
+  local text="${3:-}"
+  local lang=""
+
+  # Detect language from text if provided, otherwise use preferred language
+  if [[ -n "$text" ]]; then
+    lang=$(detect_text_language "$text")
+  else
+    lang=$(get_voice_language)
+  fi
+
+  # Try to get from usageVoices config
+  local value=$(get_config_value ".usageVoices.${lang}.${usage_type}.${param}" "")
+
+  # Fallback to default if not configured
+  if [[ -z "$value" ]]; then
+    if [[ "$param" == "engine" ]]; then
+      value=$(get_config_value ".ttsEngine" "macos")
+    else
+      value=$(get_config_value ".voice" "")
+    fi
+  fi
+
+  echo "$value"
 }
 
 # Check if voice lock is held by another session
@@ -173,10 +241,11 @@ cancel_all_tts() {
 
 # Internal helper: prepare for TTS (acquire lock, cancel existing, validate)
 # Returns 0 if ready to speak, 1 if should skip
-# Sets TTS_TEXT variable with the text to speak
+# Sets TTS_TEXT, TTS_VOICE, TTS_ENGINE variables
 _prepare_tts() {
   local text="${1:-}"
   local mode="${2:-async}"
+  local usage_type="${3:-}"
 
   # If no arg provided, read from stdin
   if [[ -z "$text" ]]; then
@@ -191,7 +260,17 @@ _prepare_tts() {
   # Export for caller
   TTS_TEXT="$text"
 
-  tts_log "Speaking${mode:+ ($mode)}: ${text:0:50}..."
+  # Get voice and engine for usage type if specified
+  if [[ -n "$usage_type" ]]; then
+    # Pass text to get_usage_voice for language detection
+    TTS_VOICE=$(get_usage_voice "$usage_type" "voice" "$text")
+    TTS_ENGINE=$(get_usage_voice "$usage_type" "engine" "$text")
+    tts_log "Speaking${mode:+ ($mode)} [$usage_type]: ${text:0:50}... (voice: $TTS_VOICE, engine: $TTS_ENGINE)"
+  else
+    TTS_VOICE=""
+    TTS_ENGINE=""
+    tts_log "Speaking${mode:+ ($mode)}: ${text:0:50}..."
+  fi
 
   # Wait for voice lock if another session is speaking
   if ! check_voice_lock; then
@@ -215,16 +294,28 @@ _prepare_tts() {
 }
 
 # Speak text exclusively with cross-session coordination (non-blocking)
-# Usage: speak_exclusive "text to speak"
-#        echo "text" | speak_exclusive
+# Usage: speak_exclusive "text to speak" [usage_type]
+#        speak_exclusive "Got it" "acknowledgment"
+#        echo "text" | speak_exclusive "" "summary"
 speak_exclusive() {
   local TTS_TEXT=""
-  if ! _prepare_tts "${1:-}" "async"; then
+  local TTS_VOICE=""
+  local TTS_ENGINE=""
+  if ! _prepare_tts "${1:-}" "async" "${2:-}"; then
     return $?
   fi
 
+  # Build ralph speak command with voice/engine if specified
+  local speak_cmd="ralph speak"
+  if [[ -n "$TTS_ENGINE" ]]; then
+    speak_cmd+=" --engine $TTS_ENGINE"
+  fi
+  if [[ -n "$TTS_VOICE" ]]; then
+    speak_cmd+=" --voice $TTS_VOICE"
+  fi
+
   # Speak in background and track PID
-  (echo "$TTS_TEXT" | ralph speak 2>&1) &
+  (echo "$TTS_TEXT" | $speak_cmd 2>&1) &
   local tts_pid=$!
   echo "$tts_pid" > "$TTS_PID_FILE"
 
@@ -239,15 +330,27 @@ speak_exclusive() {
 
 # Speak text and wait for completion (blocking)
 # Use for short confirmations that must finish before subsequent TTS
-# Usage: speak_blocking "Starting your request"
+# Usage: speak_blocking "Starting your request" [usage_type]
+#        speak_blocking "Got it" "acknowledgment"
 speak_blocking() {
   local TTS_TEXT=""
-  if ! _prepare_tts "${1:-}" "blocking"; then
+  local TTS_VOICE=""
+  local TTS_ENGINE=""
+  if ! _prepare_tts "${1:-}" "blocking" "${2:-}"; then
     return $?
   fi
 
+  # Build ralph speak command with voice/engine if specified
+  local speak_cmd="ralph speak"
+  if [[ -n "$TTS_ENGINE" ]]; then
+    speak_cmd+=" --engine $TTS_ENGINE"
+  fi
+  if [[ -n "$TTS_VOICE" ]]; then
+    speak_cmd+=" --voice $TTS_VOICE"
+  fi
+
   # Speak and track PID
-  (echo "$TTS_TEXT" | ralph speak) &
+  (echo "$TTS_TEXT" | $speak_cmd) &
   local tts_pid=$!
   echo "$tts_pid" > "$TTS_PID_FILE"
 

@@ -190,7 +190,8 @@ function speak(text) {
   try {
     const escaped = escapeShell(text);
     // Source TTS manager from SCRIPT_DIR (not RALPH_ROOT which points to .ralph/)
-    const cmd = `source "${SCRIPT_DIR}/lib/tts-manager.sh" && speak_blocking '${escaped}'`;
+    // Pass "acknowledgment" as usage type to use acknowledgment voice
+    const cmd = `source "${SCRIPT_DIR}/lib/tts-manager.sh" && speak_blocking '${escaped}' 'acknowledgment'`;
     execSync(cmd, {
       stdio: "ignore",
       cwd: SCRIPT_DIR,

@@ -73,9 +73,9 @@ speak_immediate_ack() {
   local phrase=$(get_immediate_phrase)
   log "Speaking immediate acknowledgment: $phrase"
 
-  # Source TTS manager and speak (non-blocking)
+  # Source TTS manager and speak (non-blocking) with acknowledgment voice
   source "${SCRIPT_DIR}/lib/tts-manager.sh"
-  speak_exclusive "$phrase" &
+  speak_exclusive "$phrase" "acknowledgment" &
 }
 
 # Kill any existing transcript watcher

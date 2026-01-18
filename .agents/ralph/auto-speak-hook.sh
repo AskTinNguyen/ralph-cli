@@ -237,7 +237,8 @@ main() {
   log "Summary preview: ${summary:0:100}..."
 
   # Speak the summary exclusively (cancels any existing TTS)
-  speak_exclusive "$summary"
+  # Use "summary" usage type to select summary voice
+  speak_exclusive "$summary" "summary"
 
   log "=== Hook complete ==="
 
