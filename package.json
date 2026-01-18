@@ -31,7 +31,8 @@
     "test:factory-fsm": "node tests/factory-state-machine.mjs",
     "test:factory-orchestrator": "node tests/factory-orchestrator.mjs",
     "test:factory": "npm run test:factory-fsm && npm run test:factory-orchestrator",
-    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock && npm run test:factory",
+    "test:slack": "RALPH_DRY_RUN=1 node tests/integration-slack-reporter.mjs",
+    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock && npm run test:factory && npm run test:slack",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write ."
   },
