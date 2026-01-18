@@ -2,9 +2,14 @@
   "name": "wedding-planner-app",
   "version": "0.1.0",
   "scripts": {
+    "start": "node server.js",
     "test": "jest"
   },
   "devDependencies": {
     "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
   }
 }
