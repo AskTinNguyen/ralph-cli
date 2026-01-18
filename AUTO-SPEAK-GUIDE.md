@@ -128,13 +128,45 @@ Auto-speak settings are stored in `.ralph/voice-config.json`:
   "autoSpeak": {
     "enabled": true,
     "mode": "adaptive"
+  },
+  "acknowledgment": {
+    "enabled": true,
+    "immediate": false,
+    "immediatePhrase": "Got it"
+  },
+  "progress": {
+    "enabled": true,
+    "intervalSeconds": 15,
+    "initialDelaySeconds": 5
+  },
+  "skipSessionStart": {
+    "enabled": true,
+    "minUserMessages": 1,
+    "headlessAlwaysSpeak": true
   }
 }
 ```
 
 **Configuration options:**
+
+**autoSpeak:**
 - `enabled`: Whether auto-speak is active (`true`/`false`)
 - `mode`: Summarization mode (`"short"`, `"medium"`, `"full"`, `"adaptive"`)
+
+**acknowledgment:**
+- `enabled`: Whether initial acknowledgment voice is enabled (`true`/`false`)
+- `immediate`: Whether to speak a quick acknowledgment immediately on prompt submit (`true`/`false`, default: `false`)
+- `immediatePhrase`: The phrase to speak immediately (default: `"Got it"`)
+
+**progress:**
+- `enabled`: Whether periodic progress phrases are enabled (`true`/`false`)
+- `intervalSeconds`: Interval between progress phrases (default: 15)
+- `initialDelaySeconds`: Delay before first progress phrase (default: 5)
+
+**skipSessionStart:**
+- `enabled`: Whether to skip voice on first prompt of a new session (`true`/`false`)
+- `minUserMessages`: Minimum user messages before voice is enabled (default: 1)
+- `headlessAlwaysSpeak`: In headless/automation mode, always speak regardless of session state (default: `true`)
 
 **Legacy format** (still supported):
 ```json
@@ -151,6 +183,39 @@ The hook script checks this config file before speaking. If `autoSpeak.enabled` 
 1. **Enable auto-speak**: `ralph speak --auto-on`
 2. **Use Claude Code normally**: Every response will be spoken automatically
 3. **Disable when done**: `ralph speak --auto-off`
+
+## Headless Mode (Ralph Build)
+
+When running Ralph in headless mode (`ralph build` with piped input), auto-speak behavior is optimized:
+
+**What works in headless mode:**
+- Initial acknowledgment (Claude's first response)
+- Progress updates (periodic "Still working..." phrases)
+- Final summarization (completion summary)
+
+**Configuration for headless mode:**
+
+By default, `headlessAlwaysSpeak: true` bypasses the session-start detection in headless mode. This ensures voice output works correctly even with single-message sessions.
+
+```json
+{
+  "skipSessionStart": {
+    "headlessAlwaysSpeak": true
+  }
+}
+```
+
+**Environment variable override:**
+```bash
+# Force headless mode behavior
+export RALPH_HEADLESS=true
+ralph build 5
+```
+
+**Timing considerations:**
+- Initial delay before progress phrases: 5 seconds (configurable via `progress.initialDelaySeconds`)
+- If Claude responds in under 5 seconds, you'll hear acknowledgment + summary but no progress phrases
+- For longer tasks, progress phrases speak every 15 seconds (configurable via `progress.intervalSeconds`)
 
 ## Logs
 
@@ -177,6 +242,50 @@ sc  # alias for speak-clipboard
 ```
 
 ## Troubleshooting
+
+### Headless Mode / Ralph Build Issues
+
+If auto-speak isn't working during `ralph build` or other headless operations:
+
+1. **Verify headless mode is detected:**
+   ```bash
+   tail -20 .ralph/session-detect.log | grep -i headless
+   ```
+   Should show: `Headless mode detected, always speak enabled - allowing voice`
+
+2. **Check if headlessAlwaysSpeak is enabled:**
+   ```bash
+   jq '.skipSessionStart.headlessAlwaysSpeak' .ralph/voice-config.json
+   ```
+   Should return `true`
+
+3. **Force headless mode via environment:**
+   ```bash
+   export RALPH_HEADLESS=true
+   ralph build 5
+   ```
+
+4. **Check progress timer logs:**
+   ```bash
+   tail -30 .ralph/progress-timer.log
+   ```
+   Look for "Timer started" and "Speaking:" entries
+
+5. **Verify TTS manager is working:**
+   ```bash
+   tail -30 .ralph/tts-manager.log
+   ```
+   Look for "TTS started with PID" entries
+
+6. **Test TTS directly in headless context:**
+   ```bash
+   echo "Test message" | ralph speak
+   ```
+
+**Common headless mode issues:**
+- **No audio device access**: Some CI/CD environments don't have audio output
+- **Progress timer killed too quickly**: Reduce `initialDelaySeconds` if Claude responds very fast
+- **Session start skip blocking voice**: Ensure `headlessAlwaysSpeak: true` in config
 
 ### No audio output
 
@@ -308,6 +417,79 @@ ralph speak --set-vieneu-voice my_voice
   }
 }
 ```
+
+## Multilingual Auto-Detection
+
+Ralph can automatically detect Vietnamese text and route it to VieNeu-TTS without manual engine switching. This eliminates the need to run `--set-tts-engine vieneu` before speaking Vietnamese content.
+
+### How It Works
+
+1. When you run `ralph speak "text"`, the system checks if multilingual auto-detection is enabled
+2. If enabled, it uses [franc-min](https://github.com/wooorm/franc) to detect the language
+3. If Vietnamese is detected (requires 20+ characters for reliable detection) and VieNeu is installed, it automatically routes to VieNeu-TTS
+4. Otherwise, it uses your configured default TTS engine (macOS/Piper)
+
+### Enable/Disable
+
+```bash
+# Check current status
+ralph speak --multilingual-status
+
+# Enable auto-detection (default)
+ralph speak --multilingual-on
+
+# Disable auto-detection
+ralph speak --multilingual-off
+```
+
+### Usage Examples
+
+```bash
+# English text → uses default engine (macOS/Piper)
+ralph speak "Hello world, this is a test"
+
+# Vietnamese text → auto-detects and routes to VieNeu
+ralph speak "Xin chào thế giới, đây là một bài kiểm tra"
+
+# Force specific engine (bypasses auto-detection)
+ralph speak --engine vieneu "Hello"
+ralph speak --engine macos "Xin chào"
+```
+
+### Configuration
+
+Multilingual settings in `.ralph/voice-config.json`:
+
+```json
+{
+  "ttsEngine": "macos",
+  "multilingual": {
+    "enabled": true,
+    "autoDetect": true
+  },
+  "vieneuVoice": "Vinh"
+}
+```
+
+**Options:**
+- `multilingual.enabled`: Master switch for multilingual features (`true`/`false`)
+- `multilingual.autoDetect`: Whether to auto-detect language and route accordingly (`true`/`false`)
+
+### Detection Requirements
+
+- **Minimum text length**: 20 characters for reliable detection
+- **Short text**: Defaults to English (prevents false positives)
+- **VieNeu must be installed**: If VieNeu is not installed, Vietnamese text will use the default engine
+
+### Supported Languages
+
+| Language | ISO Code | TTS Engine |
+|----------|----------|------------|
+| English | en | macOS/Piper (default) |
+| Vietnamese | vi | VieNeu-TTS |
+| Chinese | zh | macOS/Piper |
+
+Additional languages can be added by extending `.agents/ralph/language-voice-mapper.mjs`.
 
 ## Requirements
 

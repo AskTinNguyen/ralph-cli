@@ -498,6 +498,200 @@ test("UI_BASE_URL defaults to localhost:3000", () => {
   assertEqual(slackReporter.UI_BASE_URL, "http://localhost:3000", "Default UI URL should be localhost:3000");
 });
 
+// ============================================================================
+// US-004: Escalation Alert Tests
+// ============================================================================
+
+console.log("\nRunning Escalation Alert Tests (PRD-112 US-004)");
+console.log("============================================================\n");
+
+// Test 21: Format escalation alert blocks
+test("formatEscalationAlertBlocks creates valid structure for Level 1", () => {
+  const blocker = {
+    prd_id: 123,
+    prd_name: "Mobile Gameplay Feature",
+    escalation_level: 1,
+    team: "Gameplay",
+    days_blocked: 2,
+    last_activity: "2026-01-16",
+  };
+
+  const context = {
+    whoCaused: { email: "alice@studio.com", name: "Alice", commit: "abc1234" },
+    why: "Module refactor broke import paths",
+    whatHappened: [
+      { date: "2026-01-13", message: "Refactored PlayerInventory" },
+      { date: "2026-01-14", message: "10 consecutive build failures" },
+    ],
+    howToFix: [
+      "Update import paths in src/gameplay/player.ts",
+      "Check PlayerInventory exports",
+    ],
+    whoShouldFix: { name: "Alice", email: "alice@studio.com", backup_name: "Bob" },
+  };
+
+  const blocks = slackReporter.formatEscalationAlertBlocks(blocker, context);
+
+  assert(Array.isArray(blocks), "Should return array of blocks");
+  assert(blocks.length >= 10, "Should have at least 10 blocks for detailed alert");
+
+  // Check header
+  const header = blocks.find((b) => b.type === "header");
+  assert(header, "Should have header block");
+  assert(header.text.text.includes("Level 1"), "Should mention Level 1");
+  assert(header.text.text.includes("🟡"), "Level 1 should have yellow emoji");
+
+  // Check PRD info
+  const content = JSON.stringify(blocks);
+  assert(content.includes("PRD-123"), "Should mention PRD ID");
+  assert(content.includes("Mobile Gameplay Feature"), "Should mention PRD name");
+  assert(content.includes("Gameplay"), "Should mention team");
+
+  // Check root cause context
+  assert(content.includes("alice@studio.com"), "Should include developer email");
+  assert(content.includes("Module refactor"), "Should include root cause");
+  assert(content.includes("Who Caused"), "Should have Who Caused section");
+  assert(content.includes("Why:"), "Should have Why section");
+  assert(content.includes("What Happened Before"), "Should have timeline section");
+  assert(content.includes("HOW TO FIX"), "Should have how to fix section");
+  assert(content.includes("WHO SHOULD FIX"), "Should have who should fix section");
+
+  // Check action button
+  const actions = blocks.find((b) => b.type === "actions");
+  assert(actions, "Should have actions block");
+  assert(actions.elements[0].url.includes("/prd/123"), "Button should link to PRD");
+});
+
+// Test 22: Format escalation alert for Level 2
+test("formatEscalationAlertBlocks uses different emoji for Level 2", () => {
+  const blocker = {
+    prd_id: 124,
+    escalation_level: 2,
+    days_blocked: 4,
+  };
+
+  const blocks = slackReporter.formatEscalationAlertBlocks(blocker, {});
+
+  const header = blocks.find((b) => b.type === "header");
+  assert(header.text.text.includes("Level 2"), "Should mention Level 2");
+  assert(header.text.text.includes("🔴"), "Level 2 should have red emoji");
+});
+
+// Test 23: Format escalation alert for Level 3
+test("formatEscalationAlertBlocks uses critical emoji for Level 3", () => {
+  const blocker = {
+    prd_id: 125,
+    escalation_level: 3,
+    days_blocked: 7,
+  };
+
+  const blocks = slackReporter.formatEscalationAlertBlocks(blocker, {});
+
+  const header = blocks.find((b) => b.type === "header");
+  assert(header.text.text.includes("Level 3"), "Should mention Level 3");
+  assert(header.text.text.includes("🚨"), "Level 3 should have critical emoji");
+});
+
+// Test 24: Get who caused from git blame (when files are available)
+await asyncTest("getWhoCausedFromGitBlame returns developer info", async () => {
+  // This test relies on actual git repo
+  const result = await slackReporter.getWhoCausedFromGitBlame("package.json");
+  assert(result.email, "Should extract email");
+  assert(result.name, "Should extract name");
+  assert(result.commit, "Should extract commit SHA");
+});
+
+// Test 25: Get why from bug wikipedia (graceful fallback)
+await asyncTest("getWhyFromBugWikipedia returns fallback when no bugs exist", async () => {
+  const blocker = { prd_id: 999 };
+  const result = await slackReporter.getWhyFromBugWikipedia(blocker);
+  // Should return either a category or "Requires investigation"
+  assert(typeof result === "string", "Should return string");
+  assert(result.length > 0, "Should not be empty");
+});
+
+// Test 26: Get timeline from git history
+await asyncTest("getWhatHappenedTimeline extracts recent commits", async () => {
+  const timeline = await slackReporter.getWhatHappenedTimeline(112, 7);
+  // Should return array (may be empty if no commits)
+  assert(Array.isArray(timeline), "Should return array");
+  // Each item should have date and message
+  if (timeline.length > 0) {
+    assert(timeline[0].date, "Timeline item should have date");
+    assert(timeline[0].message, "Timeline item should have message");
+  }
+});
+
+// Test 27: Get how to fix steps
+await asyncTest("getHowToFixSteps returns remediation steps", async () => {
+  const blocker = { prd_id: 123 };
+  const steps = await slackReporter.getHowToFixSteps(blocker, {});
+  assert(Array.isArray(steps), "Should return array of steps");
+  assert(steps.length >= 4, "Should have at least 4 remediation steps");
+  assert(typeof steps[0] === "string", "Steps should be strings");
+});
+
+// Test 28: Get who should fix
+await asyncTest("getWhoShouldFix returns developer and backup info", async () => {
+  const blocker = { prd_id: 123, team_lead: "Bob" };
+  const whoCaused = { name: "Alice", email: "alice@studio.com" };
+  const result = await slackReporter.getWhoShouldFix(blocker, whoCaused);
+
+  assertEqual(result.name, "Alice", "Should return original author as primary");
+  assertEqual(result.email, "alice@studio.com", "Should return author email");
+  assertEqual(result.backup_name, "Bob", "Should return team lead as backup");
+});
+
+// Test 29: Gather complete root cause context
+await asyncTest("gatherRootCauseContext assembles all context fields", async () => {
+  const blocker = { prd_id: 112, team_lead: "Bob" };
+  const context = await slackReporter.gatherRootCauseContext(blocker, ["package.json"]);
+
+  assert(context.whoCaused, "Should gather who caused");
+  assert(context.whoCaused.email, "Should have email");
+  assert(context.why, "Should gather why/root cause");
+  assert(Array.isArray(context.whatHappened), "Should gather timeline");
+  assert(Array.isArray(context.howToFix), "Should gather fix steps");
+  assert(context.whoShouldFix, "Should gather who should fix");
+  assert(context.whoShouldFix.name, "Should have name");
+});
+
+// Test 30: Send escalation alert routing for Level 1
+await asyncTest("sendEscalationAlert routes to team channel for Level 1", async () => {
+  const blocker = {
+    prd_id: 123,
+    escalation_level: 1,
+  };
+
+  const config = {
+    slackChannels: {
+      team: "C_TEAM_TEST",
+      leadership: "C_LEAD_TEST",
+    },
+    slackUsers: {
+      team_lead: "U_LEAD",
+      director: "U_DIRECTOR",
+      ceo: "U_CEO",
+    },
+  };
+
+  // Set dry run mode to prevent actual Slack calls
+  const originalDryRun = process.env.RALPH_DRY_RUN;
+  process.env.RALPH_DRY_RUN = "1";
+
+  try {
+    const result = await slackReporter.sendEscalationAlert(blocker, {}, config);
+    // In dry run, should always succeed
+    assert(result, "Should return true for successful send");
+  } finally {
+    if (originalDryRun) {
+      process.env.RALPH_DRY_RUN = originalDryRun;
+    } else {
+      delete process.env.RALPH_DRY_RUN;
+    }
+  }
+});
+
 // Summary
 console.log("\n" + "=".repeat(60));
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

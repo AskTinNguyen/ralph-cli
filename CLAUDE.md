@@ -115,6 +115,11 @@ Text-to-speech for Claude Code responses using local Qwen LLM summarization.
 **Auto-speak**: Short ~20-word summaries spoken automatically after each response.
 **Recap**: On-demand longer summaries (~100-200 words) when you want more detail.
 
+**Headless mode (Ralph build)**: Auto-speak works in headless mode with these defaults:
+- `headlessAlwaysSpeak: true` - Bypasses session-start detection
+- `initialDelaySeconds: 5` - First progress phrase after 5 seconds
+- Force headless mode: `export RALPH_HEADLESS=true`
+
 > **Full guide**: [`AUTO-SPEAK-GUIDE.md`](AUTO-SPEAK-GUIDE.md)
 
 > **Documentation**:

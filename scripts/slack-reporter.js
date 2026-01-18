@@ -504,6 +504,261 @@ function delay(ms) {
 }
 
 // ============================================================================
+// Root Cause Context Gathering (US-004)
+// ============================================================================
+
+/**
+ * Get git blame information for a failing file
+ * Identifies the developer who last modified the file
+ * @param {string} filePath - Path to file (relative to repo root)
+ * @returns {Promise<Object>} { email, name, commit }
+ */
+async function getWhoCausedFromGitBlame(filePath) {
+  const { execSync } = require("child_process");
+
+  try {
+    // Get the last commit that modified this file
+    const logOutput = execSync(`git log -1 --format="%ae|%an|%h" -- "${filePath}"`, {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"], // Suppress stderr
+    }).trim();
+
+    if (!logOutput) {
+      return { email: "Unknown", name: "Unknown", commit: "unknown" };
+    }
+
+    const [email, name, commit] = logOutput.split("|");
+    return { email, name, commit };
+  } catch (error) {
+    log("WARN", `Failed to get git blame for ${filePath}: ${error.message}`);
+    return { email: "Unknown", name: "Unknown", commit: "unknown" };
+  }
+}
+
+/**
+ * Extract root cause from bug wikipedia if available
+ * Searches for similar bugs in .ralph/bug-wikipedia directory
+ * @param {Object} blocker - Blocker status object
+ * @returns {Promise<string>} Root cause category or "Requires investigation"
+ */
+async function getWhyFromBugWikipedia(blocker) {
+  const bugWikiPath = path.join(process.cwd(), ".ralph", "bug-wikipedia", "categorized");
+
+  if (!fs.existsSync(bugWikiPath)) {
+    return "Requires investigation";
+  }
+
+  try {
+    // Look for recent bugs in categorized directory
+    const files = fs.readdirSync(bugWikiPath).filter((f) => f.endsWith(".json"));
+
+    if (files.length === 0) {
+      return "Requires investigation";
+    }
+
+    // Read the most recent bug file to infer category
+    files.sort().reverse();
+    const mostRecentFile = path.join(bugWikiPath, files[0]);
+    const bugData = JSON.parse(fs.readFileSync(mostRecentFile, "utf-8"));
+
+    return bugData.primary_category || "Requires investigation";
+  } catch (error) {
+    log("WARN", `Failed to extract root cause from bug-wikipedia: ${error.message}`);
+    return "Requires investigation";
+  }
+}
+
+/**
+ * Extract timeline of events from git history
+ * Shows recent commits that might have caused the blocker
+ * @param {number} prdId - PRD ID to extract history for
+ * @param {number} daysBack - How many days to look back (default: 7)
+ * @returns {Promise<Array>} [ { date, message }, ... ]
+ */
+async function getWhatHappenedTimeline(prdId, daysBack = 7) {
+  const { execSync } = require("child_process");
+
+  try {
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - daysBack);
+
+    // Get commits mentioning this PRD
+    const logOutput = execSync(
+      `git log --since="${sinceDate.toISOString()}" --format="%ai|%s" -- .ralph/PRD-${prdId}/`,
+      {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      }
+    ).trim();
+
+    if (!logOutput) {
+      return [];
+    }
+
+    // Parse git log output
+    return logOutput
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        const [dateTime, ...messageParts] = line.split("|");
+        const message = messageParts.join("|").substring(0, 60); // Limit message length
+        const date = dateTime.substring(0, 10); // Extract date only
+        return { date, message };
+      })
+      .slice(0, 5); // Return last 5 events
+  } catch (error) {
+    log("WARN", `Failed to extract timeline for PRD-${prdId}: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Generate remediation steps based on blocker type
+ * In future, this could be enhanced with Claude Haiku analysis
+ * @param {Object} blocker - Blocker status object
+ * @param {Object} context - Root cause context
+ * @returns {Promise<Array>} [ step1, step2, ... ]
+ */
+async function getHowToFixSteps(blocker, context = {}) {
+  // For now, return generic fix steps
+  // In future, could analyze error messages and suggest specific fixes
+  return [
+    "Review the commit that introduced the blocker",
+    "Check the failing build logs in the Ralph UI",
+    "Revert the problematic commit or apply a fix",
+    "Run a new build to verify the issue is resolved",
+    "Notify the team when the blocker is fixed",
+  ];
+}
+
+/**
+ * Determine who should fix the blocker based on history
+ * Uses git blame to find the original author
+ * @param {Object} blocker - Blocker status object
+ * @param {Object} whoCaused - Result from getWhoCausedFromGitBlame
+ * @returns {Promise<Object>} { name, email, backup_name }
+ */
+async function getWhoShouldFix(blocker, whoCaused) {
+  return {
+    name: whoCaused.name || "Unknown",
+    email: whoCaused.email || "unknown@example.com",
+    backup_name: blocker.team_lead || "Team Lead",
+  };
+}
+
+/**
+ * Gather all root cause context for a blocker (US-004)
+ * Combines git blame, bug wikipedia, timeline, and remediation
+ * @param {Object} blocker - Blocker status object
+ * @param {Array<string>} failingFiles - Files that are failing (for git blame)
+ * @returns {Promise<Object>} Complete root cause context
+ */
+async function gatherRootCauseContext(blocker, failingFiles = []) {
+  // Get who caused the blocker (from first failing file)
+  const whoCaused = failingFiles.length > 0
+    ? await getWhoCausedFromGitBlame(failingFiles[0])
+    : { email: "Unknown", name: "Unknown", commit: "unknown" };
+
+  // Get why (root cause category)
+  const why = await getWhyFromBugWikipedia(blocker);
+
+  // Get timeline of events
+  const whatHappened = await getWhatHappenedTimeline(blocker.prd_id);
+
+  // Get how to fix steps
+  const howToFix = await getHowToFixSteps(blocker);
+
+  // Get who should fix
+  const whoShouldFix = await getWhoShouldFix(blocker, whoCaused);
+
+  return {
+    whoCaused,
+    why,
+    whatHappened,
+    howToFix,
+    whoShouldFix,
+  };
+}
+
+/**
+ * Send escalation alert to appropriate channels based on level
+ * @param {Object} blocker - Blocker status object
+ * @param {Object} context - Root cause context
+ * @param {Object} config - Automation config with channel/user mappings
+ * @returns {Promise<boolean>} Success status
+ */
+async function sendEscalationAlert(blocker, context, config = {}) {
+  const level = blocker.escalation_level || 1;
+  const blocks = formatEscalationAlertBlocks(blocker, context);
+
+  // Determine channels and mentions based on level
+  let channelsToNotify = [];
+  let mentionsText = "";
+
+  if (level === 1) {
+    // Level 1: team channel, mention @team-lead
+    const teamChannel = config.slackChannels?.team;
+    const teamLeadId = config.slackUsers?.team_lead;
+
+    if (teamChannel) {
+      channelsToNotify.push(teamChannel);
+      mentionsText = teamLeadId ? `<@${teamLeadId}>` : "";
+    }
+  } else if (level === 2) {
+    // Level 2: team + leadership channels, mention @director + @team-lead
+    const teamChannel = config.slackChannels?.team;
+    const leadershipChannel = config.slackChannels?.leadership;
+    const directorId = config.slackUsers?.director;
+    const teamLeadId = config.slackUsers?.team_lead;
+
+    if (teamChannel) channelsToNotify.push(teamChannel);
+    if (leadershipChannel) channelsToNotify.push(leadershipChannel);
+
+    const mentions = [];
+    if (directorId) mentions.push(`<@${directorId}>`);
+    if (teamLeadId) mentions.push(`<@${teamLeadId}>`);
+    mentionsText = mentions.join(" ");
+  } else if (level === 3) {
+    // Level 3: DM to CEO + leadership channel
+    const leadershipChannel = config.slackChannels?.leadership;
+    const ceoId = config.slackUsers?.ceo;
+    const directorId = config.slackUsers?.director;
+    const teamLeadId = config.slackUsers?.team_lead;
+
+    if (leadershipChannel) channelsToNotify.push(leadershipChannel);
+
+    // Send DM to CEO if available
+    if (ceoId) {
+      await sendDirectMessage(ceoId, blocks, {
+        text: `🚨 Critical Blocker Escalation: PRD-${blocker.prd_id}`,
+      });
+    }
+
+    const mentions = [];
+    if (ceoId) mentions.push(`<@${ceoId}>`);
+    if (directorId) mentions.push(`<@${directorId}>`);
+    if (teamLeadId) mentions.push(`<@${teamLeadId}>`);
+    mentionsText = mentions.join(" ");
+  }
+
+  // Send to all channels
+  let allSuccess = true;
+  for (const channel of channelsToNotify) {
+    const success = await sendSlackMessage(channel, blocks, {
+      text: `🚨 Blocker Escalation: PRD-${blocker.prd_id} - ${mentionsText}`,
+    });
+
+    if (!success) {
+      allSuccess = false;
+    }
+  }
+
+  return allSuccess;
+}
+
+// ============================================================================
 // Message Sending Functions
 // ============================================================================
 
@@ -1114,6 +1369,211 @@ function getWeekNumber(date) {
 }
 
 /**
+ * Format escalation alert with root cause context (US-004)
+ *
+ * Creates a rich-formatted escalation alert with:
+ * - PRD details and escalation level
+ * - Root cause analysis (5 context fields)
+ * - Appropriate mentions based on level
+ * - Links to PRD UI and blocker status file
+ *
+ * @param {Object} blocker - Blocker status object
+ * @param {Object} context - Root cause context
+ *   - whoCaused: { email, commit }
+ *   - why: Root cause category
+ *   - whatHappened: [ { date, message }, ... ]
+ *   - howToFix: [ step1, step2, ... ]
+ *   - whoShouldFix: { name, email }
+ * @returns {Object[]} Slack Block Kit blocks
+ */
+function formatEscalationAlertBlocks(blocker, context = {}) {
+  const blocks = [];
+  const level = blocker.escalation_level || 1;
+  const levelName = {1: "Level 1", 2: "Level 2", 3: "Level 3"}[level] || "Level 1";
+  const levelEmoji = {1: "🟡", 2: "🔴", 3: "🚨"}[level] || "🟡";
+
+  // Header
+  blocks.push({
+    type: "header",
+    text: {
+      type: "plain_text",
+      text: `${levelEmoji} Blocker Escalation - ${levelName}`,
+      emoji: true,
+    },
+  });
+
+  // PRD and blocker info section
+  const prdId = blocker.prd_id || 0;
+  const prdName = blocker.prd_name ? `PRD-${prdId}: ${blocker.prd_name}` : `PRD-${prdId}`;
+  const daysBlocked = blocker.days_blocked || 0;
+  const lastActivity = blocker.last_activity || "Unknown";
+
+  blocks.push({
+    type: "section",
+    fields: [
+      {
+        type: "mrkdwn",
+        text: `*PRD*\n${prdName}`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Team*\n${blocker.team || "Unknown"}`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Days Blocked*\n${daysBlocked}`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Last Activity*\n${lastActivity}`,
+      },
+    ],
+  });
+
+  blocks.push({ type: "divider" });
+
+  // ROOT CAUSE ANALYSIS section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: "*🔍 ROOT CAUSE ANALYSIS*",
+    },
+  });
+
+  // Who Caused
+  const whoCaused = context.whoCaused || {};
+  const whoEmail = whoCaused.email || "Unknown";
+  const whoCommit = whoCaused.commit || "Unknown";
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Who Caused:* \`${whoEmail}\` (commit \`${whoCommit.substring(0, 7)}\`)`,
+    },
+  });
+
+  // Why (root cause category)
+  const why = context.why || "Requires investigation";
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Why:* ${why}`,
+    },
+  });
+
+  // What Happened Before (timeline)
+  const whatHappened = context.whatHappened || [];
+  if (whatHappened.length > 0) {
+    const timelineText = whatHappened
+      .slice(0, 5)
+      .map((event) => `  • ${event.date}: ${event.message}`)
+      .join("\n");
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*What Happened Before:*\n${timelineText}`,
+      },
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // HOW TO FIX section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: "*💡 HOW TO FIX*",
+    },
+  });
+
+  const howToFix = context.howToFix || [];
+  if (howToFix.length > 0) {
+    const fixSteps = howToFix
+      .slice(0, 5)
+      .map((step, idx) => `${idx + 1}. ${step}`)
+      .join("\n");
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: fixSteps,
+      },
+    });
+  } else {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "_No remediation steps available_",
+      },
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // WHO SHOULD FIX section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: "*👤 WHO SHOULD FIX*",
+    },
+  });
+
+  const whoShouldFix = context.whoShouldFix || {};
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Recommended:* ${whoShouldFix.name || "Unknown"} (\`${whoShouldFix.email || "unknown@example.com"}\`)\n*Backup:* ${whoShouldFix.backup_name || "Team Lead"}`,
+    },
+  });
+
+  blocks.push({ type: "divider" });
+
+  // Action button with link to PRD
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: "View Details",
+          emoji: true,
+        },
+        url: `${UI_BASE_URL}/prd/${prdId}`,
+        action_id: "view_blocker_details",
+      },
+    ],
+  });
+
+  // Metadata footer
+  let lastActivityDate = new Date();
+  try {
+    if (lastActivity && lastActivity !== "Unknown") {
+      lastActivityDate = new Date(lastActivity);
+    }
+  } catch (e) {
+    // If date parsing fails, use current date
+  }
+
+  blocks.push(createMetadataBlock({
+    timestamp: new Date(),
+    runCount: 0,
+    lastActivity: lastActivityDate,
+  }));
+
+  return blocks;
+}
+
+/**
  * Format discipline report as Slack Block Kit
  * @param {string} discipline - Discipline name
  * @param {Object} data - Discipline metrics
@@ -1521,6 +1981,16 @@ module.exports = {
   formatWeeklySummaryBlocks,
   createMetadataBlock,
   createActionButtonBlock,
+  // Escalation alerts (US-004)
+  formatEscalationAlertBlocks,
+  sendEscalationAlert,
+  gatherRootCauseContext,
+  // Root cause context helpers (US-004)
+  getWhoCausedFromGitBlame,
+  getWhyFromBugWikipedia,
+  getWhatHappenedTimeline,
+  getHowToFixSteps,
+  getWhoShouldFix,
   // Status helpers
   getStatusEmoji,
   getPrdHealthStatus,
