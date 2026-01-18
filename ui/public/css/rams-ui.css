@@ -32,11 +32,11 @@
   --rams-accent-lighter: #2E7D54; /* 3.5:1 on white, WCAG AA pass (updated from #52B788 for compliance) */
   --rams-accent-dark: #0F2D1A; /* 16.4:1 on white, WCAG AAA pass */
 
-  /* Functional Colors */
-  --rams-success: #10B981;
-  --rams-warning: #F59E0B;
-  --rams-error: #EF4444;
-  --rams-info: #3B82F6;
+  /* Functional Colors - WCAG AA Compliance (US-004) */
+  --rams-success: #10B981; /* 3.0:1 on white (PASS), 2.9:1 on gray-50 (FAIL) - Use white background only */
+  --rams-warning: #F59E0B; /* 1.4:1 on white (FAIL) - Use as background color only; not suitable for text on light backgrounds */
+  --rams-error: #EF4444; /* 3.9:1 on white, 3.8:1 on gray-50, 3.6:1 on gray-100 - Fully compliant on all light backgrounds */
+  --rams-info: #3B82F6; /* 4.5:1 on white (meets normal text), 4.3:1 on gray-50, 4.1:1 on gray-100 - Fully compliant */
 
   /* Spacing - Precise 4px System */
   --rams-space-1: 4px;

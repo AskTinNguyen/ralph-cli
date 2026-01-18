@@ -1,6 +1,7 @@
 # Activity Log
 
 ## Run Summary
+- 2026-01-18 11:52:37 | run=20260118-114449-58330 | iter=0 | mode=build | story=US-003 | duration=186s | status=success | cost=0
 - 2026-01-18 11:49:28 | run=20260118-114449-58330 | iter=0 | mode=build | story=US-002 | duration=116s | status=success | cost=0
 - 2026-01-18 11:47:30 | run=20260118-114449-58330 | iter=0 | mode=build | story=US-001 | duration=161s | status=success | cost=0
 - 2026-01-18 11:44:46 | run=20260118-114327-57056 | iter=1 | mode=plan | duration=79s | status=success | cost=0
@@ -26,3 +27,9 @@
 [2026-01-18 04:49:31] MODEL_SELECTION story=US-003 complexity=n/a model=opus reason="routing disabled, using default (opus)" estimated_cost=$0.9900
 
 [2026-01-18 04:49:31] ITERATION 3 start (mode=build story=US-003)
+
+[2026-01-18 04:52:37] ITERATION 3 end (duration=186s)
+
+[2026-01-18 04:52:40] MODEL_SELECTION story=US-004 complexity=n/a model=opus reason="routing disabled, using default (opus)" estimated_cost=$0.9900
+
+[2026-01-18 04:52:40] ITERATION 4 start (mode=build story=US-004)
