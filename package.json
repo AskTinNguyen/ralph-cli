@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
+    "franc-min": "^6.2.0",
     "minimatch": "^10.1.1",
     "yaml": "^2.8.2"
   },
