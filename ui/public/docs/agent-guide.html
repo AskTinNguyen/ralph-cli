@@ -84,11 +84,93 @@
       <p class="rams-lead">Concise reference for AI agents working with Ralph CLI. Follow these patterns when users request Ralph-related tasks.</p>
     </header>
 
+    <!-- Table of Contents -->
+    <nav class="rams-content" style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 12px 16px; margin-bottom: 20px;">
+      <h2 class="rams-h3" style="margin-top: 0; margin-bottom: 8px;">Table of Contents</h2>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">🚨 Critical</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#critical-nested-agent" style="color: #DC2626;">→ Nested Agent Warning</a></li>
+            <li><a href="#critical-merge-policy" style="color: #DC2626;">→ Merge Policy</a></li>
+            <li><a href="#critical-rules" style="color: #DC2626;">→ DO/DON'T Rules</a></li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">🎯 Quick Start</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#decision-tree">→ Decision Tree</a></li>
+            <li><a href="#quick-reference">→ Command Quick Reference</a></li>
+            <li><a href="#common-patterns">→ Common Task Patterns</a></li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">📖 Reference</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#prd-modes">→ PRD Command Modes</a></li>
+            <li><a href="#status-codes">→ Status Codes</a></li>
+            <li><a href="#file-structure">→ File Structure</a></li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">🔧 Debugging</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#error-handling">→ Error Codes</a></li>
+            <li><a href="#troubleshooting">→ Troubleshooting</a></li>
+            <li><a href="#status-verification">→ Status Verification</a></li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">🔌 Integration</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#mcp-tools">→ MCP Tools</a></li>
+            <li><a href="#ui-testing">→ UI Testing</a></li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 4px; font-size: 12px;">✍️ Writing</strong>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 1.8;">
+            <li><a href="#writing-specs">→ Quality Specifications</a></li>
+            <li><a href="#response-templates">→ Response Templates</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Quick Start Summary -->
+    <div class="rams-content" style="background: linear-gradient(to right, rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05)); border: 2px solid rgba(59, 130, 246, 0.3); border-radius: 4px; padding: 14px 18px; margin-bottom: 20px;">
+      <h2 class="rams-h3" style="margin-top: 0; margin-bottom: 10px; color: #1E40AF;">⚡ Quick Start for Agents</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 11px;">
+        <div>
+          <strong style="display: block; margin-bottom: 6px; color: #DC2626; font-size: 12px;">🚨 CRITICAL RULES</strong>
+          <ul style="margin: 0; padding-left: 18px; line-height: 1.7; color: #374151;">
+            <li><strong>ALWAYS use <code>--headless</code></strong> when running <code>ralph prd</code></li>
+            <li><strong>NEVER auto-merge</strong> - builds require explicit human approval</li>
+            <li><strong>Git commits = source of truth</strong>, not checkboxes</li>
+            <li><strong>Exit after completion</strong> - let humans handle merges/PRs</li>
+          </ul>
+        </div>
+        <div>
+          <strong style="display: block; margin-bottom: 6px; color: #15803D; font-size: 12px;">✅ MOST COMMON COMMANDS</strong>
+          <div style="font-family: monospace; line-height: 1.8; color: #374151; font-size: 10px;">
+            ralph prd "description" --headless<br>
+            ralph stream status<br>
+            ralph stream build N [iterations]<br>
+            git log --grep="PRD-N"  # verify status<br>
+            ralph error RALPH-XXX   # lookup errors
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(59, 130, 246, 0.2); font-size: 10px; color: #6B7280;">
+        <strong>Agent workflow:</strong> (1) Generate PRD with <code>--headless</code> → (2) Check status → (3) Run build → (4) Verify via git log → (5) Exit with <code>&lt;promise&gt;COMPLETE&lt;/promise&gt;</code>
+      </div>
+    </div>
+
     <!-- Content -->
     <article class="rams-content">
 
       <!-- Critical Agent-Specific Rules -->
-      <section class="rams-section">
+      <section class="rams-section" id="critical-nested-agent">
         <div class="rams-alert rams-alert-error" role="alert" aria-labelledby="nested-warning-title">
           <strong id="nested-warning-title">⚠️ CRITICAL: Nested Agent Interaction Warning</strong>
           <div>
@@ -113,7 +195,7 @@
       </section>
 
       <!-- Critical Merge Policy -->
-      <section class="rams-section">
+      <section class="rams-section" id="critical-merge-policy">
         <div class="rams-alert rams-alert-error" role="alert" aria-labelledby="merge-policy-title">
           <strong id="merge-policy-title">🚨 CRITICAL: Manual Merge Policy</strong>
           <div>
@@ -157,7 +239,7 @@
       </section>
 
       <!-- Quick Decision Tree -->
-      <section class="rams-section">
+      <section class="rams-section" id="decision-tree">
         <h2 class="rams-h2">Decision Tree</h2>
         <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 10px; font-family: monospace; font-size: 11px; line-height: 1.5;">
 <pre style="margin: 0;">Are you an AI agent (Claude Code, Codex, etc.)?
@@ -183,7 +265,7 @@ User wants to...
       </section>
 
       <!-- Command Patterns -->
-      <section class="rams-section">
+      <section class="rams-section" id="common-patterns">
         <h2 class="rams-h2">Common Task Patterns</h2>
 
         <h3 class="rams-h3">Pattern 1: Quick Single-PRD Build</h3>
@@ -251,99 +333,56 @@ git log --oneline --grep="PRD-N" -10</code></pre>
       </section>
 
       <!-- PRD Command Modes -->
-      <section class="rams-section">
+      <section class="rams-section" id="prd-modes">
         <h2 class="rams-h2">PRD Command Modes</h2>
 
-        <h3 class="rams-h3">Interactive Mode (Default) - For Human Users</h3>
-        <div class="rams-code-block">
-          <div class="rams-code-content">
-            <pre><code># Human running in terminal
-ralph prd "Build a user authentication system with OAuth2"
-
-# Behavior:
-# ✅ Real-time agent thinking and progress
-# ✅ Full terminal interaction preserved
-# ✅ Users see complete output stream</code></pre>
+        <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 2px; padding: 8px 10px; margin-bottom: 10px; border-left: 3px solid rgba(59, 130, 246, 0.8);">
+          <strong style="font-size: 12px; display: block; margin-bottom: 4px; color: #1E40AF;">Agent Rule: Always Use --headless</strong>
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            <code>ralph prd "description" --headless</code><br><br>
+            <strong>Why?</strong> Prevents nested agent interaction, TTY conflicts, and process hangs.<br>
+            <strong>When?</strong> Claude Code agent, UI server, CI/CD, background jobs, any non-terminal context.
           </div>
         </div>
 
-        <h3 class="rams-h3">Headless Mode (Non-Interactive) - For Agents & Automation</h3>
         <div class="rams-code-block">
+          <div class="rams-section-label">Quick Examples</div>
           <div class="rams-code-content">
-            <pre><code># Agent/automation execution (REQUIRED)
+            <pre><code># Agent execution (REQUIRED)
 ralph prd "Add dashboard feature" --headless
 
-# Behavior:
-# ✅ Avoids nested agent interaction
-# ✅ Prevents TTY conflicts and deadlocks
-# ✅ Cleaner output parsing
-# ✅ No interactive prompts</code></pre>
+# Human terminal (optional headless)
+ralph prd "Build auth system"</code></pre>
           </div>
         </div>
 
-        <h3 class="rams-h3">When to Use Each Mode</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px;">
-          <thead>
-            <tr style="background: var(--rams-gray-50); border-bottom: 1px solid var(--rams-border-color);">
-              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Context</th>
-              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Command</th>
-              <th style="text-align: left; padding: 4px 6px; font-weight: 600;">Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="border-bottom: 1px solid var(--rams-border-color);">
-              <td style="padding: 3px 6px;"><strong>Claude Code agent</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
-              <td style="padding: 3px 6px;">Prevents nested interaction</td>
-            </tr>
-            <tr style="border-bottom: 1px solid var(--rams-border-color);">
-              <td style="padding: 3px 6px;"><strong>UI server</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
-              <td style="padding: 3px 6px;">Required for server processes</td>
-            </tr>
-            <tr style="border-bottom: 1px solid var(--rams-border-color);">
-              <td style="padding: 3px 6px;"><strong>CI/CD pipeline</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
-              <td style="padding: 3px 6px;">No TTY available</td>
-            </tr>
-            <tr style="border-bottom: 1px solid var(--rams-border-color);">
-              <td style="padding: 3px 6px;"><strong>Background job</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
-              <td style="padding: 3px 6px;">Non-blocking execution</td>
-            </tr>
-            <tr style="border-bottom: 1px solid var(--rams-border-color);">
-              <td style="padding: 3px 6px;"><strong>Human terminal</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..."</code></td>
-              <td style="padding: 3px 6px;">Interactive experience</td>
-            </tr>
-            <tr>
-              <td style="padding: 3px 6px;"><strong>Human scripting</strong></td>
-              <td style="padding: 3px 6px;"><code>ralph prd "..." --headless</code></td>
-              <td style="padding: 3px 6px;">Optional for automation</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style="font-size: 10px; color: #6B7280; margin-top: 8px;">
+          📖 <strong>Full details:</strong> See <a href="../CLAUDE.md#prd-command-modes">CLAUDE.md § PRD Command Modes</a> for interactive vs headless behavior, examples, and UI server configuration.
+        </div>
       </section>
 
       <!-- File Structure -->
-      <section class="rams-section">
+      <section class="rams-section" id="file-structure">
         <h2 class="rams-h2">File Structure</h2>
         <div class="rams-code-block">
+          <div class="rams-section-label">Key Locations</div>
           <div class="rams-code-content">
-            <pre><code>.agents/ralph/    # Templates (commit)
-  loop.sh, stream.sh, PROMPT_*.md
-.ralph/           # Working dir (local)
-  PRD-N/          # Each PRD isolated
-    prd.md, plan.md, progress.md, runs/
-  locks/          # Prevent concurrent runs
-  worktrees/      # Parallel execution
-.mcp.json         # MCP config</code></pre>
+            <pre><code>.agents/ralph/        # Agent templates & scripts
+.ralph/PRD-N/         # Each PRD isolated (prd.md, plan.md, progress.md)
+.ralph/locks/         # Prevent concurrent runs
+.ralph/worktrees/     # Git worktrees for parallel execution
+.ralph/factory/       # Factory mode workflows
+.mcp.json             # MCP server config</code></pre>
           </div>
+        </div>
+
+        <div style="font-size: 10px; color: #6B7280; margin-top: 8px;">
+          📖 <strong>Full structure:</strong> See <a href="../CLAUDE.md#file-structure">CLAUDE.md § File Structure</a> for complete directory tree with all subdirectories and file descriptions.
         </div>
       </section>
 
       <!-- Critical Rules -->
-      <section class="rams-section">
+      <section class="rams-section" id="critical-rules">
         <h2 class="rams-h2">Critical Rules</h2>
         <div class="rams-alert rams-alert-error">
           <strong>❌ DO NOT</strong>
@@ -371,7 +410,7 @@ ralph prd "Add dashboard feature" --headless
       </section>
 
       <!-- Status Interpretation -->
-      <section class="rams-section">
+      <section class="rams-section" id="status-codes">
         <h2 class="rams-h2">Status Codes</h2>
 
         <div class="rams-alert rams-alert-info">
@@ -426,7 +465,7 @@ ralph prd "Add dashboard feature" --headless
           </tbody>
         </table>
 
-        <h3 class="rams-h3">Status Verification Commands</h3>
+        <h3 class="rams-h3" id="status-verification">Status Verification Commands</h3>
         <div class="rams-code-block">
           <div class="rams-code-content">
             <pre><code># Check if PRD has commits on main (source of truth)
@@ -458,13 +497,13 @@ ralph stream unmark-completed N</code></pre>
       </section>
 
       <!-- Error Handling -->
-      <section class="rams-section">
+      <section class="rams-section" id="error-handling">
         <h2 class="rams-h2">Error Handling & Issue Creation</h2>
 
         <div style="background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 2px; padding: 8px 10px; border-left: 3px solid rgba(251, 191, 36, 0.8); margin-bottom: 10px; color: #B45309;">
-          <strong style="font-size: 12px; color: rgba(217, 119, 6, 1);">Error Code System</strong>
+          <strong style="font-size: 12px; color: rgba(217, 119, 6, 1);">Error Code System (RALPH-XXX)</strong>
           <div style="margin-top: 4px; font-size: 11px; line-height: 1.5; color: #B45309;">
-            Ralph uses standardized error codes (RALPH-XXX) for consistent error handling and automated GitHub issue creation.
+            Standardized error codes for consistent handling and automated GitHub issue creation.
           </div>
         </div>
 
@@ -481,113 +520,67 @@ ralph stream unmark-completed N</code></pre>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>001-099</code></td>
               <td style="padding: 3px 6px;"><strong>CONFIG</strong></td>
-              <td style="padding: 3px 6px;">Configuration errors (missing files, invalid settings)</td>
+              <td style="padding: 3px 6px;">Configuration errors</td>
             </tr>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>100-199</code></td>
               <td style="padding: 3px 6px;"><strong>PRD</strong></td>
-              <td style="padding: 3px 6px;">PRD/Plan errors (missing stories, malformed documents)</td>
+              <td style="padding: 3px 6px;">PRD/Plan errors</td>
             </tr>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>200-299</code></td>
               <td style="padding: 3px 6px;"><strong>BUILD</strong></td>
-              <td style="padding: 3px 6px;">Build failures (agent errors, rollback issues)</td>
+              <td style="padding: 3px 6px;">Build failures</td>
             </tr>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>300-399</code></td>
               <td style="padding: 3px 6px;"><strong>GIT</strong></td>
-              <td style="padding: 3px 6px;">Git errors (conflicts, dirty state, diverged branches)</td>
+              <td style="padding: 3px 6px;">Git errors</td>
             </tr>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>400-499</code></td>
               <td style="padding: 3px 6px;"><strong>AGENT</strong></td>
-              <td style="padding: 3px 6px;">Agent errors (fallback exhausted, timeouts)</td>
+              <td style="padding: 3px 6px;">Agent errors</td>
             </tr>
             <tr style="border-bottom: 1px solid var(--rams-border-color);">
               <td style="padding: 3px 6px;"><code>500-599</code></td>
               <td style="padding: 3px 6px;"><strong>STREAM</strong></td>
-              <td style="padding: 3px 6px;">Stream errors (lock conflicts, worktree issues)</td>
+              <td style="padding: 3px 6px;">Stream errors</td>
             </tr>
             <tr>
               <td style="padding: 3px 6px;"><code>900-999</code></td>
               <td style="padding: 3px 6px;"><strong>INTERNAL</strong></td>
-              <td style="padding: 3px 6px;">Internal errors (unexpected failures)</td>
+              <td style="padding: 3px 6px;">Internal errors</td>
             </tr>
           </tbody>
         </table>
 
-        <h3 class="rams-h3">Error Lookup Commands</h3>
+        <h3 class="rams-h3">Lookup & Remediation</h3>
         <div class="rams-code-block">
           <div class="rams-code-content">
             <pre><code># Look up specific error
 ralph error RALPH-401
 
 # List all errors
-ralph error --list
-
-# Filter by category
-ralph error --list --category=BUILD
-
-# Show errors that auto-create GitHub issues
-ralph error --list --auto-issue</code></pre>
+ralph error --list --category=BUILD</code></pre>
           </div>
         </div>
 
-        <h3 class="rams-h3">Agent Responsibilities During Build Failures</h3>
-        <div style="font-size: 11px; line-height: 1.5;">
-          <ul style="margin: 4px 0; padding-left: 16px;">
-            <li><strong>Reference error codes</strong> when reporting failures</li>
-            <li><strong>Check remediation steps</strong>: <code>ralph error RALPH-XXX</code></li>
-            <li><strong>Include error code</strong> in progress.md updates</li>
-            <li><strong>Follow remediation</strong> before retrying</li>
-          </ul>
-        </div>
+        <h3 class="rams-h3">Agent Responsibilities</h3>
+        <ul style="font-size: 11px; line-height: 1.7; color: #374151; margin: 0 0 12px 0; padding-left: 18px;">
+          <li><strong>Reference error codes</strong> when reporting failures</li>
+          <li><strong>Check remediation</strong>: <code>ralph error RALPH-XXX</code></li>
+          <li><strong>Include code</strong> in progress.md updates</li>
+          <li><strong>Create GitHub issues</strong> via MCP for critical errors (201, 202, 401, 402, 506)</li>
+        </ul>
 
-        <h3 class="rams-h3">Critical Errors (Auto-Create GitHub Issues)</h3>
-        <div style="font-size: 11px; line-height: 1.5; margin-bottom: 6px;">
-          Agents should create GitHub issues using MCP for these errors:
-        </div>
-        <div class="rams-code-block">
-          <div class="rams-code-content">
-            <pre><code># Create issue via MCP (when RALPH_AUTO_ISSUES=true)
-mcp__github__create_issue({
-  owner: "&lt;repo-owner&gt;",
-  repo: "&lt;repo-name&gt;",
-  title: "[RALPH-XXX] &lt;short description&gt;",
-  body: "&lt;formatted error context&gt;",
-  labels: ["ralph-error", "ralph-&lt;category&gt;"]
-})
-
-# Critical errors that trigger auto-issues:
-# - RALPH-201: Agent command failed
-# - RALPH-202: Rollback failed - manual intervention required
-# - RALPH-401: Agent fallback chain exhausted
-# - RALPH-402: Story selection lock timeout
-# - RALPH-506: PR creation failed</code></pre>
-          </div>
-        </div>
-
-        <h3 class="rams-h3">Issue Creation Requirements</h3>
-        <div style="font-size: 11px; line-height: 1.5;">
-          <strong>Required context in issues:</strong>
-          <ul style="margin: 4px 0; padding-left: 16px;">
-            <li>Error code and message</li>
-            <li>PRD and story being worked on</li>
-            <li>Agent chain tried (if applicable)</li>
-            <li>Last 50 lines of run log</li>
-            <li>Link to error documentation</li>
-          </ul>
-          <strong>Do NOT create issues for:</strong>
-          <ul style="margin: 4px 0; padding-left: 16px;">
-            <li>CONFIG errors (0XX range) - user configuration issues</li>
-            <li>GIT errors (3XX range) - requires manual resolution</li>
-            <li>Transient network errors - should retry</li>
-          </ul>
+        <div style="font-size: 10px; color: #6B7280; margin-top: 8px;">
+          📖 <strong>Full details:</strong> See <a href="../CLAUDE.md#error-handling--issue-creation">CLAUDE.md § Error Handling</a> for GitHub issue creation format, required context, configuration options, and MCP examples.
         </div>
       </section>
 
       <!-- Troubleshooting -->
-      <section class="rams-section">
+      <section class="rams-section" id="troubleshooting">
         <h2 class="rams-h2">Quick Troubleshooting</h2>
 
         <h3 class="rams-h3">Build hangs or fails</h3>
@@ -636,148 +629,90 @@ cd ../../..
       </section>
 
       <!-- MCP Integration -->
-      <section class="rams-section">
+      <section class="rams-section" id="mcp-tools">
         <h2 class="rams-h2">MCP Tools</h2>
+
+        <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 2px; padding: 8px 10px; margin-bottom: 10px; border-left: 3px solid rgba(59, 130, 246, 0.8);">
+          <strong style="font-size: 12px; display: block; margin-bottom: 4px; color: #1E40AF;">Available Integrations</strong>
+          <div style="font-size: 11px; line-height: 1.6; color: #374151;">
+            <strong>Notion</strong> (docs, task tracking), <strong>Slack</strong> (notifications), <strong>GitHub</strong> (issues, PRs), <strong>Miro</strong> (diagrams)<br>
+            Tools available as <code>mcp__&lt;server&gt;__&lt;action&gt;</code>
+          </div>
+        </div>
+
         <div class="rams-code-block">
+          <div class="rams-section-label">Common Usage</div>
           <div class="rams-code-content">
-            <pre><code># Notion
-mcp__notion__API-post-search({ query: "PRD template" })
+            <pre><code># Search Notion
+mcp__notion__search("Project requirements")
 
-# Slack
-mcp__slack__slack_post_message({ channel_id: "C123", text: "Build done" })
+# Post to Slack
+mcp__slack__send_message(channel="builds", text="Build completed")
 
-# GitHub
-mcp__github__create_issue({ owner: "user", repo: "proj", title: "Failed", body: "..." })
+# Create GitHub issue
+mcp__github__create_issue(owner="user", repo="proj", title: "Bug", body: "...")</code></pre>
+          </div>
+        </div>
 
-# Playwright (disabled by default, enable: .agents/ralph/enable-playwright.sh)
-mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:3000" })</code></pre>
+        <div style="font-size: 10px; color: #6B7280; margin-top: 8px;">
+          📖 <strong>Full setup:</strong> See <a href="../CLAUDE.md#mcp-servers">CLAUDE.md § MCP Servers</a> for setup instructions, environment variables, and complete tool documentation.
+        </div>
+      </section>
 
       <!-- UI Testing & Browser Automation -->
-      <section class="rams-section">
+      <section class="rams-section" id="ui-testing">
         <h2 class="rams-h2">UI Testing & Browser Automation</h2>
 
-        <h3 class="rams-h3">agent-browser CLI (Recommended)</h3>
-        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(16, 185, 129, 0.8); margin-bottom: 8px; color: #047857;">
-          <strong style="font-size: 12px; color: #047857;">✅ Why agent-browser?</strong>
-          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px; color: #047857;">
-            <li>Fast Rust CLI with Node.js fallback</li>
-            <li>AI-optimized: Snapshot + ref workflow (@e1, @e2) for deterministic selection</li>
-            <li>No buggy MCP: Standalone CLI, no server issues</li>
-            <li>Persistent sessions: Isolated browser with cookies/storage</li>
-            <li>JSON output: Machine-readable for agents</li>
-          </ul>
-        </div>
-
-        <div class="rams-code-block">
-          <div class="rams-section-label">Installation</div>
-          <div class="rams-code-content">
-            <pre><code>npm install -g agent-browser
-agent-browser install  # Downloads Chromium</code></pre>
+        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 2px; padding: 8px 10px; margin-bottom: 10px; border-left: 3px solid rgba(16, 185, 129, 0.8);">
+          <strong style="font-size: 12px; display: block; margin-bottom: 4px; color: #047857;">✅ Use agent-browser CLI</strong>
+          <div style="font-size: 11px; line-height: 1.6; color: #047857;">
+            Fast Rust CLI optimized for AI agents. Snapshot + ref workflow (@e1, @e2), persistent sessions, no buggy MCP.<br>
+            <code>npm install -g agent-browser && agent-browser install</code>
           </div>
         </div>
 
         <div class="rams-code-block">
-          <div class="rams-section-label">Common Commands</div>
+          <div class="rams-section-label">Essential Commands</div>
           <div class="rams-code-content">
-            <pre><code># Navigation
-agent-browser open http://localhost:3000
-agent-browser snapshot -i  # Interactive elements only
-agent-browser back
-agent-browser reload
-
-# Interaction
-agent-browser click @e2
-agent-browser fill @e3 "test@example.com"
-agent-browser type @e1 "search query"
-agent-browser press Enter
-
-# Verification
-agent-browser get text @e1
-agent-browser is visible @e2
-agent-browser screenshot --full
-
-# Debug
-agent-browser console
-agent-browser errors
-agent-browser network requests</code></pre>
-          </div>
-        </div>
-
-        <div class="rams-code-block">
-          <div class="rams-section-label">Example: Testing Ralph UI</div>
-          <div class="rams-code-content">
-            <pre><code># 1. Start UI server
-cd ui && npm run dev
-
-# 2. Navigate and snapshot
+            <pre><code># Navigate & snapshot
 agent-browser open http://localhost:3000
 agent-browser snapshot -i
 
-# 3. Interact with elements
-agent-browser click @e2  # Click PRD-1
-agent-browser get text @e5  # Read story status
+# Interact
+agent-browser click @e2
+agent-browser fill @e3 "text"
 
-# 4. Verify and screenshot
-agent-browser is visible @e3
+# Verify
+agent-browser is visible @e1
 agent-browser screenshot --full</code></pre>
           </div>
         </div>
 
-        <h3 class="rams-h3">Playwright MCP (Disabled by default)</h3>
-        <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(245, 158, 11, 0.8); margin-bottom: 8px; color: #B45309;">
-          <strong style="font-size: 12px; color: #B45309;">⚠️ Why Disabled?</strong>
-          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px; color: #B45309;">
-            <li>Spawns browser windows for each Claude Code session</li>
-            <li>Can cause multiple empty browser windows</li>
-            <li>Enable only when needed for UI testing</li>
-          </ul>
-        </div>
+        <h3 class="rams-h3">7-Step Testing Checklist</h3>
+        <ol style="font-size: 11px; line-height: 1.7; color: #374151; margin: 0 0 12px 0; padding-left: 18px;">
+          <li>Navigate: <code>agent-browser open http://localhost:3000</code></li>
+          <li>Snapshot: <code>agent-browser snapshot -i</code></li>
+          <li>Verify visible: <code>agent-browser is visible @e1</code></li>
+          <li>Test interactions: <code>agent-browser click @e2</code></li>
+          <li>Check console: <code>agent-browser console && agent-browser errors</code></li>
+          <li>Validate data: <code>agent-browser get text @e1</code></li>
+          <li>Screenshot: <code>agent-browser screenshot --full</code></li>
+        </ol>
 
-        <div class="rams-code-block">
-          <div class="rams-section-label">Enable/Disable Playwright</div>
-          <div class="rams-code-content">
-            <pre><code># Enable for UI testing session
-.agents/ralph/enable-playwright.sh
-
-# Restart Claude Code to pick up changes
-claude
-
-# Use MCP tools (after enabling)
-mcp__plugin_playwright_playwright__browser_navigate({ url: "http://localhost:3000" })
-mcp__plugin_playwright_playwright__browser_snapshot()
-mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2" })
-
-# Disable when done
-.agents/ralph/disable-playwright.sh</code></pre>
+        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; margin-bottom: 10px; border-left: 2px solid rgba(239, 68, 68, 0.8); color: #B91C1C;">
+          <strong style="font-size: 12px; color: #B91C1C;">❌ CRITICAL: Never test UI with just curl/API calls</strong>
+          <div style="font-size: 11px; line-height: 1.5; color: #B91C1C; margin-top: 4px;">
+            Always use browser automation to verify rendered UI, interactivity, and functionality.
           </div>
         </div>
 
-        <h3 class="rams-h3">UI Testing Checklist</h3>
-        <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px; margin-bottom: 8px; color: #374151;">
-          <strong style="font-size: 12px; display: block; margin-bottom: 4px; color: #374151;">7-Step Testing Workflow</strong>
-          <ol style="margin: 2px 0 0 0; padding-left: 18px; font-size: 11px; line-height: 1.6; color: #374151;">
-            <li>Navigate to page: <code>agent-browser open http://localhost:3000</code></li>
-            <li>Take snapshot: <code>agent-browser snapshot -i</code> to see interactive elements</li>
-            <li>Verify visible: <code>agent-browser is visible @e1</code></li>
-            <li>Test interactions: <code>agent-browser click @e2</code>, <code>agent-browser fill @e3 "text"</code></li>
-            <li>Check console: <code>agent-browser console</code> and <code>agent-browser errors</code></li>
-            <li>Validate data: <code>agent-browser get text @e1</code> or <code>agent-browser eval "..."</code></li>
-            <li>Screenshot proof: <code>agent-browser screenshot --full</code></li>
-          </ol>
-        </div>
-
-        <div style="background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 2px; padding: 6px 8px; border-left: 2px solid rgba(239, 68, 68, 0.8); color: #B91C1C;">
-          <strong style="font-size: 12px; color: #B91C1C;">❌ CRITICAL: Never Test UI with Just API Calls</strong>
-          <ul style="margin: 2px 0 0 0; padding-left: 16px; font-size: 11px; color: #B91C1C;">
-            <li>curl or API calls don't verify rendered UI</li>
-            <li>Always use browser automation to test actual page behavior</li>
-            <li>Confirm elements visible, interactive, and functional</li>
-          </ul>
+        <div style="font-size: 10px; color: #6B7280; margin-top: 8px;">
+          📖 <strong>Full commands:</strong> See <a href="../CLAUDE.md#ui-testing">CLAUDE.md § UI Testing</a> for complete command reference, Playwright MCP setup, testing helper scripts, and UI server configuration.
         </div>
       </section>
 
       <!-- Response Templates -->
-      <section class="rams-section">
+      <section class="rams-section" id="response-templates">
         <h2 class="rams-h2">Response Templates</h2>
         <div style="background: var(--rams-gray-50); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 5px 8px; font-size: 11px; margin-bottom: 5px; line-height: 1.5;">
           <strong>Build complete:</strong><br>
@@ -794,7 +729,7 @@ mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2"
       </section>
 
       <!-- Writing Quality Specifications -->
-      <section class="rams-section">
+      <section class="rams-section" id="writing-specs">
         <h2 class="rams-h2">Writing Quality Specifications (Tech-Agnostic)</h2>
 
         <div style="background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 2px; padding: 6px 8px; margin-bottom: 8px; border-left: 2px solid rgba(59, 130, 246, 0.8);">
@@ -897,7 +832,7 @@ mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2"
       </section>
 
       <!-- Quick Reference Card -->
-      <section class="rams-section">
+      <section class="rams-section" id="quick-reference">
         <h2 class="rams-h2">Quick Reference</h2>
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 10px;">
           <div style="background: var(--rams-white); border: 1px solid var(--rams-border-color); border-radius: 2px; padding: 6px 8px;">
@@ -932,6 +867,108 @@ mcp__plugin_playwright_playwright__browser_click({ element: "button", ref: "@e2"
               Codex/Droid auto-disable routing
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- Section Pointers (Task-Based Navigation) -->
+      <section class="rams-section" style="background: var(--rams-gray-50); border: 2px solid var(--rams-border-color); border-radius: 4px; padding: 16px 20px; margin-top: 24px;">
+        <h2 class="rams-h2" style="margin-top: 0; margin-bottom: 12px;">📍 Section Pointers: Find Information Fast</h2>
+        <p style="font-size: 11px; color: #6B7280; margin-bottom: 12px;">Use this lookup table to quickly navigate to the right section based on your task.</p>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background: var(--rams-white); border-bottom: 2px solid var(--rams-border-color);">
+              <th style="text-align: left; padding: 6px 8px; font-weight: 600;">If you need to...</th>
+              <th style="text-align: left; padding: 6px 8px; font-weight: 600;">Go to section...</th>
+              <th style="text-align: left; padding: 6px 8px; font-weight: 600;">Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Run <code>ralph prd</code> as an agent</td>
+              <td style="padding: 5px 8px;"><strong style="color: #DC2626;">Nested Agent Warning</strong></td>
+              <td style="padding: 5px 8px;"><a href="#critical-nested-agent">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Understand merge/PR workflow</td>
+              <td style="padding: 5px 8px;"><strong style="color: #DC2626;">Merge Policy</strong></td>
+              <td style="padding: 5px 8px;"><a href="#critical-merge-policy">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Choose the right command</td>
+              <td style="padding: 5px 8px;">Decision Tree</td>
+              <td style="padding: 5px 8px;"><a href="#decision-tree">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Build a feature end-to-end</td>
+              <td style="padding: 5px 8px;">Common Task Patterns</td>
+              <td style="padding: 5px 8px;"><a href="#common-patterns">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Understand interactive vs headless mode</td>
+              <td style="padding: 5px 8px;">PRD Command Modes</td>
+              <td style="padding: 5px 8px;"><a href="#prd-modes">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">See all DO/DON'T rules</td>
+              <td style="padding: 5px 8px;"><strong style="color: #DC2626;">Critical Rules</strong></td>
+              <td style="padding: 5px 8px;"><a href="#critical-rules">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Interpret PRD status (ready, running, completed, etc.)</td>
+              <td style="padding: 5px 8px;">Status Codes</td>
+              <td style="padding: 5px 8px;"><a href="#status-codes">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Verify status via git commits</td>
+              <td style="padding: 5px 8px;">Status Verification</td>
+              <td style="padding: 5px 8px;"><a href="#status-verification">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Understand file locations (.ralph, .agents, etc.)</td>
+              <td style="padding: 5px 8px;">File Structure</td>
+              <td style="padding: 5px 8px;"><a href="#file-structure">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Handle build failures or errors</td>
+              <td style="padding: 5px 8px;">Error Handling</td>
+              <td style="padding: 5px 8px;"><a href="#error-handling">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Fix hangs, locks, or status issues</td>
+              <td style="padding: 5px 8px;">Troubleshooting</td>
+              <td style="padding: 5px 8px;"><a href="#troubleshooting">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Use Notion, Slack, GitHub via MCP</td>
+              <td style="padding: 5px 8px;">MCP Tools</td>
+              <td style="padding: 5px 8px;"><a href="#mcp-tools">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Test UI features with browser automation</td>
+              <td style="padding: 5px 8px;">UI Testing</td>
+              <td style="padding: 5px 8px;"><a href="#ui-testing">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color); background: var(--rams-gray-50);">
+              <td style="padding: 5px 8px;">Write PRDs with quality specifications</td>
+              <td style="padding: 5px 8px;">Writing Specifications</td>
+              <td style="padding: 5px 8px;"><a href="#writing-specs">Jump →</a></td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--rams-border-color);">
+              <td style="padding: 5px 8px;">Format responses to users</td>
+              <td style="padding: 5px 8px;">Response Templates</td>
+              <td style="padding: 5px 8px;"><a href="#response-templates">Jump →</a></td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 8px;">Look up any command quickly</td>
+              <td style="padding: 5px 8px;">Quick Reference</td>
+              <td style="padding: 5px 8px;"><a href="#quick-reference">Jump →</a></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 12px; padding: 8px 10px; background: rgba(59, 130, 246, 0.05); border-left: 3px solid rgba(59, 130, 246, 0.5); border-radius: 2px; font-size: 10px; color: #374151;">
+          <strong>💡 Pro tip:</strong> Bookmark critical sections (<a href="#critical-nested-agent">Nested Agent</a>, <a href="#critical-merge-policy">Merge Policy</a>, <a href="#critical-rules">Rules</a>) for instant access during builds.
         </div>
       </section>
 

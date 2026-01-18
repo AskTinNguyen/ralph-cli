@@ -2,6 +2,35 @@
 
 Autonomous coding loop for Claude Code. PRD-based workflow with bash implementation.
 
+---
+
+## 🤖 For AI Agents
+
+**If you are an AI agent (Claude Code, Codex, etc.) working on Ralph CLI tasks:**
+
+👉 **Start here**: [`ui/public/docs/agent-guide.html`](ui/public/docs/agent-guide.html) or http://localhost:3000/docs/agent-guide.html
+
+The Agent Guide provides:
+- ⚡ Quick-start summary with critical rules
+- 🎯 Decision trees for command selection
+- 📋 Common task patterns with examples
+- 🚨 Critical warnings (--headless, merge policy)
+- 📍 Task-based section pointers
+
+**This file (CLAUDE.md)** is the comprehensive reference for:
+- Installation & setup details
+- Complete command documentation
+- Configuration options
+- Technical implementation details
+- Troubleshooting procedures
+
+**Use this workflow:**
+1. Check agent-guide.html for task patterns and critical rules
+2. Reference CLAUDE.md sections for detailed configuration/troubleshooting
+3. Use `ralph error RALPH-XXX` for error remediation
+
+---
+
 ## Quick Reference
 
 | Use Case                 | Command                                                                                        |
@@ -613,21 +642,9 @@ The server automatically uses `ralph-cli/.ralph` unless `RALPH_ROOT` is explicit
 
 ## Agent Operation Guide
 
-When working with Ralph CLI tasks on behalf of users, reference the Agent Guide at:
-- **Web**: http://localhost:3000/docs/agent-guide.html (when UI server running)
-- **File**: `ui/public/docs/agent-guide.html`
+**See:** [`ui/public/docs/agent-guide.html`](ui/public/docs/agent-guide.html) or http://localhost:3000/docs/agent-guide.html
 
-This concise, agent-friendly reference contains:
-- Decision trees for command selection
-- Common task patterns (single PRD, streams, parallel execution)
-- File structure reference
-- Critical rules (do's and don'ts)
-- Status interpretation
-- Quick troubleshooting
-- MCP integration examples
-- Response templates
-
-**When to reference**: Before executing Ralph commands, check the Agent Guide for the correct pattern to follow.
+Agent-optimized quick reference with task patterns, decision trees, and critical warnings. Details referenced in this file (CLAUDE.md) as needed.
 
 ## Error Handling & Issue Creation
 
