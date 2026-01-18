@@ -302,6 +302,202 @@ await asyncTest("sendSlackMessage in dry run mode succeeds without token", async
   }
 });
 
+// ============================================================================
+// US-002: Block Kit Formatting Tests
+// ============================================================================
+
+console.log("\nRunning Block Kit Formatting Tests (PRD-112 US-002)");
+console.log("============================================================\n");
+
+// Test 11: Status emoji helpers
+test("getStatusEmoji returns correct emoji for each status", () => {
+  assertEqual(slackReporter.getStatusEmoji("healthy"), "🟢", "Healthy should be green");
+  assertEqual(slackReporter.getStatusEmoji("at-risk"), "🟡", "At-risk should be yellow");
+  assertEqual(slackReporter.getStatusEmoji("blocked"), "🔴", "Blocked should be red");
+  assertEqual(slackReporter.getStatusEmoji("unknown"), "⚪", "Unknown should be white");
+});
+
+// Test 12: PRD health status determination
+test("getPrdHealthStatus determines status based on days", () => {
+  assertEqual(slackReporter.getPrdHealthStatus(0), "healthy", "0 days should be healthy");
+  assertEqual(slackReporter.getPrdHealthStatus(2), "healthy", "2 days should be healthy");
+  assertEqual(slackReporter.getPrdHealthStatus(3), "at-risk", "3 days should be at-risk");
+  assertEqual(slackReporter.getPrdHealthStatus(6), "at-risk", "6 days should be at-risk");
+  assertEqual(slackReporter.getPrdHealthStatus(7), "blocked", "7 days should be blocked");
+  assertEqual(slackReporter.getPrdHealthStatus(10), "blocked", "10 days should be blocked");
+});
+
+// Test 13: Daily status blocks structure
+test("formatDailyStatusBlocks creates valid Block Kit structure", () => {
+  const blocks = slackReporter.formatDailyStatusBlocks({
+    date: new Date("2026-01-18"),
+    disciplines: [
+      { discipline: "backend", totalRuns: 10, successfulRuns: 8, failedRuns: 2, successRate: 80 },
+    ],
+    prds: [
+      { id: 45, discipline: "backend", storiesCompleted: 3, daysSinceActivity: 0 },
+      { id: 46, discipline: "backend", storiesCompleted: 0, daysSinceActivity: 5 },
+    ],
+    totals: { totalRuns: 10 },
+  });
+
+  assert(Array.isArray(blocks), "Should return array");
+  assert(blocks.length >= 5, "Should have at least 5 blocks");
+
+  // Check for header
+  const header = blocks.find((b) => b.type === "header");
+  assert(header, "Should have header block");
+  assert(header.text.text.includes("Daily PRD Status"), "Header should mention Daily Status");
+  assert(header.text.text.includes("2026-01-18"), "Header should include date");
+
+  // Check for emoji indicators in content
+  const content = JSON.stringify(blocks);
+  assert(content.includes("🟢"), "Should contain healthy emoji");
+  assert(content.includes("🟡"), "Should contain at-risk emoji");
+
+  // Check for PRD links
+  assert(content.includes("PRD-45"), "Should contain PRD ID");
+  assert(content.includes("http://localhost:3000/prd/"), "Should contain UI links");
+
+  // Check for metadata context block
+  const contextBlocks = blocks.filter((b) => b.type === "context");
+  assert(contextBlocks.length >= 1, "Should have context blocks for metadata");
+  const metadataBlock = contextBlocks.find((c) =>
+    c.elements.some((e) => e.text && e.text.includes("Generated"))
+  );
+  assert(metadataBlock, "Should have metadata block with timestamp");
+
+  // Check for action buttons
+  const actionsBlock = blocks.find((b) => b.type === "actions");
+  assert(actionsBlock, "Should have actions block");
+  assert(actionsBlock.elements.length >= 1, "Should have at least one button");
+});
+
+// Test 14: Weekly summary blocks structure
+test("formatWeeklySummaryBlocks creates valid Block Kit structure", () => {
+  const blocks = slackReporter.formatWeeklySummaryBlocks({
+    weekStart: new Date("2026-01-11"),
+    weekEnd: new Date("2026-01-18"),
+    metrics: { totalRuns: 25, successRate: 84, storiesCompleted: 5, totalCost: 12.50 },
+    highlights: [{ prdId: 45, achievement: "Completed all stories" }],
+    blockers: [{ prdId: 46, daysSinceActivity: 5, reason: "Build failures" }],
+    comparison: { previousWeek: { totalRuns: 20, successRate: 75 } },
+  });
+
+  assert(Array.isArray(blocks), "Should return array");
+
+  // Check for header with week number
+  const header = blocks.find((b) => b.type === "header");
+  assert(header, "Should have header block");
+  assert(header.text.text.includes("Weekly Summary"), "Header should mention Weekly Summary");
+  assert(header.text.text.includes("Week"), "Header should include week number");
+
+  // Check for dividers
+  const dividers = blocks.filter((b) => b.type === "divider");
+  assert(dividers.length >= 3, "Should have multiple dividers for separation");
+
+  // Check for key metrics section with fields
+  const sectionWithFields = blocks.find((b) => b.type === "section" && b.fields);
+  assert(sectionWithFields, "Should have section with fields");
+  assert(sectionWithFields.fields.length >= 4, "Should have at least 4 metric fields");
+
+  // Check for highlights and blockers sections
+  const content = JSON.stringify(blocks);
+  assert(content.includes("Highlights"), "Should have highlights section");
+  assert(content.includes("Blockers"), "Should have blockers section");
+
+  // Check for comparison data
+  assert(content.includes("vs last week"), "Should include week-over-week comparison");
+
+  // Check for action buttons (multiple)
+  const actionsBlock = blocks.find((b) => b.type === "actions");
+  assert(actionsBlock, "Should have actions block");
+  assert(actionsBlock.elements.length >= 2, "Should have View Details and View All PRDs buttons");
+});
+
+// Test 15: Metadata block creation
+test("createMetadataBlock creates valid context block", () => {
+  const metadata = slackReporter.createMetadataBlock({
+    timestamp: new Date("2026-01-18T10:00:00Z"),
+    runCount: 42,
+    lastActivity: new Date("2026-01-17T15:30:00Z"),
+  });
+
+  assertEqual(metadata.type, "context", "Should be context type");
+  assert(metadata.elements.length >= 1, "Should have at least one element");
+
+  const text = metadata.elements[0].text;
+  assert(text.includes("Generated"), "Should include generated timestamp");
+  assert(text.includes("Runs"), "Should include run count");
+  assert(text.includes("Last Activity"), "Should include last activity");
+  assert(text.includes("📅"), "Should have timestamp emoji");
+  assert(text.includes("🔄"), "Should have runs emoji");
+  assert(text.includes("🕐"), "Should have activity emoji");
+});
+
+// Test 16: Action button block creation
+test("createActionButtonBlock creates valid actions block", () => {
+  // Without PRD ID
+  const generalButton = slackReporter.createActionButtonBlock(null, "View Dashboard", "view_dashboard");
+  assertEqual(generalButton.type, "actions", "Should be actions type");
+  assertEqual(generalButton.elements[0].text.text, "View Dashboard", "Should have custom button text");
+  assert(generalButton.elements[0].url.endsWith("/prd"), "URL should point to /prd for general");
+
+  // With PRD ID
+  const specificButton = slackReporter.createActionButtonBlock(123, "View PRD", "view_prd");
+  assert(specificButton.elements[0].url.includes("/prd/123"), "URL should include PRD ID");
+});
+
+// Test 17: Format test function runs without error
+test("runFormatTest executes successfully", () => {
+  // Capture console output
+  const originalLog = console.log;
+  let output = "";
+  console.log = (msg) => { output += msg + "\n"; };
+
+  try {
+    const result = slackReporter.runFormatTest();
+    assertEqual(result, true, "Format test should return true for valid output");
+    assert(output.includes("Daily Status"), "Should output daily status test");
+    assert(output.includes("Weekly Summary"), "Should output weekly summary test");
+    assert(output.includes("Discipline Report"), "Should output discipline report test");
+    assert(output.includes("Valid Block Kit structure"), "Should report validation results");
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+// Test 18: Week number calculation
+test("getWeekNumber calculates correct ISO week", () => {
+  // January 1, 2026 is a Thursday, so it's week 1
+  const jan1 = new Date("2026-01-01");
+  const week1 = slackReporter.getWeekNumber(jan1);
+  assertEqual(week1, 1, "Jan 1, 2026 should be week 1");
+
+  // January 18, 2026 should be around week 3 or 4
+  const jan18 = new Date("2026-01-18");
+  const weekJan18 = slackReporter.getWeekNumber(jan18);
+  assert(weekJan18 >= 2 && weekJan18 <= 4, `Jan 18 should be week 2-4, got ${weekJan18}`);
+});
+
+// Test 19: Date formatting helpers
+test("formatDate and formatTimestamp produce expected formats", () => {
+  const testDate = new Date("2026-01-18T10:30:45Z");
+
+  const dateStr = slackReporter.formatDate(testDate);
+  assertEqual(dateStr, "2026-01-18", "formatDate should produce YYYY-MM-DD");
+
+  const timestampStr = slackReporter.formatTimestamp(testDate);
+  assert(timestampStr.includes("2026-01-18"), "formatTimestamp should include date");
+  assert(timestampStr.includes("10:30:45"), "formatTimestamp should include time");
+  assert(timestampStr.includes("UTC"), "formatTimestamp should indicate UTC");
+});
+
+// Test 20: UI_BASE_URL is exported and customizable
+test("UI_BASE_URL defaults to localhost:3000", () => {
+  assertEqual(slackReporter.UI_BASE_URL, "http://localhost:3000", "Default UI URL should be localhost:3000");
+});
+
 // Summary
 console.log("\n" + "=".repeat(60));
 console.log(`Total: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

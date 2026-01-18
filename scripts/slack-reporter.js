@@ -637,8 +637,62 @@ async function uploadFile(channels, content, options = {}) {
 }
 
 // ============================================================================
-// Message Formatting
+// Message Formatting - Block Kit (US-002)
 // ============================================================================
+
+/**
+ * UI base URL for PRD links
+ */
+const UI_BASE_URL = process.env.RALPH_UI_URL || "http://localhost:3000";
+
+/**
+ * Get status emoji based on health indicator
+ * @param {string} status - Status type: healthy, at-risk, blocked
+ * @returns {string} Emoji
+ */
+function getStatusEmoji(status) {
+  switch (status) {
+    case "healthy":
+      return "🟢";
+    case "at-risk":
+      return "🟡";
+    case "blocked":
+      return "🔴";
+    default:
+      return "⚪";
+  }
+}
+
+/**
+ * Determine PRD health status based on days since activity
+ * @param {number} daysSinceActivity - Days since last activity
+ * @returns {string} Status: healthy, at-risk, blocked
+ */
+function getPrdHealthStatus(daysSinceActivity) {
+  if (daysSinceActivity >= 7) return "blocked";
+  if (daysSinceActivity >= 3) return "at-risk";
+  return "healthy";
+}
+
+/**
+ * Format a date for display in messages
+ * @param {Date|string} date - Date to format
+ * @returns {string} Formatted date string (YYYY-MM-DD)
+ */
+function formatDate(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toISOString().split("T")[0];
+}
+
+/**
+ * Format timestamp for display
+ * @param {Date|string} date - Date to format
+ * @returns {string} Formatted timestamp
+ */
+function formatTimestamp(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toISOString().replace("T", " ").substring(0, 19) + " UTC";
+}
 
 /**
  * Check if current time is in quiet hours (22:00-08:00)
@@ -647,6 +701,416 @@ async function uploadFile(channels, content, options = {}) {
 function isQuietHours() {
   const hour = new Date().getHours();
   return hour >= 22 || hour < 8;
+}
+
+/**
+ * Create standard metadata context block
+ * @param {Object} options - Metadata options
+ * @param {Date} options.timestamp - Generation timestamp
+ * @param {number} options.runCount - Total run count
+ * @param {Date|string} options.lastActivity - Last activity date
+ * @returns {Object} Slack context block
+ */
+function createMetadataBlock(options = {}) {
+  const {
+    timestamp = new Date(),
+    runCount = 0,
+    lastActivity = new Date(),
+  } = options;
+
+  return {
+    type: "context",
+    elements: [
+      {
+        type: "mrkdwn",
+        text: `📅 Generated: ${formatTimestamp(timestamp)} | 🔄 Runs: ${runCount} | 🕐 Last Activity: ${formatTimestamp(lastActivity)}`,
+      },
+    ],
+  };
+}
+
+/**
+ * Create action button block with View Details link
+ * @param {string|number} prdId - PRD ID for link (optional)
+ * @param {string} buttonText - Button label
+ * @param {string} actionId - Action ID for tracking
+ * @returns {Object} Slack actions block
+ */
+function createActionButtonBlock(prdId = null, buttonText = "View Details", actionId = "view_details") {
+  const url = prdId ? `${UI_BASE_URL}/prd/${prdId}` : `${UI_BASE_URL}/prd`;
+
+  return {
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: buttonText,
+          emoji: true,
+        },
+        url,
+        action_id: actionId,
+      },
+    ],
+  };
+}
+
+/**
+ * Format Daily PRD Status as Slack Block Kit (US-002)
+ *
+ * Creates a rich-formatted daily status report with:
+ * - Header with date
+ * - Sections grouped by discipline/team
+ * - Emoji indicators (🟢 healthy, 🟡 at-risk, 🔴 blocked)
+ * - Links to UI for each PRD
+ * - Metadata footer (timestamp, run count, last activity)
+ *
+ * @param {Object} options - Formatting options
+ * @param {Date} options.date - Report date
+ * @param {Object[]} options.disciplines - Array of discipline data
+ * @param {Object[]} options.prds - Array of PRD status objects
+ * @param {Object} options.totals - Overall totals
+ * @returns {Object[]} Slack Block Kit blocks
+ */
+function formatDailyStatusBlocks(options = {}) {
+  const {
+    date = new Date(),
+    disciplines = [],
+    prds = [],
+    totals = {},
+  } = options;
+
+  const blocks = [];
+
+  // Header block
+  blocks.push({
+    type: "header",
+    text: {
+      type: "plain_text",
+      text: `📊 Daily PRD Status - ${formatDate(date)}`,
+      emoji: true,
+    },
+  });
+
+  // Overview section
+  const healthyCount = prds.filter((p) => getPrdHealthStatus(p.daysSinceActivity || 0) === "healthy").length;
+  const atRiskCount = prds.filter((p) => getPrdHealthStatus(p.daysSinceActivity || 0) === "at-risk").length;
+  const blockedCount = prds.filter((p) => getPrdHealthStatus(p.daysSinceActivity || 0) === "blocked").length;
+
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Overview:* ${getStatusEmoji("healthy")} ${healthyCount} healthy | ${getStatusEmoji("at-risk")} ${atRiskCount} at-risk | ${getStatusEmoji("blocked")} ${blockedCount} blocked`,
+    },
+  });
+
+  blocks.push({ type: "divider" });
+
+  // Group PRDs by discipline
+  const prdsByDiscipline = {};
+  for (const prd of prds) {
+    const disc = prd.discipline || "other";
+    if (!prdsByDiscipline[disc]) {
+      prdsByDiscipline[disc] = [];
+    }
+    prdsByDiscipline[disc].push(prd);
+  }
+
+  // Section for each discipline
+  for (const discipline of disciplines) {
+    const discName = discipline.discipline || discipline.name;
+    const discPrds = prdsByDiscipline[discName] || [];
+
+    if (discPrds.length === 0 && disciplines.length > 1) {
+      continue; // Skip empty disciplines when there are multiple
+    }
+
+    // Format PRD lines with emoji indicators and links
+    const prdLines = discPrds.map((prd) => {
+      const status = getPrdHealthStatus(prd.daysSinceActivity || 0);
+      const emoji = getStatusEmoji(status);
+      const prdLink = `<${UI_BASE_URL}/prd/${prd.id}|PRD-${prd.id}>`;
+
+      let statusText = "";
+      if (prd.storiesCompleted) {
+        statusText = `${prd.storiesCompleted} stories completed`;
+      } else if (prd.daysSinceActivity >= 2) {
+        statusText = `Blocked for ${prd.daysSinceActivity} days`;
+      } else {
+        statusText = "Active";
+      }
+
+      return `${emoji} ${prdLink}: ${statusText}`;
+    }).join("\n");
+
+    // Discipline section with metrics
+    const discTitle = discName.charAt(0).toUpperCase() + discName.slice(1);
+    const successRate = discipline.successRate || 0;
+    const rateEmoji = successRate >= 80 ? "🟢" : successRate >= 60 ? "🟡" : "🔴";
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*${discTitle} Team* ${rateEmoji} ${successRate}%\n${prdLines || "_No active PRDs_"}`,
+      },
+    });
+
+    // Context block with discipline metrics
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `Runs: ${discipline.totalRuns || 0} | Success: ${discipline.successfulRuns || 0} | Failed: ${discipline.failedRuns || 0}`,
+        },
+      ],
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // Metadata footer
+  blocks.push(createMetadataBlock({
+    timestamp: new Date(),
+    runCount: totals.totalRuns || 0,
+    lastActivity: totals.lastActivity || new Date(),
+  }));
+
+  // Action button
+  blocks.push(createActionButtonBlock(null, "View Dashboard", "view_daily_dashboard"));
+
+  return blocks;
+}
+
+/**
+ * Format Weekly Summary as Slack Block Kit (US-002)
+ *
+ * Creates a rich-formatted weekly summary with:
+ * - Header block with week number
+ * - Dividers between sections
+ * - Key metrics fields
+ * - Top performers and blockers
+ * - Action buttons (View Details)
+ * - Metadata footer
+ *
+ * @param {Object} options - Formatting options
+ * @param {Date} options.weekStart - Week start date
+ * @param {Date} options.weekEnd - Week end date
+ * @param {Object} options.metrics - Weekly metrics
+ * @param {Object[]} options.highlights - Notable achievements
+ * @param {Object[]} options.blockers - Blocked PRDs
+ * @param {Object} options.comparison - Week-over-week comparison
+ * @returns {Object[]} Slack Block Kit blocks
+ */
+function formatWeeklySummaryBlocks(options = {}) {
+  const {
+    weekStart = new Date(),
+    weekEnd = new Date(),
+    metrics = {},
+    highlights = [],
+    blockers = [],
+    comparison = {},
+  } = options;
+
+  const blocks = [];
+
+  // Get week number
+  const weekNum = getWeekNumber(weekStart);
+
+  // Header block
+  blocks.push({
+    type: "header",
+    text: {
+      type: "plain_text",
+      text: `📈 Weekly Summary - Week ${weekNum}`,
+      emoji: true,
+    },
+  });
+
+  // Date range section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*Period:* ${formatDate(weekStart)} to ${formatDate(weekEnd)}`,
+    },
+  });
+
+  blocks.push({ type: "divider" });
+
+  // Key metrics section with fields
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: "*📊 Key Metrics*",
+    },
+  });
+
+  blocks.push({
+    type: "section",
+    fields: [
+      {
+        type: "mrkdwn",
+        text: `*Total Runs*\n${metrics.totalRuns || 0}`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Success Rate*\n${getStatusEmoji(metrics.successRate >= 80 ? "healthy" : metrics.successRate >= 60 ? "at-risk" : "blocked")} ${metrics.successRate || 0}%`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Stories Completed*\n${metrics.storiesCompleted || 0}`,
+      },
+      {
+        type: "mrkdwn",
+        text: `*Total Cost*\n$${(metrics.totalCost || 0).toFixed(2)}`,
+      },
+    ],
+  });
+
+  // Week-over-week comparison
+  if (comparison.previousWeek) {
+    const runsDelta = (metrics.totalRuns || 0) - (comparison.previousWeek.totalRuns || 0);
+    const rateDelta = (metrics.successRate || 0) - (comparison.previousWeek.successRate || 0);
+    const runsArrow = runsDelta >= 0 ? "📈" : "📉";
+    const rateArrow = rateDelta >= 0 ? "📈" : "📉";
+
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `${runsArrow} Runs: ${runsDelta >= 0 ? "+" : ""}${runsDelta} vs last week | ${rateArrow} Rate: ${rateDelta >= 0 ? "+" : ""}${rateDelta.toFixed(1)}%`,
+        },
+      ],
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // Highlights section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: "*✨ Highlights*",
+    },
+  });
+
+  if (highlights.length > 0) {
+    const highlightText = highlights
+      .slice(0, 5)
+      .map((h) => `• ${getStatusEmoji("healthy")} <${UI_BASE_URL}/prd/${h.prdId}|PRD-${h.prdId}>: ${h.achievement}`)
+      .join("\n");
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: highlightText,
+      },
+    });
+  } else {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "_No notable highlights this week_",
+      },
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // Blockers section
+  blocks.push({
+    type: "section",
+    text: {
+      type: "mrkdwn",
+      text: `*🚨 Blockers (${blockers.length})*`,
+    },
+  });
+
+  if (blockers.length > 0) {
+    const blockerText = blockers
+      .slice(0, 5)
+      .map((b) => {
+        const status = getPrdHealthStatus(b.daysSinceActivity || b.daysBlocked || 7);
+        return `• ${getStatusEmoji(status)} <${UI_BASE_URL}/prd/${b.prdId}|PRD-${b.prdId}>: Blocked ${b.daysSinceActivity || b.daysBlocked || "?"} days - ${b.reason || "No recent activity"}`;
+      })
+      .join("\n");
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: blockerText,
+      },
+    });
+  } else {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `${getStatusEmoji("healthy")} _No blockers this week!_`,
+      },
+    });
+  }
+
+  blocks.push({ type: "divider" });
+
+  // Metadata footer
+  blocks.push(createMetadataBlock({
+    timestamp: new Date(),
+    runCount: metrics.totalRuns || 0,
+    lastActivity: metrics.lastActivity || new Date(),
+  }));
+
+  // Action buttons
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: "View Details",
+          emoji: true,
+        },
+        url: `${UI_BASE_URL}/executive`,
+        action_id: "view_weekly_details",
+      },
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: "View All PRDs",
+          emoji: true,
+        },
+        url: `${UI_BASE_URL}/prd`,
+        action_id: "view_all_prds",
+      },
+    ],
+  });
+
+  return blocks;
+}
+
+/**
+ * Get ISO week number for a date
+ * @param {Date} date - Date to get week number for
+ * @returns {number} Week number (1-53)
+ */
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
 /**
@@ -664,7 +1128,7 @@ function formatDisciplineBlocks(discipline, data, blockers) {
     type: "header",
     text: {
       type: "plain_text",
-      text: `\ud83d\udcca ${discipline.charAt(0).toUpperCase() + discipline.slice(1)} Daily Report`,
+      text: `📊 ${discipline.charAt(0).toUpperCase() + discipline.slice(1)} Daily Report`,
       emoji: true,
     },
   });
@@ -673,14 +1137,15 @@ function formatDisciplineBlocks(discipline, data, blockers) {
     type: "section",
     text: {
       type: "mrkdwn",
-      text: `*Generated:* ${new Date().toLocaleString()}\n*Projects:* ${data.projects.join(", ")}`,
+      text: `*Generated:* ${formatTimestamp(new Date())}\n*Projects:* ${data.projects.join(", ")}`,
     },
   });
 
   blocks.push({ type: "divider" });
 
-  // Metrics
-  const successEmoji = data.successRate >= 80 ? "\u2705" : data.successRate >= 60 ? "\u26a0\ufe0f" : "\u274c";
+  // Metrics with status emoji
+  const successRate = data.successRate || 0;
+  const successEmoji = getStatusEmoji(successRate >= 80 ? "healthy" : successRate >= 60 ? "at-risk" : "blocked");
 
   blocks.push({
     type: "section",
@@ -691,7 +1156,7 @@ function formatDisciplineBlocks(discipline, data, blockers) {
       },
       {
         type: "mrkdwn",
-        text: `*Success Rate*\n${successEmoji} ${data.successRate}%`,
+        text: `*Success Rate*\n${successEmoji} ${successRate}%`,
       },
       {
         type: "mrkdwn",
@@ -704,21 +1169,26 @@ function formatDisciplineBlocks(discipline, data, blockers) {
     ],
   });
 
-  // Blockers
+  // Blockers section
   const disciplineBlockers = blockers.filter((b) => b.discipline === discipline);
 
   if (disciplineBlockers.length > 0) {
     blocks.push({ type: "divider" });
 
+    const blockerLines = disciplineBlockers
+      .map((b) => {
+        const status = getPrdHealthStatus(b.daysSinceActivity || 0);
+        const emoji = getStatusEmoji(status);
+        const prdLink = `<${UI_BASE_URL}/prd/${b.prdId}|PRD-${b.prdId}>`;
+        return `• ${emoji} ${prdLink} (${b.projectName}): No activity for ${b.daysSinceActivity} days`;
+      })
+      .join("\n");
+
     blocks.push({
       type: "section",
       text: {
         type: "mrkdwn",
-        text:
-          `*\u26a0\ufe0f Blockers (${disciplineBlockers.length})*\n` +
-          disciplineBlockers
-            .map((b) => `\u2022 PRD-${b.prdId} (${b.projectName}): No activity for ${b.daysSinceActivity} days`)
-            .join("\n"),
+        text: `*⚠️ Blockers (${disciplineBlockers.length})*\n${blockerLines}`,
       },
     });
   } else {
@@ -728,38 +1198,20 @@ function formatDisciplineBlocks(discipline, data, blockers) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "*\u2705 No Blockers*\nAll PRDs in this discipline are actively progressing.",
+        text: `*${getStatusEmoji("healthy")} No Blockers*\nAll PRDs in this discipline are actively progressing.`,
       },
     });
   }
 
-  // Footer with metadata
-  blocks.push({
-    type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: `_Generated by Ralph Automation System_ | Run Count: ${data.totalRuns} | Last Activity: ${new Date().toLocaleString()}`,
-      },
-    ],
-  });
+  // Metadata footer
+  blocks.push(createMetadataBlock({
+    timestamp: new Date(),
+    runCount: data.totalRuns,
+    lastActivity: data.lastActivity || new Date(),
+  }));
 
-  // Action button to view details in UI
-  blocks.push({
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View Details",
-          emoji: true,
-        },
-        url: `http://localhost:3000/prd`,
-        action_id: "view_details",
-      },
-    ],
-  });
+  // Action button with discipline filter
+  blocks.push(createActionButtonBlock(null, "View Details", "view_discipline_details"));
 
   return blocks;
 }
@@ -769,9 +1221,169 @@ function formatDisciplineBlocks(discipline, data, blockers) {
 // ============================================================================
 
 /**
+ * Run Block Kit format test (--format-test flag)
+ * Outputs sample Block Kit JSON for validation
+ */
+function runFormatTest() {
+  console.log("=".repeat(60));
+  console.log("  Block Kit Format Test (US-002)");
+  console.log("=".repeat(60));
+  console.log("\nGenerating sample Block Kit messages...\n");
+
+  // Sample data for testing
+  const sampleDate = new Date();
+  const sampleDisciplines = [
+    {
+      discipline: "gameplay",
+      name: "gameplay",
+      totalRuns: 15,
+      successfulRuns: 12,
+      failedRuns: 3,
+      successRate: 80,
+      projects: ["game-core", "mobile-client"],
+    },
+    {
+      discipline: "backend",
+      name: "backend",
+      totalRuns: 10,
+      successfulRuns: 9,
+      failedRuns: 1,
+      successRate: 90,
+      projects: ["api-server"],
+    },
+  ];
+
+  const samplePrds = [
+    { id: 45, discipline: "gameplay", storiesCompleted: 3, daysSinceActivity: 0 },
+    { id: 46, discipline: "gameplay", storiesCompleted: 0, daysSinceActivity: 5 },
+    { id: 47, discipline: "backend", storiesCompleted: 2, daysSinceActivity: 1 },
+    { id: 48, discipline: "backend", storiesCompleted: 0, daysSinceActivity: 8 },
+  ];
+
+  const sampleBlockers = [
+    { prdId: 46, discipline: "gameplay", projectName: "mobile-client", daysSinceActivity: 5, reason: "Build failures" },
+    { prdId: 48, discipline: "backend", projectName: "api-server", daysSinceActivity: 8, reason: "Dependency conflict" },
+  ];
+
+  const sampleTotals = {
+    totalRuns: 25,
+    successRate: 84,
+    storiesCompleted: 5,
+    totalCost: 12.50,
+    lastActivity: new Date(),
+  };
+
+  // Test 1: Daily Status Blocks
+  console.log("1. Daily Status Message:");
+  console.log("-".repeat(40));
+  const dailyBlocks = formatDailyStatusBlocks({
+    date: sampleDate,
+    disciplines: sampleDisciplines,
+    prds: samplePrds,
+    totals: sampleTotals,
+  });
+  console.log(JSON.stringify({ blocks: dailyBlocks }, null, 2));
+
+  // Test 2: Weekly Summary Blocks
+  console.log("\n2. Weekly Summary Message:");
+  console.log("-".repeat(40));
+  const weekStart = new Date(sampleDate);
+  weekStart.setDate(weekStart.getDate() - 7);
+  const weeklySummaryBlocks = formatWeeklySummaryBlocks({
+    weekStart,
+    weekEnd: sampleDate,
+    metrics: sampleTotals,
+    highlights: [
+      { prdId: 45, achievement: "Completed all 3 stories" },
+      { prdId: 47, achievement: "API refactoring done" },
+    ],
+    blockers: sampleBlockers,
+    comparison: {
+      previousWeek: {
+        totalRuns: 20,
+        successRate: 75,
+      },
+    },
+  });
+  console.log(JSON.stringify({ blocks: weeklySummaryBlocks }, null, 2));
+
+  // Test 3: Discipline Report Blocks (existing function, enhanced)
+  console.log("\n3. Discipline Report Message:");
+  console.log("-".repeat(40));
+  const disciplineBlocks = formatDisciplineBlocks(
+    "gameplay",
+    sampleDisciplines[0],
+    sampleBlockers
+  );
+  console.log(JSON.stringify({ blocks: disciplineBlocks }, null, 2));
+
+  // Validation summary
+  console.log("\n" + "=".repeat(60));
+  console.log("  Validation Summary");
+  console.log("=".repeat(60));
+
+  const allBlocks = [dailyBlocks, weeklySummaryBlocks, disciplineBlocks];
+  let validCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < allBlocks.length; i++) {
+    const blocks = allBlocks[i];
+    const name = ["Daily Status", "Weekly Summary", "Discipline Report"][i];
+
+    // Check for required block types
+    const hasHeader = blocks.some((b) => b.type === "header");
+    const hasSection = blocks.some((b) => b.type === "section");
+    const hasContext = blocks.some((b) => b.type === "context");
+    const hasActions = blocks.some((b) => b.type === "actions");
+    const hasDivider = blocks.some((b) => b.type === "divider");
+
+    const isValid = hasHeader && hasSection && hasContext && hasActions && hasDivider;
+
+    if (isValid) {
+      console.log(`  ✅ ${name}: Valid Block Kit structure`);
+      validCount++;
+    } else {
+      console.log(`  ❌ ${name}: Missing required blocks`);
+      if (!hasHeader) console.log("     - Missing: header");
+      if (!hasSection) console.log("     - Missing: section");
+      if (!hasContext) console.log("     - Missing: context (metadata)");
+      if (!hasActions) console.log("     - Missing: actions (buttons)");
+      if (!hasDivider) console.log("     - Missing: divider");
+      errorCount++;
+    }
+
+    // Check for emoji indicators
+    const hasEmoji = JSON.stringify(blocks).includes("🟢") ||
+                     JSON.stringify(blocks).includes("🟡") ||
+                     JSON.stringify(blocks).includes("🔴");
+    if (hasEmoji) {
+      console.log(`     ✓ Contains status emoji indicators`);
+    }
+
+    // Check for UI links
+    const hasLinks = JSON.stringify(blocks).includes(UI_BASE_URL);
+    if (hasLinks) {
+      console.log(`     ✓ Contains UI links (${UI_BASE_URL})`);
+    }
+  }
+
+  console.log("=".repeat(60));
+  console.log(`  Total: ${validCount} valid, ${errorCount} invalid`);
+  console.log("=".repeat(60));
+
+  return errorCount === 0;
+}
+
+/**
  * Main execution
  */
 async function main() {
+  // Check for --format-test flag (US-002)
+  if (process.argv.includes("--format-test")) {
+    const success = runFormatTest();
+    process.exit(success ? 0 : 1);
+  }
+
   console.log("=".repeat(60));
   console.log("  Slack Reporter - Send Team Reports to Slack");
   console.log("=".repeat(60));
@@ -844,76 +1456,26 @@ async function main() {
     }
   }
 
-  // Send leadership summary
+  // Send leadership summary using Block Kit (US-002 enhanced)
   console.log("[4/4] Sending leadership summary...");
   const leadershipChannel = config.slackChannels.leadership;
 
   if (leadershipChannel) {
-    const summaryBlocks = [
-      {
-        type: "header",
-        text: {
-          type: "plain_text",
-          text: "\ud83d\udcc8 Studio Daily Summary",
-          emoji: true,
-        },
-      },
-      {
-        type: "section",
-        fields: [
-          {
-            type: "mrkdwn",
-            text: `*Total Runs*\n${metrics.totals.totalRuns}`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Success Rate*\n${metrics.totals.successRate}%`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Stories Completed*\n${metrics.totals.storiesCompleted}`,
-          },
-          {
-            type: "mrkdwn",
-            text: `*Total Cost*\n$${metrics.totals.totalCost}`,
-          },
-        ],
-      },
-      {
-        type: "divider",
-      },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Blockers:* ${(metrics.blockers || []).length} PRD(s) with zero velocity`,
-        },
-      },
-      {
-        type: "context",
-        elements: [
-          {
-            type: "mrkdwn",
-            text: `_Generated at ${new Date().toLocaleString()}_`,
-          },
-        ],
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "View Dashboard",
-              emoji: true,
-            },
-            url: "http://localhost:3000/executive",
-            action_id: "view_dashboard",
-          },
-        ],
-      },
-    ];
+    // Create PRD status data from metrics
+    const prds = (metrics.blockers || []).map((b) => ({
+      id: b.prdId,
+      discipline: b.discipline,
+      daysSinceActivity: b.daysSinceActivity,
+      storiesCompleted: 0,
+    }));
+
+    // Use the new Block Kit daily status format
+    const summaryBlocks = formatDailyStatusBlocks({
+      date: new Date(),
+      disciplines: metrics.disciplines,
+      prds,
+      totals: metrics.totals,
+    });
 
     const success = await sendSlackMessage(leadershipChannel, summaryBlocks, {
       text: "Ralph Studio Daily Summary",
@@ -948,12 +1510,23 @@ async function main() {
 module.exports = {
   // Main entry
   main,
+  runFormatTest,
   // Message sending
   sendSlackMessage,
   sendDirectMessage,
   uploadFile,
-  // Formatting
+  // Block Kit Formatting (US-002)
   formatDisciplineBlocks,
+  formatDailyStatusBlocks,
+  formatWeeklySummaryBlocks,
+  createMetadataBlock,
+  createActionButtonBlock,
+  // Status helpers
+  getStatusEmoji,
+  getPrdHealthStatus,
+  getWeekNumber,
+  formatDate,
+  formatTimestamp,
   isQuietHours,
   // Queue management
   loadMessageQueue,
@@ -968,6 +1541,8 @@ module.exports = {
   // Configuration
   loadAutomationConfig,
   loadLatestMetrics,
+  // Constants
+  UI_BASE_URL,
 };
 
 // Execute if run directly
