@@ -1747,7 +1747,124 @@ cmd_verify_status() {
 }
 
 # ============================================================================
-# Merge Queue Status (US-005)
+# Blocker Resolution (US-005)
+# ============================================================================
+
+cmd_resolve_blocker() {
+  # Manually resolve a blocker and document what fixed it
+  # Usage: ralph stream resolve-blocker <prd-id> --reason "explanation"
+  local input="$1"
+  shift || true
+
+  local stream_id
+  stream_id=$(normalize_stream_id "$input")
+
+  if [[ -z "$stream_id" ]]; then
+    msg_error "Invalid stream ID: $input" >&2
+    return 1
+  fi
+
+  if ! stream_exists "$stream_id"; then
+    msg_error "Stream $stream_id does not exist" >&2
+    return 1
+  fi
+
+  # Parse --reason flag
+  local reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --reason=*)
+        reason="${1#--reason=}"
+        shift
+        ;;
+      --reason)
+        shift
+        reason="${1:-}"
+        shift || true
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -z "$reason" ]]; then
+    msg_error "Error: --reason flag is required"
+    echo "Usage: ralph stream resolve-blocker <prd-id> --reason \"explanation\"" >&2
+    return 1
+  fi
+
+  # Get the PRD directory
+  local prd_dir
+  prd_dir="$(get_stream_dir "$stream_id")"
+  local blocker_status_file="$prd_dir/blocker-status.json"
+
+  # Check if blocker-status.json exists
+  if [[ ! -f "$blocker_status_file" ]]; then
+    msg_error "No blocker-status.json found for $stream_id" >&2
+    return 1
+  fi
+
+  # Parse the blocker status to get metadata
+  local current_status
+  current_status=$(cat "$blocker_status_file" 2>/dev/null)
+
+  if [[ -z "$current_status" ]]; then
+    msg_error "Failed to read blocker-status.json for $stream_id" >&2
+    return 1
+  fi
+
+  # Update blocker status with resolution info
+  local now alerted_users escalation_level
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  # Extract escalation level and alerted users from status
+  escalation_level=$(echo "$current_status" | jq -r '.escalation_level // 0')
+  alerted_users=$(echo "$current_status" | jq -c '.escalation_history[-1].alerted // []' 2>/dev/null || echo "[]")
+
+  # Build the resolution entry
+  local resolution_json
+  resolution_json=$(cat <<EOF
+{
+  "resolved_at": "$now",
+  "resolved_by": "manual",
+  "resolution_reason": $(echo "$reason" | jq -R .),
+  "escalation_level_at_resolution": $escalation_level,
+  "alerted_users": $alerted_users,
+  "time_to_resolution_hours": 0,
+  "is_blocked": false
+}
+EOF
+)
+
+  # Merge resolution info into the blocker status
+  local updated_status
+  updated_status=$(echo "$current_status" | jq ". + $resolution_json")
+
+  # Save the updated status
+  echo "$updated_status" | jq . > "$blocker_status_file" 2>/dev/null
+
+  if [[ $? -eq 0 ]]; then
+    msg_success "✓ Blocker for $stream_id marked as resolved"
+    printf "  ${C_DIM}Reason: %s${C_RESET}\n" "$reason"
+    printf "  ${C_DIM}Escalation level: %s${C_RESET}\n" "$escalation_level"
+
+    # Log to activity log
+    ralph log "Blocker US-005: Resolved blocker for $stream_id - $reason"
+
+    # Trigger all-clear notification (would call Slack API here)
+    # This is handled by send-escalation-alerts or a separate notification script
+    printf "\n${C_CYAN}Note:${C_RESET} All-clear notification can be sent via 'ralph automation send-all-clear'\n"
+
+    return 0
+  else
+    msg_error "Failed to update blocker-status.json for $stream_id" >&2
+    return 1
+  fi
+}
+
+# ============================================================================
+# Merge Queue Status
 # ============================================================================
 
 cmd_merge_status() {
@@ -2234,6 +2351,13 @@ case "$cmd" in
   verify-status)
     cmd_verify_status
     ;;
+  resolve-blocker)
+    if [[ -z "${1:-}" ]]; then
+      echo "Usage: ralph stream resolve-blocker <prd-id> --reason \"explanation\"" >&2
+      exit 1
+    fi
+    cmd_resolve_blocker "$@"
+    ;;
   pr)
     if [[ -z "${1:-}" ]]; then
       echo "Usage: ralph stream pr <N> [--title \"...\"] [--reviewers \"...\"] [--base branch] [--dry-run]" >&2
@@ -2275,6 +2399,8 @@ case "$cmd" in
     printf "  ${C_GREEN}ralph stream unmark-completed ${C_YELLOW}<N>${C_RESET}\n"
     printf "                              Remove completed marker from stream\n"
     printf "  ${C_GREEN}ralph stream verify-status${C_RESET}     Auto-scan and fix stale status markers\n"
+    printf "  ${C_GREEN}ralph stream resolve-blocker ${C_YELLOW}<N>${C_RESET} ${C_DIM}--reason \"...\"${C_RESET}\n"
+    printf "                              Manually confirm blocker resolution with tracking\n"
     printf "\n${C_BOLD}${C_CYAN}Examples:${C_RESET}\n"
     printf "${C_DIM}────────────────────────────────────────${C_RESET}\n"
     printf "  ${C_DIM}ralph stream new${C_RESET}              ${C_DIM}# Creates PRD-1${C_RESET}\n"

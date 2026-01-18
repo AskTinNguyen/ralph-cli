@@ -38,6 +38,7 @@ log() {
 }
 
 # Check if auto-speak is enabled
+# Supports both legacy format (autoSpeak: true) and new format (autoSpeak: {enabled: true})
 is_auto_speak_enabled() {
   if [[ ! -f "$CONFIG_FILE" ]]; then
     return 1
@@ -45,10 +46,18 @@ is_auto_speak_enabled() {
 
   # Use jq if available, otherwise grep
   if command -v jq &>/dev/null; then
-    local enabled=$(jq -r '.autoSpeak // false' "$CONFIG_FILE" 2>/dev/null)
+    # Check new format first (.autoSpeak.enabled), then legacy format (.autoSpeak == true)
+    local enabled=$(jq -r '
+      if .autoSpeak | type == "object" then
+        .autoSpeak.enabled // false
+      else
+        .autoSpeak // false
+      end
+    ' "$CONFIG_FILE" 2>/dev/null)
     [[ "$enabled" == "true" ]]
   else
-    grep -q '"autoSpeak"[[:space:]]*:[[:space:]]*true' "$CONFIG_FILE" 2>/dev/null
+    # Fallback grep: check for either format
+    grep -qE '"autoSpeak"[[:space:]]*:[[:space:]]*(true|{[^}]*"enabled"[[:space:]]*:[[:space:]]*true)' "$CONFIG_FILE" 2>/dev/null
   fi
 }
 

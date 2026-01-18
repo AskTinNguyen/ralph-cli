@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Ralph CLI - Executive Dashboard</title>
+  <link rel="stylesheet" href="/css/rams-ui.css">
+  <script src="/js/htmx.min.js"></script>
+  <script src="/js/htmx-ext-sse.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .executive-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .executive-card {
+      background: var(--rams-surface);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .executive-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .executive-card-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--rams-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .executive-card-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1;
+      margin: 0.5rem 0;
+    }
+
+    .executive-card-subtitle {
+      font-size: 0.875rem;
+      color: var(--rams-text-secondary);
+    }
+
+    .gauge-container {
+      position: relative;
+      height: 200px;
+      margin: 1rem 0;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 1rem 0;
+    }
+
+    .alert-banner {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .alert-critical {
+      background: #FEE2E2;
+      border-left: 4px solid #DC2626;
+      color: #991B1B;
+    }
+
+    .alert-warning {
+      background: #FEF3C7;
+      border-left: 4px solid #F59E0B;
+      color: #92400E;
+    }
+
+    .alert-icon {
+      font-size: 1.5rem;
+    }
+
+    .blocker-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .blocker-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--rams-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .blocker-item:last-child {
+      border-bottom: none;
+    }
+
+    .blocker-badge {
+      background: #FEE2E2;
+      color: #DC2626;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .top-performer-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--rams-border);
+    }
+
+    .top-performer-item:last-child {
+      border-bottom: none;
+    }
+
+    .performer-rank {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+
+    .performer-details {
+      flex: 1;
+      margin-left: 1rem;
+    }
+
+    .performer-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .performer-projects {
+      font-size: 0.75rem;
+      color: var(--rams-text-secondary);
+    }
+
+    .performer-score {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--rams-success);
+    }
+
+    .refresh-time {
+      font-size: 0.75rem;
+      color: var(--rams-text-secondary);
+      text-align: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body class="rams-page" hx-ext="sse" sse-connect="/api/events">
+
+  <script src="/js/sidebar.js"></script>
+
+  <!-- Persistent Sidebar -->
+  <aside class="rams-sidebar" id="rams-sidebar">
+    <div class="rams-sidebar-header">
+      <div class="rams-logo">
+        <div class="rams-logo-mark" onclick="toggleSidebar()" onkeydown="handleSidebarToggleKeydown(event)" role="button" tabindex="0" aria-label="Toggle sidebar" title="Toggle sidebar"></div>
+        <span class="rams-logo-text">RALPH</span>
+      </div>
+    </div>
+
+    <nav class="rams-nav">
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Main</div>
+        <ul class="rams-nav-items">
+          <li><a href="/" class="rams-nav-link">Home</a></li>
+          <li><a href="/dashboard.html" class="rams-nav-link">Dashboard</a></li>
+          <li><a href="/executive-dashboard.html" class="rams-nav-link active">Executive</a></li>
+          <li><a href="/streams.html" class="rams-nav-link">Streams</a></li>
+          <li><a href="/kanban.html" class="rams-nav-link">Mission Control</a></li>
+          <li><a href="/docs/" class="rams-nav-link">Documentation</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Monitoring</div>
+        <ul class="rams-nav-items">
+          <li><a href="/logs.html" class="rams-nav-link">Logs</a></li>
+          <li><a href="/tokens.html" class="rams-nav-link">Tokens</a></li>
+          <li><a href="/trends.html" class="rams-nav-link">Trends</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Tools</div>
+        <ul class="rams-nav-items">
+          <li><a href="/editor.html" class="rams-nav-link">Editor</a></li>
+          <li><a href="/chat.html" class="rams-nav-link">Chat</a></li>
+        </ul>
+      </div>
+
+      <div class="rams-nav-section">
+        <div class="rams-nav-label">Advanced</div>
+        <ul class="rams-nav-items">
+          <li><a href="/docs/agent-guide.html" class="rams-nav-link">Agent Guide</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="rams-sidebar-footer">
+      <div class="rams-version">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="rams-main">
+
+    <!-- Top Bar -->
+    <div class="rams-topbar">
+      <div class="rams-breadcrumb">
+        <span class="rams-breadcrumb-current">Executive Dashboard</span>
+      </div>
+      <div class="rams-topbar-actions">
+        <button class="rams-button rams-button-secondary rams-button-sm" onclick="refreshDashboard()">
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Content Area -->
+    <article class="rams-content">
+
+      <!-- Alerts Section -->
+      <section class="rams-section" id="alerts-section">
+        <!-- Alerts will be populated by JavaScript -->
+      </section>
+
+      <!-- KPI Cards -->
+      <section class="rams-section">
+        <div class="executive-grid">
+          <!-- Success Rate Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Studio Success Rate</span>
+            </div>
+            <div class="executive-card-value" id="success-rate-value">--</div>
+            <div class="executive-card-subtitle">Across all projects</div>
+            <div class="gauge-container">
+              <canvas id="success-rate-gauge"></canvas>
+            </div>
+          </div>
+
+          <!-- Budget Progress Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Monthly Budget</span>
+            </div>
+            <div class="executive-card-value" id="budget-value">$--</div>
+            <div class="executive-card-subtitle" id="budget-subtitle">of $-- used</div>
+            <div class="gauge-container">
+              <canvas id="budget-gauge"></canvas>
+            </div>
+          </div>
+
+          <!-- Stories Completed Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Stories Completed</span>
+            </div>
+            <div class="executive-card-value" id="stories-value">--</div>
+            <div class="executive-card-subtitle">Total across all projects</div>
+          </div>
+
+          <!-- Total Cost Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Total Cost (MTD)</span>
+            </div>
+            <div class="executive-card-value" id="cost-value">$--</div>
+            <div class="executive-card-subtitle" id="cost-subtitle">Month to date</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Section -->
+      <section class="rams-section">
+        <div class="executive-grid">
+          <!-- Cost by Game Chart -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Cost by Game</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="cost-by-game-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Velocity by Discipline Chart -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Velocity by Discipline</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="velocity-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Blockers and Top Performers -->
+      <section class="rams-section">
+        <div class="executive-grid">
+          <!-- Blockers Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Blockers (Zero Velocity)</span>
+              <span id="blocker-count" class="blocker-badge">0</span>
+            </div>
+            <div class="blocker-list" id="blockers-list">
+              <p style="text-align: center; color: var(--rams-text-secondary); padding: 2rem;">No blockers detected</p>
+            </div>
+          </div>
+
+          <!-- Top Performers Card -->
+          <div class="executive-card">
+            <div class="executive-card-header">
+              <span class="executive-card-title">Top Performers</span>
+            </div>
+            <div id="top-performers-list">
+              <p style="text-align: center; color: var(--rams-text-secondary); padding: 2rem;">No data available</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trends Chart -->
+      <section class="rams-section">
+        <div class="executive-card">
+          <div class="executive-card-header">
+            <span class="executive-card-title">7-Day Trends</span>
+          </div>
+          <div class="chart-container" style="height: 400px;">
+            <canvas id="trends-chart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <div class="refresh-time" id="refresh-time">
+        Last updated: --
+      </div>
+
+    </article>
+
+  </main>
+
+  <script>
+    let charts = {};
+
+    // Fetch and render dashboard data
+    async function refreshDashboard() {
+      try {
+        const response = await fetch('/api/executive-summary?days=7');
+        const data = await response.json();
+
+        if (!data.available) {
+          document.getElementById('alerts-section').innerHTML = `
+            <div class="alert-banner alert-warning">
+              <span class="alert-icon">⚠️</span>
+              <div>
+                <strong>No metrics available</strong><br>
+                Run <code>ralph factory run daily-status-report</code> to generate metrics.
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        // Render alerts
+        renderAlerts(data.alerts || []);
+
+        // Update KPI cards
+        document.getElementById('success-rate-value').textContent = `${data.successRate}%`;
+        document.getElementById('budget-value').textContent = `$${data.budgetProgress.totalCost.toFixed(2)}`;
+        document.getElementById('budget-subtitle').textContent = `of $${data.budgetProgress.monthlyBudget} used (${data.budgetProgress.percentUsed}%)`;
+        document.getElementById('stories-value').textContent = data.totals?.storiesCompleted || 0;
+        document.getElementById('cost-value').textContent = `$${data.budgetProgress.totalCost.toFixed(2)}`;
+        document.getElementById('cost-subtitle').textContent = `${data.budgetProgress.percentUsed}% of budget`;
+
+        // Render gauges
+        renderSuccessRateGauge(data.successRate);
+        renderBudgetGauge(data.budgetProgress);
+
+        // Render charts
+        renderCostByGameChart(data.costByGame || []);
+        renderVelocityChart(data.velocityByDiscipline || []);
+        renderTrendsChart(data.trends || []);
+
+        // Render blockers
+        renderBlockers(data.blockers || []);
+
+        // Render top performers
+        renderTopPerformers(data.topPerformers || []);
+
+        // Update timestamp
+        document.getElementById('refresh-time').textContent = `Last updated: ${new Date().toLocaleString()}`;
+
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        document.getElementById('alerts-section').innerHTML = `
+          <div class="alert-banner alert-critical">
+            <span class="alert-icon">❌</span>
+            <div>
+              <strong>Failed to load dashboard</strong><br>
+              ${error.message}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function renderAlerts(alerts) {
+      const container = document.getElementById('alerts-section');
+      if (alerts.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = alerts.map(alert => {
+        const severityClass = alert.severity === 'critical' ? 'alert-critical' : 'alert-warning';
+        const icon = alert.severity === 'critical' ? '🚨' : '⚠️';
+        return `
+          <div class="alert-banner ${severityClass}">
+            <span class="alert-icon">${icon}</span>
+            <div>
+              <strong>${alert.message}</strong>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderSuccessRateGauge(successRate) {
+      const canvas = document.getElementById('success-rate-gauge');
+      if (charts.successRate) {
+        charts.successRate.destroy();
+      }
+
+      charts.successRate = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [successRate, 100 - successRate],
+            backgroundColor: ['#10B981', '#E5E7EB'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '75%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+          }
+        }
+      });
+    }
+
+    function renderBudgetGauge(budgetProgress) {
+      const canvas = document.getElementById('budget-gauge');
+      if (charts.budget) {
+        charts.budget.destroy();
+      }
+
+      const color = budgetProgress.severity === 'critical' ? '#DC2626' :
+                    budgetProgress.severity === 'warning' ? '#F59E0B' :
+                    '#10B981';
+
+      charts.budget = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [budgetProgress.percentUsed, 100 - budgetProgress.percentUsed],
+            backgroundColor: [color, '#E5E7EB'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '75%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+          }
+        }
+      });
+    }
+
+    function renderCostByGameChart(costByGame) {
+      const canvas = document.getElementById('cost-by-game-chart');
+      if (charts.costByGame) {
+        charts.costByGame.destroy();
+      }
+
+      charts.costByGame = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: costByGame.map(g => g.name),
+          datasets: [{
+            label: 'Cost',
+            data: costByGame.map(g => g.cost),
+            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function renderVelocityChart(velocityByDiscipline) {
+      const canvas = document.getElementById('velocity-chart');
+      if (charts.velocity) {
+        charts.velocity.destroy();
+      }
+
+      charts.velocity = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: velocityByDiscipline.map(d => d.discipline),
+          datasets: [{
+            label: 'Stories Completed',
+            data: velocityByDiscipline.map(d => d.storiesCompleted),
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function renderTrendsChart(trends) {
+      const canvas = document.getElementById('trends-chart');
+      if (charts.trends) {
+        charts.trends.destroy();
+      }
+
+      charts.trends = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: trends.map(t => t.date),
+          datasets: [
+            {
+              label: 'Success Rate (%)',
+              data: trends.map(t => t.successRate),
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              tension: 0.4,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Stories Completed',
+              data: trends.map(t => t.storiesCompleted),
+              borderColor: '#667eea',
+              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+              tension: 0.4,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: { display: true, text: 'Success Rate (%)' }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: { display: true, text: 'Stories' },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    function renderBlockers(blockers) {
+      const countElement = document.getElementById('blocker-count');
+      const listElement = document.getElementById('blockers-list');
+
+      countElement.textContent = blockers.length;
+
+      if (blockers.length === 0) {
+        listElement.innerHTML = '<p style="text-align: center; color: var(--rams-text-secondary); padding: 2rem;">No blockers detected</p>';
+        return;
+      }
+
+      listElement.innerHTML = blockers.map(blocker => `
+        <div class="blocker-item">
+          <div>
+            <strong>PRD-${blocker.prdId}</strong>
+            <div style="font-size: 0.875rem; color: var(--rams-text-secondary);">
+              ${blocker.projectName} • ${blocker.discipline}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 600; color: #DC2626;">${blocker.daysSinceActivity} days</div>
+            <div style="font-size: 0.75rem; color: var(--rams-text-secondary);">${blocker.lastActivity}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderTopPerformers(topPerformers) {
+      const listElement = document.getElementById('top-performers-list');
+
+      if (topPerformers.length === 0) {
+        listElement.innerHTML = '<p style="text-align: center; color: var(--rams-text-secondary); padding: 2rem;">No data available</p>';
+        return;
+      }
+
+      listElement.innerHTML = topPerformers.map((performer, index) => `
+        <div class="top-performer-item">
+          <div class="performer-rank">${index + 1}</div>
+          <div class="performer-details">
+            <div class="performer-name">${performer.discipline}</div>
+            <div class="performer-projects">${performer.projects.join(', ')}</div>
+          </div>
+          <div class="performer-score">${performer.successRate}%</div>
+        </div>
+      `).join('');
+    }
+
+    // Initial load
+    refreshDashboard();
+
+    // Auto-refresh every 30 seconds
+    setInterval(refreshDashboard, 30000);
+  </script>
+
+</body>
+</html>

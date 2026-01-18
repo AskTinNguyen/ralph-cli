@@ -40,6 +40,7 @@ import { realtime } from './api/realtime.js';
 import { streams } from './api/streams.js';
 import { estimation } from './api/estimation.js';
 import { kanban } from './api/kanban.js';
+import blockerResolution from './api/blocker-resolution.js';
 
 // Partials sub-routers for HTML fragments
 import { tokenPartials } from './api/partials/tokens.js';
@@ -62,6 +63,7 @@ api.route('/', realtime);
 api.route('/streams', streams);
 api.route('/kanban', kanban);
 api.route('/', estimation);
+api.route('/blocker', blockerResolution);
 
 // Mount partials sub-routers for HTML fragments
 api.route('/partials', tokenPartials);
