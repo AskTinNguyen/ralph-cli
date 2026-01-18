@@ -1852,6 +1852,85 @@ EOF
     # Log to activity log
     ralph log "Blocker US-005: Resolved blocker for $stream_id - $reason"
 
+    # Close GitHub issue if one exists (US-006)
+    local github_issue_url
+    github_issue_url=$(echo "$updated_status" | jq -r '.github_issue_url // empty')
+
+    if [[ -n "$github_issue_url" ]]; then
+      # Extract owner, repo, and issue number from URL
+      # URL format: https://github.com/owner/repo/issues/123
+      local issue_data
+      issue_data=$(echo "$github_issue_url" | grep -oE 'github.com/([^/]+)/([^/]+)/issues/([0-9]+)' | tr '/' '\n')
+
+      printf "\n${C_CYAN}Closing GitHub issue${C_RESET}...\n"
+
+      # Call the close-github-issue utility function if available
+      if command -v node &>/dev/null; then
+        # Use Node.js to close the issue via GitHub API
+        local close_script
+        close_script=$(cat <<'NODEJS'
+const https = require('https');
+const issueUrl = process.argv[1];
+const reason = process.argv[2];
+const token = process.env.GITHUB_TOKEN;
+
+if (!token) {
+  console.error('Error: GITHUB_TOKEN not set');
+  process.exit(1);
+}
+
+// Parse URL
+const match = issueUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+if (!match) {
+  console.error('Invalid issue URL');
+  process.exit(1);
+}
+
+const [, owner, repo, number] = match;
+
+// Close issue
+const data = JSON.stringify({ state: 'closed' });
+const options = {
+  hostname: 'api.github.com',
+  path: `/repos/${owner}/${repo}/issues/${number}`,
+  method: 'PATCH',
+  headers: {
+    'Authorization': `token ${token}`,
+    'Content-Type': 'application/json',
+    'User-Agent': 'ralph-cli'
+  }
+};
+
+const req = https.request(options, (res) => {
+  if (res.statusCode >= 200 && res.statusCode < 300) {
+    console.log('Closed issue #' + number);
+  } else {
+    console.error('Failed to close issue: ' + res.statusCode);
+    process.exit(1);
+  }
+});
+
+req.on('error', (e) => {
+  console.error('Error closing issue:', e.message);
+  process.exit(1);
+});
+
+req.write(data);
+req.end();
+NODEJS
+        )
+
+        # Execute the close script
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          node -e "$close_script" "$github_issue_url" "$reason" 2>/dev/null && \
+            printf "  ${C_GREEN}✓ GitHub issue closed${C_RESET}\n" || \
+            printf "  ${C_DIM}Note: Could not close GitHub issue (check GITHUB_TOKEN)${C_RESET}\n"
+        else
+          printf "  ${C_DIM}Skipping GitHub issue close (GITHUB_TOKEN not set)${C_RESET}\n"
+        fi
+      fi
+    fi
+
     # Trigger all-clear notification (would call Slack API here)
     # This is handled by send-escalation-alerts or a separate notification script
     printf "\n${C_CYAN}Note:${C_RESET} All-clear notification can be sent via 'ralph automation send-all-clear'\n"

@@ -484,6 +484,12 @@ function checkPrdBlocker(prd, config) {
       "WARN",
       `PRD-${prd.prdId}: Escalated to ${getEscalationLevelName(escalationLevel)} (${daysBlocked} days blocked)`
     );
+
+    // Handle Level 3 escalation: create GitHub issue
+    if (escalationLevel === ESCALATION_LEVELS.LEVEL3) {
+      // Store a flag that GitHub issue creation is pending
+      escalationEntry.github_issue_pending = true;
+    }
   } else {
     // Same or lower level - just update status
     newStatus.needs_alert = false;
@@ -495,10 +501,347 @@ function checkPrdBlocker(prd, config) {
     newStatus.resolution_reason = existingStatus.resolution_reason;
   }
 
+  // Preserve existing GitHub issue URL if present
+  if (existingStatus?.github_issue_url) {
+    newStatus.github_issue_url = existingStatus.github_issue_url;
+  }
+
   // Save updated status
   saveBlockerStatus(prd.path, newStatus);
 
   return newStatus;
+}
+
+// ============================================================================
+// GitHub Issue Creation
+// ============================================================================
+
+/**
+ * Create a GitHub issue for Level 3 escalations
+ * @param {Object} blocker - Blocker status object
+ * @param {string} context - Root cause context (gathered separately)
+ * @returns {Promise<Object>} Issue creation result with url, number, or error
+ */
+async function createGitHubIssue(blocker, context = {}) {
+  // Check if GitHub is configured
+  const ghToken = process.env.GITHUB_TOKEN;
+  if (!ghToken) {
+    log("WARN", `PRD-${blocker.prd_id}: GITHUB_TOKEN not set, skipping issue creation`);
+    return { success: false, error: "GITHUB_TOKEN not set" };
+  }
+
+  try {
+    // Build issue title and body
+    const title = `[Critical Blocker] PRD-${blocker.prd_id}: ${blocker.metadata.title}`;
+
+    const body = buildGitHubIssueBody(blocker, context);
+
+    // Try to use MCP if available, otherwise fall back to REST API
+    try {
+      // Attempt MCP call
+      const issueResult = await attemptMcpGitHubCreate(title, body, blocker);
+      if (issueResult.success) {
+        return issueResult;
+      }
+    } catch (mcpError) {
+      log("WARN", `MCP GitHub call failed, falling back to REST API: ${mcpError.message}`);
+    }
+
+    // Fallback to REST API call
+    return await createGitHubIssueViaRestApi(title, body, blocker, ghToken);
+  } catch (error) {
+    log("ERROR", `Failed to create GitHub issue for PRD-${blocker.prd_id}: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Attempt to create GitHub issue via MCP
+ * @param {string} title - Issue title
+ * @param {string} body - Issue body
+ * @param {Object} blocker - Blocker status
+ * @returns {Promise<Object>} MCP result
+ */
+async function attemptMcpGitHubCreate(title, body, blocker) {
+  // Note: MCP functions are called in the context of Claude agents
+  // This is a placeholder that will work when called from an agent context
+  // In CLI execution, this will be skipped
+  if (typeof mcp__github__create_issue !== "undefined") {
+    try {
+      const result = await mcp__github__create_issue({
+        owner: process.env.GITHUB_REPO_OWNER || "studio-org",
+        repo: process.env.GITHUB_REPO || "game-a",
+        title,
+        body,
+        labels: ["critical", "blocker", "ralph-escalation"],
+        assignees: blocker.metadata.assignees || [],
+      });
+      return {
+        success: true,
+        url: result.html_url || result.url,
+        number: result.number,
+        id: result.id,
+        source: "mcp",
+      };
+    } catch (error) {
+      throw new Error(`MCP call failed: ${error.message}`);
+    }
+  }
+  throw new Error("MCP not available");
+}
+
+/**
+ * Create GitHub issue via REST API
+ * @param {string} title - Issue title
+ * @param {string} body - Issue body
+ * @param {Object} blocker - Blocker status
+ * @param {string} ghToken - GitHub token
+ * @returns {Promise<Object>} REST API result
+ */
+async function createGitHubIssueViaRestApi(title, body, blocker, ghToken) {
+  return new Promise((resolve, reject) => {
+    const owner = process.env.GITHUB_REPO_OWNER || "studio-org";
+    const repo = process.env.GITHUB_REPO || "game-a";
+    const issueData = {
+      title,
+      body,
+      labels: ["critical", "blocker", "ralph-escalation"],
+    };
+
+    // Add assignees if available
+    if (blocker.metadata.assignees && blocker.metadata.assignees.length > 0) {
+      issueData.assignees = blocker.metadata.assignees;
+    }
+
+    const options = {
+      hostname: "api.github.com",
+      path: `/repos/${owner}/${repo}/issues`,
+      method: "POST",
+      headers: {
+        "Authorization": `token ${ghToken}`,
+        "Content-Type": "application/json",
+        "User-Agent": "ralph-cli",
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            resolve({
+              success: true,
+              url: parsed.html_url,
+              number: parsed.number,
+              id: parsed.id,
+              source: "rest-api",
+            });
+          } catch (parseError) {
+            reject(new Error(`Failed to parse GitHub response: ${parseError.message}`));
+          }
+        } else {
+          reject(new Error(`GitHub API error: ${res.statusCode} ${data}`));
+        }
+      });
+    });
+
+    req.on("error", (error) => {
+      reject(new Error(`Failed to create issue: ${error.message}`));
+    });
+
+    req.write(JSON.stringify(issueData));
+    req.end();
+  });
+}
+
+/**
+ * Build GitHub issue body from blocker and context
+ * @param {Object} blocker - Blocker status
+ * @param {Object} context - Root cause context
+ * @returns {string} Formatted issue body
+ */
+function buildGitHubIssueBody(blocker, context = {}) {
+  const uiBaseUrl = process.env.RALPH_UI_URL || "http://localhost:3000";
+  const prdUrl = `${uiBaseUrl}/prd/${blocker.prd_id}`;
+  const statusFileUrl = `.ralph/PRD-${blocker.prd_id}/blocker-status.json`;
+
+  // Format dates
+  const blockerSinceDate = new Date(blocker.blocker_since).toLocaleDateString();
+  const lastActivityDate = blocker.last_successful_run
+    ? new Date(blocker.last_successful_run).toLocaleDateString()
+    : "Unknown";
+
+  let body = `# Critical Blocker: PRD-${blocker.prd_id}\n\n`;
+  body += `**Status:** Blocked for ${blocker.days_blocked} days (Level 3 Escalation)\n`;
+  body += `**Team:** ${blocker.metadata.team}\n`;
+  body += `**Priority:** High\n`;
+  body += `**Last Activity:** ${lastActivityDate}\n\n`;
+
+  body += `## Root Cause Analysis\n`;
+  body += `- **Who Caused:** ${context.whoCaused || "Unknown (commit history unavailable)"}\n`;
+  body += `- **Why:** ${context.why || "Requires investigation"}\n`;
+
+  if (context.whatHappened && context.whatHappened.length > 0) {
+    body += `- **What Happened Before:**\n`;
+    context.whatHappened.forEach((event) => {
+      body += `  - ${event}\n`;
+    });
+  } else {
+    body += `- **What Happened Before:** Unable to determine\n`;
+  }
+
+  body += `\n## Recommended Fix\n`;
+  if (context.howToFix && context.howToFix.length > 0) {
+    context.howToFix.forEach((step, idx) => {
+      body += `${idx + 1}. ${step}\n`;
+    });
+  } else {
+    body += `1. Investigate the blocker cause\n`;
+    body += `2. Review recent commits and changes\n`;
+    body += `3. Implement fix\n`;
+  }
+
+  body += `\n## Recommended Assignee\n`;
+  if (context.whoShouldFix) {
+    body += `${context.whoShouldFix.primary || "Unknown"} (original author)\n`;
+    if (context.whoShouldFix.backup) {
+      body += `or ${context.whoShouldFix.backup} (team lead)\n`;
+    }
+  } else {
+    body += `@team-lead or @director\n`;
+  }
+
+  body += `\n**PRD Details:** ${prdUrl}\n`;
+  body += `**Blocker Status:** \`.ralph/PRD-${blocker.prd_id}/blocker-status.json\`\n\n`;
+  body += `---\n`;
+  body += `*Auto-generated by Ralph Blocker Escalation System*\n`;
+
+  return body;
+}
+
+/**
+ * Close a GitHub issue
+ * @param {string} issueUrl - Issue URL
+ * @param {string} resolution - Resolution reason/comment
+ * @returns {Promise<Object>} Close result
+ */
+async function closeGitHubIssue(issueUrl, resolution = "") {
+  const ghToken = process.env.GITHUB_TOKEN;
+  if (!ghToken) {
+    log("WARN", "GITHUB_TOKEN not set, cannot close issue");
+    return { success: false, error: "GITHUB_TOKEN not set" };
+  }
+
+  try {
+    // Parse issue URL to get owner, repo, and issue number
+    // Format: https://github.com/owner/repo/issues/123
+    const urlMatch = issueUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+    if (!urlMatch) {
+      log("ERROR", `Invalid issue URL: ${issueUrl}`);
+      return { success: false, error: "Invalid issue URL format" };
+    }
+
+    const owner = urlMatch[1];
+    const repo = urlMatch[2];
+    const issueNumber = urlMatch[3];
+
+    // Close the issue via REST API
+    return await closeGitHubIssueViaRestApi(owner, repo, issueNumber, resolution, ghToken);
+  } catch (error) {
+    log("ERROR", `Failed to close GitHub issue: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Close GitHub issue via REST API
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} issueNumber - Issue number
+ * @param {string} comment - Comment to add
+ * @param {string} ghToken - GitHub token
+ * @returns {Promise<Object>} Close result
+ */
+async function closeGitHubIssueViaRestApi(owner, repo, issueNumber, comment, ghToken) {
+  return new Promise((resolve, reject) => {
+    // First, add a comment if provided
+    if (comment) {
+      const commentData = { body: comment };
+      const commentOptions = {
+        hostname: "api.github.com",
+        path: `/repos/${owner}/${repo}/issues/${issueNumber}/comments`,
+        method: "POST",
+        headers: {
+          "Authorization": `token ${ghToken}`,
+          "Content-Type": "application/json",
+          "User-Agent": "ralph-cli",
+        },
+      };
+
+      const commentReq = https.request(commentOptions, (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            log("WARN", `Failed to add comment: ${res.statusCode}`);
+          }
+          // Continue to close even if comment fails
+          closeIssue();
+        });
+      });
+
+      commentReq.on("error", () => {
+        // Continue to close even if comment fails
+        closeIssue();
+      });
+
+      commentReq.write(JSON.stringify(commentData));
+      commentReq.end();
+    } else {
+      closeIssue();
+    }
+
+    function closeIssue() {
+      const closeData = { state: "closed" };
+      const closeOptions = {
+        hostname: "api.github.com",
+        path: `/repos/${owner}/${repo}/issues/${issueNumber}`,
+        method: "PATCH",
+        headers: {
+          "Authorization": `token ${ghToken}`,
+          "Content-Type": "application/json",
+          "User-Agent": "ralph-cli",
+        },
+      };
+
+      const closeReq = https.request(closeOptions, (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ success: true });
+          } else {
+            reject(new Error(`GitHub API error: ${res.statusCode} ${data}`));
+          }
+        });
+      });
+
+      closeReq.on("error", (error) => {
+        reject(new Error(`Failed to close issue: ${error.message}`));
+      });
+
+      closeReq.write(JSON.stringify(closeData));
+      closeReq.end();
+    }
+  });
 }
 
 // ============================================================================
@@ -611,6 +954,65 @@ async function main() {
       );
     }
     log("INFO", `${newEscalations.length} new escalation(s) need alerts`);
+
+    // Process Level 3 escalations: create GitHub issues
+    console.log("\n[5/5] Processing Level 3 Escalations (GitHub issue creation)...");
+    let level3Count = 0;
+    let githubIssuesCreated = 0;
+
+    for (const escalation of newEscalations) {
+      if (escalation.escalation_level === ESCALATION_LEVELS.LEVEL3) {
+        level3Count++;
+
+        // Skip GitHub issue creation if GITHUB_TOKEN is not set
+        if (!process.env.GITHUB_TOKEN) {
+          log("WARN", `PRD-${escalation.prd_id}: Skipping GitHub issue (GITHUB_TOKEN not set)`);
+          continue;
+        }
+
+        try {
+          // Create GitHub issue for Level 3 escalation
+          log("INFO", `Creating GitHub issue for PRD-${escalation.prd_id}...`);
+          const issueResult = await createGitHubIssue(escalation, {});
+
+          if (issueResult.success) {
+            // Update blocker status with issue URL
+            const prdPath = path.join(process.cwd(), ".ralph", `PRD-${escalation.prd_id}`);
+            const updatedStatus = loadBlockerStatus(prdPath);
+
+            if (updatedStatus) {
+              updatedStatus.github_issue_url = issueResult.url;
+              updatedStatus.github_issue_number = issueResult.number;
+
+              // Mark the github_issue_pending flag as false
+              if (
+                updatedStatus.escalation_history &&
+                updatedStatus.escalation_history.length > 0
+              ) {
+                const latestEscalation =
+                  updatedStatus.escalation_history[updatedStatus.escalation_history.length - 1];
+                if (latestEscalation.github_issue_pending) {
+                  latestEscalation.github_issue_pending = false;
+                  latestEscalation.github_issue_created_at = new Date().toISOString();
+                }
+              }
+
+              saveBlockerStatus(prdPath, updatedStatus);
+              log("SUCCESS", `Created GitHub issue #${issueResult.number}: ${issueResult.url}`);
+              githubIssuesCreated++;
+            }
+          } else {
+            log("ERROR", `Failed to create GitHub issue for PRD-${escalation.prd_id}: ${issueResult.error}`);
+          }
+        } catch (error) {
+          log("ERROR", `Exception creating GitHub issue for PRD-${escalation.prd_id}: ${error.message}`);
+        }
+      }
+    }
+
+    if (level3Count > 0) {
+      log("INFO", `Level 3 Escalations: ${level3Count}, GitHub Issues Created: ${githubIssuesCreated}`);
+    }
   }
 
   console.log("=".repeat(60));
@@ -648,6 +1050,10 @@ module.exports = {
   determineEscalationLevel,
   getEscalationLevelName,
   checkPrdBlocker,
+  // GitHub integration
+  createGitHubIssue,
+  closeGitHubIssue,
+  buildGitHubIssueBody,
 };
 
 // Execute if run directly
