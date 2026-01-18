@@ -494,6 +494,7 @@ async function main() {
     // Voice Control
     "voice",
     "speak",
+    "recap",
   ];
 
   if (moduleCommands.includes(actualCmd)) {

@@ -40,6 +40,44 @@ ralph speak --auto-off
 ralph speak --auto-status
 ```
 
+## On-Demand Recap (Longer Summaries)
+
+Auto-speak is intentionally short (~20-30 words). When you want more detail, use `ralph recap`:
+
+```bash
+# Medium summary (~100 words) - default
+ralph recap
+
+# Detailed summary (~200 words)
+ralph recap --full
+
+# Short summary (~30 words, same as auto-speak)
+ralph recap --short
+
+# Preview without speaking
+ralph recap --preview
+```
+
+**When to use recap:**
+- After complex responses with multiple steps
+- When you missed details in the auto-speak summary
+- When you want to hear key decisions, caveats, or next steps
+
+**Recap style:**
+Recaps use concise, bulleted format optimized for listening:
+```
+"Feature completed. One, added login endpoint. Two, added logout endpoint.
+Three, tests passing. Next steps: add rate limiting, add email verification."
+```
+
+**Limits by mode:**
+
+| Mode | Characters | Tokens | Target Words |
+|------|------------|--------|--------------|
+| `--short` | 150 | 150 | ~30 |
+| (default) | 800 | 400 | ~100 |
+| `--full` | 1500 | 600 | ~200 |
+
 ## Configuration
 
 Auto-speak settings are stored in `.ralph/voice-config.json`:
@@ -124,6 +162,13 @@ If you hear code being spoken:
 - Check `.ralph/auto-speak-hook.log` for summary preview
 - Verify Qwen model is working: Test with the curl command above
 - Adjust `maxTokens` in `.agents/ralph/summarize-for-tts.mjs` for longer summaries
+
+### Recap not finding transcript
+
+If `ralph recap` says "No transcript found":
+1. Make sure you're in a directory where Claude Code has been used
+2. Check Claude projects exist: `ls ~/.claude/projects/`
+3. Transcripts are stored per-project with encoded paths
 
 ## Requirements
 
