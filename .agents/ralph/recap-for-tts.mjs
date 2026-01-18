@@ -9,28 +9,7 @@
 
 import { readFileSync } from "fs";
 import { createOutputFilter } from "../../ui/dist/voice-agent/filter/output-filter.js";
-
-// Mode configurations
-const MODES = {
-  short: {
-    maxChars: 150,
-    maxTokens: 150,
-    promptWords: "under 30 words",
-    promptStyle: "1-2 sentences",
-  },
-  medium: {
-    maxChars: 800,
-    maxTokens: 400,
-    promptWords: "under 100 words",
-    promptStyle: "bulleted list, concise phrases",
-  },
-  full: {
-    maxChars: 1500,
-    maxTokens: 600,
-    promptWords: "under 200 words",
-    promptStyle: "bulleted list with numbered items, concise phrases",
-  },
-};
+import { MODES, getModeConfig } from "./lib/tts-modes.mjs";
 
 async function main() {
   const transcriptPath = process.argv[2];
@@ -42,7 +21,7 @@ async function main() {
     process.exit(1);
   }
 
-  const config = MODES[mode] || MODES.medium;
+  const config = getModeConfig(mode);
 
   try {
     // Read transcript - it's JSONL format (one JSON per line)

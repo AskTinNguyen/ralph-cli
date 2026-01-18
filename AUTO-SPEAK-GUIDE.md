@@ -40,6 +40,47 @@ ralph speak --auto-off
 ralph speak --auto-status
 ```
 
+## Auto-Speak Modes
+
+Auto-speak supports multiple summarization modes to adapt to different response types:
+
+| Mode | Chars | Tokens | Words | Use Case |
+|------|-------|--------|-------|----------|
+| `short` | 150 | 150 | ~30 | Simple answers, confirmations (default) |
+| `medium` | 800 | 400 | ~100 | Explanations, multi-step changes |
+| `full` | 1500 | 600 | ~200 | PRDs, plans, complex summaries |
+| `adaptive` | varies | varies | varies | Auto-detect based on response complexity |
+
+### Set Auto-Speak Mode
+
+```bash
+# Set mode to adaptive (recommended for varied responses)
+ralph speak --auto-mode=adaptive
+
+# Set mode to full (always use long summaries)
+ralph speak --auto-mode=full
+
+# Set mode to short (default, brief summaries)
+ralph speak --auto-mode=short
+
+# Show current mode
+ralph speak --auto-mode
+```
+
+### Adaptive Mode Detection
+
+When using `adaptive` mode, the system automatically selects the appropriate summary length based on:
+
+- **User Stories**: If the response contains 3+ `US-XXX` patterns, uses `full` mode
+- **Multi-week/phase plans**: If 2+ week or phase references found, uses `full` mode
+- **Response length**:
+  - Under 500 chars → `short` mode
+  - 500-2000 chars → `medium` mode
+  - Over 2000 chars → `full` mode
+- **List density**: If 5+ bullet points, upgrades to `medium` or `full`
+
+This prevents summaries from cutting off at "Week 1" when Claude returns a multi-week PRD.
+
 ## On-Demand Recap (Longer Summaries)
 
 Auto-speak is intentionally short (~20-30 words). When you want more detail, use `ralph recap`:
@@ -84,11 +125,26 @@ Auto-speak settings are stored in `.ralph/voice-config.json`:
 
 ```json
 {
-  "autoSpeak": true
+  "autoSpeak": {
+    "enabled": true,
+    "mode": "adaptive"
+  }
 }
 ```
 
-The hook script checks this config file before speaking. If `autoSpeak` is `false`, the hook exits silently.
+**Configuration options:**
+- `enabled`: Whether auto-speak is active (`true`/`false`)
+- `mode`: Summarization mode (`"short"`, `"medium"`, `"full"`, `"adaptive"`)
+
+**Legacy format** (still supported):
+```json
+{
+  "autoSpeak": true
+}
+```
+When using the legacy format, `short` mode is used by default.
+
+The hook script checks this config file before speaking. If `autoSpeak.enabled` is `false` (or `autoSpeak` is `false` in legacy format), the hook exits silently.
 
 ## Usage Flow
 

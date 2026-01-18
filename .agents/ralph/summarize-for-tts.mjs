@@ -3,11 +3,76 @@
  * Summarize Claude Code response for TTS
  * Uses local Qwen model via TTSSummarizer with context-aware summarization
  *
+ * Supports adaptive mode detection for optimal summary length based on response complexity.
+ *
  * Usage: node summarize-for-tts.mjs <transcript_path>
  */
 
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { MODES, detectOptimalMode, getModeConfig } from "./lib/tts-modes.mjs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { createOutputFilter } from "../../ui/dist/voice-agent/filter/output-filter.js";
+
+/**
+ * Read auto-speak configuration from voice-config.json
+ * Supports both legacy format ({ autoSpeak: true }) and new format
+ * @returns {{ enabled: boolean, mode: string, fallbackMode: string }}
+ */
+function getAutoSpeakConfig() {
+  // Try to find .ralph directory - walk up from cwd
+  let searchDir = process.cwd();
+  let configPath = null;
+
+  while (searchDir !== dirname(searchDir)) {
+    const candidate = join(searchDir, ".ralph", "voice-config.json");
+    if (existsSync(candidate)) {
+      configPath = candidate;
+      break;
+    }
+    searchDir = dirname(searchDir);
+  }
+
+  // Default config
+  const defaultConfig = {
+    enabled: true,
+    mode: "short", // Default to short for backwards compatibility
+    fallbackMode: "short",
+  };
+
+  if (!configPath) {
+    return defaultConfig;
+  }
+
+  try {
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+
+    // Handle legacy format: { autoSpeak: true/false }
+    if (typeof config.autoSpeak === "boolean") {
+      return {
+        enabled: config.autoSpeak,
+        mode: "short",
+        fallbackMode: "short",
+      };
+    }
+
+    // Handle new format: { autoSpeak: { enabled: true, mode: "adaptive" } }
+    if (typeof config.autoSpeak === "object") {
+      return {
+        enabled: config.autoSpeak.enabled !== false,
+        mode: config.autoSpeak.mode || "short",
+        fallbackMode: config.autoSpeak.fallbackMode || "short",
+      };
+    }
+
+    return defaultConfig;
+  } catch (err) {
+    return defaultConfig;
+  }
+}
 
 async function main() {
   const transcriptPath = process.argv[2];
@@ -112,8 +177,23 @@ async function main() {
       process.exit(0); // Nothing speakable after filtering
     }
 
-    // Step 2: Context-aware summarization with Qwen
-    const summary = await contextAwareSummarize(filtered, userQuestion);
+    // Step 2: Determine mode configuration
+    const autoSpeakConfig = getAutoSpeakConfig();
+    let modeConfig;
+    let modeName;
+
+    if (autoSpeakConfig.mode === "adaptive") {
+      const detection = detectOptimalMode(responseText);
+      modeConfig = getModeConfig(detection.mode);
+      modeName = detection.mode;
+      console.error(`[auto-speak] Adaptive mode: ${detection.mode} (${detection.reason})`);
+    } else {
+      modeConfig = getModeConfig(autoSpeakConfig.mode);
+      modeName = autoSpeakConfig.mode;
+    }
+
+    // Step 3: Context-aware summarization with Qwen
+    const summary = await contextAwareSummarize(filtered, userQuestion, modeConfig);
 
     if (summary && summary.trim().length > 0) {
       // Clean up the summary - remove quotes if present
@@ -126,8 +206,8 @@ async function main() {
       }
 
       // CRITICAL: Enforce max length for TTS (prevents jibberish from overly long text)
-      // Max ~150 chars (~30 words) - truncate at sentence boundary if too long
-      cleaned = truncateForTTS(cleaned.trim(), 150);
+      // Truncate at sentence boundary based on mode configuration
+      cleaned = truncateForTTS(cleaned.trim(), modeConfig.maxChars);
 
       // Output the summary
       console.log(cleaned);
@@ -144,21 +224,24 @@ async function main() {
 /**
  * Context-aware summarization using Qwen
  * Considers the user's original question when summarizing
+ * @param {string} response - The filtered response text
+ * @param {string} userQuestion - The user's original question
+ * @param {object} modeConfig - Mode configuration with maxChars, maxTokens, promptWords, promptStyle
  */
-async function contextAwareSummarize(response, userQuestion) {
+async function contextAwareSummarize(response, userQuestion, modeConfig) {
   const ollamaUrl = process.env.OLLAMA_URL || "http://localhost:11434";
   const model = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
-  const timeout = 10000;
+  const timeout = modeConfig.maxTokens > 200 ? 15000 : 10000; // Longer timeout for longer summaries
 
-  // Build context-aware prompt
+  // Build context-aware prompt based on mode
   let prompt;
   if (userQuestion && userQuestion.trim().length > 0) {
     prompt = `You are a TTS summarizer. The user asked: "${userQuestion.trim().substring(0, 200)}"
 
 The AI assistant responded with:
-${response.substring(0, 2000)}
+${response.substring(0, 3000)}
 
-Create a brief spoken summary (1-2 sentences) that directly answers the user's question.
+Create a spoken summary as ${modeConfig.promptStyle}, ${modeConfig.promptWords}.
 
 CRITICAL RULES:
 - Focus on answering what the user asked
@@ -167,22 +250,24 @@ CRITICAL RULES:
 - NEVER include symbols: @ * # \` | < > { } [ ] / .
 - NEVER say "the file" or "the script" - describe what was DONE
 - If it's about code changes, say what changed in plain language
-- Keep it under 20 words
-- Just state the key outcome or answer
+- For lists, use numbered words: "One, ... Two, ... Three, ..."
+- State key outcomes and next steps
 
 Spoken summary:`;
   } else {
     // Fallback to standard summarization without context
-    prompt = `You are a TTS summarizer. Convert this AI response into a brief spoken summary (1-2 sentences):
+    prompt = `You are a TTS summarizer. Convert this AI response into a spoken summary:
 
-${response.substring(0, 2000)}
+${response.substring(0, 3000)}
+
+Create a spoken summary as ${modeConfig.promptStyle}, ${modeConfig.promptWords}.
 
 CRITICAL RULES:
-- Extract ONLY the key outcome or action
+- Extract the key outcomes and actions
 - NEVER mention file names, paths, or extensions
 - NEVER include symbols: @ * # \` | < > { } [ ] / .
 - Use plain conversational English
-- Keep it under 20 words
+- For lists, use numbered words: "One, ... Two, ... Three, ..."
 
 Spoken summary:`;
   }
@@ -199,7 +284,7 @@ Spoken summary:`;
         prompt,
         stream: false,
         options: {
-          num_predict: 150,
+          num_predict: modeConfig.maxTokens,
           temperature: 0.3,
           top_p: 0.9,
         },
@@ -218,7 +303,7 @@ Spoken summary:`;
   } catch (error) {
     // Fallback to regex-based cleanup
     console.error(`[summarize-for-tts] LLM failed, using fallback: ${error.message}`);
-    return fallbackSummarize(response);
+    return fallbackSummarize(response, modeConfig);
   }
 }
 
@@ -319,15 +404,18 @@ function truncateForTTS(text, maxLength = 150) {
 
 /**
  * Fallback summarization when LLM is unavailable
+ * @param {string} text - Text to summarize
+ * @param {object} modeConfig - Mode configuration with maxChars
  */
-function fallbackSummarize(text) {
+function fallbackSummarize(text, modeConfig) {
   let result = cleanSummary(text);
+  const maxLength = modeConfig?.maxChars || 200;
 
   // If still too long, truncate at sentence boundary
-  if (result.length > 200) {
-    const truncated = result.substring(0, 200);
+  if (result.length > maxLength) {
+    const truncated = result.substring(0, maxLength);
     const lastPeriod = truncated.lastIndexOf(". ");
-    if (lastPeriod > 100) {
+    if (lastPeriod > maxLength * 0.5) {
       return truncated.substring(0, lastPeriod + 1);
     }
     return truncated.substring(0, truncated.lastIndexOf(" ")) + "...";
