@@ -1,0 +1,14 @@
+# Activity Log
+
+## Run Summary
+- 2026-01-18 11:44:46 | run=20260118-114327-57056 | iter=1 | mode=plan | duration=79s | status=success | cost=0
+
+## Events
+
+[2026-01-18 11:43:27] ITERATION 1 start (mode=plan)
+
+[2026-01-18 04:44:46] ITERATION 1 end (duration=79s)
+
+[2026-01-18 04:44:49] MODEL_SELECTION story=US-001 complexity=n/a model=opus reason="routing disabled, using default (opus)" estimated_cost=$0.9900
+
+[2026-01-18 04:44:49] ITERATION 1 start (mode=build story=US-001)
