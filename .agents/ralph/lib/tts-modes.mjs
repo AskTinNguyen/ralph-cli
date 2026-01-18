@@ -14,15 +14,15 @@ export const MODES = {
     promptStyle: "1-2 sentences",
   },
   medium: {
-    maxChars: 800,
-    maxTokens: 400,
-    promptWords: "under 100 words",
+    maxChars: 500,
+    maxTokens: 250,
+    promptWords: "under 60 words",
     promptStyle: "bulleted list using numbered words (One, Two, Three)",
   },
   full: {
-    maxChars: 1500,
-    maxTokens: 600,
-    promptWords: "under 200 words",
+    maxChars: 1000,
+    maxTokens: 400,
+    promptWords: "under 120 words",
     promptStyle: "comprehensive bulleted list with numbered items",
   },
 };
