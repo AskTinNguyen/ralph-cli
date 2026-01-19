@@ -287,6 +287,72 @@ async function main() {
 }
 
 /**
+ * Detect response type for context-aware summarization
+ * @param {string} response - Filtered response text
+ * @returns {{ type: string, signals: string[], priority: string[] }}
+ */
+function detectResponseContext(response) {
+  const signals = [];
+  const priority = [];
+
+  // Error signals (highest priority)
+  const errorPatterns = [
+    /error|failed|exception|crash|bug|broken/i,
+    /cannot|couldn't|unable to|not found/i,
+    /fix|resolve|debug|troubleshoot/i
+  ];
+
+  // Completion signals
+  const completionPatterns = [
+    /complete|done|finished|success|pass/i,
+    /created|added|updated|modified|implemented/i,
+    /✅|✓|PASS/
+  ];
+
+  // Blocker/waiting signals
+  const blockerPatterns = [
+    /blocked|waiting|need|requires|depends on/i,
+    /before you can|first you must/i
+  ];
+
+  // Explanation signals
+  const explanationPatterns = [
+    /because|reason|explanation|why/i,
+    /this means|in other words|to clarify/i
+  ];
+
+  // Check each category
+  if (errorPatterns.some(p => p.test(response))) {
+    signals.push('error');
+    priority.push('error_description', 'affected_component', 'suggested_fix');
+  }
+
+  if (completionPatterns.some(p => p.test(response))) {
+    signals.push('completion');
+    priority.push('what_completed', 'key_outcome', 'next_steps');
+  }
+
+  if (blockerPatterns.some(p => p.test(response))) {
+    signals.push('blocker');
+    priority.push('what_blocked', 'blocker_reason', 'unblocking_action');
+  }
+
+  if (explanationPatterns.some(p => p.test(response))) {
+    signals.push('explanation');
+    priority.push('main_concept', 'key_takeaway');
+  }
+
+  // Determine primary type
+  let type = 'general';
+  if (signals.includes('error')) type = 'error';
+  else if (signals.includes('blocker')) type = 'blocker';
+  else if (signals.includes('completion')) type = 'completion';
+  else if (signals.includes('explanation')) type = 'explanation';
+
+  return { type, signals, priority };
+}
+
+/**
  * Context-aware summarization using Qwen
  * Considers the user's original question when summarizing
  * @param {string} response - The filtered response text
@@ -307,71 +373,87 @@ async function contextAwareSummarize(response, userQuestion, modeConfig) {
     ? "- CRITICAL: Summarize in Vietnamese (tiếng Việt) - preserve the original language"
     : "- Use ONLY plain conversational English - no technical terms";
 
+  // Detect response context
+  const context = detectResponseContext(response);
+
+  // Type-specific extraction instructions
+  const extractionInstructions = {
+    error: `EXTRACT IN ORDER:
+1. What failed (one phrase)
+2. Why it failed (if clear)
+3. Fix or next step (if mentioned)
+IGNORE: Stack traces, file paths, technical details`,
+
+    completion: `EXTRACT IN ORDER:
+1. What was done (action + object)
+2. Key outcome (user benefit)
+3. Next step (if mentioned)
+IGNORE: Implementation details, file changes, process`,
+
+    blocker: `EXTRACT IN ORDER:
+1. What is blocked
+2. What's needed to unblock
+IGNORE: Technical reasons, dependencies list`,
+
+    explanation: `EXTRACT:
+1. The single main point
+2. Why it matters (if clear)
+IGNORE: Examples, edge cases, caveats`,
+
+    general: `EXTRACT:
+1. Single most important outcome or answer
+IGNORE: Process, details, explanations`
+  };
+
   // Build context-aware prompt based on mode
   let prompt;
   if (userQuestion && userQuestion.trim().length > 0) {
-    prompt = `You are a voice assistant. The user asked: "${userQuestion.trim().substring(0, 200)}"
+    prompt = `You are a TTS voice assistant. Extract the key information.
 
-The assistant's response:
-${response.substring(0, 3000)}
+USER ASKED: "${userQuestion.trim().substring(0, 150)}"
 
-Your task: Create a clear, CONCISE spoken summary answering what the user asked.
+RESPONSE TYPE: ${context.type.toUpperCase()}
 
-CRITICAL LENGTH LIMIT: ${modeConfig.promptWords}
-FORMAT (${modeConfig.promptStyle}):
-${langInstruction}
-- Use natural conversational speech
-- For lists: "First, [action]. Second, [action]. Third, [action]."
-- State ONLY the main point once - NEVER repeat or rephrase the same idea
-- Be direct and concise - every word must add value
+${extractionInstructions[context.type]}
 
-STRICT RULES - NEVER include:
-- File names or paths (voice-config.json, .agents/ralph, src/components)
-- File extensions (.sh, .js, .py, .md, .json, .tsx)
-- Technical references ("the file", "the script", "the function", "the config")
-- Symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
-- Numbers with units unless essential (150ms, 10s, 200MB)
-- Abbreviations (TTS, API, CLI) - say full words
-- Code syntax or technical jargon
+---
+RESPONSE TO SUMMARIZE:
+${response.substring(0, 2500)}
+---
 
-WHAT TO SAY:
-- Actions completed: "Added feature X", "Fixed the login bug"
-- Key outcomes: "Users can now...", "The system will..."
-- Next steps: "You should...", "Consider..."
-- Answer directly - what did we accomplish?
+CRITICAL RULES:
+- ${modeConfig.promptWords} MAXIMUM
+- ${langInstruction}
+- NO file names, paths, extensions (.js, .json, .md, etc.)
+- NO symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- NO abbreviations (API→service, CLI→command, TTS→voice, PRD→document)
+- State each fact ONCE - no rephrasing
+- ONLY the extracted information - no meta-text
 
-BAD: "Updated the voice config dot json file in dot agents slash ralph"
-GOOD: "Changed the voice settings to use a quieter tone"
+EXAMPLE:
+GOOD: "Login feature complete. Users can now sign in with email."
+BAD: "I've updated the authentication system to add login functionality. The login feature has been implemented."
 
-BAD: "One, modified the file. Two, tested the file. Three, the file works now."
-GOOD: "First, adjusted the settings. Second, verified it works. Done."
-
-BAD: "I've updated the configuration. The configuration now uses new settings. These new settings improve performance."
-GOOD: "Updated configuration for better performance."
-
-Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no meta-text, no repetition):`;
+Output ONLY the spoken summary (${modeConfig.promptWords} MAX):`;
   } else {
-    // Fallback to standard summarization without context
-    prompt = `You are a voice assistant converting this response to natural speech:
+    // Fallback prompt (similar structure but without user question)
+    prompt = `You are a TTS voice assistant. Extract the key information.
 
-${response.substring(0, 3000)}
+RESPONSE TYPE: ${context.type.toUpperCase()}
 
-CRITICAL LENGTH LIMIT: ${modeConfig.promptWords}
-Create a CONCISE spoken summary (${modeConfig.promptStyle}).
+${extractionInstructions[context.type]}
 
-STRICT RULES - NEVER include:
-- File names, paths, or extensions
-- Symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
-${langInstruction}
-- Technical references or abbreviations
-- Repetitive phrases - state each idea ONCE only
+${response.substring(0, 2500)}
 
-FORMAT:
-- Natural conversational speech
-- For lists: "First, [item]. Second, [item]. Third, [item]."
-- Be direct and concise - every word must add value
+CRITICAL RULES:
+- ${modeConfig.promptWords} MAXIMUM
+- ${langInstruction}
+- NO file names, paths, extensions
+- NO symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- NO abbreviations
+- State each fact ONCE
 
-Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no repetition):`;
+Output ONLY the spoken summary:`;
   }
 
   try {
@@ -386,15 +468,24 @@ Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no repetition):
         prompt,
         stream: false,
         options: {
-          num_predict: modeConfig.maxTokens,
-          temperature: 0.3,        // Slightly higher for more natural variety
-          top_p: 0.8,              // More deterministic
-          top_k: 30,               // Reduced vocabulary diversity
-          repeat_penalty: 1.5,     // Strongly penalize repetition
-          frequency_penalty: 0.7,  // Strongly reduce word reuse
-          presence_penalty: 0.5,   // Encourage concept variety
-          // Removed aggressive stop sequences that were cutting off summaries
-          stop: ["Summary:", "Note:", "Important:", "In summary"], // Only stop at meta-text, not paragraph breaks
+          num_predict: Math.ceil(modeConfig.maxChars / 4), // ~4 chars per token
+          temperature: 0.2,        // Lower for consistency (was 0.3)
+          top_p: 0.75,             // More focused (was 0.8)
+          top_k: 25,               // Reduced vocabulary (was 30)
+          repeat_penalty: 1.6,     // Stronger (was 1.5)
+          frequency_penalty: 0.8,  // Stronger (was 0.7)
+          presence_penalty: 0.6,   // Encourage conciseness (was 0.5)
+          stop: [
+            "Summary:",
+            "Note:",
+            "Important:",
+            "In summary",
+            "\n\n",                // Stop at paragraph break
+            "To summarize",
+            "Let me",              // Self-referential text
+            "I've",
+            "I have"
+          ]
         },
       }),
       signal: controller.signal,
@@ -407,7 +498,12 @@ Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no repetition):
     }
 
     const data = await res.json();
-    return cleanSummary(data.response || "");
+    let summary = data.response || "";
+
+    // ADDED: Two-pass verification
+    summary = verifySummaryClean(summary, response, modeConfig);
+
+    return cleanSummary(summary);
   } catch (error) {
     // Fallback to regex-based cleanup
     console.error(`[summarize-for-tts] LLM failed, using fallback: ${error.message}`);
@@ -493,6 +589,127 @@ function cleanSummary(text) {
 }
 
 /**
+ * Verify summary is clean for TTS, re-prompt if needed
+ * @param {string} summary - Generated summary
+ * @param {string} response - Original response (for context)
+ * @param {object} modeConfig - Mode configuration
+ * @returns {string} - Cleaned summary
+ */
+function verifySummaryClean(summary, response, modeConfig) {
+  const violations = [];
+
+  // 1. Symbol check
+  const symbolPattern = /[~\/\\|@#$%^&*`<>{}\[\]=+_]/;
+  if (symbolPattern.test(summary)) {
+    violations.push('symbols');
+  }
+
+  // 2. File path/extension check
+  const filePattern = /\.(js|ts|py|sh|json|md|tsx|jsx|mjs|html|css|yaml|yml)\b/i;
+  const pathPattern = /[\w\-]+\/[\w\-]+/;
+  if (filePattern.test(summary) || pathPattern.test(summary)) {
+    violations.push('files');
+  }
+
+  // 3. Technical abbreviation check
+  const techPattern = /\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|SSH|PRD|US-\d+)\b/;
+  if (techPattern.test(summary)) {
+    violations.push('abbreviations');
+  }
+
+  // 4. Emoji check
+  const emojiPattern = /[\u2705\u274C\u26A0\u{1F534}\u{1F7E2}\u{1F680}\u{1F4A1}]/u;
+  if (emojiPattern.test(summary)) {
+    violations.push('emojis');
+  }
+
+  // 5. Semantic repetition check
+  if (detectSemanticRepetition(summary)) {
+    violations.push('repetition');
+  }
+
+  // If no violations, return as-is
+  if (violations.length === 0) {
+    return summary;
+  }
+
+  // Log violations for debugging
+  console.error(`[verify] Violations found: ${violations.join(', ')}`);
+
+  // Apply regex cleanup
+  let cleaned = cleanSummary(summary);
+
+  // Re-check critical violations after cleanup
+  const stillHasSymbols = symbolPattern.test(cleaned);
+  const stillHasTech = techPattern.test(cleaned);
+
+  if (stillHasSymbols || stillHasTech) {
+    console.error(`[verify] Critical violations remain after cleanup`);
+  }
+
+  return cleaned;
+}
+
+// Synonym groups for semantic normalization
+const SYNONYM_GROUPS = {
+  action: ['added', 'created', 'implemented', 'built', 'made', 'developed'],
+  change: ['updated', 'modified', 'changed', 'edited', 'adjusted', 'revised'],
+  remove: ['removed', 'deleted', 'eliminated', 'dropped', 'cleared'],
+  fix: ['fixed', 'resolved', 'repaired', 'corrected', 'addressed'],
+  complete: ['completed', 'finished', 'done', 'accomplished', 'succeeded'],
+  test: ['tested', 'verified', 'validated', 'checked', 'confirmed'],
+  file: ['file', 'script', 'config', 'configuration', 'settings'],
+  system: ['system', 'application', 'app', 'service', 'platform']
+};
+
+/**
+ * Normalize word to canonical form using synonym groups
+ */
+function normalizeToCanonical(word) {
+  const lower = word.toLowerCase();
+  for (const [canonical, synonyms] of Object.entries(SYNONYM_GROUPS)) {
+    if (synonyms.includes(lower)) {
+      return canonical;
+    }
+  }
+  return lower;
+}
+
+/**
+ * Detect semantic repetition using synonym normalization
+ */
+function detectSemanticRepetition(text) {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  if (sentences.length < 2) return false;
+
+  for (let i = 0; i < sentences.length; i++) {
+    for (let j = i + 1; j < sentences.length; j++) {
+      const words1 = sentences[i].toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .map(normalizeToCanonical);
+
+      const words2 = sentences[j].toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .map(normalizeToCanonical);
+
+      const sig1 = [...new Set(words1)].sort().join('-');
+      const sig2 = [...new Set(words2)].sort().join('-');
+
+      const overlap = calculateOverlap(sig1, sig2);
+      if (overlap > 0.55) { // Lower threshold due to normalization
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Remove repetitive sentences that say the same thing differently
  * E.g., "Modified the file. Updated the file. Changed the file." → "Modified the file."
  */
@@ -512,11 +729,12 @@ function removeRepetitiveSentences(text) {
   const seenConcepts = new Set();
 
   for (const sentence of sentences) {
-    // Extract key words (nouns/verbs) from sentence
+    // Extract key words (nouns/verbs) from sentence with semantic normalization
     const words = sentence.toLowerCase()
       .replace(/[^\w\s]/g, "")
       .split(/\s+/)
-      .filter(w => w.length > 3); // Only meaningful words
+      .filter(w => w.length > 3)
+      .map(normalizeToCanonical); // Use semantic normalization
 
     // Create a concept signature (sorted unique words)
     const conceptSig = [...new Set(words)].sort().join("-");

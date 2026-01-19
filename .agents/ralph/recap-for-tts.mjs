@@ -213,6 +213,72 @@ async function main() {
 }
 
 /**
+ * Detect response type for context-aware summarization
+ * @param {string} response - Filtered response text
+ * @returns {{ type: string, signals: string[], priority: string[] }}
+ */
+function detectResponseContext(response) {
+  const signals = [];
+  const priority = [];
+
+  // Error signals (highest priority)
+  const errorPatterns = [
+    /error|failed|exception|crash|bug|broken/i,
+    /cannot|couldn't|unable to|not found/i,
+    /fix|resolve|debug|troubleshoot/i
+  ];
+
+  // Completion signals
+  const completionPatterns = [
+    /complete|done|finished|success|pass/i,
+    /created|added|updated|modified|implemented/i,
+    /✅|✓|PASS/
+  ];
+
+  // Blocker/waiting signals
+  const blockerPatterns = [
+    /blocked|waiting|need|requires|depends on/i,
+    /before you can|first you must/i
+  ];
+
+  // Explanation signals
+  const explanationPatterns = [
+    /because|reason|explanation|why/i,
+    /this means|in other words|to clarify/i
+  ];
+
+  // Check each category
+  if (errorPatterns.some(p => p.test(response))) {
+    signals.push('error');
+    priority.push('error_description', 'affected_component', 'suggested_fix');
+  }
+
+  if (completionPatterns.some(p => p.test(response))) {
+    signals.push('completion');
+    priority.push('what_completed', 'key_outcome', 'next_steps');
+  }
+
+  if (blockerPatterns.some(p => p.test(response))) {
+    signals.push('blocker');
+    priority.push('what_blocked', 'blocker_reason', 'unblocking_action');
+  }
+
+  if (explanationPatterns.some(p => p.test(response))) {
+    signals.push('explanation');
+    priority.push('main_concept', 'key_takeaway');
+  }
+
+  // Determine primary type
+  let type = 'general';
+  if (signals.includes('error')) type = 'error';
+  else if (signals.includes('blocker')) type = 'blocker';
+  else if (signals.includes('completion')) type = 'completion';
+  else if (signals.includes('explanation')) type = 'explanation';
+
+  return { type, signals, priority };
+}
+
+/**
  * Context-aware summarization using Qwen with configurable length
  */
 async function contextAwareSummarize(response, userQuestion, config, lang = "en") {
@@ -220,94 +286,165 @@ async function contextAwareSummarize(response, userQuestion, config, lang = "en"
   const model = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
   const timeout = 15000; // Longer timeout for longer summaries
 
+  // Detect response context
+  const context = detectResponseContext(response);
+
+  // Type-specific extraction instructions (English)
+  const extractionInstructionsEn = {
+    error: `EXTRACT IN ORDER:
+1. What failed (brief)
+2. Why it failed (if clear)
+3. Fix or next step
+IGNORE: Stack traces, technical details`,
+
+    completion: `EXTRACT IN ORDER:
+1. What was done (numbered list)
+2. Key outcomes
+3. Next steps (if mentioned)
+IGNORE: Implementation details, process`,
+
+    blocker: `EXTRACT:
+1. What is blocked
+2. What's needed to unblock
+IGNORE: Technical reasons`,
+
+    explanation: `EXTRACT:
+1. Main concept
+2. Why it matters (if clear)
+IGNORE: Examples, details`,
+
+    general: `EXTRACT:
+1. Key outcomes (numbered)
+IGNORE: Process, details`
+  };
+
+  // Type-specific extraction instructions (Vietnamese)
+  const extractionInstructionsVi = {
+    error: `TRÍCH XUẤT THEO THỨ TỰ:
+1. Cái gì thất bại (ngắn gọn)
+2. Tại sao thất bại (nếu rõ)
+3. Cách sửa hoặc bước tiếp theo
+BỎ QUA: Chi tiết kỹ thuật`,
+
+    completion: `TRÍCH XUẤT THEO THỨ TỰ:
+1. Đã làm gì (danh sách đánh số)
+2. Kết quả chính
+3. Bước tiếp theo (nếu có)
+BỎ QUA: Chi tiết triển khai`,
+
+    blocker: `TRÍCH XUẤT:
+1. Cái gì bị chặn
+2. Cần gì để tiếp tục
+BỎ QUA: Lý do kỹ thuật`,
+
+    explanation: `TRÍCH XUẤT:
+1. Khái niệm chính
+2. Tại sao quan trọng (nếu rõ)
+BỎ QUA: Ví dụ, chi tiết`,
+
+    general: `TRÍCH XUẤT:
+1. Kết quả chính (đánh số)
+BỎ QUA: Quy trình, chi tiết`
+  };
+
   // Build context-aware prompt for recap style based on language
   let prompt;
 
   if (lang === "vi") {
     // Vietnamese prompts
+    const extractionInstructions = extractionInstructionsVi[context.type];
     if (userQuestion && userQuestion.trim().length > 0) {
-      prompt = `Bạn là một công cụ tóm tắt TTS tạo bản tóm tắt bằng giọng nói.
+      prompt = `Bạn là công cụ TTS tóm tắt tạo bản tóm tắt giọng nói.
 
-Người dùng hỏi: "${userQuestion.trim().substring(0, 300)}"
+NGƯỜI DÙNG HỎI: "${userQuestion.trim().substring(0, 200)}"
 
-Phản hồi của AI:
-${response.substring(0, 3000)}
+LOẠI PHẢN HỒI: ${context.type.toUpperCase()}
 
-Tạo bản tóm tắt bằng giọng nói ${config.promptStyle}, ${config.promptWords}.
+${extractionInstructions}
+
+---
+PHẢN HỒI CẦN TÓM TẮT:
+${response.substring(0, 2500)}
+---
 
 QUY TẮC QUAN TRỌNG:
-- Sử dụng điểm đánh số: "Một, ... Hai, ... Ba, ..."
-- Cụm từ ngắn, không phải câu đầy đủ
-- KHÔNG dùng thuật ngữ kỹ thuật, tên thư viện, hoặc phần mở rộng tệp
-- KHÔNG dùng cú pháp code, đường dẫn, hoặc ký tự đặc biệt
-- Chỉ dùng tiếng Việt đàm thoại thông thường
-- Tập trung vào ĐÃ LÀM GÌ, không phải LÀM NHƯ THẾ NÀO
-- Nêu kết quả và bước tiếp theo
+- ${config.promptWords} TỐI ĐA
+- KHÔNG tên file, đường dẫn, phần mở rộng (.js, .json, .md, v.v.)
+- KHÔNG ký tự: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- KHÔNG viết tắt (API→dịch vụ, CLI→lệnh, TTS→giọng nói)
+- Nêu mỗi thông tin MỘT LẦN - không diễn đạt lại
+- CHỈ thông tin trích xuất - không văn bản phụ
 
-Ví dụ định dạng:
-"Tính năng hoàn thành. Một, thêm endpoint đăng nhập. Hai, thêm endpoint đăng xuất. Ba, kiểm tra đã pass. Bước tiếp theo: thêm giới hạn tốc độ, thêm xác minh email."
+VÍ DỤ:
+TỐT: "Tính năng đăng nhập hoàn thành. Người dùng có thể đăng nhập với email."
+XẤU: "Tôi đã cập nhật hệ thống xác thực để thêm chức năng đăng nhập. Tính năng đăng nhập đã được triển khai."
 
-Bản tóm tắt:`;
+Chỉ xuất bản tóm tắt (${config.promptWords} TỐI ĐA):`;
     } else {
-      prompt = `Bạn là một công cụ tóm tắt TTS tạo bản tóm tắt bằng giọng nói.
+      prompt = `Bạn là công cụ TTS tóm tắt tạo bản tóm tắt giọng nói.
 
-Phản hồi của AI:
-${response.substring(0, 3000)}
+LOẠI PHẢN HỒI: ${context.type.toUpperCase()}
 
-Tạo bản tóm tắt bằng giọng nói ${config.promptStyle}, ${config.promptWords}.
+${extractionInstructions}
+
+${response.substring(0, 2500)}
 
 QUY TẮC QUAN TRỌNG:
-- Sử dụng điểm đánh số: "Một, ... Hai, ... Ba, ..."
-- Cụm từ ngắn, không phải câu đầy đủ
-- KHÔNG dùng thuật ngữ kỹ thuật, tên thư viện, hoặc phần mở rộng tệp
-- KHÔNG dùng cú pháp code, đường dẫn, hoặc ký tự đặc biệt
-- Chỉ dùng tiếng Việt đàm thoại thông thường
-- Tập trung vào ĐÃ LÀM GÌ, không phải LÀM NHƯ THẾ NÀO
+- ${config.promptWords} TỐI ĐA
+- KHÔNG tên file, đường dẫn, phần mở rộng
+- KHÔNG ký tự: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- KHÔNG viết tắt
+- Nêu mỗi thông tin MỘT LẦN
 
-Bản tóm tắt:`;
+Chỉ xuất bản tóm tắt:`;
     }
   } else {
     // English prompts (default)
+    const extractionInstructions = extractionInstructionsEn[context.type];
     if (userQuestion && userQuestion.trim().length > 0) {
-      prompt = `You are a TTS summarizer creating a spoken recap.
+      prompt = `You are a TTS voice assistant creating spoken recap.
 
-User asked: "${userQuestion.trim().substring(0, 300)}"
+USER ASKED: "${userQuestion.trim().substring(0, 200)}"
 
-AI response:
-${response.substring(0, 3000)}
+RESPONSE TYPE: ${context.type.toUpperCase()}
 
-Create a spoken summary as ${config.promptStyle}, ${config.promptWords}.
+${extractionInstructions}
+
+---
+RESPONSE TO SUMMARIZE:
+${response.substring(0, 2500)}
+---
 
 CRITICAL RULES:
-- Use numbered points: "One, ... Two, ... Three, ..."
-- Short phrases, not full sentences
-- NO technical jargon, library names, or file extensions
-- NO code syntax, paths, or special characters
-- Plain conversational English only
-- Focus on WHAT was done, not HOW
-- State outcomes and next steps
+- ${config.promptWords} MAXIMUM
+- NO file names, paths, extensions (.js, .json, .md, etc.)
+- NO symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- NO abbreviations (API→service, CLI→command, TTS→voice)
+- State each fact ONCE - no rephrasing
+- ONLY the extracted information - no meta-text
 
-Example format:
-"Feature completed. One, added login endpoint. Two, added logout endpoint. Three, tests passing. Next steps: add rate limiting, add email verification."
+EXAMPLE:
+GOOD: "Login feature complete. One, users can sign in with email. Two, password reset works. Next, add two-factor auth."
+BAD: "I've updated the authentication system to add login functionality. The login feature has been implemented."
 
-Spoken recap:`;
+Output ONLY the spoken recap (${config.promptWords} MAX):`;
     } else {
-      prompt = `You are a TTS summarizer creating a spoken recap.
+      prompt = `You are a TTS voice assistant creating spoken recap.
 
-AI response:
-${response.substring(0, 3000)}
+RESPONSE TYPE: ${context.type.toUpperCase()}
 
-Create a spoken summary as ${config.promptStyle}, ${config.promptWords}.
+${extractionInstructions}
+
+${response.substring(0, 2500)}
 
 CRITICAL RULES:
-- Use numbered points: "One, ... Two, ... Three, ..."
-- Short phrases, not full sentences
-- NO technical jargon, library names, or file extensions
-- NO code syntax, paths, or special characters
-- Plain conversational English only
-- Focus on WHAT was done, not HOW
+- ${config.promptWords} MAXIMUM
+- NO file names, paths, extensions
+- NO symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
+- NO abbreviations
+- State each fact ONCE
 
-Spoken recap:`;
+Output ONLY the spoken recap:`;
     }
   }
 
@@ -323,9 +460,24 @@ Spoken recap:`;
         prompt,
         stream: false,
         options: {
-          num_predict: config.maxTokens,
-          temperature: 0.3,
-          top_p: 0.9,
+          num_predict: Math.ceil(config.maxChars / 4), // ~4 chars per token
+          temperature: 0.2,        // Lower for consistency (was 0.3)
+          top_p: 0.75,             // More focused (was 0.9)
+          top_k: 25,               // Reduced vocabulary
+          repeat_penalty: 1.6,     // Stronger
+          frequency_penalty: 0.8,  // Stronger
+          presence_penalty: 0.6,   // Encourage conciseness
+          stop: [
+            "Summary:",
+            "Note:",
+            "Important:",
+            "In summary",
+            "\n\n",                // Stop at paragraph break
+            "To summarize",
+            "Let me",              // Self-referential text
+            "I've",
+            "I have"
+          ]
         },
       }),
       signal: controller.signal,
@@ -338,11 +490,204 @@ Spoken recap:`;
     }
 
     const data = await res.json();
-    return cleanSummary(data.response || "");
+    let summary = data.response || "";
+
+    // ADDED: Two-pass verification
+    summary = verifySummaryClean(summary, response, config);
+
+    return cleanSummary(summary);
   } catch (error) {
     console.error(`[recap-for-tts] LLM failed: ${error.message}`);
     return fallbackSummarize(response, config);
   }
+}
+
+/**
+ * Verify summary is clean for TTS, re-prompt if needed
+ * @param {string} summary - Generated summary
+ * @param {string} response - Original response (for context)
+ * @param {object} config - Mode configuration
+ * @returns {string} - Cleaned summary
+ */
+function verifySummaryClean(summary, response, config) {
+  const violations = [];
+
+  // 1. Symbol check
+  const symbolPattern = /[~\/\\|@#$%^&*`<>{}\[\]=+_]/;
+  if (symbolPattern.test(summary)) {
+    violations.push('symbols');
+  }
+
+  // 2. File path/extension check
+  const filePattern = /\.(js|ts|py|sh|json|md|tsx|jsx|mjs|html|css|yaml|yml)\b/i;
+  const pathPattern = /[\w\-]+\/[\w\-]+/;
+  if (filePattern.test(summary) || pathPattern.test(summary)) {
+    violations.push('files');
+  }
+
+  // 3. Technical abbreviation check
+  const techPattern = /\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|SSH|PRD|US-\d+)\b/;
+  if (techPattern.test(summary)) {
+    violations.push('abbreviations');
+  }
+
+  // 4. Emoji check
+  const emojiPattern = /[\u2705\u274C\u26A0\u{1F534}\u{1F7E2}\u{1F680}\u{1F4A1}]/u;
+  if (emojiPattern.test(summary)) {
+    violations.push('emojis');
+  }
+
+  // 5. Semantic repetition check
+  if (detectSemanticRepetition(summary)) {
+    violations.push('repetition');
+  }
+
+  // If no violations, return as-is
+  if (violations.length === 0) {
+    return summary;
+  }
+
+  // Log violations for debugging
+  console.error(`[verify] Violations found: ${violations.join(', ')}`);
+
+  // Apply regex cleanup
+  let cleaned = cleanSummary(summary);
+
+  // Re-check critical violations after cleanup
+  const stillHasSymbols = symbolPattern.test(cleaned);
+  const stillHasTech = techPattern.test(cleaned);
+
+  if (stillHasSymbols || stillHasTech) {
+    console.error(`[verify] Critical violations remain after cleanup`);
+  }
+
+  return cleaned;
+}
+
+// Synonym groups for semantic normalization
+const SYNONYM_GROUPS = {
+  action: ['added', 'created', 'implemented', 'built', 'made', 'developed'],
+  change: ['updated', 'modified', 'changed', 'edited', 'adjusted', 'revised'],
+  remove: ['removed', 'deleted', 'eliminated', 'dropped', 'cleared'],
+  fix: ['fixed', 'resolved', 'repaired', 'corrected', 'addressed'],
+  complete: ['completed', 'finished', 'done', 'accomplished', 'succeeded'],
+  test: ['tested', 'verified', 'validated', 'checked', 'confirmed'],
+  file: ['file', 'script', 'config', 'configuration', 'settings'],
+  system: ['system', 'application', 'app', 'service', 'platform']
+};
+
+/**
+ * Normalize word to canonical form using synonym groups
+ */
+function normalizeToCanonical(word) {
+  const lower = word.toLowerCase();
+  for (const [canonical, synonyms] of Object.entries(SYNONYM_GROUPS)) {
+    if (synonyms.includes(lower)) {
+      return canonical;
+    }
+  }
+  return lower;
+}
+
+/**
+ * Detect semantic repetition using synonym normalization
+ */
+function detectSemanticRepetition(text) {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  if (sentences.length < 2) return false;
+
+  for (let i = 0; i < sentences.length; i++) {
+    for (let j = i + 1; j < sentences.length; j++) {
+      const words1 = sentences[i].toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .map(normalizeToCanonical);
+
+      const words2 = sentences[j].toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .map(normalizeToCanonical);
+
+      const sig1 = [...new Set(words1)].sort().join('-');
+      const sig2 = [...new Set(words2)].sort().join('-');
+
+      const overlap = calculateOverlap(sig1, sig2);
+      if (overlap > 0.55) { // Lower threshold due to normalization
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Remove repetitive sentences that say the same thing differently
+ * E.g., "Modified the file. Updated the file. Changed the file." → "Modified the file."
+ */
+function removeRepetitiveSentences(text) {
+  const sentences = text.split(/\.\s+/);
+
+  if (sentences.length <= 2) {
+    return text; // Not enough sentences to have repetition
+  }
+
+  // If text is already short (< 100 chars), don't risk removing content
+  if (text.length < 100) {
+    return text;
+  }
+
+  const uniqueSentences = [];
+  const seenConcepts = new Set();
+
+  for (const sentence of sentences) {
+    // Extract key words (nouns/verbs) from sentence with semantic normalization
+    const words = sentence.toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 3)
+      .map(normalizeToCanonical); // Use semantic normalization
+
+    // Create a concept signature (sorted unique words)
+    const conceptSig = [...new Set(words)].sort().join("-");
+
+    // Check if we've seen a very similar sentence
+    let isDuplicate = false;
+    for (const seenSig of seenConcepts) {
+      const overlap = calculateOverlap(conceptSig, seenSig);
+      if (overlap > 0.65) { // More than 65% word overlap = duplicate concept
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (!isDuplicate) {
+      uniqueSentences.push(sentence);
+      seenConcepts.add(conceptSig);
+    }
+  }
+
+  return uniqueSentences.join(". ");
+}
+
+/**
+ * Calculate word overlap between two concept signatures
+ */
+function calculateOverlap(sig1, sig2) {
+  const words1 = new Set(sig1.split("-"));
+  const words2 = new Set(sig2.split("-"));
+
+  let intersection = 0;
+  for (const word of words1) {
+    if (words2.has(word)) {
+      intersection++;
+    }
+  }
+
+  const union = words1.size + words2.size - intersection;
+  return union > 0 ? intersection / union : 0;
 }
 
 /**
@@ -379,16 +724,40 @@ function cleanSummary(text) {
   // Remove XML/HTML-like tags
   result = result.replace(/<[^>]+>/g, "");
 
-  // Remove special characters
-  result = result.replace(/[|<>{}[\]`]/g, "");
+  // AGGRESSIVE SYMBOL REMOVAL
+  // Remove ALL problematic symbols that TTS reads literally
+  result = result.replace(/[~\/\\|<>{}[\]@#$%^&*`+=_]/g, "");
 
-  // Remove emojis
+  // Replace "dot" when it appears as word (from file extensions being read)
+  result = result.replace(/\bdot\b/gi, "");
+  result = result.replace(/\bslash\b/gi, "");
+  result = result.replace(/\btilda\b/gi, "");
+  result = result.replace(/\btilde\b/gi, "");
+
+  // Remove technical abbreviations that slip through
+  result = result.replace(/\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|HTTPS|SSH|FTP)\b/g, "");
+
+  // Remove common technical words when followed by generic terms
+  result = result.replace(/\bthe (file|script|function|config|directory|folder|repository|repo)\b/gi, "it");
+  result = result.replace(/\bin the (file|script|function|config|directory|folder)\b/gi, "");
+
+  // Remove common status emojis that TTS reads literally
   result = result.replace(/[\u2705\u274C\u26A0\u2713\u2714\u2611\u274E\u2B1C\u2B1B\u{1F534}\u{1F7E2}\u{1F7E1}\u2B50\u{1F389}\u{1F44D}\u{1F44E}\u{1F680}\u{1F4A1}\u{1F4DD}\u{1F527}\u{1F41B}]/gu, "");
+
+  // Fallback: remove any remaining emoji characters
   result = result.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, "");
 
-  // Clean up punctuation
+  // Fix spacing around punctuation
+  result = result.replace(/\s+([,.!?;:])/g, "$1"); // Remove space before punctuation
+  result = result.replace(/([,.!?;:])\s*/g, "$1 "); // Ensure space after punctuation
+
+  // Remove extra punctuation (multiple periods, etc.)
   result = result.replace(/\.{2,}/g, ".");
   result = result.replace(/,{2,}/g, ",");
+
+  // Remove repetitive sentence patterns
+  // Detect "First, X. Second, X. Third, X." where X is very similar
+  result = removeRepetitiveSentences(result);
 
   // Normalize whitespace
   result = result.replace(/\s+/g, " ");
