@@ -52,3 +52,11 @@ ui/python/venv/
 .worktrees/
 .security-key
 logs/security/
+
+# Temporary files (prevent future commits)
+*.tmp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
