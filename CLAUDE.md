@@ -141,7 +141,7 @@ ralph install
 .agents/ralph/setup/post-install.sh
 
 # Option B: Manual (copy/paste to ~/.claude/settings.local.json)
-# See hook snippet in setup guidance or AUTO-SPEAK-GUIDE.md
+# See hook snippet in setup guidance or docs/auto-speak-guide.md
 ```
 
 **Install missing dependencies:**
