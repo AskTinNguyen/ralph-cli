@@ -6,50 +6,26 @@
 
 Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time. Ralph works tirelessly on features and stories while you focus on what matters most.
 
-## Quick Start (5 minutes)
+## Quick Start
 
-### One-Command Install
-
-**macOS / Linux:**
 ```bash
+# Install Ralph CLI (macOS/Linux)
 curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
-```
 
-**Windows (PowerShell):**
-```powershell
-iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
-```
-
-The installer automatically:
-- Checks for Node.js (v18+), npm, and Git
-- Installs missing dependencies (via Homebrew, apt, winget, or Chocolatey)
-- Clones and sets up ralph-cli globally
-
-### Prerequisites (if installing manually)
-
-- Node.js 18+
-- Git
-- An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
-
-### Manual Install
-
-```bash
-git clone https://github.com/AskTinNguyen/ralph-cli.git
-cd ralph-cli
-npm install && npm link
-```
-
-### Use in Your Project
-
-```bash
+# Set up in your project
 cd your-project
 ralph install          # Install templates
-ralph prd              # Generate requirements (interactive)
+ralph prd              # Generate requirements
 ralph plan             # Create implementation plan
 ralph build 5          # Run 5 build iterations
 ```
 
-That's it! Ralph will execute your plan one story at a time.
+**For AI agents**: Pipe the install instructions directly:
+```bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/INSTALL.md | claude
+```
+
+See **[INSTALL.md](INSTALL.md)** for complete installation instructions, prerequisites, and troubleshooting.
 
 ## How It Works
 
@@ -64,52 +40,17 @@ Ralph treats **files and git** as memory, not the model context:
 
 ## Installation
 
-### One-Command Install (Recommended)
+See **[INSTALL.md](INSTALL.md)** for complete installation instructions including:
+- Prerequisites (Node.js 18+, Git, AI agent CLI)
+- One-command install for macOS/Linux/Windows
+- Manual installation from GitHub
+- Project setup with `ralph install`
+- Verification with `ralph doctor`
 
-**macOS / Linux:**
+**LLM-executable install** (pipe directly to your AI agent):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/INSTALL.md | claude
 ```
-
-**Windows (PowerShell):**
-```powershell
-iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
-```
-
-**Custom install directory:**
-```bash
-RALPH_INSTALL_DIR=/opt/ralph curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
-```
-
-### From GitHub (Manual)
-
-```bash
-git clone https://github.com/AskTinNguyen/ralph-cli.git
-cd ralph-cli
-npm install && npm link
-```
-
-### From npm (Alternative)
-
-```bash
-npm install -g github:AskTinNguyen/ralph-cli
-```
-
-### Install Templates to Your Project
-
-```bash
-ralph install
-```
-
-This creates `.agents/ralph/` in your project so you can customize prompts and loop behavior. You'll be asked if you want to add optional skills.
-
-### Install Skills (Optional)
-
-```bash
-ralph install --skills
-```
-
-You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **dev-browser**, **prd**.
 
 ## Basic Workflow
 
@@ -385,6 +326,7 @@ Set environment variables and Ralph agents automatically gain access to these to
 
 ## Documentation
 
+- **[Install Guide (INSTALL.md)](INSTALL.md)** - LLM-executable installation instructions
 - **[Vision](VISION.md)** - Philosophy and long-term vision for autonomous development
 - **[Roadmap](ROADMAP.md)** - Current progress and planned features
 - **[Testing Guide](TESTING.md)** - Comprehensive testing documentation
