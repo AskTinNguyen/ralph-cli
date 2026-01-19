@@ -102,10 +102,10 @@ done
 
 ```bash
 # Full automated test
-./test-ui-manual.sh
+ui/tests/test-ui-manual.sh
 
 # Interactive testing menu
-./test-ui-interactive.sh
+ui/tests/test-ui-interactive.sh
 
 # Quick snapshot
 agent-browser open http://localhost:3000 && agent-browser snapshot -i
