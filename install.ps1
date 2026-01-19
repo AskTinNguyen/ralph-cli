@@ -256,17 +256,24 @@ function Install-RalphCLI {
     Write-Success "Ralph CLI installed successfully!"
 }
 
-# Verify installation
+# Verify installation with comprehensive checks
 function Test-Installation {
     Write-Step "Verifying installation"
 
     # Refresh PATH to pick up npm global bin
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 
+    $checks = @{
+        "ralph_available" = $false
+        "ralph_help" = $false
+        "git_config" = $false
+        "templates_exist" = $false
+    }
+
+    # Check 1: ralph command available
     if (Test-Command "ralph") {
         Write-Success "ralph command is available"
-        Write-Output ""
-        ralph --help | Select-Object -First 20
+        $checks["ralph_available"] = $true
     } else {
         Write-Warn "ralph command not found in PATH"
         Write-Info "You may need to:"
@@ -279,6 +286,188 @@ function Test-Installation {
             Write-Info "Add to PATH: $npmPrefix"
         }
     }
+
+    # Check 2: ralph help works
+    if ($checks["ralph_available"]) {
+        try {
+            $helpOutput = ralph --help 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "ralph help command works"
+                $checks["ralph_help"] = $true
+            } else {
+                Write-Warn "ralph help command failed"
+            }
+        } catch {
+            Write-Warn "ralph help command failed: $_"
+        }
+    }
+
+    # Check 3: Git is configured
+    $gitUserName = git config --global user.name 2>$null
+    $gitUserEmail = git config --global user.email 2>$null
+    if ($gitUserName -and $gitUserEmail) {
+        Write-Success "Git configured: $gitUserName <$gitUserEmail>"
+        $checks["git_config"] = $true
+    } else {
+        Write-Warn "Git user not fully configured"
+        if (-not $gitUserName) {
+            Write-Info "  Run: git config --global user.name 'Your Name'"
+        }
+        if (-not $gitUserEmail) {
+            Write-Info "  Run: git config --global user.email 'your@email.com'"
+        }
+    }
+
+    # Check 4: Templates directory exists
+    $templatesDir = Join-Path $RalphDir ".agents" "ralph"
+    if (Test-Path $templatesDir) {
+        Write-Success "Templates directory exists: $templatesDir"
+        $checks["templates_exist"] = $true
+    } else {
+        Write-Warn "Templates directory not found: $templatesDir"
+    }
+
+    # Summary
+    Write-Output ""
+    Write-ColorOutput Cyan "Installation Summary:"
+    $passedChecks = ($checks.Values | Where-Object { $_ -eq $true }).Count
+    $totalChecks = $checks.Count
+
+    foreach ($check in $checks.GetEnumerator()) {
+        $status = if ($check.Value) { "[PASS]" } else { "[WARN]" }
+        $color = if ($check.Value) { "Green" } else { "Yellow" }
+        $name = $check.Key -replace "_", " "
+        Write-ColorOutput $color "  $status $name"
+    }
+
+    Write-Output ""
+    if ($passedChecks -eq $totalChecks) {
+        Write-ColorOutput Green "All checks passed ($passedChecks/$totalChecks)"
+    } else {
+        Write-ColorOutput Yellow "$passedChecks/$totalChecks checks passed"
+    }
+
+    # Show ralph help output if available
+    if ($checks["ralph_help"]) {
+        Write-Output ""
+        ralph --help | Select-Object -First 20
+    }
+}
+
+# Check available agents
+function Test-Agents {
+    Write-Step "Checking available agents"
+
+    $agentLinks = @{
+        "claude" = "https://claude.ai/download"
+        "codex" = "https://openai.com/codex"
+        "droid" = "https://factory.ai"
+    }
+
+    $foundAgents = @()
+    $missingAgents = @()
+
+    # Check Claude Code (claude command)
+    if (Test-Command "claude") {
+        Write-Success "Claude Code: Available"
+        $foundAgents += "claude"
+    } else {
+        Write-Warn "Claude Code: Not found"
+        $missingAgents += "claude"
+    }
+
+    # Check Codex (codex command)
+    if (Test-Command "codex") {
+        Write-Success "Codex: Available"
+        $foundAgents += "codex"
+    } else {
+        Write-Warn "Codex: Not found"
+        $missingAgents += "codex"
+    }
+
+    # Check Droid (droid command)
+    if (Test-Command "droid") {
+        Write-Success "Droid: Available"
+        $foundAgents += "droid"
+    } else {
+        Write-Warn "Droid: Not found"
+        $missingAgents += "droid"
+    }
+
+    Write-Output ""
+
+    if ($foundAgents.Count -gt 0) {
+        Write-ColorOutput Green "Found $($foundAgents.Count) agent(s): $($foundAgents -join ', ')"
+    }
+
+    if ($missingAgents.Count -gt 0 -and $foundAgents.Count -eq 0) {
+        Write-ColorOutput Yellow "No agents found. Install at least one:"
+        foreach ($agent in $missingAgents) {
+            Write-Output "  - $agent`: $($agentLinks[$agent])"
+        }
+    } elseif ($missingAgents.Count -gt 0) {
+        Write-Info "Optional agents available:"
+        foreach ($agent in $missingAgents) {
+            Write-Output "  - $agent`: $($agentLinks[$agent])"
+        }
+    }
+}
+
+# Show auto-speak setup guidance
+function Show-AutoSpeakSetup {
+    Write-Output ""
+    Write-ColorOutput Cyan "============================================="
+    Write-ColorOutput White "  Auto-Speak Available"
+    Write-ColorOutput Cyan "============================================="
+    Write-Output ""
+    Write-Output "Ralph can speak Claude's responses using TTS."
+    Write-Output ""
+
+    Write-ColorOutput White "Dependencies:"
+
+    # Check Ollama
+    if (Test-Command "ollama") {
+        # Check for qwen model
+        $ollamaList = ollama list 2>$null
+        if ($ollamaList -match "qwen2.5:1.5b") {
+            Write-ColorOutput Green "  [OK] Ollama with qwen2.5:1.5b (ready)"
+        } else {
+            Write-ColorOutput Yellow "  [  ] Ollama installed, but missing qwen2.5:1.5b"
+            Write-ColorOutput Cyan "       Run: ollama pull qwen2.5:1.5b"
+        }
+    } else {
+        Write-ColorOutput Yellow "  [  ] Ollama (not installed)"
+        Write-ColorOutput Cyan "       Visit: https://ollama.com/install"
+    }
+
+    # Check jq
+    if (Test-Command "jq") {
+        Write-ColorOutput Green "  [OK] jq (installed)"
+    } else {
+        Write-ColorOutput Yellow "  [  ] jq (not installed)"
+        if (Test-Winget) {
+            Write-ColorOutput Cyan "       Run: winget install jqlang.jq"
+        } elseif (Test-Chocolatey) {
+            Write-ColorOutput Cyan "       Run: choco install jq"
+        } else {
+            Write-ColorOutput Cyan "       Install via winget or chocolatey"
+        }
+    }
+
+    # Check TTS provider (Windows has SAPI built-in)
+    Write-ColorOutput Green "  [OK] TTS (Windows SAPI available)"
+    Write-Output ""
+
+    Write-ColorOutput White "Setup:"
+    Write-Output "  1. Install missing dependencies (see above)"
+    Write-ColorOutput Cyan "  2. Run: cd your-project; ralph install"
+    Write-Output "  3. Add hooks to Claude Code config"
+    Write-ColorOutput Cyan "  4. Run: ralph speak --auto-on"
+    Write-Output ""
+
+    Write-ColorOutput White "Documentation:"
+    Write-ColorOutput Cyan "  $RalphDir\docs\VOICE.md"
+    Write-Output ""
 }
 
 # Print post-install instructions
@@ -344,6 +533,12 @@ function Main {
 
     # Verify
     Test-Installation
+
+    # Check agents
+    Test-Agents
+
+    # Auto-speak setup
+    Show-AutoSpeakSetup
 
     # Instructions
     Show-Instructions
