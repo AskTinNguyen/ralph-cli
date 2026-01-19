@@ -798,7 +798,7 @@ if [ "$MODE" = "prd" ]; then
         echo "   Each story must have: **As a** user, **I want** feature, **So that** benefit"
         echo "   Include #### Acceptance Criteria with checkboxes (3-5 max per story)"
         echo "   Include examples and negative cases"
-        echo "   For UI stories, include: Verify in browser using dev-browser skill"
+        echo "   For UI stories, include: Verify in browser using agent-browser"
         echo "5. ## Non-Goals - What this will NOT include"
         echo "6. ## Technical Considerations"
         echo "7. ## Success Metrics"

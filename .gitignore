@@ -33,8 +33,6 @@ coverage/
 dist/
 
 # Browser automation temp files
-skills/dev-browser/profiles/
-skills/dev-browser/tmp/
 .playwright-mcp/
 __pycache__/
 
