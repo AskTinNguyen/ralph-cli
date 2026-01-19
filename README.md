@@ -25,6 +25,12 @@ The installer automatically:
 - Installs missing dependencies (via Homebrew, apt, winget, or Chocolatey)
 - Clones and sets up ralph-cli globally
 
+#### Verify Installation
+```bash
+ralph help
+```
+If the command fails, see [Troubleshooting](#troubleshooting-quick-reference).
+
 ### Prerequisites (if installing manually)
 
 - Node.js 18+
@@ -38,6 +44,8 @@ git clone https://github.com/AskTinNguyen/ralph-cli.git
 cd ralph-cli
 npm install && npm link
 ```
+
+> **Note:** You may see deprecation warnings during `npm install`. These are harmless and will be fixed in an upcoming release.
 
 ### Use in Your Project
 
@@ -83,11 +91,31 @@ RALPH_INSTALL_DIR=/opt/ralph curl -fsSL https://raw.githubusercontent.com/AskTin
 
 ### From GitHub (Manual)
 
+Clone to a permanent location (e.g., `~/ralph-cli`). Avoid `/tmp` as it may be cleared on system restart.
+
+**For regular use:**
 ```bash
+cd ~
 git clone https://github.com/AskTinNguyen/ralph-cli.git
 cd ralph-cli
 npm install && npm link
 ```
+
+**For development (with dev dependencies):**
+```bash
+cd ~
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install --include=dev && npm link
+```
+
+> **Note:** You may see deprecation warnings during `npm install`. These are harmless and will be fixed in an upcoming release.
+
+#### Verify Installation
+```bash
+ralph help
+```
+If the command fails, see [Troubleshooting](#troubleshooting-quick-reference).
 
 ### From npm (Alternative)
 
@@ -110,6 +138,42 @@ ralph install --skills
 ```
 
 You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **dev-browser**, **prd**.
+
+### Troubleshooting Quick Reference
+
+**"command not found: ralph"**
+
+Your PATH may not include npm's global bin directory. Fix it:
+
+```bash
+# Find npm global bin path
+npm bin -g
+
+# Add to your shell config (~/.bashrc, ~/.zshrc, or ~/.bash_profile)
+export PATH="$(npm bin -g):$PATH"
+
+# Reload your shell
+source ~/.bashrc  # or ~/.zshrc
+```
+
+For more solutions, see [Full Troubleshooting Guide](http://localhost:3000/docs/troubleshooting.html) (when UI server is running).
+
+### Installation Complete!
+
+If `ralph help` works, you're ready to go.
+
+**Next steps:**
+```bash
+cd your-project      # Navigate to your project
+ralph install        # Install templates
+ralph prd            # Generate your first PRD
+```
+
+**Learn more:**
+- [Tutorial](http://localhost:3000/docs/tutorial.html) - Step-by-step getting started guide
+- [Commands](http://localhost:3000/docs/commands.html) - Complete command reference
+- [Agent Guide](CLAUDE.md) - For AI agents working with Ralph
+- [Full Troubleshooting](http://localhost:3000/docs/troubleshooting.html) - Solutions to common issues
 
 ## Basic Workflow
 
@@ -390,6 +454,24 @@ Set environment variables and Ralph agents automatically gain access to these to
 - **[Testing Guide](TESTING.md)** - Comprehensive testing documentation
 - **[Agent Guide (CLAUDE.md)](CLAUDE.md)** - For AI agents working with Ralph
 - **[Additional Documentation](documentation/)** - Deployment guides, design system, and more
+
+## Uninstalling Ralph CLI
+
+To completely remove Ralph:
+
+```bash
+# 1. Unlink global command
+cd ~/ralph-cli  # or wherever you installed
+npm unlink
+
+# 2. Remove cloned repository
+cd ~
+rm -rf ralph-cli
+
+# 3. Optional: Remove templates from projects
+cd your-project
+rm -rf .agents/ralph .ralph
+```
 
 ## Notes
 

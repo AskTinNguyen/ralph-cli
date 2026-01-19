@@ -305,16 +305,76 @@ install_ralph() {
 # Verify installation
 verify_installation() {
     step "Verifying installation"
+    local all_pass=true
 
+    # Check 1: ralph command available
     if has_cmd ralph; then
-        success "ralph command is available"
-        echo ""
-        ralph --help | head -20
+        success "✓ ralph command is available"
     else
-        warn "ralph command not found in PATH"
-        info "You may need to:"
-        echo "  1. Restart your terminal"
-        echo "  2. Add npm global bin to PATH: export PATH=\"\$(npm config get prefix)/bin:\$PATH\""
+        error "✗ ralph command not found in PATH"
+        all_pass=false
+    fi
+
+    # Check 2: ralph help works
+    if ralph help >/dev/null 2>&1; then
+        success "✓ ralph help works"
+    else
+        warn "✗ ralph help failed"
+        all_pass=false
+    fi
+
+    # Check 3: Git configured
+    if git config user.name >/dev/null 2>&1 && git config user.email >/dev/null 2>&1; then
+        success "✓ Git configured"
+    else
+        warn "⚠ Git user.name/email not set (recommended for commits)"
+        info "  Run: git config --global user.name 'Your Name'"
+        info "       git config --global user.email 'you@example.com'"
+    fi
+
+    # Check 4: Templates directory exists
+    if [ -d "$RALPH_DIR/.agents/ralph" ]; then
+        success "✓ Templates directory exists"
+    else
+        warn "⚠ Templates directory missing (may need 'ralph install')"
+    fi
+
+    # Summary
+    echo ""
+    if [ "$all_pass" = true ]; then
+        success "All critical checks passed!"
+    else
+        error "Some checks failed. See above for details."
+        info "If 'ralph' not found, restart your terminal or run:"
+        echo "  export PATH=\"\$(npm config get prefix)/bin:\$PATH\""
+    fi
+}
+
+# Check for available AI agents (optional)
+check_agents() {
+    info "Checking for AI agents (optional)..."
+    local found_agent=false
+
+    if has_cmd claude; then
+        success "✓ Claude Code found"
+        found_agent=true
+    fi
+
+    if has_cmd codex; then
+        success "✓ Codex found"
+        found_agent=true
+    fi
+
+    if has_cmd droid; then
+        success "✓ Droid found"
+        found_agent=true
+    fi
+
+    if [ "$found_agent" = false ]; then
+        info "No AI agents detected. Install one of:"
+        echo "  - Claude Code: https://claude.ai/download"
+        echo "  - Codex: https://github.com/openai/codex"
+        echo "  - Droid: https://factory.ai"
     fi
 }
 
@@ -452,6 +512,9 @@ main() {
 
     # Verify
     verify_installation
+
+    # Check for AI agents
+    check_agents
 
     # Auto-speak setup
     show_auto_speak_setup

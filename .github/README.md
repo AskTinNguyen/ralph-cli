@@ -1,238 +1,481 @@
-# Ralph CLI - GitHub Configuration
+# Ralph CLI
 
-This directory contains GitHub-specific configuration files, workflows, and documentation.
+![Ralph](assets/diagrams/ralph.webp)
 
----
+> **Ship while you sleep.** Define what you want built, then walk away. Return to completed, committed, working code.
 
-## 📂 Directory Structure
+Ralph is a minimal, file-based agent loop for autonomous coding. Each iteration starts fresh, reads on-disk state, and commits work for one story at a time. Ralph works tirelessly on features and stories while you focus on what matters most.
 
-```
-.github/
-├── workflows/              # GitHub Actions workflows
-│   ├── deploy-docs.yml     # 🚀 Deploy documentation to GitHub Pages
-│   ├── validate-docs.yml   # ✅ Validate docs on PRs
-│   ├── ci.yml              # CI pipeline (tests, linting)
-│   ├── release.yml         # Release automation
-│   └── ralph-example.yml   # Example workflow
-├── WORKFLOWS.md            # 📋 Workflows quick reference
-└── README.md               # This file
+## Quick Start (5 minutes)
+
+### One-Command Install
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
 ```
 
----
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
+```
 
-## 🚀 Quick Start
+The installer automatically:
+- Checks for Node.js (v18+), npm, and Git
+- Installs missing dependencies (via Homebrew, apt, winget, or Chocolatey)
+- Clones and sets up ralph-cli globally
 
-### Deploy Documentation to GitHub Pages
+#### Verify Installation
+```bash
+ralph help
+```
+If the command fails, see [Troubleshooting](#troubleshooting-quick-reference).
 
-**1. Enable GitHub Pages:**
+### Prerequisites (if installing manually)
 
-Go to **Settings** → **Pages** → Source: **GitHub Actions**
+- Node.js 18+
+- Git
+- An AI agent: [Claude Code](https://claude.ai/download), [Codex](https://github.com/openai/codex), or [Droid](https://factory.ai)
 
-**2. Set Permissions:**
-
-Go to **Settings** → **Actions** → **General** → **Workflow permissions** → **Read and write permissions**
-
-**3. Trigger Deployment:**
+### Manual Install
 
 ```bash
-git commit --allow-empty -m "docs: Initial deployment"
-git push origin main
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install && npm link
 ```
 
-**4. Access Your Documentation:**
+> **Note:** You may see deprecation warnings during `npm install`. These are harmless and will be fixed in an upcoming release.
 
-`https://<username>.github.io/ralph-cli/docs/`
+### Use in Your Project
 
-📖 **Full Setup Guide:** See the [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md) or [Deployment Summary](../documentation/DEPLOYMENT_SUMMARY.md)
-
----
-
-## 🔧 Workflows
-
-### Documentation Workflows
-
-| Workflow | File | Trigger | Purpose |
-|----------|------|---------|---------|
-| **Deploy Documentation** | `deploy-docs.yml` | Push to main, Manual | Builds and deploys docs to GitHub Pages |
-| **Validate Documentation** | `validate-docs.yml` | Pull requests | Validates docs build on PRs (no deploy) |
-
-### Other Workflows
-
-| Workflow | File | Trigger | Purpose |
-|----------|------|---------|---------|
-| **CI** | `ci.yml` | Push, PR | Runs tests and linting |
-| **Release** | `release.yml` | Tag push | Creates GitHub releases |
-| **Example** | `ralph-example.yml` | Manual | Example workflow template |
-
-📋 **Workflows Reference:** [WORKFLOWS.md](WORKFLOWS.md)
-
----
-
-## 📊 Workflow Status
-
-Add these badges to your README.md:
-
-```markdown
-[![Deploy Docs](https://github.com/<username>/ralph-cli/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/<username>/ralph-cli/actions/workflows/deploy-docs.yml)
-[![CI](https://github.com/<username>/ralph-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/<username>/ralph-cli/actions/workflows/ci.yml)
-```
-
----
-
-## 🛠️ Customization
-
-### Modify Deployment Workflow
-
-Edit `workflows/deploy-docs.yml`:
-
-```yaml
-# Change Node.js version
-- name: Setup Node.js
-  uses: actions/setup-node@v4
-  with:
-    node-version: '20'  # Change to '18' or '22'
-
-# Add custom build steps
-- name: Custom step
-  run: echo "Custom build step"
-```
-
-### Add New Workflow
-
-1. Create `workflows/your-workflow.yml`
-2. Define triggers:
-   ```yaml
-   on:
-     push:
-       branches: [main]
-   ```
-3. Add jobs and steps
-4. Commit and push
-
-### Disable Workflow
-
-**Option 1: Via GitHub UI**
-- Actions → Select workflow → ⋯ → Disable workflow
-
-**Option 2: Via file**
-- Rename `workflow.yml` to `workflow.yml.disabled`
-- Or move to different directory
-
----
-
-## 🔐 Security
-
-### Secrets
-
-No secrets required for documentation deployment!
-
-GitHub automatically provides:
-- `GITHUB_TOKEN` - Used for deployment
-
-### Permissions
-
-Required repository permissions:
-- ✅ **Contents:** Write
-- ✅ **Pages:** Write
-- ✅ **Pull requests:** Write (for PR comments)
-
-### Best Practices
-
-1. **Never commit secrets** to workflow files
-2. **Use repository secrets** for sensitive data (Settings → Secrets)
-3. **Restrict workflow permissions** to minimum required
-4. **Review PR workflow changes** carefully
-5. **Keep actions updated** (Dependabot enabled by default)
-
----
-
-## 📈 Monitoring
-
-### View Workflow Runs
-
-**Via GitHub UI:**
-1. Go to **Actions** tab
-2. Select workflow from left sidebar
-3. View run history and logs
-
-**Via GitHub CLI:**
 ```bash
-# Install GitHub CLI
-brew install gh  # macOS
-# or visit: https://cli.github.com/
-
-# View workflow runs
-gh workflow view deploy-docs.yml
-
-# List recent runs
-gh run list --workflow=deploy-docs.yml
-
-# View specific run
-gh run view <run-id> --log
+cd your-project
+ralph install          # Install templates
+ralph prd              # Generate requirements (interactive)
+ralph plan             # Create implementation plan
+ralph build 5          # Run 5 build iterations
 ```
 
-### Notifications
+That's it! Ralph will execute your plan one story at a time.
 
-**Enable notifications:**
-1. **Watch** button (top right of repo)
-2. Select **Custom**
-3. Check **Actions**
-4. Choose notification method (email, web, mobile)
+## How It Works
 
----
+Ralph treats **files and git** as memory, not the model context:
 
-## 🚨 Troubleshooting
+- **PRD** defines what's required
+- **Plan** breaks it into concrete tasks
+- **Loop** executes one story per iteration
+- **State** persists in `.ralph/`
 
-### Common Issues
+![Ralph architecture](assets/diagrams/diagram.svg)
 
-| Issue | Solution |
-|-------|----------|
-| Workflow not triggering | Check file paths, ensure Actions enabled |
-| Build failing | Run `cd ui && npm run build:docs` locally |
-| Deployment failing | Verify Pages enabled, check permissions |
-| 404 after deployment | Wait 2-3 minutes, check URL ends with `/docs/` |
-| Permission denied | Set workflow permissions to Read and write |
+## Installation
 
-📖 **Full Troubleshooting Guide:** See [Deployment Guide - Troubleshooting](../documentation/DEPLOYMENT_GUIDE.md#troubleshooting)
+### One-Command Install (Recommended)
 
----
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+```
 
-## 📚 Documentation
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.ps1 | iex
+```
 
-- [WORKFLOWS.md](WORKFLOWS.md) - Workflow quick reference and commands
-- [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md) - Complete deployment setup guide
-- [Deployment Summary](../documentation/DEPLOYMENT_SUMMARY.md) - Quick deployment reference
-- [GitHub Actions Docs](https://docs.github.com/en/actions) - Official documentation
-- [GitHub Pages Docs](https://docs.github.com/en/pages) - Pages documentation
+**Custom install directory:**
+```bash
+RALPH_INSTALL_DIR=/opt/ralph curl -fsSL https://raw.githubusercontent.com/AskTinNguyen/ralph-cli/main/install.sh | bash
+```
 
----
+### From GitHub (Manual)
 
-## ✅ Setup Checklist
+Clone to a permanent location (e.g., `~/ralph-cli`). Avoid `/tmp` as it may be cleared on system restart.
 
-**GitHub Pages Deployment:**
-- [ ] Workflows committed to main branch
-- [ ] GitHub Pages enabled (Source: GitHub Actions)
-- [ ] Workflow permissions set (Read and write)
-- [ ] First deployment triggered and succeeded
-- [ ] Documentation accessible at GitHub Pages URL
-- [ ] Warning banner appears on docs pages
-- [ ] Stream features properly greyed out
+**For regular use:**
+```bash
+cd ~
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install && npm link
+```
 
-**Optional:**
-- [ ] Custom domain configured
-- [ ] Status badges added to README
-- [ ] Notifications enabled
-- [ ] Monitoring dashboard set up
+**For development (with dev dependencies):**
+```bash
+cd ~
+git clone https://github.com/AskTinNguyen/ralph-cli.git
+cd ralph-cli
+npm install --include=dev && npm link
+```
 
----
+> **Note:** You may see deprecation warnings during `npm install`. These are harmless and will be fixed in an upcoming release.
 
-## 🆘 Support
+#### Verify Installation
+```bash
+ralph help
+```
+If the command fails, see [Troubleshooting](#troubleshooting-quick-reference).
 
-- **Setup Issues:** See [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md)
-- **Workflow Issues:** See [WORKFLOWS.md](WORKFLOWS.md)
-- **General Issues:** [GitHub Issues](https://github.com/AskTinNguyen/ralph-cli/issues)
-- **GitHub Actions Support:** [GitHub Community](https://github.community)
+### From npm (Alternative)
 
----
+```bash
+npm install -g github:AskTinNguyen/ralph-cli
+```
 
-**Last Updated:** January 15, 2026
+### Install Templates to Your Project
+
+```bash
+ralph install
+```
+
+This creates `.agents/ralph/` in your project so you can customize prompts and loop behavior. You'll be asked if you want to add optional skills.
+
+### Install Skills (Optional)
+
+```bash
+ralph install --skills
+```
+
+You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **dev-browser**, **prd**.
+
+### Troubleshooting Quick Reference
+
+**"command not found: ralph"**
+
+Your PATH may not include npm's global bin directory. Fix it:
+
+```bash
+# Find npm global bin path
+npm bin -g
+
+# Add to your shell config (~/.bashrc, ~/.zshrc, or ~/.bash_profile)
+export PATH="$(npm bin -g):$PATH"
+
+# Reload your shell
+source ~/.bashrc  # or ~/.zshrc
+```
+
+For more solutions, see [Full Troubleshooting Guide](http://localhost:3000/docs/troubleshooting.html) (when UI server is running).
+
+### Installation Complete!
+
+If `ralph help` works, you're ready to go.
+
+**Next steps:**
+```bash
+cd your-project      # Navigate to your project
+ralph install        # Install templates
+ralph prd            # Generate your first PRD
+```
+
+**Learn more:**
+- [Tutorial](http://localhost:3000/docs/tutorial.html) - Step-by-step getting started guide
+- [Commands](http://localhost:3000/docs/commands.html) - Complete command reference
+- [Agent Guide](CLAUDE.md) - For AI agents working with Ralph
+- [Full Troubleshooting](http://localhost:3000/docs/troubleshooting.html) - Solutions to common issues
+
+## Basic Workflow
+
+### 1. Generate PRD
+
+```bash
+ralph prd
+```
+
+Example prompt:
+
+```
+A lightweight uptime monitor (Hono app), deployed on Cloudflare, with email alerts via AWS SES
+```
+
+### 2. Create Plan
+
+```bash
+ralph plan
+```
+
+Generates `.ralph/PRD-1/plan.md` with ordered stories from your PRD.
+
+### 3. Run Build Iterations
+
+```bash
+ralph build 5          # Run 5 iterations
+ralph build 1 --no-commit   # Dry run (no commits)
+```
+
+Each iteration picks the next unchecked story, executes it, commits, and marks it done.
+
+### Working with Multiple PRDs
+
+```bash
+# Create multiple PRDs
+ralph prd "Feature A"  # Creates PRD-1
+ralph prd "Feature B"  # Creates PRD-2
+
+# Plan specific PRD
+ralph plan --prd=1     # Create plan for PRD-1
+ralph plan --prd=2     # Create plan for PRD-2
+
+# Build specific PRD
+ralph build 5 --prd=1  # Work on PRD-1
+ralph build 5 --prd=2  # Work on PRD-2
+```
+
+By default, `ralph plan` and `ralph build` use the latest/highest numbered PRD. Use `--prd=N` to target a specific PRD.
+
+## Documentation & Web Interface
+
+Ralph includes a **complete web-based interface** for managing and exploring your projects.
+
+### Start the UI Server
+
+```bash
+cd ui
+npm install
+npm run dev          # Starts on http://localhost:3000
+```
+
+Once running, you can access:
+
+- **Documentation** (`/docs/`) - Interactive guides with persistent sidebar navigation
+  - [Tutorial](http://localhost:3000/docs/tutorial.html) - Step-by-step getting started
+  - [Commands](http://localhost:3000/docs/commands.html) - Complete command reference
+  - [Examples](http://localhost:3000/docs/examples.html) - Real-world usage patterns
+  - [Best Practices](http://localhost:3000/docs/tips.html) - Tips and optimization strategies
+  - [Troubleshooting](http://localhost:3000/docs/troubleshooting.html) - Solutions to common issues
+  - [Streams](http://localhost:3000/docs/streams.html) - Parallel execution guide
+  - [Integrations](http://localhost:3000/docs/integration.html) - MCP server setup
+
+- **Dashboard** - View PRDs, plans, and execution progress
+- **Editor** - Edit requirements and plans directly
+- **Logs & Trends** - Monitor build history and metrics
+
+### Design System
+
+The entire UI follows Dieter Rams' principle of "less but better" with a minimalist, functional aesthetic. See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for complete design documentation.
+
+### Override Paths
+
+```bash
+ralph plan --prd docs/prd-api.md --plan .ralph/api-plan.md
+ralph build 1 --prd docs/prd-api.md --plan .ralph/api-plan.md
+ralph build 1 --progress .ralph/progress-api.md
+```
+
+## Multi-Stream (Parallel Execution)
+
+Work on multiple features simultaneously using isolated git worktrees.
+
+### When to Use
+
+- Building 2+ independent features at once
+- Testing different approaches in parallel
+- Maximizing throughput on large projects
+
+### Workflow
+
+```bash
+# 1. Create streams (one per feature)
+ralph stream new                    # Creates PRD-1
+ralph stream new                    # Creates PRD-2
+
+# 2. Edit your PRDs
+# → .ralph/PRD-1/prd.md (Feature A)
+# → .ralph/PRD-2/prd.md (Feature B)
+
+# 3. Initialize isolated worktrees
+ralph stream init 1
+ralph stream init 2
+
+# 4. Run builds in parallel
+ralph stream build 1 5 &            # 5 iterations on PRD-1
+ralph stream build 2 5 &            # 5 iterations on PRD-2
+wait                                # Wait for both
+
+# 5. Check progress
+ralph stream status
+
+# 6. Merge completed work
+ralph stream merge 1
+ralph stream merge 2
+
+# 7. Clean up
+ralph stream cleanup 1
+ralph stream cleanup 2
+```
+
+### Commands Reference
+
+| Command                  | Description                   |
+| ------------------------ | ----------------------------- |
+| `ralph stream new`       | Create new PRD-N folder       |
+| `ralph stream list`      | List all streams with status  |
+| `ralph stream status`    | Detailed status table         |
+| `ralph stream init N`    | Create worktree for stream N  |
+| `ralph stream build N X` | Run X iterations on stream N  |
+| `ralph stream merge N`   | Merge stream N to main branch |
+| `ralph stream cleanup N` | Remove worktree for stream N  |
+
+## Configuration
+
+### Choose the Agent Runner
+
+Set in `.agents/ralph/config.sh`:
+
+```bash
+AGENT_CMD="codex exec --yolo -"
+AGENT_CMD="claude -p --dangerously-skip-permissions"
+AGENT_CMD="droid exec --skip-permissions-unsafe -f {prompt}"
+```
+
+Or override per run:
+
+```bash
+ralph build 1 --agent=codex
+ralph build 1 --agent=claude
+ralph build 1 --agent=droid
+```
+
+If the CLI isn't installed, Ralph prints install hints:
+
+```
+codex  -> npm i -g @openai/codex
+claude -> curl -fsSL https://claude.ai/install.sh | bash
+droid  -> curl -fsSL https://app.factory.ai/cli | sh
+```
+
+## File Structure
+
+```
+project/
+├── .agents/ralph/              # Templates (customizable)
+│   ├── loop.sh                 # Main execution loop
+│   ├── stream.sh               # Multi-stream commands
+│   ├── config.sh               # Configuration overrides
+│   ├── agents.sh               # Agent command definitions
+│   └── PROMPT_*.md             # Prompt templates
+└── .ralph/                     # State (per-project)
+    ├── PRD-1/                  # First plan (isolated)
+    │   ├── prd.md              # Requirements document
+    │   ├── plan.md             # Implementation plan
+    │   ├── progress.md         # Progress log
+    │   └── runs/               # Run logs
+    ├── PRD-2/                  # Second plan (isolated)
+    ├── guardrails.md           # Shared lessons learned
+    └── worktrees/              # Git worktrees for parallel execution
+```
+
+### Template Hierarchy
+
+Ralph looks for templates in this order:
+
+1. `.agents/ralph/` in your project (if present)
+2. Bundled defaults shipped with the CLI
+
+State and logs always go to `.ralph/` in your project.
+
+## State Files
+
+| File            | Purpose                              |
+| --------------- | ------------------------------------ |
+| `prd.md`        | Requirements and acceptance criteria |
+| `plan.md`       | Task plan grouped by story           |
+| `progress.md`   | Append-only progress log             |
+| `guardrails.md` | Lessons learned ("Signs")            |
+| `activity.log`  | Activity + timing log                |
+| `errors.log`    | Repeated failures and notes          |
+| `runs/`         | Raw run logs + summaries             |
+
+## Testing
+
+> **Full testing documentation**: See [TESTING.md](TESTING.md) for complete details on test organization, structure, and best practices.
+
+### Running Tests
+
+```bash
+# Dry-run smoke tests (no agent required)
+npm test
+
+# Fast agent health check
+npm run test:ping
+
+# Optional integration test (requires agents installed)
+RALPH_INTEGRATION=1 npm test
+
+# Full real-agent loop test
+npm run test:real
+
+# Specific integration tests
+npm run test:checkpoint
+npm run test:switcher
+npm run test:risk
+npm run test:actions
+npm run test:notify
+npm run test:metrics
+npm run test:doctor
+npm run test:watch
+npm run test:ui-api
+
+# End-to-end workflow test
+npm run test:e2e
+
+# All integration tests
+npm run test:all
+```
+
+### UI Testing
+
+For web interface testing, Ralph uses **agent-browser** for browser automation. This allows agents to:
+- Navigate and interact with the UI
+- Verify rendered elements and layouts
+- Take screenshots for visual validation
+- Simulate user workflows
+
+See [CLAUDE.md](CLAUDE.md) for UI testing best practices with agent-browser.
+
+## Integrations (MCP Servers)
+
+Ralph agents have access to **MCP (Model Context Protocol) servers** for external integrations. Configuration is in `.mcp.json`.
+
+| Server   | Purpose                            | Setup                        |
+| -------- | ---------------------------------- | ---------------------------- |
+| Notion   | Docs, databases, task tracking     | `NOTION_API_KEY`             |
+| Slack    | Team notifications, context search | `SLACK_BOT_TOKEN`            |
+| GitHub   | Issues, PRs, code search           | `GITHUB_TOKEN`               |
+| Miro     | Visual diagrams, boards            | `MIRO_API_TOKEN`             |
+
+Set environment variables and Ralph agents automatically gain access to these tools during runs.
+
+## Documentation
+
+- **[Vision](VISION.md)** - Philosophy and long-term vision for autonomous development
+- **[Roadmap](ROADMAP.md)** - Current progress and planned features
+- **[Testing Guide](TESTING.md)** - Comprehensive testing documentation
+- **[Agent Guide (CLAUDE.md)](CLAUDE.md)** - For AI agents working with Ralph
+- **[Additional Documentation](documentation/)** - Deployment guides, design system, and more
+
+## Uninstalling Ralph CLI
+
+To completely remove Ralph:
+
+```bash
+# 1. Unlink global command
+cd ~/ralph-cli  # or wherever you installed
+npm unlink
+
+# 2. Remove cloned repository
+cd ~
+rm -rf ralph-cli
+
+# 3. Optional: Remove templates from projects
+cd your-project
+rm -rf .agents/ralph .ralph
+```
+
+## Notes
+
+- `.agents/ralph` is portable and can be copied between repos
+- `.ralph` is per-project state (add to `.gitignore`)
+- Use `{prompt}` in `AGENT_CMD` when the agent needs a file path instead of stdin
+- Each `ralph plan` creates a new PRD-N folder (plans are never overwritten)
