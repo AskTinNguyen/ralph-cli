@@ -17,14 +17,31 @@ You are an autonomous coding agent. Your task is to create or update an implemen
 - Activity Log: {{ACTIVITY_LOG_PATH}}
 - Repo Root: {{REPO_ROOT}}
 
-## Rules (Non-Negotiable)
+## Agent Boundaries
 
-- Do NOT implement anything.
-- Do NOT run tests or modify source code.
-- Do NOT ask the user questions.
-- Plan only.
-- Do NOT assume missing functionality; confirm by reading code.
-- Treat shared utilities (if present) as the standard library; prefer existing patterns over ad-hoc copies.
+### Plan Mode Constraints
+- Do NOT implement anything
+- Do NOT run tests or modify source code
+- Do NOT ask the user questions
+- Plan only
+
+### ✅ Always (No approval needed)
+- Read any file in the codebase
+- Inspect package.json, Makefile, or build configs
+- Document existing code patterns
+- Reference guardrails.md for known issues
+
+### ⚠️ Ask First (Flag in plan if required)
+- Tasks involving public API changes
+- Database schema modifications
+- New external dependencies
+- File deletions
+
+### 🚫 Never (Hard stops)
+- Assume missing functionality exists (verify by reading code)
+- Create generic examples (use actual project code)
+- Skip code pattern analysis
+- Plan tasks without verification commands
 
 ## Your Task (Do this in order)
 
@@ -147,6 +164,69 @@ Also include a short summary at the top:
 
 - Brief overview of gaps and the next most important work
 
+## Commands Reference (Required)
+
+Extract from package.json, Makefile, or project docs:
+
+### Build & Test
+- Build: `[command]`
+- Test: `[command]`
+- Lint: `[command]`
+- Type check: `[command]`
+
+### Development
+- Dev server: `[command]`
+- Watch: `[command]`
+
+**Note:** These commands will be referenced in task Verification fields. Verify they work before including.
+
+## Testing Strategy
+
+### Test Framework & Locations
+- Framework: [Jest/Vitest/Pytest/etc.]
+- Unit tests: `tests/unit/` or `**/*.test.ts`
+- Integration tests: `tests/integration/`
+- E2E tests: `tests/e2e/` or `cypress/`
+
+### Coverage Requirements
+- New code: Minimum 80% coverage
+- Critical paths: 100% coverage required
+- Existing pattern: See `tests/example.test.ts`
+
+### Test Commands
+- Run all: `npm test`
+- Run specific: `npm test -- --grep "pattern"`
+- Watch mode: `npm test -- --watch`
+- Coverage report: `npm test -- --coverage`
+
+**Agent instruction:** Extract testing patterns from actual test files. Use these patterns for new tests.
+
+## Git Workflow
+
+### Branch Naming
+- Feature: `feature/US-XXX-short-description`
+- Bugfix: `fix/US-XXX-short-description`
+- Refactor: `refactor/US-XXX-short-description`
+
+### Commit Format
+Use conventional commits (enforced by `/commit` skill):
+- `feat(scope): add new feature`
+- `fix(scope): resolve bug`
+- `refactor(scope): improve code structure`
+- `test(scope): add tests`
+- `docs(scope): update documentation`
+
+### Commit Granularity
+- One commit per story minimum
+- Atomic commits (each commit should pass tests)
+- Use `/commit` skill for message generation
+
+### PR Requirements (if applicable)
+- Title: `[US-XXX] Story title`
+- Description: Summary of changes
+- Tests: All passing
+- Review: Required before merge
+
 ## Tasks
 
 ### US-XXX: Story Title
@@ -250,3 +330,29 @@ Add this section to the PRD if missing (keep it short and explicit):
 - Commit URLs are invalid.
 - Unknown GitHub subpaths canonicalize to repo root.
 - **Frontend stories**: Must use `/frontend-design` skill for implementation.
+
+## Self-Review Checklist (Agent must verify before completing)
+
+Before finalizing the plan, verify:
+
+### Structure
+- [ ] Plan has Summary, Code Patterns, Tasks, Notes sections
+- [ ] Each story from PRD has corresponding tasks
+- [ ] No orphaned tasks (all tasks under a story header)
+
+### Task Quality
+- [ ] Every task has Scope, Acceptance, Verification
+- [ ] Verification commands are copy-paste executable
+- [ ] Tasks reference specific file paths (not "the auth file")
+- [ ] Tasks are independently shippable (no hidden dependencies)
+
+### Boundaries Compliance
+- [ ] No tasks require ⚠️ Ask First actions without noting it
+- [ ] No tasks violate 🚫 Never rules
+- [ ] High-risk tasks explicitly flagged
+
+### Completeness
+- [ ] All incomplete PRD stories have tasks
+- [ ] Commands section filled from package.json/Makefile
+- [ ] Testing strategy documented
+- [ ] Code patterns extracted from actual codebase (not generic)

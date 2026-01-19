@@ -45,6 +45,32 @@ If the story details are empty or missing, STOP and report that the PRD story fo
 - If No-commit is true, do NOT commit or push changes.
 - All changes made during the run must be committed (including updates to PRD/plan/progress/logs).
 
+## Agent Boundaries
+
+### ✅ Always (No approval needed)
+- Read any file in the codebase
+- Run read-only commands: `git status`, `git log`, `npm test`, `npm run build`
+- Update progress.md after completing each task
+- Reference existing code patterns before writing new code
+- Run type checking before marking task complete
+
+### ⚠️ Ask First (Requires human confirmation)
+- Changes to public API signatures or contracts
+- Database schema modifications or migrations
+- Adding new external dependencies
+- Deleting files or removing functionality
+- Changes to authentication/authorization logic
+- Modifications to CI/CD configuration
+
+### 🚫 Never (Hard stops - will cause build failure)
+- Commit secrets, API keys, or credentials
+- Push directly to main/master branch
+- Skip type checking or linting
+- Assume missing functionality exists (verify by reading code)
+- Modify files outside the project scope
+- Use `--force` flags on git commands
+- Disable or skip tests to make them pass
+
 ## Critical Merge Policy (NEVER VIOLATE)
 
 **YOU MUST NOT**:
