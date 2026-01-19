@@ -340,7 +340,7 @@ test_skills_installation() {
     fi
 
     # Check for key skills
-    local key_skills=("commit" "dev-browser" "prd")
+    local key_skills=("commit" "prd")
 
     for skill in "${key_skills[@]}"; do
         if [ -d "$skills_dir/$skill" ]; then

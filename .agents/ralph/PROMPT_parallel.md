@@ -125,7 +125,7 @@ After completing your implementation, output this exact structure:
 ## Browser Testing (If Required)
 
 If your story changes UI:
-1. Load the `dev-browser` skill
+1. Use `agent-browser` CLI tool for browser automation
 2. Navigate to the relevant page
 3. Verify the UI changes work as expected
 4. Note verification results in the output

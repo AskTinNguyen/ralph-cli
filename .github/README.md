@@ -137,7 +137,7 @@ This creates `.agents/ralph/` in your project so you can customize prompts and l
 ralph install --skills
 ```
 
-You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **dev-browser**, **prd**.
+You'll be prompted for agent (codex/claude/droid) and scope (local/global). Skills installed: **commit**, **prd**.
 
 ### Troubleshooting Quick Reference
 

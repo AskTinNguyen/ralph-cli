@@ -49,7 +49,7 @@ Each story must follow this format exactly:
 - [ ] Example: <input> -> <expected output>
 - [ ] Negative case: <bad input> -> <expected error>
 - [ ] Typecheck/lint passes
-- [ ] [UI stories] Verify in browser using dev-browser skill
+- [ ] [UI stories] Verify in browser using agent-browser
 ```
 
 **Story Sizing Rules:**

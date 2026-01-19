@@ -62,7 +62,7 @@ ralph install
 
 1. **Skills Installation Prompt**
    ```
-   ? Install skills (commit + dev-browser + prd)? (Y/n)
+   ? Install skills (commit + prd)? (Y/n)
    ```
    - **Action**: Press `Y` or Enter to accept
    - **Verify**: Check for `.codex/skills` or `.claude/skills` directory
