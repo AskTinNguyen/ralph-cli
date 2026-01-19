@@ -806,20 +806,42 @@ function truncateForTTS(text, maxLength) {
 
 /**
  * Fallback summarization when LLM is unavailable
+ * Extracts first 1-2 complete sentences instead of truncating mid-thought
  */
 function fallbackSummarize(text, config) {
   let result = cleanSummary(text);
+  const maxLength = config.maxChars;
 
-  if (result.length > config.maxChars) {
-    const truncated = result.substring(0, config.maxChars);
-    const lastPeriod = truncated.lastIndexOf(". ");
-    if (lastPeriod > config.maxChars * 0.5) {
-      return truncated.substring(0, lastPeriod + 1);
-    }
-    return truncated.substring(0, truncated.lastIndexOf(" ")) + "...";
+  // If text is short enough, return as-is
+  if (result.length <= maxLength) {
+    return result;
   }
 
-  return result;
+  // Extract first 1-2 complete sentences that fit within budget
+  // This prevents cutting off mid-thought
+  const sentences = result.split(/([.!?]+\s+)/);
+  let extracted = "";
+
+  for (let i = 0; i < sentences.length; i++) {
+    const candidate = extracted + sentences[i];
+    if (candidate.length > maxLength) {
+      break;
+    }
+    extracted = candidate;
+  }
+
+  // If we got at least one complete sentence, return it
+  if (extracted.trim().length > 0 && /[.!?]$/.test(extracted.trim())) {
+    return extracted.trim();
+  }
+
+  // Fallback: truncate at sentence boundary as before
+  const truncated = result.substring(0, maxLength);
+  const lastPeriod = truncated.lastIndexOf(". ");
+  if (lastPeriod > maxLength * 0.5) {
+    return truncated.substring(0, lastPeriod + 1);
+  }
+  return truncated.substring(0, truncated.lastIndexOf(" ")) + "...";
 }
 
 main();
