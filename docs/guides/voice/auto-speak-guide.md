@@ -1,6 +1,6 @@
 # Auto-Speak Guide for Claude Code CLI
 
-> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/VOICE.md`](docs/VOICE.md).
+> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/guides/voice/VOICE.md`](../VOICE.md).
 > Please use the new comprehensive voice guide for all voice features.
 > This file will be removed in a future release.
 

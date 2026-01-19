@@ -1,6 +1,6 @@
 # Ralph UI Testing Guide with agent-browser
 
-> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/TESTING.md`](docs/TESTING.md).
+> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/guides/testing/TESTING.md`](TESTING.md).
 > Please use the new comprehensive testing guide for all testing documentation.
 > This file will be removed in a future release.
 

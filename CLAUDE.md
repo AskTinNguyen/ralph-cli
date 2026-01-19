@@ -141,7 +141,7 @@ ralph install
 .agents/ralph/setup/post-install.sh
 
 # Option B: Manual (copy/paste to ~/.claude/settings.local.json)
-# See hook snippet in setup guidance or docs/auto-speak-guide.md
+# See hook snippet in setup guidance or docs/guides/voice/auto-speak-guide.md
 ```
 
 **Install missing dependencies:**
@@ -199,8 +199,8 @@ ollama pull qwen2.5:1.5b
 .agents/ralph/setup/remove-hooks.sh
 ```
 
-> **Full guide**: [`docs/VOICE.md`](docs/VOICE.md)
-> **Feature history**: [`docs/VOICE_CHANGELOG.md`](docs/VOICE_CHANGELOG.md)
+> **Full guide**: [`docs/guides/voice/VOICE.md`](docs/guides/voice/VOICE.md)
+> **Feature history**: [`docs/guides/voice/VOICE_CHANGELOG.md`](docs/guides/voice/VOICE_CHANGELOG.md)
 
 > **Documentation**:
 > - **For AI Agents**: [`skills/factory/AGENT_GUIDE.md`](skills/factory/AGENT_GUIDE.md) - Concise guide with patterns and decision trees
@@ -480,7 +480,7 @@ ralph-cli/
 - ✅ Unit tests use `test-*.js` naming pattern
 - ❌ Never place test files in `/lib`, `/bin`, or other source directories
 
-> **Full testing guide**: See [`docs/TESTING.md`](docs/TESTING.md) for comprehensive documentation on test organization and best practices.
+> **Full testing guide**: See [`docs/guides/testing/TESTING.md`](docs/guides/testing/TESTING.md) for comprehensive documentation on test organization and best practices.
 
 
 ## How It Works
@@ -704,8 +704,8 @@ When testing UI features with **agent-browser**:
 
 **Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.
 
-> **Full guide**: [`docs/TESTING.md`](docs/TESTING.md)
-> **Quick reference**: [`docs/TESTING_CHEATSHEET.md`](docs/TESTING_CHEATSHEET.md)
+> **Full guide**: [`docs/guides/testing/TESTING.md`](docs/guides/testing/TESTING.md)
+> **Quick reference**: [`docs/guides/testing/TESTING_CHEATSHEET.md`](docs/guides/testing/TESTING_CHEATSHEET.md)
 
 ### UI Testing Helper Script
 
