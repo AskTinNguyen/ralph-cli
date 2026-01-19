@@ -354,6 +354,34 @@ All voice settings are stored in `.ralph/voice-config.json`.
 - `enabled`: Master switch for multilingual features
 - `autoDetect`: Whether to auto-detect language and route accordingly
 
+**usageVoices:** (Optional - Advanced)
+- Configure different voices and TTS engines for different usage types and languages
+- Structure: `.usageVoices.{lang}.{usageType}.{voice|engine}`
+- Usage types: `summary`, `acknowledgment`, `progress`
+- Languages: `en`, `vi`, `zh`
+- See [Usage-Specific Voice Configuration](usage-voices-config.md) for detailed guide
+
+### Usage-Specific Voice Configuration
+
+Ralph supports configuring different voices for different contexts. For example, you can use Piper Ryan for summaries but macOS Samantha for acknowledgments.
+
+**Example:**
+```json
+{
+  "ttsEngine": "piper",
+  "voice": "ryan",
+  "usageVoices": {
+    "en": {
+      "summary": { "voice": "ryan", "engine": "piper" },
+      "acknowledgment": { "voice": "alex", "engine": "macos" },
+      "progress": { "voice": "victoria", "engine": "macos" }
+    }
+  }
+}
+```
+
+**See full documentation:** [usage-voices-config.md](usage-voices-config.md)
+
 ### Claude Code Hooks Integration
 
 Auto-speak requires hook configuration in `~/.claude/settings.local.json`:
