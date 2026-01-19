@@ -33,14 +33,18 @@
     "test:factory": "npm run test:factory-fsm && npm run test:factory-orchestrator",
     "test:slack": "RALPH_DRY_RUN=1 node tests/integration-slack-reporter.mjs",
     "test:blockers": "node tests/integration-check-blockers.mjs",
-    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock && npm run test:factory && npm run test:slack && npm run test:blockers",
+    "test:nightly": "node tests/integration-nightly.mjs",
+    "test:all": "npm run test:checkpoint && npm run test:switcher && npm run test:risk && npm run test:actions && npm run test:notify && npm run test:metrics && npm run test:doctor && npm run test:watch && npm run test:ui-api && npm run test:e2e && npm run test:scope && npm run test:marker && npm run test:lock && npm run test:factory && npm run test:slack && npm run test:blockers && npm run test:nightly",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write ."
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@clack/prompts": "^0.7.0",
     "franc-min": "^6.2.0",
     "minimatch": "^10.1.1",
+    "nodemailer": "^6.9.0",
+    "picocolors": "^1.1.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

@@ -533,6 +533,8 @@ async function main() {
     "recap",
     // Quality Review
     "review",
+    // Nightly AI Recommendations
+    "nightly",
   ];
 
   if (moduleCommands.includes(actualCmd)) {
