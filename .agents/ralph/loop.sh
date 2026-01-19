@@ -978,6 +978,7 @@ render_prompt() {
   local run_meta="$8"
   python3 - "$src" "$dst" "$PRD_PATH" "$PLAN_PATH" "$AGENTS_PATH" "$PROGRESS_PATH" "$ROOT_DIR" "$GUARDRAILS_PATH" "$ERRORS_LOG_PATH" "$ACTIVITY_LOG_PATH" "$GUARDRAILS_REF" "$CONTEXT_REF" "$ACTIVITY_CMD" "$NO_COMMIT" "$story_meta" "$story_block" "$run_id" "$iter" "$run_log" "$run_meta" <<'PY'
 import sys
+import os
 from pathlib import Path
 
 src = Path(sys.argv[1]).read_text()
@@ -995,6 +996,8 @@ run_id = sys.argv[17] if len(sys.argv) > 17 else ""
 iteration = sys.argv[18] if len(sys.argv) > 18 else ""
 run_log = sys.argv[19] if len(sys.argv) > 19 else ""
 run_meta = sys.argv[20] if len(sys.argv) > 20 else ""
+# Get historical context from environment (US-XXX Historical Log Context)
+historical_context = os.environ.get("HISTORICAL_CONTEXT", "")
 repl = {
     "PRD_PATH": prd,
     "PLAN_PATH": plan,
@@ -1012,6 +1015,7 @@ repl = {
     "ITERATION": iteration,
     "RUN_LOG_PATH": run_log,
     "RUN_META_PATH": run_meta,
+    "HISTORICAL_CONTEXT": historical_context,
 }
 story = {"id": "", "title": "", "block": ""}
 if meta_path:
@@ -3545,6 +3549,22 @@ for i in $(seq $START_ITERATION "$MAX_ITERATIONS"); do
   PROMPT_RENDERED="$TMP_DIR/prompt-$RUN_TAG-$i.md"
   LOG_FILE="$RUNS_DIR/run-$RUN_TAG-iter-$i.log"
   RUN_META="$RUNS_DIR/run-$RUN_TAG-iter-$i.md"
+
+  # Generate historical context if enabled (US-XXX Historical Log Context)
+  HISTORICAL_CONTEXT=""
+  if [[ "${RALPH_HISTORY_MODE:-off}" != "off" ]] && [ -n "${STORY_ID:-}" ]; then
+    PRD_FOLDER="$(dirname "$PRD_PATH")"
+    HISTORICAL_CONTEXT=$(node "$SCRIPT_DIR/../../lib/history/context-cli.js" \
+      --prd-folder "$PRD_FOLDER" \
+      --story-id "$STORY_ID" \
+      --mode "${RALPH_HISTORY_MODE}" \
+      --token-budget "${RALPH_HISTORY_TOKEN_BUDGET:-4000}" 2>/dev/null || echo "")
+    if [ -n "$HISTORICAL_CONTEXT" ]; then
+      log_activity "HISTORY_CONTEXT generated mode=${RALPH_HISTORY_MODE} story=$STORY_ID tokens=$(echo -n "$HISTORICAL_CONTEXT" | wc -c | tr -d ' ')"
+    fi
+  fi
+  export HISTORICAL_CONTEXT
+
   render_prompt "$PROMPT_FILE" "$PROMPT_RENDERED" "$STORY_META" "$STORY_BLOCK" "$RUN_TAG" "$i" "$LOG_FILE" "$RUN_META"
 
   if [ "$MODE" = "build" ] && [ -n "${STORY_ID:-}" ]; then

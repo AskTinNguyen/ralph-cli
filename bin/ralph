@@ -78,6 +78,7 @@ const globalFlags = {
   uiOpenBrowser: false,
   watchBuildMode: false,
   estimatePricing: null,
+  historyMode: null, // Historical log context: off, smart, full
 };
 
 // Parse global flags from rawArgs
@@ -158,6 +159,8 @@ for (let i = 0; i < rawArgs.length; i++) {
   if (arg === "--no-retry") { globalFlags.noRetry = true; continue; }
   if (arg === "--build") { globalFlags.watchBuildMode = true; continue; }
   if (arg === "--skip-risk-check") { globalFlags.skipRiskCheck = true; continue; }
+  if (arg === "--with-history") { globalFlags.historyMode = "smart"; continue; }
+  if (arg === "--no-history") { globalFlags.historyMode = "off"; continue; }
 
   // --import-from flag
   if (arg.startsWith("--import-from=")) {
@@ -196,6 +199,26 @@ for (let i = 0; i < rawArgs.length; i++) {
   }
   if (arg === "--pricing") {
     globalFlags.estimatePricing = rawArgs[++i];
+    continue;
+  }
+
+  // --history-mode flag (Historical Log Context)
+  if (arg.startsWith("--history-mode=")) {
+    const mode = arg.split("=").slice(1).join("=");
+    if (!["off", "smart", "full"].includes(mode)) {
+      error(`Invalid --history-mode value: ${mode}. Must be: off, smart, or full`);
+      process.exit(1);
+    }
+    globalFlags.historyMode = mode;
+    continue;
+  }
+  if (arg === "--history-mode") {
+    const mode = rawArgs[++i];
+    if (!["off", "smart", "full"].includes(mode)) {
+      error(`Invalid --history-mode value: ${mode}. Must be: off, smart, or full`);
+      process.exit(1);
+    }
+    globalFlags.historyMode = mode;
     continue;
   }
 
@@ -336,6 +359,7 @@ if (globalFlags.resumeMode) env.RALPH_RESUME = "1";
 if (globalFlags.modelOverride) env.RALPH_MODEL_OVERRIDE = globalFlags.modelOverride;
 if (globalFlags.autoFixMode) env.AUTO_FIX = globalFlags.autoFixMode;
 if (globalFlags.skipRiskCheck) env.RALPH_SKIP_RISK = "1";
+if (globalFlags.historyMode) env.RALPH_HISTORY_MODE = globalFlags.historyMode;
 
 if (templateDir === globalDir) {
   env.PROMPT_PLAN = path.join(templateDir, "PROMPT_plan.md");

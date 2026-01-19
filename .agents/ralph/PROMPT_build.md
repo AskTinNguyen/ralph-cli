@@ -33,6 +33,12 @@ Story details:
 
 If the story details are empty or missing, STOP and report that the PRD story format could not be parsed.
 
+## Historical Context (from previous runs)
+
+{{HISTORICAL_CONTEXT}}
+
+> If historical context shows previous failures for this story, review the approaches that failed and try different solutions. Learn from what didn't work to avoid repeating the same mistakes.
+
 ## Rules (Non-Negotiable)
 
 - Implement **only** the work required to complete the selected story.

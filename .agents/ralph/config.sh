@@ -278,3 +278,31 @@ RALPH_MERGE_REQUIRE_CONFIRM=true
 # Note: Worktrees provide strongest isolation and are recommended when possible.
 # Sequential mode is for projects where worktrees are not feasible.
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Historical Log Context Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Enable historical context from previous runs to help agents avoid repeating
+# failed approaches. Context is generated from run-*.md summary files.
+#
+# History mode (choose one):
+#   off    - No historical context (default, no overhead)
+#   smart  - Focused context on failures and current story (recommended)
+#   full   - Complete historical context for all indexed runs
+#
+# Default: off (no change to existing behavior)
+RALPH_HISTORY_MODE=off
+#
+# Maximum tokens to allocate for historical context (default: 4000):
+# Higher values provide more context but consume more of the prompt budget.
+RALPH_HISTORY_TOKEN_BUDGET=4000
+#
+# Maximum historical runs to consider when building index (default: 10):
+# More runs = better context but slower indexing.
+RALPH_HISTORY_MAX_RUNS=10
+#
+# Override via CLI:
+#   ralph build 5 --with-history        # Sets mode to "smart"
+#   ralph build 5 --no-history          # Sets mode to "off"
+#   ralph build 5 --history-mode=full   # Sets mode explicitly
+# ─────────────────────────────────────────────────────────────────────────────
