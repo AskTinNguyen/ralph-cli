@@ -98,7 +98,7 @@ agent-browser errors
 
 ### 3. Verify Functionality
 
-Follow the **7-step testing checklist** from dev-browser skill:
+Follow the **7-step testing checklist** using agent-browser:
 1. Navigate to page
 2. Take snapshot
 3. Verify elements visible
@@ -171,8 +171,7 @@ agent-browser errors
 ## Related Documentation
 
 - **Root Guide:** [/AGENTS.md](/AGENTS.md) - Core Ralph agent rules
-- **dev-browser Skill:** [skills/dev-browser/AGENTS.md](../skills/dev-browser/AGENTS.md) - Browser automation commands
-- **CLAUDE.md:** [UI Testing section](../CLAUDE.md#ui-testing) - Complete UI testing reference
+- **CLAUDE.md:** [UI Testing section](../CLAUDE.md#ui-testing) - Complete UI testing reference with agent-browser commands
 - **CLAUDE.md:** [UI Server Configuration section](../CLAUDE.md#ui-server-configuration) - RALPH_ROOT details
 
 ---

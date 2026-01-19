@@ -242,7 +242,7 @@ If your story is listed, invoke the skill before implementation.
 
 If the story changes UI, you MUST verify in the browser:
 
-1. Load the `dev-browser` skill
+1. Use `agent-browser` CLI tool for browser automation
 2. Navigate to the relevant page
 3. Verify the UI changes work as expected
 4. Take a screenshot if helpful for progress log
