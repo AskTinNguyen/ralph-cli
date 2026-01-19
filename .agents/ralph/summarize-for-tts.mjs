@@ -547,8 +547,14 @@ function cleanSummary(text) {
   // Remove XML/HTML-like tags
   result = result.replace(/<[^>]+>/g, "");
 
-  // AGGRESSIVE SYMBOL REMOVAL
-  // Remove ALL problematic symbols that TTS reads literally
+  // SMART SYMBOL REMOVAL
+  // Remove problematic symbols but preserve meaningful ones
+
+  // First, protect ratios (11/11) and percentages (100%) temporarily
+  result = result.replace(/(\d+)\/(\d+)/g, "$1 out of $2");  // 11/11 → 11 out of 11
+  result = result.replace(/(\d+)%/g, "$1 percent");            // 100% → 100 percent
+
+  // Now remove problematic symbols that TTS reads literally
   result = result.replace(/[~\/\\|<>{}[\]@#$%^&*`+=_]/g, "");
 
   // Replace "dot" when it appears as word (from file extensions being read)
