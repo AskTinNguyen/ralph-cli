@@ -4,16 +4,18 @@
 # Uses local Qwen model for intelligent summarization
 # Usage: Called automatically by Claude Code when a response completes
 
+# NOTE: Hooks must ALWAYS exit 0 to avoid breaking Claude Code
+# We use a trap to catch any errors and ensure clean exit
 set -euo pipefail
 
 # Get script directory for sourcing path-utils
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source path utilities for smart RALPH_ROOT resolution
-source "${SCRIPT_DIR}/lib/path-utils.sh"
+source "${SCRIPT_DIR}/lib/path-utils.sh" 2>/dev/null || true
 
 # Resolve RALPH_ROOT using smart detection (handles both project root and .ralph paths)
-RALPH_DIR="$(find_ralph_root)"
+RALPH_DIR="$(find_ralph_root 2>/dev/null || echo "${RALPH_ROOT:-$(pwd)}/.ralph")"
 if [[ -z "$RALPH_DIR" ]]; then
   # Fallback to default behavior
   RALPH_DIR="${RALPH_ROOT:-$(pwd)}/.ralph"
@@ -26,16 +28,19 @@ TEMP_SCRIPT="${RALPH_DIR}/auto-speak-summarize.mjs"
 # Set RALPH_ROOT for child processes (points to .ralph directory)
 export RALPH_ROOT="$RALPH_DIR"
 
+# Function to log messages (defined early for error trap)
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Trap any errors and exit cleanly
+trap 'log "ERROR: Script failed at line $LINENO: $BASH_COMMAND"; exit 0' ERR
+
 # Source TTS manager for exclusive TTS playback
-source "${SCRIPT_DIR}/lib/tts-manager.sh"
+source "${SCRIPT_DIR}/lib/tts-manager.sh" 2>/dev/null || { log "ERROR: Failed to source tts-manager.sh"; exit 0; }
 
 # Source session detection library
-source "${SCRIPT_DIR}/lib/session-detect.sh"
-
-# Function to log messages
-log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
-}
+source "${SCRIPT_DIR}/lib/session-detect.sh" 2>/dev/null || { log "ERROR: Failed to source session-detect.sh"; exit 0; }
 
 # Check if auto-speak is enabled
 # Supports both legacy format (autoSpeak: true) and new format (autoSpeak: {enabled: true})
@@ -238,12 +243,20 @@ main() {
 
   # Speak the summary exclusively (cancels any existing TTS)
   # Use "summary" usage type to select summary voice
-  speak_exclusive "$summary" "summary"
+  if ! speak_exclusive "$summary" "summary" 2>>"$LOG_FILE"; then
+    log "WARN: speak_exclusive failed, continuing anyway"
+  fi
 
   log "=== Hook complete ==="
 
   exit 0
 }
 
-# Run main
-main
+# Run main with error handling
+main "$@" || {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Main function failed" >> "$LOG_FILE" 2>/dev/null || true
+  exit 0
+}
+
+# Final safety net - ensure we always exit 0
+exit 0

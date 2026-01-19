@@ -16,7 +16,71 @@ import { detectLanguage } from "./language-voice-mapper.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-import { createOutputFilter } from "../../ui/dist/voice-agent/filter/output-filter.js";
+
+// Inline output filter implementation (avoids missing dist file dependency)
+function createOutputFilter(config = {}) {
+  const defaultConfig = {
+    maxLength: 500,
+    maxCodeLines: 3,
+    includeFilePaths: false,
+    includeStats: true,
+  };
+  const finalConfig = { ...defaultConfig, ...config };
+
+  return {
+    filter(text) {
+      if (!text || text.trim().length === 0) return "";
+
+      let filtered = text;
+
+      // Remove thinking blocks
+      filtered = filtered.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+      filtered = filtered.replace(/<thinking>.*$/gim, "");
+      filtered = filtered.replace(/^.*<\/thinking>/gim, "");
+
+      // Remove tool call markers
+      filtered = filtered.replace(/\[Tool:\s*\w+\]/gi, "");
+      filtered = filtered.replace(/```tool[\s\S]*?```/gi, "");
+      filtered = filtered.replace(/\[Reading\s+.*?\]/gi, "");
+      filtered = filtered.replace(/\[Writing\s+.*?\]/gi, "");
+      filtered = filtered.replace(/\[Editing\s+.*?\]/gi, "");
+      filtered = filtered.replace(/\[Searching\s+.*?\]/gi, "");
+      filtered = filtered.replace(/\[Running\s+.*?\]/gi, "");
+      filtered = filtered.replace(/Tool result:.*$/gim, "");
+
+      // Remove code blocks if maxCodeLines is 0
+      if (finalConfig.maxCodeLines === 0) {
+        filtered = filtered.replace(/```[\s\S]*?```/g, "");
+      }
+
+      // Remove ANSI escape codes
+      filtered = filtered.replace(/\x1b\[[0-9;]*m/g, "");
+
+      // Remove excessive whitespace
+      filtered = filtered
+        .split("\n")
+        .map((line) => line.trim())
+        .join("\n");
+      filtered = filtered.replace(/\n{3,}/g, "\n\n");
+
+      // Truncate if too long
+      if (filtered.length > finalConfig.maxLength) {
+        const truncated = filtered.substring(0, finalConfig.maxLength);
+        const lastSentence = truncated.lastIndexOf(". ");
+        if (lastSentence > finalConfig.maxLength * 0.5) {
+          return truncated.substring(0, lastSentence + 1);
+        }
+        const lastSpace = truncated.lastIndexOf(" ");
+        if (lastSpace > finalConfig.maxLength * 0.7) {
+          return truncated.substring(0, lastSpace) + "...";
+        }
+        return truncated + "...";
+      }
+
+      return filtered.trim();
+    },
+  };
+}
 
 /**
  * Read auto-speak configuration from voice-config.json

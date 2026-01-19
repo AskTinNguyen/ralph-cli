@@ -60,3 +60,4 @@ logs/security/
 *.swp
 *.swo
 *~
+.ralph/voice-config.json
