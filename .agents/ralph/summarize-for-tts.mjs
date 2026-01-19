@@ -558,7 +558,7 @@ function cleanSummary(text) {
   result = result.replace(/\btilde\b/gi, "");
 
   // Remove technical abbreviations that slip through
-  result = result.replace(/\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|HTTPS|SSH|FTP)\b/g, "");
+  result = result.replace(/\b(API|CLI|TTS|JSON|JWT|HTML|CSS|URL|HTTP|HTTPS|SSH|FTP|SQL|XML|YAML|CSV)\b/g, "");
 
   // Remove common technical words when followed by generic terms
   result = result.replace(/\bthe (file|script|function|config|directory|folder|repository|repo)\b/gi, "it");
@@ -612,7 +612,7 @@ function verifySummaryClean(summary, response, modeConfig) {
   }
 
   // 3. Technical abbreviation check
-  const techPattern = /\b(API|CLI|TTS|JSON|HTML|CSS|URL|HTTP|SSH|PRD|US-\d+)\b/;
+  const techPattern = /\b(API|CLI|TTS|JSON|JWT|HTML|CSS|URL|HTTP|HTTPS|SSH|FTP|SQL|XML|YAML|CSV|PRD|US-\d+)\b/;
   if (techPattern.test(summary)) {
     violations.push('abbreviations');
   }
