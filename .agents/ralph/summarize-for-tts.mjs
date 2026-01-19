@@ -251,13 +251,15 @@ async function contextAwareSummarize(response, userQuestion, modeConfig) {
 The assistant's response:
 ${response.substring(0, 3000)}
 
-Your task: Create a clear spoken summary answering what the user asked.
+Your task: Create a clear, CONCISE spoken summary answering what the user asked.
 
-FORMAT (${modeConfig.promptStyle}, ${modeConfig.promptWords}):
+CRITICAL LENGTH LIMIT: ${modeConfig.promptWords}
+FORMAT (${modeConfig.promptStyle}):
 ${langInstruction}
 - Use natural conversational speech
 - For lists: "First, [action]. Second, [action]. Third, [action]."
-- State ONLY the main point once - do not repeat or rephrase
+- State ONLY the main point once - NEVER repeat or rephrase the same idea
+- Be direct and concise - every word must add value
 
 STRICT RULES - NEVER include:
 - File names or paths (voice-config.json, .agents/ralph, src/components)
@@ -280,28 +282,32 @@ GOOD: "Changed the voice settings to use a quieter tone"
 BAD: "One, modified the file. Two, tested the file. Three, the file works now."
 GOOD: "First, adjusted the settings. Second, verified it works. Done."
 
-Spoken summary (natural speech only, no repetition):`;
+BAD: "I've updated the configuration. The configuration now uses new settings. These new settings improve performance."
+GOOD: "Updated configuration for better performance."
+
+Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no meta-text, no repetition):`;
   } else {
     // Fallback to standard summarization without context
     prompt = `You are a voice assistant converting this response to natural speech:
 
 ${response.substring(0, 3000)}
 
-Create a spoken summary (${modeConfig.promptStyle}, ${modeConfig.promptWords}).
+CRITICAL LENGTH LIMIT: ${modeConfig.promptWords}
+Create a CONCISE spoken summary (${modeConfig.promptStyle}).
 
 STRICT RULES - NEVER include:
 - File names, paths, or extensions
 - Symbols: ~ / \\ | @ # $ % ^ & * \` < > { } [ ] = + _
 ${langInstruction}
 - Technical references or abbreviations
-- Repetitive phrases
+- Repetitive phrases - state each idea ONCE only
 
 FORMAT:
 - Natural conversational speech
 - For lists: "First, [item]. Second, [item]. Third, [item]."
-- State each point once only
+- Be direct and concise - every word must add value
 
-Spoken summary (no repetition):`;
+Generate ONLY the spoken summary (${modeConfig.promptWords} MAX, no repetition):`;
   }
 
   try {
@@ -317,13 +323,14 @@ Spoken summary (no repetition):`;
         stream: false,
         options: {
           num_predict: modeConfig.maxTokens,
-          temperature: 0.2,        // Lower = more focused, less repetition
-          top_p: 0.85,             // Slightly more deterministic
-          top_k: 40,               // Limit vocabulary diversity
-          repeat_penalty: 1.3,     // Strongly penalize repetition
-          frequency_penalty: 0.5,  // Reduce word reuse
-          presence_penalty: 0.3,   // Encourage variety in concepts
-          stop: ["\n\n", "Summary:", "Note:", "Important:"], // Stop at meta-text
+          temperature: 0.3,        // Slightly higher for more natural variety
+          top_p: 0.8,              // More deterministic
+          top_k: 30,               // Reduced vocabulary diversity
+          repeat_penalty: 1.5,     // Strongly penalize repetition
+          frequency_penalty: 0.7,  // Strongly reduce word reuse
+          presence_penalty: 0.5,   // Encourage concept variety
+          // Removed aggressive stop sequences that were cutting off summaries
+          stop: ["Summary:", "Note:", "Important:", "In summary"], // Only stop at meta-text, not paragraph breaks
         },
       }),
       signal: controller.signal,
@@ -454,7 +461,7 @@ function removeRepetitiveSentences(text) {
     let isDuplicate = false;
     for (const seenSig of seenConcepts) {
       const overlap = calculateOverlap(conceptSig, seenSig);
-      if (overlap > 0.75) { // More than 75% word overlap = duplicate concept (was 0.6 - too aggressive)
+      if (overlap > 0.65) { // More than 65% word overlap = duplicate concept (reduced from 0.75 for stronger deduplication)
         isDuplicate = true;
         break;
       }
