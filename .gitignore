@@ -22,7 +22,8 @@ pnpm-debug.log*
 # Local Ralph state
 .ralph/
 
-# Archived documentation (.archive is tracked in git for historical reference)
+# Archived documentation
+.archive/
 
 # Temp
 .tmp/

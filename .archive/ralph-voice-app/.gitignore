@@ -1,9 +1,0 @@
-node_modules/
-dist/
-release/
-out/
-.DS_Store
-*.log
-npm-debug.log*
-.env
-.env.local
