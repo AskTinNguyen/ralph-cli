@@ -49,7 +49,8 @@ import { dashboardPartials } from './api/partials/dashboard.js';
 import { estimationPartials } from './api/partials/estimation.js';
 
 // Shared utilities
-import { formatDuration, formatTokens, formatCost } from './utils/formatters.js';
+import { formatDuration, formatTokens, formatCost, formatCurrency } from './utils/formatters.js';
+import { escapeHtml } from './utils/html-helpers.js';
 
 const api = new Hono();
 
@@ -2925,19 +2926,6 @@ api.get("/partials/stream-options", (c) => {
   return c.html(optionsHtml);
 });
 
-/**
- * Helper function to escape HTML characters
- */
-function escapeHtml(text: string): string {
-  const htmlEscapes: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
-}
 
 /**
  * Validate that a file path is within the .ralph directory.
@@ -4364,28 +4352,6 @@ api.get("/partials/token-summary", (c) => {
     }
   }
 
-  // Format currency
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) {
-      return `$${cost.toFixed(2)}`;
-    } else if (cost >= 0.01) {
-      return `$${cost.toFixed(3)}`;
-    } else if (cost > 0) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return "$0.00";
-  };
-
-  // Format token counts
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1_000_000) {
-      return `${(tokens / 1_000_000).toFixed(2)}M`;
-    } else if (tokens >= 1_000) {
-      return `${(tokens / 1_000).toFixed(1)}K`;
-    }
-    return tokens.toString();
-  };
-
   // Handle empty state
   if (summary.totalInputTokens === 0 && summary.totalOutputTokens === 0) {
     return c.html(`
@@ -4468,28 +4434,6 @@ api.get("/partials/token-streams", (c) => {
 
   // Find max cost for progress bar scaling
   const maxCost = Math.max(...summary.byStream.map((s) => s.totalCost), 0.01);
-
-  // Format currency
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) {
-      return `$${cost.toFixed(2)}`;
-    } else if (cost >= 0.01) {
-      return `$${cost.toFixed(3)}`;
-    } else if (cost > 0) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return "$0.00";
-  };
-
-  // Format token counts
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1_000_000) {
-      return `${(tokens / 1_000_000).toFixed(2)}M`;
-    } else if (tokens >= 1_000) {
-      return `${(tokens / 1_000).toFixed(1)}K`;
-    }
-    return tokens.toString();
-  };
 
   // Build enriched stream data with completed stories count
   const enrichedStreams = summary.byStream.map((stream) => {
@@ -4615,28 +4559,6 @@ api.get("/partials/token-models", (c) => {
 </div>
 `);
   }
-
-  // Format currency
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) {
-      return `$${cost.toFixed(2)}`;
-    } else if (cost >= 0.01) {
-      return `$${cost.toFixed(3)}`;
-    } else if (cost > 0) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return "$0.00";
-  };
-
-  // Format token counts
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1_000_000) {
-      return `${(tokens / 1_000_000).toFixed(2)}M`;
-    } else if (tokens >= 1_000) {
-      return `${(tokens / 1_000).toFixed(1)}K`;
-    }
-    return tokens.toString();
-  };
 
   // Find max cost and best efficiency for scaling
   const maxCost = Math.max(...modelEntries.map(([, metrics]) => metrics.totalCost), 0.01);
@@ -4826,28 +4748,6 @@ api.get("/partials/token-stories/:streamId", (c) => {
 </div>
 `);
   }
-
-  // Format currency
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) {
-      return `$${cost.toFixed(2)}`;
-    } else if (cost >= 0.01) {
-      return `$${cost.toFixed(3)}`;
-    } else if (cost > 0) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return "$0.00";
-  };
-
-  // Format token counts
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1_000_000) {
-      return `${(tokens / 1_000_000).toFixed(2)}M`;
-    } else if (tokens >= 1_000) {
-      return `${(tokens / 1_000).toFixed(1)}K`;
-    }
-    return tokens.toString();
-  };
 
   // Get stories from stream details
   const stories = streamDetails.stories || [];
@@ -5234,18 +5134,6 @@ api.get("/partials/token-budget", (c) => {
 </div>
 `);
   }
-
-  // Format currency
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) {
-      return `$${cost.toFixed(2)}`;
-    } else if (cost >= 0.01) {
-      return `$${cost.toFixed(3)}`;
-    } else if (cost > 0) {
-      return `$${cost.toFixed(4)}`;
-    }
-    return "$0.00";
-  };
 
   // Get color class based on percentage
   const getColorClass = (percentage: number): string => {
@@ -6045,18 +5933,6 @@ function generateComparisonHtml(est1, est2) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.round(seconds % 60);
     return secs > 0 ? \`\${mins}m \${secs}s\` : \`\${mins}m\`;
-  };
-
-  const formatCost = (cost) => {
-    if (!cost) return '$0.00';
-    return '$' + cost.toFixed(2);
-  };
-
-  const formatTokens = (tokens) => {
-    if (!tokens) return '0';
-    if (tokens >= 1000000) return (tokens / 1000000).toFixed(1) + 'M';
-    if (tokens >= 1000) return (tokens / 1000).toFixed(1) + 'K';
-    return Math.round(tokens).toString();
   };
 
   const calculateDelta = (val1, val2) => {
@@ -8635,13 +8511,6 @@ api.get('/partials/cost-display', (c) => {
       ? `$${totalCost.toFixed(4)}`
       : `$${totalCost.toFixed(2)}`;
 
-    // Format tokens (K for thousands, M for millions)
-    const formatTokens = (count: number): string => {
-      if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-      if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-      return count.toString();
-    };
-
     return c.html(`
       <div id="cost-display" class="cost-display" data-stream-id="${streamId}">
         <div class="cost-display-header">
@@ -8973,13 +8842,6 @@ api.get("/partials/cost-summary-card", (c) => {
   const summary = getTokenSummary();
   const budget = getBudgetStatus();
 
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) return `$${cost.toFixed(2)}`;
-    if (cost >= 0.01) return `$${cost.toFixed(3)}`;
-    if (cost > 0) return `$${cost.toFixed(4)}`;
-    return "$0.00";
-  };
-
   // Determine budget status
   const budgetPercentage = budget.daily.hasLimit
     ? budget.daily.percentage
@@ -9168,12 +9030,6 @@ api.get("/partials/streams-grid", (c) => {
       </div>
     `);
   }
-
-  const formatCurrency = (cost: number): string => {
-    if (cost >= 1) return `$${cost.toFixed(2)}`;
-    if (cost >= 0.01) return `$${cost.toFixed(3)}`;
-    return `$${cost.toFixed(4)}`;
-  };
 
   const streamCards = streams.map(stream => {
     const streamTokens = getStreamTokens(stream.id);
