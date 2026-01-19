@@ -177,7 +177,6 @@ ralph stream mark-completed N
 .ralph/factory/       # Factory mode workflows → See skills/factory/AGENT_GUIDE.md
 skills/prd/           # PRD generation skill → See skills/prd/AGENTS.md
 skills/commit/        # Git commit helper → See skills/commit/AGENTS.md
-skills/dev-browser/   # Browser automation → See skills/dev-browser/AGENTS.md
 ui/                   # Ralph UI → See ui/AGENTS.md
 tests/                # Test files → See tests/AGENTS.md
 ```
@@ -218,7 +217,6 @@ ralph error --list --category=BUILD   # List all errors by category
 - **In `.agents/ralph/`:** Read `.agents/ralph/AGENTS.md` for build loop guidance
 - **In `skills/prd/`:** Read `skills/prd/AGENTS.md` for PRD generation rules
 - **In `skills/commit/`:** Read `skills/commit/AGENTS.md` for commit format
-- **In `skills/dev-browser/`:** Read `skills/dev-browser/AGENTS.md` for browser testing
 - **In `skills/factory/`:** Read `skills/factory/AGENT_GUIDE.md` for factory workflows
 - **In `ui/`:** Read `ui/AGENTS.md` for UI testing guidance
 - **In `tests/`:** Read `tests/AGENTS.md` for test writing rules

@@ -127,7 +127,7 @@ Each user story should be implementable in one focused session.
 - [ ] Negative case: <bad input> -> <expected error>
 - [ ] Canonical form (if URLs/IDs produced): <exact format>
 - [ ] Typecheck/lint passes
-- [ ] **[UI stories only]** Verify in browser using dev-browser skill
+- [ ] **[UI stories only]** Verify in browser using agent-browser
 ```
 
 ---
@@ -166,7 +166,7 @@ Always include in acceptance criteria:
 
 For any story with UI changes, ALWAYS include:
 ```markdown
-- [ ] Verify in browser using dev-browser skill
+- [ ] Verify in browser using agent-browser
 ```
 
 This ensures visual verification of frontend work.
@@ -243,5 +243,5 @@ This ensures visual verification of frontend work.
 3. **Size stories appropriately** - 3-5 criteria, single concern, ~100-200 LOC
 4. **Be tech-agnostic** - PRD defines WHAT, plan defines HOW
 5. **Include examples** - Explicit examples, negative cases, canonical forms
-6. **UI stories need browser verification** - Add dev-browser criterion
+6. **UI stories need browser verification** - Add agent-browser criterion
 7. **Document context** - Append Q&A trail and assumptions to PRD

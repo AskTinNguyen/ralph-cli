@@ -36,7 +36,6 @@ For context-aware agent guidance, check the local AGENTS.md file in your working
 - **In `.agents/ralph/`:** [.agents/ralph/AGENTS.md](.agents/ralph/AGENTS.md) - Build loop guidance
 - **In `skills/prd/`:** [skills/prd/AGENTS.md](skills/prd/AGENTS.md) - PRD generation rules (CRITICAL: --headless flag)
 - **In `skills/commit/`:** [skills/commit/AGENTS.md](skills/commit/AGENTS.md) - Conventional commit format
-- **In `skills/dev-browser/`:** [skills/dev-browser/AGENTS.md](skills/dev-browser/AGENTS.md) - Browser automation testing
 - **In `skills/factory/`:** [skills/factory/AGENT_GUIDE.md](skills/factory/AGENT_GUIDE.md) - Factory workflows
 - **In `skills/ue-agent/`:** [skills/ue-agent/AGENTS.md](skills/ue-agent/AGENTS.md) - UE multi-agent orchestration
 - **In `ui/`:** [ui/AGENTS.md](ui/AGENTS.md) - UI testing guidance
@@ -463,7 +462,6 @@ ralph-cli/
 │   └── PROMPT_plan.md    # Planning prompt
 ├── skills/               # Optional agent skills
 │   ├── commit/           # Git commit helper
-│   ├── dev-browser/      # Browser automation
 │   └── prd/              # PRD generation
 ├── tests/                # Test files (IMPORTANT: ALL tests go here)
 │   ├── *.mjs             # Integration and E2E tests
