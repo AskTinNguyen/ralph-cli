@@ -39,10 +39,11 @@ const localDir = path.join(cwd, ".agents", "ralph");
 // ============================================================================
 // Utility Functions
 // ============================================================================
-const success = (msg) => console.log(pc.green(msg));
+const _success = (msg) => console.log(pc.green(msg)); // Reserved for future use
 const error = (msg) => console.error(pc.red(msg));
 const info = (msg) => console.log(pc.cyan(msg));
 const dim = (msg) => console.log(pc.dim(msg));
+const warn = (msg) => console.warn(pc.yellow(msg));
 
 function exists(p) {
   try {
@@ -731,7 +732,7 @@ async function main() {
 
     // Handle parallel execution
     if (globalFlags.parallelConcurrency && (cmd === "build" || !cmd)) {
-      const parallelModule = require("../lib/parallel");
+      const _parallelModule = require("../lib/parallel"); // Reserved for future parallel execution
       // ... parallel execution logic (kept minimal in dispatcher)
       info(`Running parallel execution with ${pc.bold(globalFlags.parallelConcurrency)} concurrent agents...`);
       // This would need the full parallel setup - for now delegate to loop.sh
