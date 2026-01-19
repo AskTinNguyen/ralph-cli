@@ -397,7 +397,7 @@ jobs:
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Workflow Syntax](https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions)
 - [GitHub Pages Actions](https://github.com/actions/deploy-pages)
-- [Setup Guide](.github/PAGES_SETUP.md)
+- [Setup Guide](../documentation/DEPLOYMENT_GUIDE.md)
 
 ---
 

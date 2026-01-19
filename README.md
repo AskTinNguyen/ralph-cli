@@ -390,7 +390,6 @@ Set environment variables and Ralph agents automatically gain access to these to
 - **[Testing Guide](TESTING.md)** - Comprehensive testing documentation
 - **[Agent Guide (CLAUDE.md)](CLAUDE.md)** - For AI agents working with Ralph
 - **[Additional Documentation](documentation/)** - Deployment guides, design system, and more
-- **[Web Documentation](https://asktinnguyen.github.io/ralph-cli/)** - Interactive guides and tutorials
 
 ## Notes
 

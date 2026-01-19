@@ -199,7 +199,8 @@ ollama pull qwen2.5:1.5b
 .agents/ralph/setup/remove-hooks.sh
 ```
 
-> **Full guide**: [`AUTO-SPEAK-GUIDE.md`](AUTO-SPEAK-GUIDE.md)
+> **Full guide**: [`docs/VOICE.md`](docs/VOICE.md)
+> **Feature history**: [`docs/VOICE_CHANGELOG.md`](docs/VOICE_CHANGELOG.md)
 
 > **Documentation**:
 > - **For AI Agents**: [`skills/factory/AGENT_GUIDE.md`](skills/factory/AGENT_GUIDE.md) - Concise guide with patterns and decision trees
@@ -479,7 +480,8 @@ ralph-cli/
 - ✅ Unit tests use `test-*.js` naming pattern
 - ❌ Never place test files in `/lib`, `/bin`, or other source directories
 
-> **Full testing guide**: See [TESTING.md](TESTING.md) for comprehensive documentation on test organization and best practices.
+> **Full testing guide**: See [`docs/TESTING.md`](docs/TESTING.md) for comprehensive documentation on test organization and best practices.
+
 
 ## How It Works
 
@@ -701,6 +703,9 @@ When testing UI features with **agent-browser**:
 7. ✅ Take screenshots: `agent-browser screenshot --full`
 
 **Never test UI features with just curl or API calls alone** - always verify the actual rendered page works correctly.
+
+> **Full guide**: [`docs/TESTING.md`](docs/TESTING.md)
+> **Quick reference**: [`docs/TESTING_CHEATSHEET.md`](docs/TESTING_CHEATSHEET.md)
 
 ### UI Testing Helper Script
 

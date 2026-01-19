@@ -1,5 +1,9 @@
 # Ralph CLI Voice Features - Comprehensive Guide
 
+> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/VOICE.md`](docs/VOICE.md).
+> Please use the new comprehensive voice guide for all voice features.
+> This file will be removed in a future release.
+
 **Last Updated:** January 17, 2026
 **Status:** Browser STT Removed (January 2026)
 **Voice Systems Remaining:** Auto-Speak Hook, Terminal STT, Standalone Speak, Electron App

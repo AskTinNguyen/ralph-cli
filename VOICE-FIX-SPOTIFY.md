@@ -1,5 +1,9 @@
 # Spotify Playback Fix
 
+> **⚠️ DEPRECATED:** This file has been merged into [`docs/VOICE_CHANGELOG.md`](docs/VOICE_CHANGELOG.md).
+> Please check the changelog for bug fixes and improvements.
+> This file will be removed in a future release.
+
 ## Issue
 When you said "play music" or "play a song", the voice agent was defaulting to Apple Music instead of Spotify, resulting in errors like "Come on, not found."
 

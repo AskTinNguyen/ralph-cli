@@ -62,7 +62,6 @@ Complete auto-deployment system for Ralph CLI documentation as a standalone webs
 |------|---------|------|
 | `DEPLOYMENT_GUIDE.md` | Complete deployment guide | 19 KB |
 | `DEPLOYMENT_SUMMARY.md` | This summary | - |
-| `.github/PAGES_SETUP.md` | GitHub Pages setup | 12 KB |
 | `.github/WORKFLOWS.md` | Workflows reference | 8 KB |
 | `.github/README.md` | GitHub config overview | 4 KB |
 | `docs/README.md` | Built docs overview | 3 KB |
@@ -103,7 +102,7 @@ git push origin main
 # https://<username>.github.io/ralph-cli/docs/
 ```
 
-**Full Instructions:** [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md)
+**Full Instructions:** See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed setup steps
 
 ---
 
@@ -162,12 +161,15 @@ ralph-cli/
 │   ├── workflows/
 │   │   ├── deploy-docs.yml           # ✨ NEW
 │   │   └── validate-docs.yml         # ✨ NEW
-│   ├── PAGES_SETUP.md                # ✨ NEW
 │   ├── WORKFLOWS.md                  # ✨ NEW
 │   └── README.md                     # ✨ NEW
 ├── docs/                             # ✨ NEW (built)
 │   ├── README.md                     # ✨ NEW
 │   └── ... (44 files)
+├── documentation/                    # ✨ NEW (documentation source)
+│   ├── DEPLOYMENT_GUIDE.md           # ✨ NEW
+│   ├── DEPLOYMENT_SUMMARY.md         # ✨ NEW
+│   └── ...
 ├── ui/
 │   ├── public/
 │   │   ├── css/
@@ -177,8 +179,10 @@ ralph-cli/
 │   └── scripts/
 │       ├── build-static-docs.js      # ✨ NEW
 │       └── prepare-docs-deployment.js # ✨ NEW
-├── DEPLOYMENT_GUIDE.md               # ✨ NEW
-└── DEPLOYMENT_SUMMARY.md             # ✨ NEW (this file)
+└── .archive/                         # Archived documentation (moved files)
+    ├── PAGES_SETUP.md                # Moved from .github/
+    ├── QUICK_START.md                # Moved from .github/
+    └── ...
 ```
 
 **Total New Files:** 16 files
@@ -467,7 +471,7 @@ npm run build:docs
 - Check URL ends with `/docs/`
 - Hard refresh (Ctrl+Shift+R)
 
-**Full Troubleshooting:** [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md#-troubleshooting)
+**Full Troubleshooting:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md#troubleshooting)
 
 ---
 
@@ -477,10 +481,9 @@ npm run build:docs
 |----------|---------|
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Complete deployment guide (all platforms) |
 | [DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md) | This summary |
-| [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md) | GitHub Pages setup instructions |
-| [.github/WORKFLOWS.md](.github/WORKFLOWS.md) | Workflow commands reference |
-| [.github/README.md](.github/README.md) | GitHub config overview |
-| [docs/README.md](docs/README.md) | Built documentation overview |
+| [.github/WORKFLOWS.md](../.github/WORKFLOWS.md) | Workflow commands reference |
+| [.github/README.md](../.github/README.md) | GitHub config overview |
+| [docs/README.md](../docs/README.md) | Built documentation overview |
 
 ---
 
@@ -549,8 +552,8 @@ Your deployment is successful when:
 
 ## 📞 Support
 
-- **Setup Issues:** [.github/PAGES_SETUP.md](.github/PAGES_SETUP.md)
-- **Workflow Issues:** [.github/WORKFLOWS.md](.github/WORKFLOWS.md)
+- **Setup Issues:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- **Workflow Issues:** [.github/WORKFLOWS.md](../.github/WORKFLOWS.md)
 - **General Issues:** [GitHub Issues](https://github.com/AskTinNguyen/ralph-cli/issues)
 - **GitHub Support:** [GitHub Community](https://github.community)
 

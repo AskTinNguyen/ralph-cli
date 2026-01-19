@@ -14,7 +14,6 @@ This directory contains GitHub-specific configuration files, workflows, and docu
 │   ├── ci.yml              # CI pipeline (tests, linting)
 │   ├── release.yml         # Release automation
 │   └── ralph-example.yml   # Example workflow
-├── PAGES_SETUP.md          # 📖 GitHub Pages setup guide
 ├── WORKFLOWS.md            # 📋 Workflows quick reference
 └── README.md               # This file
 ```
@@ -44,7 +43,7 @@ git push origin main
 
 `https://<username>.github.io/ralph-cli/docs/`
 
-📖 **Full Setup Guide:** [PAGES_SETUP.md](PAGES_SETUP.md)
+📖 **Full Setup Guide:** See the [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md) or [Deployment Summary](../documentation/DEPLOYMENT_SUMMARY.md)
 
 ---
 
@@ -194,14 +193,15 @@ gh run view <run-id> --log
 | 404 after deployment | Wait 2-3 minutes, check URL ends with `/docs/` |
 | Permission denied | Set workflow permissions to Read and write |
 
-📖 **Full Troubleshooting Guide:** [PAGES_SETUP.md](PAGES_SETUP.md#-troubleshooting)
+📖 **Full Troubleshooting Guide:** See [Deployment Guide - Troubleshooting](../documentation/DEPLOYMENT_GUIDE.md#troubleshooting)
 
 ---
 
 ## 📚 Documentation
 
-- [PAGES_SETUP.md](PAGES_SETUP.md) - Complete GitHub Pages setup guide
 - [WORKFLOWS.md](WORKFLOWS.md) - Workflow quick reference and commands
+- [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md) - Complete deployment setup guide
+- [Deployment Summary](../documentation/DEPLOYMENT_SUMMARY.md) - Quick deployment reference
 - [GitHub Actions Docs](https://docs.github.com/en/actions) - Official documentation
 - [GitHub Pages Docs](https://docs.github.com/en/pages) - Pages documentation
 
@@ -228,7 +228,7 @@ gh run view <run-id> --log
 
 ## 🆘 Support
 
-- **Setup Issues:** See [PAGES_SETUP.md](PAGES_SETUP.md)
+- **Setup Issues:** See [Deployment Guide](../documentation/DEPLOYMENT_GUIDE.md)
 - **Workflow Issues:** See [WORKFLOWS.md](WORKFLOWS.md)
 - **General Issues:** [GitHub Issues](https://github.com/AskTinNguyen/ralph-cli/issues)
 - **GitHub Actions Support:** [GitHub Community](https://github.community)

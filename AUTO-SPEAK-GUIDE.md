@@ -1,5 +1,9 @@
 # Auto-Speak Guide for Claude Code CLI
 
+> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/VOICE.md`](docs/VOICE.md).
+> Please use the new comprehensive voice guide for all voice features.
+> This file will be removed in a future release.
+
 Automatic text-to-speech for all Claude Code responses using Claude Code hooks + local Qwen LLM.
 
 ## How It Works

@@ -1,5 +1,9 @@
 # 🎯 New Voice Features - Complete Implementation
 
+> **⚠️ DEPRECATED:** This file has been merged into [`docs/VOICE_CHANGELOG.md`](docs/VOICE_CHANGELOG.md).
+> Please check the changelog for feature history and improvements.
+> This file will be removed in a future release.
+
 All requested features have been implemented! Here's what you can now do with your voice:
 
 ---

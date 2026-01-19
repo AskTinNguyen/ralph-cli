@@ -1,5 +1,9 @@
 # TTS Summarization Prompt Engineering Improvements
 
+> **⚠️ DEPRECATED:** This file has been merged into [`docs/VOICE_CHANGELOG.md`](docs/VOICE_CHANGELOG.md).
+> Please check the changelog for technical improvements and details.
+> This file will be removed in a future release.
+
 Comprehensive enhancements to eliminate symbols, technical jargon, and repetitive content from voice summaries.
 
 ## Issues Fixed

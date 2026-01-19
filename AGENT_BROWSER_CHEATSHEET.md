@@ -1,5 +1,9 @@
 # agent-browser Quick Reference for Ralph UI Testing
 
+> **⚠️ DEPRECATED:** This file has been consolidated into [`docs/TESTING_CHEATSHEET.md`](docs/TESTING_CHEATSHEET.md).
+> Please use the new testing cheatsheet for quick reference.
+> This file will be removed in a future release.
+
 ## Setup
 ```bash
 npm install -g agent-browser
