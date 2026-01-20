@@ -533,6 +533,8 @@ async function main() {
     "recap",
     // Quality Review
     "review",
+    // Context Handoff (Thread Management)
+    "handoff",
   ];
 
   if (moduleCommands.includes(actualCmd)) {

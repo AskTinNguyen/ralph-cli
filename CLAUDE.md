@@ -61,6 +61,8 @@ These files provide right-time context for the task at hand, reducing token usag
 | **Dry run (no commit)**  | `ralph build 1 --no-commit`                                                                    |
 | **Factory run**          | `ralph factory run my-factory`                                                                 |
 | **Factory status**       | `ralph factory status my-factory`                                                              |
+| **Create handoff**       | `ralph handoff create "Summary"`                                                               |
+| **Resume from handoff**  | `ralph handoff resume`                                                                         |
 
 ## Stream Commands (Parallel Execution)
 
@@ -96,6 +98,57 @@ Factory Mode enables declarative, multi-stage agent workflows with verification 
 **Verification gates prevent gaming** - agents cannot claim success by outputting "All tests pass!" - the verification system actually runs tests and checks results.
 
 > **Documentation**:
+> - **For AI Agents**: [`skills/factory/AGENT_GUIDE.md`](skills/factory/AGENT_GUIDE.md) - Concise guide with patterns and decision trees
+> - **Full Reference**: [`skills/factory/SKILL.md`](skills/factory/SKILL.md) - Complete YAML schema, verification types, examples
+> - **UI Guide**: http://localhost:3000/docs/factory-guide.html (when UI server running)
+
+## Handoff (Context Transfer)
+
+Handoffs solve the "context drift" problem in long AI conversations by capturing essential state and transferring it to new agent sessions. Unlike compaction (which summarizes and loses detail), handoffs preserve critical technical context.
+
+| Use Case | Command |
+|----------|---------|
+| **Create handoff** | `ralph handoff create "Summary of work"` |
+| **Resume from handoff** | `ralph handoff resume` |
+| **Resume specific** | `ralph handoff resume handoff-123456` |
+| **List handoffs** | `ralph handoff list` |
+| **Show details** | `ralph handoff show <id>` |
+| **Thread map** | `ralph handoff map` |
+| **Export to markdown** | `ralph handoff export <id>` |
+
+**Key Features:**
+- **Context preservation**: Captures PRD, iteration, story, git state, completed work, blockers
+- **Thread mapping**: Visualize handoff chains and branching work
+- **Auto-handoff**: Triggers when context usage reaches threshold (configurable)
+- **Learnings transfer**: Accumulates insights across sessions
+- **Mermaid diagrams**: `ralph handoff map --mermaid` for visualization
+
+**When to use handoffs:**
+- Long build sessions approaching context limits
+- Switching between different work streams
+- Error recovery requiring fresh agent context
+- Periodic state snapshots during complex tasks
+
+**Configuration:**
+```bash
+# In .agents/ralph/config.sh
+RALPH_AUTO_HANDOFF_ENABLED=true     # Enable auto-handoff detection
+RALPH_AUTO_HANDOFF_THRESHOLD=90     # Trigger at 90% context usage
+```
+
+**Example workflow:**
+```bash
+# Working on a long task, context getting full
+ralph handoff create "Completed auth module, tests passing, starting API"
+
+# Later, in a new session
+ralph handoff resume    # Loads latest handoff context
+
+# View the handoff chain
+ralph handoff map
+```
+
+> **Full reference**: `ralph handoff help`
 
 ## Voice Commands (TTS)
 
