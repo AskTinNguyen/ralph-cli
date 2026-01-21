@@ -109,7 +109,10 @@ case "$tool_name" in
     file_path=$(echo "$tool_input" | jq -r '.file_path // empty')
     if [[ -n "$file_path" ]]; then
       mkdir -p "$(dirname "$SESSION_LOG")" 2>/dev/null || true
-      echo "Read: $file_path" >> "$SESSION_LOG" 2>/dev/null || true
+      # Sanitize file_path: replace newlines with spaces to prevent log injection
+      safe_file_path="${file_path//$'\n'/ }"
+      safe_file_path="${safe_file_path//$'\r'/ }"
+      printf 'Read: %s\n' "$safe_file_path" >> "$SESSION_LOG" 2>/dev/null || true
     fi
     ;;
 

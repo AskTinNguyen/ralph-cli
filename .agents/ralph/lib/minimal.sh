@@ -116,13 +116,25 @@ build_prompt() {
   local story_title
   story_title=$(echo "$story_block" | head -1 | sed 's/^###[[:space:]]*//')
 
+  # Escape sed special characters in substitution values (& and \)
+  local safe_story_id safe_story_title safe_plan_path safe_progress_path
+  safe_story_id="${story_id//\\/\\\\}"
+  safe_story_id="${safe_story_id//&/\\&}"
+  safe_story_title="${story_title//\\/\\\\}"
+  safe_story_title="${safe_story_title//&/\\&}"
+  safe_plan_path="${plan_path//\\/\\\\}"
+  safe_plan_path="${safe_plan_path//&/\\&}"
+  safe_progress_path="${PROGRESS_PATH:-}"
+  safe_progress_path="${safe_progress_path//\\/\\\\}"
+  safe_progress_path="${safe_progress_path//&/\\&}"
+
   # Read template and substitute variables
   if [[ -f "$template_path" ]]; then
     sed \
-      -e "s|{{STORY_ID}}|$story_id|g" \
-      -e "s|{{STORY_TITLE}}|$story_title|g" \
-      -e "s|{{PLAN_PATH}}|$plan_path|g" \
-      -e "s|{{PROGRESS_PATH}}|${PROGRESS_PATH:-}|g" \
+      -e "s|{{STORY_ID}}|$safe_story_id|g" \
+      -e "s|{{STORY_TITLE}}|$safe_story_title|g" \
+      -e "s|{{PLAN_PATH}}|$safe_plan_path|g" \
+      -e "s|{{PROGRESS_PATH}}|$safe_progress_path|g" \
       -e "s|{{PRD_NUMBER}}|${PRD_NUMBER:-1}|g" \
       "$template_path"
 

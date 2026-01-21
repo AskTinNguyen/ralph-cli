@@ -41,7 +41,14 @@ DRY_RUN=false
 # Parse arguments
 for arg in "$@"; do
   case "$arg" in
-    --prd=*) PRD_NUMBER="${arg#*=}" ;;
+    --prd=*)
+      PRD_NUMBER="${arg#*=}"
+      # Validate PRD_NUMBER is a positive integer (prevent path traversal)
+      if ! [[ "$PRD_NUMBER" =~ ^[0-9]+$ ]]; then
+        log_error "Invalid PRD number: $PRD_NUMBER (must be a positive integer)"
+        exit 1
+      fi
+      ;;
     --dry-run) DRY_RUN=true ;;
     [0-9]*) MAX_ITERATIONS="$arg" ;;
   esac

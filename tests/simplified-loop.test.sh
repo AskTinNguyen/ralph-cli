@@ -172,6 +172,36 @@ else
   test_fail "Expected allow for git status"
 fi
 
+test_start "blocks git --force"
+result=$(echo '{"tool_name":"Bash","tool_input":{"command":"git push --force origin main"}}' | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/pre-tool.sh")
+if assert_contains "$result" '"decision":"block"'; then
+  test_pass
+else
+  test_fail "Expected block for git --force"
+fi
+
+test_start "blocks Edit without prior Read"
+mkdir -p "/tmp/ralph-test-$$/.ralph"
+echo "" > "/tmp/ralph-test-$$/.ralph/session.log"
+result=$(echo '{"tool_name":"Edit","tool_input":{"file_path":"/some/file.txt"}}' | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/pre-tool.sh")
+if assert_contains "$result" '"decision":"block"'; then
+  test_pass
+else
+  test_fail "Expected block for Edit without Read"
+fi
+rm -rf "/tmp/ralph-test-$$"
+
+test_start "allows Edit after Read"
+mkdir -p "/tmp/ralph-test-$$/.ralph"
+echo "Read: /some/file.txt" > "/tmp/ralph-test-$$/.ralph/session.log"
+result=$(echo '{"tool_name":"Edit","tool_input":{"file_path":"/some/file.txt"}}' | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/pre-tool.sh")
+if [[ "$result" == '{"decision":"allow"}' ]]; then
+  test_pass
+else
+  test_fail "Expected allow for Edit after Read"
+fi
+rm -rf "/tmp/ralph-test-$$"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Test: post-tool.sh hook (test failure detection)
 # ─────────────────────────────────────────────────────────────────────────────
