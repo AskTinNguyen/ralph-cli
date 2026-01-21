@@ -1,0 +1,9 @@
+ PASS  src/components/Button.test.tsx
+ PASS  src/utils/helpers.test.ts
+ PASS  src/services/api.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       15 passed, 15 total
+Snapshots:   2 passed, 2 total
+Time:        4.567 s
+Ran all test suites.

@@ -264,6 +264,109 @@ else
   test_fail "Expected failure log for Go test"
 fi
 
+# Test Mocha failure detection
+test_start "detects Mocha test failure"
+mocha_output=$(cat "$FIXTURES_DIR/test-output-mocha.txt")
+json_input=$(jq -n --arg output "$mocha_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "mocha123" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for Mocha"
+fi
+
+# Test RSpec failure detection
+test_start "detects RSpec test failure"
+rspec_output=$(cat "$FIXTURES_DIR/test-output-rspec.txt")
+json_input=$(jq -n --arg output "$rspec_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "rspec456" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for RSpec"
+fi
+
+# Test Bats (TAP) failure detection
+test_start "detects Bats test failure"
+bats_output=$(cat "$FIXTURES_DIR/test-output-bats.txt")
+json_input=$(jq -n --arg output "$bats_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "bats789" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for Bats"
+fi
+
+# Test npm test failure detection
+test_start "detects npm test failure"
+npm_output=$(cat "$FIXTURES_DIR/test-output-npm-failure.txt")
+json_input=$(jq -n --arg output "$npm_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "npm101" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for npm"
+fi
+
+# Test yarn test failure detection
+test_start "detects yarn test failure"
+yarn_output=$(cat "$FIXTURES_DIR/test-output-yarn-failure.txt")
+json_input=$(jq -n --arg output "$yarn_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "yarn202" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for yarn"
+fi
+
+# Test Vitest failure detection
+test_start "detects Vitest test failure"
+vitest_output=$(cat "$FIXTURES_DIR/test-output-vitest.txt")
+json_input=$(jq -n --arg output "$vitest_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "vitest303" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Expected failure log for Vitest"
+fi
+
+# Test that passing tests do NOT trigger failure detection
+test_start "ignores passing Jest tests"
+jest_pass_output=$(cat "$FIXTURES_DIR/test-output-jest-pass.txt")
+json_input=$(jq -n --arg output "$jest_pass_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "pass001" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ ! -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Should not create failure log for passing tests"
+fi
+
+test_start "ignores passing Mocha tests"
+mocha_pass_output=$(cat "$FIXTURES_DIR/test-output-mocha-pass.txt")
+json_input=$(jq -n --arg output "$mocha_pass_output" '{"tool_name":"Bash","tool_output":$output}')
+rm -f "/tmp/ralph-test-$$/.ralph/failure-context.log"
+echo "pass002" > "/tmp/ralph-test-$$/.ralph/.checkpoint"
+result=$(echo "$json_input" | RALPH_ROOT="/tmp/ralph-test-$$" "$HOOKS_DIR/post-tool.sh"; echo $?)
+if [[ "$result" == "0" ]] && [[ ! -f "/tmp/ralph-test-$$/.ralph/failure-context.log" ]]; then
+  test_pass
+else
+  test_fail "Should not create failure log for passing Mocha tests"
+fi
+
 # Cleanup
 rm -rf "/tmp/ralph-test-$$/.ralph"
 

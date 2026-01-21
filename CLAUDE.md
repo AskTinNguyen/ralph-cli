@@ -451,22 +451,121 @@ nohup ralph prd "Long-running task" --headless > prd.log 2>&1 &
 
 **Important:** The Ralph UI server (`ui/`) automatically uses `--headless` mode (see `ui/src/services/wizard-process-manager.ts:126`) to prevent process hangs.
 
+## Simplified Loop with Hooks
+
+Ralph includes a simplified loop that delegates enforcement to Claude Code hooks instead of inline validation.
+
+### Overview
+
+| Component | Lines | Purpose |
+|-----------|-------|---------|
+| `simplified-loop.sh` | ~200 | Core iteration loop |
+| `lib/minimal.sh` | ~160 | Essential utilities |
+| `hooks/pre-tool.sh` | ~120 | PreToolUse validation |
+| `hooks/post-tool.sh` | ~150 | Test failure detection |
+| `hooks/on-stop.sh` | ~85 | Completion validation |
+| `hooks/pre-prompt.sh` | ~55 | Session management |
+| **Total** | **~770** | vs 4,244 in loop.sh |
+
+### Usage
+
+```bash
+# Run simplified loop
+.agents/ralph/simplified-loop.sh 5              # 5 iterations
+.agents/ralph/simplified-loop.sh --prd=2        # Specific PRD
+.agents/ralph/simplified-loop.sh --dry-run      # Dry run
+```
+
+### Hook Enforcement
+
+**PreToolUse (`pre-tool.sh`):**
+- Blocks Edit/Write without prior Read
+- Blocks `git push`, `git merge`, `git --force`
+- Blocks `ralph stream merge`
+
+**PostToolUse (`post-tool.sh`):**
+- Detects test failures (Jest, Vitest, pytest, Go, Mocha, RSpec, Bats)
+- Triggers automatic rollback to checkpoint
+- Logs failure context for retry
+
+**Stop (`on-stop.sh`):**
+- Validates story completion
+- Cleans up temporary files
+- Logs incomplete sessions
+
+### Critical Rules
+
+1. **Hooks MUST exit 0** - Non-zero exit breaks Claude Code
+2. **Validate JSON before parsing** - Prevents injection attacks
+3. **Use fixed-string grep** - Security for path lookups
+4. **Atomic file operations** - Temp file + mv pattern
+
+### Test Failure Patterns
+
+The post-tool hook detects failures from multiple frameworks:
+
+| Framework | Detection Pattern |
+|-----------|------------------|
+| Jest | `Tests: X failed`, `Test Suites: X failed` |
+| Vitest | Same as Jest |
+| pytest | `= FAILURES =`, `X failed,` |
+| Go test | `--- FAIL:`, `FAIL\t` |
+| Mocha | `X failing` |
+| RSpec | `X examples, Y failures` |
+| Bats | `not ok` |
+
+### Hook Configuration
+
+Add to `~/.claude/settings.local.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash|Edit|Write",
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/pre-tool.sh"}]
+    }],
+    "PostToolUse": [{
+      "matcher": "Bash|Edit|Write",
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/post-tool.sh"}]
+    }],
+    "Stop": [{
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/on-stop.sh"}]
+    }],
+    "UserPromptSubmit": [{
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/pre-prompt.sh"}]
+    }]
+  }
+}
+```
+
 ## Package Structure
 
 ```
 ralph-cli/
 ├── bin/ralph             # Node.js CLI entry point
 ├── .agents/ralph/        # Bash loop implementation
-│   ├── loop.sh           # Main execution loop
+│   ├── loop.sh           # Main execution loop (4,244 lines)
+│   ├── simplified-loop.sh # Simplified loop with hooks (~200 lines)
 │   ├── PROMPT_build.md   # Build iteration prompt
-│   └── PROMPT_plan.md    # Planning prompt
+│   ├── PROMPT_plan.md    # Planning prompt
+│   ├── PROMPT_simplified.md # Simplified loop prompt
+│   ├── hooks/            # Claude Code hooks
+│   │   ├── pre-tool.sh   # PreToolUse validation
+│   │   ├── post-tool.sh  # PostToolUse enforcement
+│   │   ├── on-stop.sh    # Stop cleanup
+│   │   └── pre-prompt.sh # Session management
+│   └── lib/
+│       └── minimal.sh    # Minimal utilities
 ├── skills/               # Optional agent skills
 │   ├── commit/           # Git commit helper
 │   └── prd/              # PRD generation
 ├── tests/                # Test files (IMPORTANT: ALL tests go here)
 │   ├── *.mjs             # Integration and E2E tests
 │   ├── test-*.js         # Unit tests
+│   ├── simplified-loop.test.sh # Simplified loop tests
 │   ├── fixtures/         # Test fixtures
+│   │   └── hooks/        # Hook test fixtures
 │   ├── helpers/          # Test utilities
 │   └── mocks/            # Mock implementations
 └── package.json

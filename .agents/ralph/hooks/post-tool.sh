@@ -73,8 +73,13 @@ is_test_failure=false
 
 # Framework-specific detection patterns (more reliable than universal)
 
-# Jest/Vitest: "Tests: X failed" or "Test Suites: X failed"
+# Jest: "Tests: X failed" or "Test Suites: X failed"
 if [[ "$tool_output" =~ Tests:.*[0-9]+.*failed ]] || [[ "$tool_output" =~ Test\ Suites:.*[0-9]+.*failed ]]; then
+  is_test_failure=true
+fi
+
+# Vitest: "Test Files  X failed" or "Tests  X failed |" (note double spaces)
+if [[ "$tool_output" =~ Test\ Files.*[0-9]+\ failed ]] || [[ "$tool_output" =~ Tests.*[0-9]+\ failed\ \| ]]; then
   is_test_failure=true
 fi
 

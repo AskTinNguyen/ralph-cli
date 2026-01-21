@@ -345,15 +345,78 @@ claude -> curl -fsSL https://claude.ai/install.sh | bash
 droid  -> curl -fsSL https://app.factory.ai/cli | sh
 ```
 
+## Simplified Loop (Experimental)
+
+Ralph includes a simplified loop (`simplified-loop.sh`) that delegates all enforcement to Claude Code hooks instead of inline validation. This achieves a 5x code reduction (805 lines vs 4,244 lines).
+
+### Key Features
+
+- **~200-line core loop** with signal handling, timeout, atomic checkpoints
+- **Hook-based enforcement** via Claude Code's PreToolUse, PostToolUse, Stop events
+- **Multi-framework test detection** (Jest, Vitest, pytest, Go, Mocha, RSpec, Bats)
+- **Automatic rollback** on test failure
+
+### Usage
+
+```bash
+# Run simplified loop directly
+.agents/ralph/simplified-loop.sh 5              # 5 iterations
+.agents/ralph/simplified-loop.sh --prd=2        # Specific PRD
+.agents/ralph/simplified-loop.sh --dry-run      # Validate without running
+```
+
+### Hooks
+
+The simplified loop uses four Claude Code hooks in `.agents/ralph/hooks/`:
+
+| Hook | Purpose |
+|------|---------|
+| `pre-tool.sh` | Validates Edit requires Read, blocks git push/merge/force |
+| `post-tool.sh` | Detects test failures, triggers rollback |
+| `on-stop.sh` | Validates completion state, cleanup |
+| `pre-prompt.sh` | Session management, clears read tracking |
+
+### Configuration
+
+Add hooks to `~/.claude/settings.local.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash|Edit|Write",
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/pre-tool.sh"}]
+    }],
+    "PostToolUse": [{
+      "matcher": "Bash|Edit|Write",
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/post-tool.sh"}]
+    }],
+    "Stop": [{
+      "hooks": [{"type": "command", "command": "$CLAUDE_PROJECT_DIR/.agents/ralph/hooks/on-stop.sh"}]
+    }]
+  }
+}
+```
+
+**Important:** All hooks exit 0 to avoid breaking Claude Code, even on errors.
+
 ## File Structure
 
 ```
 project/
 ├── .agents/ralph/              # Templates (customizable)
-│   ├── loop.sh                 # Main execution loop
+│   ├── loop.sh                 # Main execution loop (4,244 lines)
+│   ├── simplified-loop.sh      # Simplified loop with hooks (~200 lines)
 │   ├── stream.sh               # Multi-stream commands
 │   ├── config.sh               # Configuration overrides
 │   ├── agents.sh               # Agent command definitions
+│   ├── hooks/                  # Claude Code hooks
+│   │   ├── pre-tool.sh         # PreToolUse validation
+│   │   ├── post-tool.sh        # PostToolUse enforcement
+│   │   ├── on-stop.sh          # Stop cleanup
+│   │   └── pre-prompt.sh       # Session management
+│   ├── lib/
+│   │   └── minimal.sh          # Minimal utilities for simplified loop
 │   └── PROMPT_*.md             # Prompt templates
 └── .ralph/                     # State (per-project)
     ├── PRD-1/                  # First plan (isolated)

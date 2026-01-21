@@ -1,0 +1,10 @@
+=== RUN   TestUserCreate
+--- PASS: TestUserCreate (0.01s)
+=== RUN   TestUserUpdate
+--- PASS: TestUserUpdate (0.02s)
+=== RUN   TestUserDelete
+--- PASS: TestUserDelete (0.01s)
+=== RUN   TestUserList
+--- PASS: TestUserList (0.01s)
+PASS
+ok  	github.com/example/project/pkg/user	0.089s
