@@ -116,10 +116,30 @@ cd "$ROOT_DIR"
 # The lock file descriptor is automatically closed when the script exits,
 # which releases the lock. The trap cleanup handles other cleanup tasks.
 LOCK_FILE="$RALPH_DIR/.agent-lock"
-exec 200>"$LOCK_FILE"
-if ! flock -n 200; then
-  log_error "Another agent is running. Use stream mode for parallel builds."
-  exit 1
+mkdir -p "$(dirname "$LOCK_FILE")"
+
+# Cross-platform lock acquisition (flock on Linux, shlock on macOS)
+if command -v flock >/dev/null 2>&1; then
+  exec 200>"$LOCK_FILE"
+  if ! flock -n 200; then
+    log_error "Another agent is running. Use stream mode for parallel builds."
+    exit 1
+  fi
+elif command -v shlock >/dev/null 2>&1; then
+  if ! shlock -f "$LOCK_FILE" -p $$; then
+    log_error "Another agent is running. Use stream mode for parallel builds."
+    exit 1
+  fi
+else
+  # Fallback: simple PID-based lock
+  if [[ -f "$LOCK_FILE" ]]; then
+    existing_pid=$(cat "$LOCK_FILE" 2>/dev/null)
+    if [[ -n "$existing_pid" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+      log_error "Another agent is running (PID $existing_pid). Use stream mode for parallel builds."
+      exit 1
+    fi
+  fi
+  echo $$ > "$LOCK_FILE"
 fi
 log "Acquired exclusive lock for agent execution"
 
