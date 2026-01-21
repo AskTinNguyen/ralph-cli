@@ -1,0 +1,26 @@
+ FAIL  src/components/Button.test.tsx
+  ● Button › renders correctly
+
+    expect(received).toBe(expected)
+
+    Expected: "Click me"
+    Received: "Button"
+
+      5 |   it('renders correctly', () => {
+      6 |     render(<Button label="Click me" />);
+    > 7 |     expect(screen.getByRole('button').textContent).toBe('Click me');
+        |                                                    ^
+      8 |   });
+      9 | });
+     10 |
+
+      at Object.<anonymous> (src/components/Button.test.tsx:7:52)
+
+ PASS  src/utils/helpers.test.ts
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 failed, 5 passed, 6 total
+Snapshots:   0 total
+Time:        2.345 s
+Ran all test suites.
+npm ERR! Test failed.

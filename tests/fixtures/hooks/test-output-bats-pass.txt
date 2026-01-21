@@ -1,0 +1,8 @@
+1..5
+ok 1 setup creates required directories
+ok 2 config file is valid JSON
+ok 3 install script completes without error
+ok 4 uninstall removes all files
+ok 5 upgrade preserves user config
+
+5 tests, 0 failures

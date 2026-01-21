@@ -1,0 +1,40 @@
+> my-project@1.0.0 test
+> jest --coverage
+
+ FAIL  src/utils/parser.test.ts
+  Parser
+    ✓ parses valid JSON (3ms)
+    ✕ handles malformed input (8ms)
+
+  ● Parser › handles malformed input
+
+    expect(received).toThrow(expected)
+
+    Expected message: "Invalid JSON format"
+    Received message: "Unexpected token < in JSON at position 0"
+
+      12 |   it('handles malformed input', () => {
+      13 |     const badInput = '<html>not json</html>';
+    > 14 |     expect(() => parser.parse(badInput)).toThrow('Invalid JSON format');
+         |                                          ^
+      15 |   });
+      16 | });
+
+      at Object.<anonymous> (src/utils/parser.test.ts:14:42)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   0 total
+Time:        3.456 s
+Ran all test suites.
+npm ERR! code ELIFECYCLE
+npm ERR! errno 1
+npm ERR! my-project@1.0.0 test: `jest --coverage`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the my-project@1.0.0 test script.
+npm ERR! This is probably not a problem with npm.
+npm ERR! There is likely additional logging output above.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     /Users/dev/.npm/_logs/2026-01-21T10_30_00_000Z-debug.log

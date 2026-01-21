@@ -1,0 +1,7 @@
+Randomized with seed 12345
+..........
+
+Finished in 1.23 seconds (files took 2.45 seconds to load)
+10 examples, 0 failures
+
+Randomized with seed 12345

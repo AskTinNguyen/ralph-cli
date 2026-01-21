@@ -1,0 +1,36 @@
+
+  Auth Module
+    User Login
+      ✓ should authenticate valid credentials (45ms)
+      ✓ should reject invalid password
+      1) should handle missing username
+      ✓ should lock account after 5 failed attempts
+
+  API Endpoints
+    GET /users
+      ✓ returns 200 for authenticated user
+      2) returns 401 for unauthenticated user
+
+
+  4 passing (234ms)
+  2 failing
+
+  1) Auth Module
+       User Login
+         should handle missing username:
+
+      AssertionError: expected { status: 500 } to have property 'status' of 400, but got 500
+      + expected - actual
+
+      -500
+      +400
+
+      at Context.<anonymous> (test/auth.test.js:45:38)
+      at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+  2) API Endpoints
+       GET /users
+         returns 401 for unauthenticated user:
+     Uncaught Error: connect ECONNREFUSED 127.0.0.1:3000
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1494:16)
+

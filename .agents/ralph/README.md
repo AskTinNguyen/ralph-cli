@@ -234,15 +234,49 @@ ralph stream build 1 5 --model=haiku  # Force Haiku for stream
 
 If you try to use Codex/Droid with routing enabled, Ralph will warn and auto-disable routing.
 
+## Simplified Loop (Experimental)
+
+Ralph includes a simplified loop that delegates enforcement to Claude Code hooks:
+
+```bash
+# Run simplified loop
+./simplified-loop.sh 5              # 5 iterations
+./simplified-loop.sh --prd=2        # Specific PRD
+./simplified-loop.sh --dry-run      # Validate without running
+```
+
+### Hooks
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `hooks/pre-tool.sh` | PreToolUse | Block Edit without Read, block git push/merge |
+| `hooks/post-tool.sh` | PostToolUse | Detect test failures, trigger rollback |
+| `hooks/on-stop.sh` | Stop | Validate completion, cleanup |
+| `hooks/pre-prompt.sh` | UserPromptSubmit | Reset session tracking |
+
+**Key rule:** All hooks MUST exit 0 (even on errors) to avoid breaking Claude Code.
+
+### Test Failure Detection
+
+The post-tool hook detects failures from: Jest, Vitest, pytest, Go test, Mocha, RSpec, Bats.
+
 ## File Structure
 
 ```
 project/
 ├── .agents/ralph/              # Templates (customizable)
-│   ├── loop.sh                 # Main execution loop
+│   ├── loop.sh                 # Main execution loop (4,244 lines)
+│   ├── simplified-loop.sh      # Simplified loop (~200 lines)
 │   ├── stream.sh               # Multi-stream commands
 │   ├── config.sh               # Configuration overrides
 │   ├── agents.sh               # Agent command definitions
+│   ├── hooks/                  # Claude Code hooks
+│   │   ├── pre-tool.sh         # PreToolUse validation
+│   │   ├── post-tool.sh        # PostToolUse enforcement
+│   │   ├── on-stop.sh          # Stop cleanup
+│   │   └── pre-prompt.sh       # Session management
+│   ├── lib/
+│   │   └── minimal.sh          # Minimal utilities for simplified loop
 │   └── PROMPT_*.md             # Prompt templates
 └── .ralph/                     # State (per-project)
     ├── PRD-1/                  # First plan (isolated)

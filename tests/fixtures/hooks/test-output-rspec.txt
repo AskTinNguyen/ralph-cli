@@ -1,0 +1,29 @@
+Randomized with seed 12345
+.....F..F.
+
+Failures:
+
+  1) User#authenticate returns false for invalid credentials
+     Failure/Error: expect(user.authenticate("wrong")).to eq(false)
+
+       expected: false
+            got: nil
+
+       (compared using ==)
+     # ./spec/models/user_spec.rb:25:in `block (3 levels) in <top (required)>'
+
+  2) OrdersController POST /orders creates a new order
+     Failure/Error: expect { post :create, params: valid_attributes }.to change(Order, :count).by(1)
+
+       expected `Order.count` to have changed by 1, but was changed by 0
+     # ./spec/controllers/orders_controller_spec.rb:42:in `block (3 levels) in <top (required)>'
+
+Finished in 1.23 seconds (files took 2.45 seconds to load)
+10 examples, 2 failures
+
+Failed examples:
+
+rspec ./spec/models/user_spec.rb:22 # User#authenticate returns false for invalid credentials
+rspec ./spec/controllers/orders_controller_spec.rb:38 # OrdersController POST /orders creates a new order
+
+Randomized with seed 12345

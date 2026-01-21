@@ -1,0 +1,15 @@
+
+  Auth Module
+    User Login
+      ✓ should authenticate valid credentials (45ms)
+      ✓ should reject invalid password
+      ✓ should handle missing username
+      ✓ should lock account after 5 failed attempts
+
+  API Endpoints
+    GET /users
+      ✓ returns 200 for authenticated user
+      ✓ returns 401 for unauthenticated user
+
+
+  6 passing (234ms)

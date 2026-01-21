@@ -1,0 +1,28 @@
+ RUN  v1.2.0 /Users/dev/project
+
+ ❯ src/services/api.test.ts (3)
+   ✓ fetches data successfully
+   × handles network errors
+   ✓ retries on timeout
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/api.test.ts > handles network errors
+Error: Expected error to be thrown
+ ❯ src/services/api.test.ts:25:5
+     23|   it('handles network errors', async () => {
+     24|     mockFetch.mockRejectedValue(new Error('Network failure'));
+     25|     await expect(api.getData()).rejects.toThrow('Network error');
+       |     ^
+     26|   });
+     27| });
+
+  - Expected   "Network error"
+  + Received   "Network failure"
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  14:22:33
+   Duration  892ms (transform 89ms, setup 0ms, collect 123ms, tests 456ms, environment 0ms, prepare 34ms)
