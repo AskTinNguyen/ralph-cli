@@ -1,0 +1,12 @@
+=== RUN   TestUserCreate
+--- PASS: TestUserCreate (0.01s)
+=== RUN   TestUserUpdate
+--- PASS: TestUserUpdate (0.02s)
+=== RUN   TestUserDelete
+    user_test.go:45: expected user to be deleted, got: user still exists
+--- FAIL: TestUserDelete (0.01s)
+=== RUN   TestUserList
+--- PASS: TestUserList (0.01s)
+FAIL
+exit status 1
+FAIL	github.com/example/project/pkg/user	0.123s

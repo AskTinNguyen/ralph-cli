@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.0, pytest-7.2.0, pluggy-1.0.0
+rootdir: /Users/dev/project
+collected 5 items
+
+tests/test_auth.py ..F..                                                  [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_login_fails ______________________________
+
+    def test_login_fails():
+        response = client.post("/login", json={"email": "bad", "password": "wrong"})
+>       assert response.status_code == 401
+E       AssertionError: assert 500 == 401
+E        +  where 500 = <Response [500]>.status_code
+
+tests/test_auth.py:25: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_auth.py::test_login_fails - AssertionError: assert 500 == 401
+========================= 1 failed, 4 passed in 0.32s =========================
