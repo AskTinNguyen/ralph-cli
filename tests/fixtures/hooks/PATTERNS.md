@@ -124,3 +124,5 @@ To verify patterns work correctly, run:
 | Mocha | `N failing` | `N passing\nM failing` |
 | RSpec | `F` dots, `FAILED - N` | `N examples, M failures` |
 | Bats | `not ok N` | `N tests, M failures` |
+| npm | `npm ERR! code ELIFECYCLE` | `npm ERR! Exit status 1` |
+| yarn | `error Command failed` | `error Command failed with exit code 1.` |

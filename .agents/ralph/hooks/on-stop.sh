@@ -52,13 +52,21 @@ if [[ -f "$CURRENT_STORY_FILE" ]]; then
       fi
     done
 
+    # Validate story ID format (defense against regex injection)
+    if ! [[ "$story_id" =~ ^US-[0-9]+$ ]]; then
+      # Invalid story ID format, skip processing
+      rm -f "$CURRENT_STORY_FILE" 2>/dev/null || true
+      exit 0
+    fi
+
     # Check if story was marked complete
     story_completed=false
     if [[ -n "$plan_path" ]] && [[ -f "$plan_path" ]]; then
-      # Use fixed-string grep for security
+      # Use fixed-string grep for security (prevents regex injection)
       if grep -qF "[x] " "$plan_path" 2>/dev/null && grep -qF "$story_id" "$plan_path" 2>/dev/null; then
-        # More precise check: story line has [x]
-        if grep -q "^\s*-\s*\[x\].*${story_id}" "$plan_path" 2>/dev/null; then
+        # More precise check: story line has [x] and contains story ID
+        # Use grep -F for fixed string matching to prevent regex injection
+        if grep -F "$story_id" "$plan_path" 2>/dev/null | grep -qE '^\s*-\s*\[x\]'; then
           story_completed=true
         fi
       fi

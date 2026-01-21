@@ -54,6 +54,14 @@ for arg in "$@"; do
   esac
 done
 
+# Validate MAX_ITERATIONS upper bound (prevent runaway processes)
+MAX_ALLOWED_ITERATIONS="${MAX_ALLOWED_ITERATIONS:-100}"
+
+if [[ "$MAX_ITERATIONS" -gt "$MAX_ALLOWED_ITERATIONS" ]]; then
+  log_warn "MAX_ITERATIONS capped at $MAX_ALLOWED_ITERATIONS (requested: $MAX_ITERATIONS)"
+  MAX_ITERATIONS="$MAX_ALLOWED_ITERATIONS"
+fi
+
 # Paths (relative to ROOT_DIR)
 RALPH_DIR="$ROOT_DIR/.ralph"
 PRD_DIR="$RALPH_DIR/PRD-${PRD_NUMBER}"
@@ -104,6 +112,17 @@ trap 'cleanup' EXIT            # normal exit
 log "Starting simplified loop (PRD-$PRD_NUMBER, max $MAX_ITERATIONS iterations)"
 cd "$ROOT_DIR"
 
+# Acquire exclusive lock to prevent concurrent modifications (TOCTOU protection)
+# The lock file descriptor is automatically closed when the script exits,
+# which releases the lock. The trap cleanup handles other cleanup tasks.
+LOCK_FILE="$RALPH_DIR/.agent-lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+  log_error "Another agent is running. Use stream mode for parallel builds."
+  exit 1
+fi
+log "Acquired exclusive lock for agent execution"
+
 for iteration in $(seq 1 "$MAX_ITERATIONS"); do
   log "=== Iteration $iteration/$MAX_ITERATIONS ==="
 
@@ -126,6 +145,7 @@ for iteration in $(seq 1 "$MAX_ITERATIONS"); do
   log "Working on: $story_id"
 
   # Save checkpoint for rollback (atomic write)
+  # Protected by the exclusive lock acquired above
   HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
   if [[ -n "$HEAD_BEFORE" ]]; then
     atomic_write "$RALPH_DIR/.checkpoint" "$HEAD_BEFORE"

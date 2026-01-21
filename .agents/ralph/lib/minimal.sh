@@ -88,6 +88,12 @@ mark_story_complete() {
   local story_id="$1"
   local plan_path="$2"
 
+  # Strict validation: only US-NNN format allowed (prevents sed injection)
+  if ! [[ "$story_id" =~ ^US-[0-9]+$ ]]; then
+    log_error "Invalid story ID format: $story_id (expected US-NNN)"
+    return 1
+  fi
+
   # Use sed to change [ ] to [x] for this story
   # macOS sed requires different syntax than GNU sed
   if sed --version 2>/dev/null | grep -q GNU; then

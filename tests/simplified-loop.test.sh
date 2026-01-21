@@ -110,6 +110,26 @@ else
 fi
 rm -f "/tmp/plan-test-$$.md"
 
+test_start "mark_story_complete rejects malicious story ID"
+cp "$FIXTURES_DIR/plan-partial.md" "/tmp/plan-test-$$.md"
+# Test injection attempt - should be rejected
+if mark_story_complete 'US-001); rm -rf /; echo (' "/tmp/plan-test-$$.md" 2>/dev/null; then
+  test_fail "Should have rejected malicious story ID"
+else
+  test_pass
+fi
+rm -f "/tmp/plan-test-$$.md"
+
+test_start "mark_story_complete rejects invalid format"
+cp "$FIXTURES_DIR/plan-partial.md" "/tmp/plan-test-$$.md"
+# Test invalid format (missing US- prefix)
+if mark_story_complete '123' "/tmp/plan-test-$$.md" 2>/dev/null; then
+  test_fail "Should have rejected invalid story ID format"
+else
+  test_pass
+fi
+rm -f "/tmp/plan-test-$$.md"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Test: pre-tool.sh hook
 # ─────────────────────────────────────────────────────────────────────────────
